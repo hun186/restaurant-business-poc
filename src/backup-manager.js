@@ -8,10 +8,21 @@ const ROOT=path.resolve(__dirname,'..');
 const NAME=/^restaurant-backup-\d{8}-\d{6}-[a-f0-9]{8}-(auto|manual|migration)\.sqlite$/;
 const TABLES=['locations','users','user_locations','audit_logs','tasks','ingredients','stock_moves','purchase_orders','stocktakes','repairs','shifts','leave_requests','training_courses','training_records','evaluations'];
 function problem(code,message){const err=new Error(message);err.code=code;throw err;}
+// Resolve existing ancestors to catch symlink/Junction aliases even if leaf is absent.
+function canonicalPath(p){
+ p=path.resolve(p);const rest=[];let cursor=p;
+ while(!fs.existsSync(cursor)){
+  const parent=path.dirname(cursor);if(parent===cursor)break;
+  rest.unshift(path.basename(cursor));cursor=parent;
+ }
+ const resolved=fs.existsSync(cursor)?fs.realpathSync.native(cursor):cursor;
+ const full=path.join(resolved,...rest);
+ return process.platform==='win32'?full.toLowerCase():full;
+}
 function getPaths(opts={}){
  const folder=path.resolve(opts.folder||process.env.DATA_DIR||path.join(ROOT,'data'));
  const backupDir=path.resolve(opts.backupDir||process.env.BACKUP_DIR||path.join(ROOT,'backups'));
- const relative=path.relative(folder,backupDir);
+ const relative=path.relative(canonicalPath(folder),canonicalPath(backupDir));
  if(!relative||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative)))problem('E_CONFIG','備份資料夾不能位於正式資料庫目錄內');
  return {folder,backupDir};
 }
@@ -81,8 +92,9 @@ function perform({folder,backupDir,type='manual',at}={}){
  if(!['manual','auto'].includes(type))problem('E_CONFIG','不支援的備份類型');
  ({folder,backupDir}=getPaths({folder,backupDir}));
  const source=path.join(folder,'restaurant.sqlite');if(!fs.existsSync(source))problem('E_DB','資料庫不存在，禁止備份空白資料庫');
- const release=acquire(backupDir);reclaimPartial(backupDir);let db,partial=null;const now=at?new Date(at):new Date();
+ const release=acquire(backupDir);let db,partial=null;const now=at?new Date(at):new Date();
  try{
+  reclaimPartial(backupDir);
   const {openDb}=require('./db');db=openDb(folder).db;integrity(db);
   const s=settings(db);
   if(type==='auto'&&dueAt(s)&&Date.parse(dueAt(s))>now.getTime())return {result:'not_due'};

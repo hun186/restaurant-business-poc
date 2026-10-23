@@ -99,3 +99,18 @@ test('older abandoned partial can be safely reclaimed without deleting completed
 test('refuse writing backup directory inside operational data directory',t=>{
  const f=fixture(t);assert.throws(()=>perform({...f,backupDir:path.join(f.folder,'backups'),type:'manual'}),{code:'E_CONFIG'});
 });
+
+test('unsafe interrupted partial does not strand backup lock after cleanup throws',t=>{
+ const f=fixture(t);fs.mkdirSync(f.backupDir,{recursive:true});
+ const unsafe=path.join(f.backupDir,'restaurant-backup-20261023-090000-deadbeef-auto.sqlite.partial');
+ fs.mkdirSync(unsafe);
+ assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_BACKUP'});
+ assert.equal(fs.existsSync(path.join(f.backupDir,'.restaurant-backup.lock')),false);
+ fs.rmSync(unsafe,{recursive:true});
+ assert.equal(perform({...f,type:'manual',at:day}).result,'created');
+});
+test('symlink aliases and non-existent descendants cannot place backups inside operational data',t=>{
+ if(process.platform==='win32')return t.skip('Junction creation privileges vary on Windows; canonicalPath uses realpathSync.native');
+ const f=fixture(t),alias=path.join(f.root,'alias');fs.symlinkSync(f.folder,alias,'dir');
+ assert.throws(()=>perform({...f,backupDir:path.join(alias,'backup-inside'),type:'manual'}),{code:'E_CONFIG'});
+});

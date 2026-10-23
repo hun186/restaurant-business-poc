@@ -28,3 +28,9 @@
 - 資料摘要比對排除 Session、登入嘗試與備份元資料；如果上次自動備份存在且有效、持久內容無變更則更新自動檢查時間並跳過。手動備份仍保留；備份檔不進 Git/Vercel。
 - 本機 Node 22 的 `npm run check`：22/22 PASS（含 11 項新備份專項），Hosted Ubuntu/Windows × Node22/24、正式 Review 與 Windows 實際還原尚待確認。
 - 仍在 PR #1 Draft；**未取得使用者授權不可 Merge**。Public Vercel 示範站與本機資料庫備份互不相連。
+
+## 2026-10-23 PR #1 Codex P1/P2 修正
+- 修補庫存任意入庫繞過核准（僅有已核准單可驗收；業主能單次建期初庫存），新增門市授權即撤銷受授員工 Session。
+- 將跨門市/員工表列權限篩選移至 SQL LIMIT 前；修復使用者加授門市表單、員工重設密碼錯誤登出。
+- 備份中斷清理受解鎖 finally 保護；使用 realpath 避免 symlink/Windows Junction 嵌入營運資料資料夾。DATA_DIR 已在 PR #1 HEAD 的 server.start 套用。
+- 新增針對上述問題的回歸測試。以新 HEAD 的 Hosted CI/最新 Codex Review 為準。PR 不可未授權 Merge。

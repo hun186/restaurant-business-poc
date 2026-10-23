@@ -40,14 +40,23 @@ function rows(db,u,name){
  };
  if(!read[name])bad('不支援的資料分類',404);
  if(['users','audit_logs'].includes(name))requiredRole(u,'owner');
- let data=db.prepare(read[name]).all();
+ let sql=read[name],params=[];
+ // Apply RBAC in SQLite, before ORDER BY/LIMIT; otherwise another store can displace authorized records.
+ const scoped={tasks:'t',stock_moves:'m',purchase_orders:'o',stocktakes:'s',repairs:'r',shifts:'s',leave_requests:'r',training_records:'r',evaluations:'e'};
+ if(u.role!=='owner'&&scoped[name]){
+  const alias=scoped[name];let predicate=alias+'.location_id IN (SELECT location_id FROM user_locations WHERE user_id=?)';
+  params.push(u.id);
+  const own={tasks:'assigned_to',purchase_orders:'created_by',stocktakes:'created_by',repairs:'created_by',shifts:'user_id',leave_requests:'user_id',training_records:'user_id',evaluations:'user_id'};
+  if(u.role==='staff'&&own[name]){predicate+=' AND '+alias+'.'+own[name]+'=?';params.push(u.id);}
+  sql=sql.replace(/\s+ORDER BY\s/i,' WHERE '+predicate+' ORDER BY ');
+ }
+ let data=db.prepare(sql).all(...params);
  if(u.role!=='owner'){
   const allowed=new Set(db.prepare('SELECT location_id FROM user_locations WHERE user_id=?').all(u.id).map(x=>x.location_id));
   if(name==='locations')data=data.filter(x=>allowed.has(x.id));
   else if(name==='stock')data=data.filter(x=>allowed.has(x.location_id));
   else if(name==='staff_directory')data=data.filter(x=>allowed.has(x.location_id));
-  else if(name==='tasks') data=data.filter(x=>allowed.has(x.location_id) && (u.role==='manager'||x.assigned_to===u.id));
-  else if(['purchase_orders','stock_moves','stocktakes','repairs','shifts','leave_requests','training_records','evaluations'].includes(name)) data=data.filter(x=>allowed.has(x.location_id) && (u.role==='manager'||name==='stock_moves'||name==='purchase_orders'&&x.created_by===u.id||name==='stocktakes'&&x.created_by===u.id||name==='repairs'&&x.created_by===u.id||name==='shifts'&&x.user_id===u.id||name==='leave_requests'&&x.user_id===u.id||name==='training_records'&&x.user_id===u.id||name==='evaluations'&&x.user_id===u.id));
+  // Scoped limited collections are already filtered in SQL before LIMIT.
  }
  return data;
 }
@@ -103,8 +112,9 @@ function command(db,u,action,x={}){
  }
  case 'user.assign-location':{
   requiredRole(u,'owner');const target=exists(db,'users',x.user_id);scope(db,u,l);
-  db.prepare('INSERT OR IGNORE INTO user_locations(user_id,location_id) VALUES(?,?)').run(target.id,l);
-  audit(db,u,action,'user_locations',target.id,l,{});return {id:target.id};
+  const change=db.prepare('INSERT OR IGNORE INTO user_locations(user_id,location_id) VALUES(?,?)').run(target.id,l);
+  if(change.changes)db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
+  audit(db,u,action,'user_locations',target.id,l,{new_assignment:!!change.changes,sessions_revoked:!!change.changes});return {id:target.id};
  }
  case 'task.create':{
   scope(db,u,l,'manager');const title=cleanText(x.title,120,true),assign=x.assigned_to?uid(x.assigned_to):null;
@@ -123,8 +133,22 @@ function command(db,u,action,x={}){
   db.prepare('INSERT INTO ingredients(id,sku,name,unit,min_stock) VALUES(?,?,?,?,?)').run(id,sku,name,unit,minimum);
   audit(db,u,action,'ingredients',id,null,{sku,name,unit,min_stock:minimum});return {id};
  }
- case 'stock.purchase':case 'stock.usage':{
-  return move(db,u,{...x,qty:x.qty},action.slice(6),null);
+ case 'stock.purchase':{
+  requiredRole(u,'manager');
+  // External receipts are authorized only via order.receive (approved PO).
+  bad('進貨入庫必須先核准叫貨單並從該單驗收',409);
+ }
+ case 'stock.opening':{
+  // A separate owner-only initial balance, not an unapproved purchase receipt.
+  requiredRole(u,'owner');scope(db,u,l);const ing=exists(db,'ingredients',x.ingredient_id);
+  if(!ing.active)bad('食材已停用');const qty=nonneg(x.qty,true);
+  if(db.prepare('SELECT 1 FROM stock_moves WHERE ingredient_id=? AND location_id=? LIMIT 1').get(ing.id,l))bad('已有庫存流水，期初庫存只能建立一次；請走叫貨驗收或盤點流程',409);
+  const note=cleanText(x.note||'',300,true);
+  db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id) VALUES(?,?,?,?,?,?,?,?)').run(id,ing.id,l,qty,'adjustment',null,'期初庫存建檔：'+note,u.id);
+  audit(db,u,action,'stock_moves',id,l,{ingredient_id:ing.id,qty,reason:note});return {id,on_hand:qty};
+ }
+ case 'stock.usage':{
+  return move(db,u,{...x,qty:x.qty},'usage',null);
  }
  case 'order.create':{
   scope(db,u,l);exists(db,'ingredients',x.ingredient_id);

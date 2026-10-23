@@ -28,12 +28,12 @@ test('order approval and receiving increment inventory exactly once',t=>{
  assert.ok(rows(f.db,f.owner,'audit_logs').some(a=>a.action==='order.receive'));
 });
 test('stocktake confirms delta once and rejects stale expected quantity',t=>{
- const f=fixture(t),ingredient=addIngredient(f);cmd(f,'stock.purchase',{location_id:f.loc,ingredient_id:ingredient,qty:8});
+ const f=fixture(t),ingredient=addIngredient(f);cmd(f,'stock.opening',{location_id:f.loc,ingredient_id:ingredient,qty:8,note:'測試期初庫存'});
  const s=cmd(f,'stocktake.create',{location_id:f.loc,ingredient_id:ingredient,counted_qty:6}).id;
  cmd(f,'stocktake.confirm',{id:s});assert.equal(balance(f.db,ingredient,f.loc),6);
  assert.throws(()=>cmd(f,'stocktake.confirm',{id:s}),{status:409});
  const stale=cmd(f,'stocktake.create',{location_id:f.loc,ingredient_id:ingredient,counted_qty:4}).id;
- cmd(f,'stock.purchase',{location_id:f.loc,ingredient_id:ingredient,qty:2});
+ const order=cmd(f,'order.create',{location_id:f.loc,ingredient_id:ingredient,qty:2,supplier:'測試商'}).id;cmd(f,'order.approve',{id:order});cmd(f,'order.receive',{id:order});
  assert.throws(()=>cmd(f,'stocktake.confirm',{id:stale}),{status:409});assert.equal(balance(f.db,ingredient,f.loc),8);
 });
 test('manager restricted to assigned location and cannot approve own leave',t=>{
@@ -70,7 +70,42 @@ test('changing password revokes all active sessions for the target user',t=>{
  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(u.id).n,0);
 });
 test('usage cannot make inventory negative',t=>{
- const f=fixture(t),i=addIngredient(f);cmd(f,'stock.purchase',{location_id:f.loc,ingredient_id:i,qty:1});
+ const f=fixture(t),i=addIngredient(f);cmd(f,'stock.opening',{location_id:f.loc,ingredient_id:i,qty:1,note:'測試期初庫存'});
  assert.throws(()=>cmd(f,'stock.usage',{location_id:f.loc,ingredient_id:i,qty:2}),{status:409});
  assert.equal(balance(f.db,i,f.loc),1);
+});
+
+test('direct purchase cannot bypass approval; only owner may seed a one-time initial stock',t=>{
+ const f=fixture(t),ingredient=addIngredient(f);
+ const managerId=cmd(f,'user.create',{username:'managerseed',display_name:'測試主管',role:'manager',password:'test-password-234',location_id:f.loc}).id;
+ const manager={id:managerId,username:'managerseed',role:'manager'};
+ assert.throws(()=>cmd(f,'stock.purchase',{location_id:f.loc,ingredient_id:ingredient,qty:4}),{status:409});
+ assert.throws(()=>command(f.db,manager,'stock.opening',{location_id:f.loc,ingredient_id:ingredient,qty:4,note:'不合法'}),{status:403});
+ cmd(f,'stock.opening',{location_id:f.loc,ingredient_id:ingredient,qty:4,note:'來源憑證 A'});
+ assert.throws(()=>cmd(f,'stock.opening',{location_id:f.loc,ingredient_id:ingredient,qty:4,note:'來源憑證 B'}),{status:409});
+ const order=cmd(f,'order.create',{location_id:f.loc,ingredient_id:ingredient,qty:2,supplier:'示範供應商'}).id;
+ assert.throws(()=>cmd(f,'order.receive',{id:order}),{status:409});
+ cmd(f,'order.approve',{id:order});cmd(f,'order.receive',{id:order});
+ assert.equal(balance(f.db,ingredient,f.loc),6);
+});
+test('new location grant revokes recipient sessions but duplicate grant preserves sessions',t=>{
+ const f=fixture(t),other=cmd(f,'location.create',{name:'測試分店'}).id;
+ const id=cmd(f,'user.create',{username:'granttest',display_name:'門市員工',role:'staff',password:'test-password-234',location_id:f.loc}).id;
+ f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)').run('sess1','token1',id,'2099-01-01');
+ cmd(f,'user.assign-location',{user_id:id,location_id:f.loc});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(id).n,1);
+ cmd(f,'user.assign-location',{user_id:id,location_id:other});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(id).n,0);
+});
+test('location and ownership filters precede row LIMIT',t=>{
+ const f=fixture(t),second=cmd(f,'location.create',{name:'業主第二店'}).id;
+ const id=cmd(f,'user.create',{username:'filtertest',display_name:'門市員工',role:'staff',password:'test-password-234',location_id:f.loc}).id;
+ const staff={id,username:'filtertest',role:'staff'};
+ cmd(f,'order.create',{location_id:f.loc,ingredient_id:addIngredient(f),qty:1,supplier:'門市 A'});
+ for(let i=0;i<505;i++)f.db.prepare('INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,created_by) VALUES(?,?,?,?,?,?,?)').run(uuid(),'PO-X-'+i,second,f.db.prepare('SELECT id FROM ingredients LIMIT 1').get().id,'第二店',1,f.owner.id);
+ assert.equal(rows(f.db,staff,'purchase_orders').length,0);
+ assert.equal(rows(f.db,f.owner,'purchase_orders').length,500);
+ // Staff can still see own order despite other store's newer 505 rows.
+ command(f.db,staff,'order.create',{location_id:f.loc,ingredient_id:f.db.prepare('SELECT id FROM ingredients LIMIT 1').get().id,qty:2,supplier:'授權門市'});
+ assert.equal(rows(f.db,staff,'purchase_orders').length,1);
 });

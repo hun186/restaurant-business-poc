@@ -10,7 +10,7 @@ const pages={
  backups:{title:'資料庫備份管理',desc:'自動備份與歷史版本'},
  tasks:{title:'今日工作',desc:'工作指派、完成紀錄與逾期追蹤',action:'task.create',permission:'manager',columns:[['title','工作內容'],['location_name','門市'],['assigned_name','負責人'],['due_date','期限'],['status','狀態']]},
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
- stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；所有出入庫保留流水紀錄',action:'stock.purchase',permission:'manager',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
+ stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；所有出入庫保留流水紀錄',action:'stock.opening',permission:'owner',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
  stock_moves:{title:'庫存異動流水',desc:'不可直接修改的入庫、耗用與盤點調整紀錄',columns:[['created_at','時間'],['location_name','門市'],['ingredient_name','食材'],['move_type','類別'],['qty_delta','異動量'],['note','說明']]},
  purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['number','單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['status','狀態']]},
  stocktakes:{title:'食材盤點',desc:'員工申報盤點數，主管確認後產生有稽核紀錄的庫存差異',action:'stocktake.create',permission:'staff',columns:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面數量'],['counted_qty','盤點數量'],['status','狀態']]},
@@ -82,7 +82,7 @@ const def={
  'task.create':{title:'新增工作',fields:[field('location_id','所屬門市','locations'),field('title','工作名稱'),field('due_date','期限','date',false),field('assigned_to','指派員工','users',false),field('description','工作說明','textarea',false)]},
  'ingredient.create':{title:'新增食材',fields:[field('sku','料號'),field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'stock.usage':{title:'登錄食材耗用',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','耗用數量','number'),field('note','用途說明','textarea',false)]},
- 'stock.purchase':{title:'進貨入庫（主管直接登錄）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','入庫數量','number'),field('note','入庫備註','textarea',false)]},
+ 'stock.opening':{title:'建立期初庫存（業主、限無庫存紀錄）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','期初數量','number'),field('note','期初數量依據','textarea')]},
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
  'stocktake.create':{title:'新增盤點記錄',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('counted_qty','實際數量','number')]},
  'repair.create':{title:'回報設備問題',fields:[field('location_id','門市','locations'),field('equipment','設備名稱'),field('description','故障描述','textarea')]},
@@ -113,10 +113,10 @@ async function showForm(action,id){const d=def[action];if(!d){toast('此操作�
  root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>儲存後立即更新資料，並寫入操作紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
  const close=()=>{root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':'id']=id;
- try{await api('/api/command','POST',{action,data:raw});close();toast(action==='user.password'?'密碼已變更，請重新登入':'已成功儲存');if(action==='user.password'){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
+ try{await api('/api/command','POST',{action,data:raw});close();const ownPassword=action==='user.password'&&id===S.me?.id;toast(ownPassword?'密碼已變更，請重新登入':'已成功儲存');if(ownPassword){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
 }
 async function operation(action,id,status){try{
- if(['training.score','user.role','user.password'].includes(action))return showForm(action,id);
+ if(['training.score','user.role','user.password','user.assign-location'].includes(action))return showForm(action,id);
  if(['order.receive','stocktake.confirm','order.cancel','user.active','repair.status','leave.review'].includes(action)&&!window.confirm('確定執行「'+label(status||action)+'」？此操作會留下稽核紀錄。'))return;
  let data={id};if(status)data.status=status;
  if(action==='user.active')data={user_id:id,active:status==='on'};

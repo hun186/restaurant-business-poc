@@ -180,3 +180,39 @@ test('v1 migration refuses partially applied v2 backup_settings before snapshot'
  finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
  assert.equal(fs.existsSync(f.backupDir),false);
 });
+
+
+test('v2 backup rejects missing login column and named index, including restored snapshots',t=>{
+ for(const sql of ['ALTER TABLE login_attempts DROP COLUMN ip_hash;','DROP INDEX login_attempts_lookup;']){
+  const f=fixture(t);f.db.exec(sql);
+  assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+  assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_DB'});
+  assert.equal(list(f.backupDir).length,0);
+ }
+ const f=fixture(t),saved=perform({...f,type:'manual',at:day});
+ const snapshot=new (require('node:sqlite').DatabaseSync)(path.join(f.backupDir,saved.name));
+ try{snapshot.exec('ALTER TABLE login_attempts DROP COLUMN ip_hash;');}finally{snapshot.close();}
+ assert.throws(()=>verifySnapshot(path.join(f.backupDir,saved.name)),{code:'E_DB'});
+});
+test('read-only preflight rejects case-changed CHECK literals before any WAL write',t=>{
+ const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');
+ const version=f.db.prepare('PRAGMA schema_version').get().schema_version;
+ f.db.exec('PRAGMA writable_schema=ON;');
+ f.db.prepare("UPDATE sqlite_schema SET sql=replace(sql, ?, ?) WHERE name='tasks'").run("'todo'","'TODO'");
+ f.db.exec('PRAGMA writable_schema=OFF; PRAGMA schema_version='+(version+1));
+ f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
+ const bytes=fs.readFileSync(path.join(f.folder,'restaurant.sqlite'));
+ assert.throws(()=>openDb(f.folder),/Schema 結構不相容：tasks/);
+ assert.deepEqual(fs.readFileSync(path.join(f.folder,'restaurant.sqlite')),bytes);
+ const probe=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+ try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
+});
+test('missing v1 login table is rejected without changing database bytes or journal mode',t=>{
+ const f=fixture(t);f.db.exec('DROP TABLE backup_settings;DROP TABLE sessions;PRAGMA user_version=1;');
+ f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
+ const filename=path.join(f.folder,'restaurant.sqlite'),bytes=fs.readFileSync(filename);
+ assert.throws(()=>openDb(f.folder),/sessions/);
+ assert.deepEqual(fs.readFileSync(filename),bytes);
+ const probe=new (require('node:sqlite').DatabaseSync)(filename,{readOnly:true});
+ try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
+});

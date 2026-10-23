@@ -3,27 +3,52 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {DatabaseSync}=require('node:sqlite');
 const {uuid,hashPassword}=require('./security');
 const {protect}=require('./backup-acl');
-// Validate the complete legacy v1 contract before a migration snapshot is published.
-// SQLite quick_check / foreign_key_check do not detect deleted tables or columns.
-function verifyLegacyV1Schema(db){
+// Schema verification is read-only and must precede any WAL or migration writes.
+// SQL keywords/identifiers are case-insensitive; quoted string literals are not.
+function schemaError(message){const e=new Error('E_DB: '+message);e.code='E_DB';throw e;}
+function normalizedDdl(sql){
+ const source=String(sql||'').trim().replace(/;\s*$/,'').replace(/^(CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+)IF\s+NOT\s+EXISTS\s+/i,'$1');
+ let result='',quote=null;
+ for(let i=0;i<source.length;i++){
+  const ch=source[i];
+  if(quote){
+   result+=ch;
+   if(quote==='['){if(ch===']')quote=null;}
+   else if(ch===quote){if(source[i+1]===quote){result+=source[++i];}else quote=null;}
+  }else if(ch==="'"||ch==='"'||ch.charCodeAt(0)===96||ch==='['){quote=ch;result+=ch;}
+  else if(!/\s/.test(ch))result+=ch.toUpperCase();
+ }
+ if(quote)schemaError('Schema DDL 含未結束的字串或識別碼');
+ return result;
+}
+function verifyInstalledSchema(db,version){
+ if(version!==1&&version!==2)schemaError('不支援的資料庫版本 '+version);
  const schema=fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8');
  const boundary=schema.indexOf('CREATE TABLE backup_settings (');
- if(boundary<0)throw new Error('E_DB: 找不到 v1 Schema 驗證基準，拒絕升級');
+ if(boundary<0)schemaError('找不到版本化 Schema 基準');
  const expected=new DatabaseSync(':memory:');
  try{
-  expected.exec(schema.slice(0,boundary));
+  expected.exec(version===1?schema.slice(0,boundary):schema);
   const objects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
-  if(objects.filter(x=>x.type==='table').length!==17)throw new Error('E_DB: v1 Schema 基準不完整，拒絕升級');
-  if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backup_settings'").get())
-   throw new Error('E_DB: v1 資料庫意外包含 v2 備份設定表，拒絕升級');
-  const normalize=sql=>String(sql||'').replace(/\bIF\s+NOT\s+EXISTS\b/gi,'').replace(/\s+/g,'').replace(/;$/,'').toUpperCase();
+  if(objects.filter(x=>x.type==='table').length!==(version===1?17:18))schemaError('Schema 基準不完整');
+  if(version===1&&db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backup_settings'").get())schemaError('v1 資料庫意外包含 v2 備份設定表，拒絕升級');
   for(const object of objects){
    const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(object.type,object.name);
-   if(!actual)throw new Error('E_DB: v1 資料庫缺少必要'+(object.type==='index'?'索引 ':'資料表 ')+object.name+'，拒絕升級');
-   // Covers columns, foreign keys, CHECK/UNIQUE constraints and named indexes.
-   if(normalize(actual.sql)!==normalize(object.sql))throw new Error('E_DB: v1 Schema 結構不相容：'+object.name+'，拒絕升級');
+   if(!actual)schemaError('v'+version+' 資料庫缺少必要'+(object.type==='index'?'索引 ':'資料表 ')+object.name+'，拒絕升級');
+   if(normalizedDdl(actual.sql)!==normalizedDdl(object.sql))schemaError('v'+version+' Schema 結構不相容：'+object.name+'，拒絕升級');
   }
  }finally{expected.close();}
+}
+function preflightExisting(filename){
+ const db=new DatabaseSync(filename,{readOnly:true,timeout:3000});
+ try{
+  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')schemaError('SQLite 完整性檢查失敗');
+  if(db.prepare('PRAGMA foreign_key_check').all().length)schemaError('原始資料庫外鍵檢查失敗');
+  const version=db.prepare('PRAGMA user_version').get().user_version;
+  verifyInstalledSchema(db,version);
+  if(version===2&&!db.prepare('SELECT id FROM backup_settings WHERE id=1').get())schemaError('備份設定表缺少設定資料');
+  if(!db.prepare("SELECT 1 FROM users WHERE role='owner' LIMIT 1").get())schemaError('既有資料庫缺少業主帳號，拒絕自動重設管理密碼');
+ }finally{db.close();}
 }
 function openDb(folder=path.join(__dirname,'..','data')){
  fs.mkdirSync(folder,{recursive:true,mode:0o700});
@@ -32,6 +57,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
  const exists=fs.existsSync(filename);
  const marker=path.join(folder,'.installed');
  if(!exists && (fs.existsSync(marker) || fs.readdirSync(folder).some(x=>x!=='.DS_Store')))throw new Error('E_DB: 既有資料目錄內資料庫遺失，拒絕重建空白資料庫');
+ if(exists)preflightExisting(filename);
  const db=new DatabaseSync(filename,{timeout:3000});
  try{
  db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000;');
@@ -42,7 +68,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
   if(tables.length!==3)throw new Error('E_DB: 已有資料庫缺少關鍵資料表，拒絕建立空白替代表');
   const version=db.prepare('PRAGMA user_version').get().user_version;
   if(version===1){
-   verifyLegacyV1Schema(db); // Reject broken v1 before backup dir creation or migration.
+   // The read-only preflight already verified the full v1 schema.
    // Make a consistent, verified v1 safety snapshot before the schema migration.
    // Do not silently reinitialize an established database on failure.
    // Migration and operational backups must obey identical canonical path safety.
@@ -88,4 +114,4 @@ function openDb(folder=path.join(__dirname,'..','data')){
  }catch(e){try{db.close()}catch{}throw e;}
 }
 function inTransaction(db,fn){db.exec('BEGIN IMMEDIATE');try{const value=fn();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}}
-module.exports={openDb,inTransaction};
+module.exports={openDb,inTransaction,verifyInstalledSchema};

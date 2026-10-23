@@ -45,3 +45,9 @@
 ## 2026-10-24｜Codex PR #1 v1 升級前完整 Schema P2
 - v1→v2 在建立遷移快照前對照 db/schema.sql 的完整 v1 結構（17 張必要表、具名索引及 DDL 約束），拒絕缺少 sessions/login_attempts、必要索引/欄位與誤置的 v2 backup_settings。
 - 不符合時保持 user_version=1，不建立備份目錄或資料庫更新；補上破壞性回歸測試。本機 38/38 PASS，Hosted CI 與最新 Codex Review 待核對，未授權禁止 Merge。
+
+## 2026-10-24｜PR #1 最新 Codex 3 個 P2
+- DDL 正規化保留單引號字面值大小寫，避免 CHECK role/status 常數變更仍被誤判相容。
+- 對既有 v1/v2 資料庫先開唯讀連線執行 quick_check、外鍵、完整表/索引/DDL、owner 與 v2 備份設定預檢；拒絕損壞資料庫時不先切 WAL 或改動正式庫。
+- 備份與快照驗證使用完整 v2 Schema 契約，不只確認資料表存在；新增欄位/索引缺失、字面值變異與拒絕時檔案 hash/journal_mode 不變測試。
+- 本機 Node22 npm run check 41/41 PASS；Hosted CI 與正式 Codex Review 待最新 SHA 驗證。未經授權禁止 Merge。

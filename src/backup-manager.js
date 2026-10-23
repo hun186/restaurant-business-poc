@@ -55,7 +55,7 @@ function integrity(db){
  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')problem('E_DB','SQLite 完整性檢查失敗');
  if(db.prepare('PRAGMA foreign_key_check').all().length)problem('E_DB','SQLite 外鍵檢查失敗');
  if(db.prepare('PRAGMA user_version').get().user_version!==2)problem('E_DB','未辨識的資料庫版本');
- for(const table of [...TABLES,'sessions','login_attempts','backup_settings'])if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))problem('E_DB','缺少必要資料表：'+table);
+ require('./db').verifyInstalledSchema(db,2);
 }
 // Deterministic row digest of persistent operational/security data. Excludes volatile
 // sessions, login_attempts and backup metadata; includes meaningful audit events.

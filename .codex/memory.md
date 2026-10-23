@@ -28,3 +28,10 @@
 - 資料摘要比對排除 Session、登入嘗試與備份元資料；如果上次自動備份存在且有效、持久內容無變更則更新自動檢查時間並跳過。手動備份仍保留；備份檔不進 Git/Vercel。
 - 本機 Node 22 的 `npm run check`：22/22 PASS（含 11 項新備份專項），Hosted Ubuntu/Windows × Node22/24、正式 Review 與 Windows 實際還原尚待確認。
 - 仍在 PR #1 Draft；**未取得使用者授權不可 Merge**。Public Vercel 示範站與本機資料庫備份互不相連。
+
+## Pricing Integration Handoff (2026-10-23)
+- 比照 menu-planner 的 ingredient_prices、dish_ingredients、cost preview 建立 v3；只有業主可修改共用菜品與配方；各主管可管理自身門市的歷史單價。
+- 進貨驗收可選填單價並原子性保存；缺價／單位無法換算時絕不假設零成本。
+- 備份 fingerprint 加入價格、菜品、配方，v2→v3 安全 migration snapshot。
+- 沒有 AI 跨系統同步，亦非 FIFO/移動平均/POS 實際毛利。見 docs/菜單價格與成本試算.md。
+- 此項開發分支 feat/menu-pricing-costs-v3，未經使用者同意不能 Merge。

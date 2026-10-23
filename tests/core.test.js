@@ -7,7 +7,7 @@ const addIngredient=(f,sku='RICE')=>cmd(f,'ingredient.create',{sku,name:'白米'
 test('bootstrap creates random owner password, SQLite schema, and preserves credentials',t=>{
  const f=fixture(t);assert.ok(f.bootstrapPassword.length>=20);
  const u=f.db.prepare("SELECT * FROM users WHERE role='owner'").get();assert.ok(checkPassword(f.bootstrapPassword,u.password_salt,u.password_hash));assert.notEqual(u.password_hash,f.bootstrapPassword);
- assert.equal(f.db.prepare('PRAGMA user_version').get().user_version,2);
+ assert.equal(f.db.prepare('PRAGMA user_version').get().user_version,3);
  const h=hashPassword('secure-password-123');assert.ok(checkPassword('secure-password-123',h.salt,h.hash));assert.equal(checkPassword('wrong',h.salt,h.hash),false);
 });
 test('staff cannot approve orders, mutate inventory, read audit, or create users',t=>{

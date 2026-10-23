@@ -50,14 +50,14 @@ test('settings and file names are validated; symlink downloads rejected',t=>{
   assert.throws(()=>m.safeFile(link),{code:'E_BACKUP'});
  }
 });
-test('existing v1 database migrates to v2 after creating a verified safety snapshot',t=>{
- const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+test('existing v1 database migrates to v3 via verified snapshots',t=>{
+ const f=fixture(t);f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
  const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
  try{const next=openDb(f.folder);try{
-  assert.equal(next.db.prepare('PRAGMA user_version').get().user_version,2);
+  assert.equal(next.db.prepare('PRAGMA user_version').get().user_version,3);
   assert.equal(next.db.prepare('SELECT interval_days FROM backup_settings WHERE id=1').get().interval_days,1);
   assert.equal(next.bootstrapPassword,null);
-  const migration=list(f.backupDir).filter(x=>x.type==='migration');assert.equal(migration.length,1);
+  const migration=list(f.backupDir).filter(x=>x.type==='migration');assert.equal(migration.length,2);
  }finally{next.db.close();}}finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
 });
 test('background worker performs validated backup without blocking HTTP',async t=>{

@@ -12,3 +12,7 @@
 | RB-008 | PLANNED | P2 | 預定保養、開關店 SOP、值日表、設備／食安檢查表 |
 | RB-009 | PLANNED | P2 | Excel 匯出、庫存成本／營運分析、POS 與報表介接 |
 | RB-010 | PLANNED | P1 | 業主 Windows 實機部署、登入／測試帳號／備份還原與簽收 |
+
+| RB-011 | IN_REVIEW | P1 | v3 食材歷史價、叫貨驗收單價、每份配方和估算毛利，待 Hosted CI / Codex 正式審查 |
+| RB-012 | PLANNED | P2 | FIFO／移動平均、批次效期、稅費／折扣、POS 出餐扣料與營運會計成本 |
+| RB-013 | PLANNED | P2 | 與 AI menu-planner 的可控、版本化資料交換與食材識別碼映射，目前未做 |

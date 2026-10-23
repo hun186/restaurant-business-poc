@@ -39,8 +39,37 @@ function openDb(folder=path.join(__dirname,'..','data')){
    db.exec('BEGIN IMMEDIATE');
    try{db.exec(fs.readFileSync(path.join(__dirname,'../db/backup.sql'),'utf8'));db.exec('PRAGMA user_version=2; COMMIT');}
    catch(e){db.exec('ROLLBACK');throw e;}
-  }else if(version!==2)throw new Error('E_DB: 不支援的資料庫版本 '+version);
+  }else if(version!==2&&version!==3)throw new Error('E_DB: 不支援的資料庫版本 '+version);
   if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='backup_settings'").get()||!db.prepare('SELECT id FROM backup_settings WHERE id=1').get())throw new Error('E_DB: 備份設定表缺失，拒絕補建');
+
+  const cv=db.prepare('PRAGMA user_version').get().user_version;
+  if(cv===2){
+   if(db.prepare('PRAGMA foreign_key_check').all().length)throw new Error('E_DB: 升級前外鍵錯誤');
+   for(const table of ['users','ingredients','stock_moves','purchase_orders','backup_settings'])
+    if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 原資料表遺失 '+table);
+   for(const table of ['ingredient_prices','menu_dishes','dish_ingredients'])
+    if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 價格表不完整，拒絕自動補建');
+   const backupDir=path.resolve(process.env.BACKUP_DIR||path.join(__dirname,'../backups'));
+   fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
+   if(!fs.lstatSync(backupDir).isDirectory()||fs.lstatSync(backupDir).isSymbolicLink())throw new Error('E_BACKUP: 備份路徑不安全');
+   protect(backupDir);
+   const ts=new Date().toISOString(),stamp=ts.replace(/[-:]/g,'').slice(0,8)+'-'+ts.slice(11,19).replace(/:/g,'');
+   const saved=path.join(backupDir,'restaurant-backup-'+stamp+'-'+crypto.randomBytes(4).toString('hex')+'-migration.sqlite'),temp=saved+'.partial';
+   try{
+    db.exec("VACUUM INTO '"+temp.replace(/'/g,"''")+"'");
+    const check=new DatabaseSync(temp,{readOnly:true});
+    try{if(check.prepare('PRAGMA quick_check').get().quick_check!=='ok'||check.prepare('PRAGMA foreign_key_check').all().length||check.prepare('PRAGMA user_version').get().user_version!==2)throw Error('E_BACKUP: v3 升級快照驗證失敗');}
+    finally{check.close();}
+    fs.chmodSync(temp,0o600);protect(temp);fs.renameSync(temp,saved);
+   }catch(e){try{fs.unlinkSync(temp)}catch{}throw e;}
+   db.exec('BEGIN IMMEDIATE');
+   try{db.exec(fs.readFileSync(path.join(__dirname,'../db/pricing.sql'),'utf8'));db.exec('PRAGMA user_version=3; COMMIT');}
+   catch(e){db.exec('ROLLBACK');throw e;}
+  }else if(cv===3){
+   for(const table of ['ingredient_prices','menu_dishes','dish_ingredients'])
+    if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 價格表遺失，拒絕自動修復');
+  }
+
  }else{
   db.exec(fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8'));
   db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(uuid(),'總店');

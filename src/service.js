@@ -1,6 +1,7 @@
 'use strict';
 const {uuid,hashPassword,cleanText,nonneg,requiredRole}=require('./security');
 const {inTransaction}=require('./db');
+const pricing=require('./pricing');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
 const day=v=>{const s=cleanText(v,10,true);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(new Date(s+'T00:00:00Z').valueOf())||new Date(s+'T00:00:00Z').toISOString().slice(0,10)!==s)bad('日期格式需為 YYYY-MM-DD');return s;};
 const time=v=>{const s=cleanText(v,5,true);if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))bad('時間格式錯誤');return s;};
@@ -20,6 +21,7 @@ function audit(db,u,action,entity,entityId,locationId,detail={}){
  db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) VALUES(?,?,?,?,?,?,?,?)').run(uuid(),u?.id||null,u?.username||'(anonymous)',action,entity,entityId||null,locationId||null,safe);
 }
 function rows(db,u,name){
+ const priced=pricing.pricingRows(db,u,name);if(priced!==null)return priced;
  const read={
   locations:'SELECT id,name,active FROM locations ORDER BY name',
   staff_directory:`SELECT u.id,u.display_name,u.role,u.active,ul.location_id FROM users u JOIN user_locations ul ON ul.user_id=u.id`,
@@ -67,6 +69,7 @@ function move(db,u,x,kind,reference){
 }
 function command(db,u,action,x={}){
  if(!x||typeof x!=='object'||Array.isArray(x))bad('資料格式錯誤');
+ const priced=pricing.pricingCommand(db,u,action,x,audit);if(priced!==null)return priced;
  return inTransaction(db,()=>{
  let id=uuid(),l=x.location_id;
  switch(action){
@@ -124,7 +127,12 @@ function command(db,u,action,x={}){
   audit(db,u,action,'ingredients',id,null,{sku,name,unit,min_stock:minimum});return {id};
  }
  case 'stock.purchase':case 'stock.usage':{
-  return move(db,u,{...x,qty:x.qty},action.slice(6),null);
+  const moved=move(db,u,{...x,qty:x.qty},action.slice(6),null);
+  if(action==='stock.purchase'&&x.unit_price_twd!==undefined){
+   const p=pricing.recordPrice(db,u,{location_id:x.location_id,ingredient_id:x.ingredient_id,unit:x.price_unit,unit_price_twd:x.unit_price_twd,price_date:x.price_date,supplier:x.supplier},'direct_purchase',moved.id);
+   audit(db,u,'price.direct_purchase','ingredient_prices',p.id,x.location_id,{reference_id:moved.id});
+  }
+  return moved;
  }
  case 'order.create':{
   scope(db,u,l);exists(db,'ingredients',x.ingredient_id);
@@ -139,6 +147,10 @@ function command(db,u,action,x={}){
    db.prepare("UPDATE purchase_orders SET status='approved',approved_by=? WHERE id=?").run(u.id,o.id);
   }else if(action==='order.receive'&&o.status==='approved'){
    move(db,u,{location_id:o.location_id,ingredient_id:o.ingredient_id,qty:o.qty,note:'叫貨單 '+o.number},'purchase',o.id);
+   if(x.unit_price_twd!==undefined){
+    const p=pricing.recordPrice(db,u,{location_id:o.location_id,ingredient_id:o.ingredient_id,unit:x.price_unit,unit_price_twd:x.unit_price_twd,price_date:x.price_date,supplier:o.supplier},'receiving',o.id);
+    audit(db,u,'price.receiving','ingredient_prices',p.id,o.location_id,{reference_id:o.id});
+   }
    db.prepare("UPDATE purchase_orders SET status='received',received_at=CURRENT_TIMESTAMP WHERE id=?").run(o.id);
   }else if(action==='order.cancel'&&['requested','approved'].includes(o.status)){
    db.prepare("UPDATE purchase_orders SET status='cancelled' WHERE id=?").run(o.id);

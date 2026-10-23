@@ -6,7 +6,7 @@ const {Worker}=require('node:worker_threads');
 const {protect}=require('./backup-acl');
 const ROOT=path.resolve(__dirname,'..');
 const NAME=/^restaurant-backup-\d{8}-\d{6}-[a-f0-9]{8}-(auto|manual|migration)\.sqlite$/;
-const TABLES=['locations','users','user_locations','audit_logs','tasks','ingredients','stock_moves','purchase_orders','stocktakes','repairs','shifts','leave_requests','training_courses','training_records','evaluations'];
+const TABLES=['locations','users','user_locations','audit_logs','tasks','ingredients','stock_moves','purchase_orders','stocktakes','repairs','shifts','leave_requests','training_courses','training_records','evaluations','ingredient_prices','menu_dishes','dish_ingredients'];
 function problem(code,message){const err=new Error(message);err.code=code;throw err;}
 function getPaths(opts={}){
  const folder=path.resolve(opts.folder||process.env.DATA_DIR||path.join(ROOT,'data'));
@@ -43,7 +43,7 @@ function prune(db,backupDir){const count=settings(db).retentionCount;const files
 function integrity(db){
  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')problem('E_DB','SQLite 完整性檢查失敗');
  if(db.prepare('PRAGMA foreign_key_check').all().length)problem('E_DB','SQLite 外鍵檢查失敗');
- if(db.prepare('PRAGMA user_version').get().user_version!==2)problem('E_DB','未辨識的資料庫版本');
+ if(db.prepare('PRAGMA user_version').get().user_version!==3)problem('E_DB','未辨識的資料庫版本');
  for(const table of [...TABLES,'backup_settings'])if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))problem('E_DB','缺少必要資料表：'+table);
 }
 // Deterministic row digest of persistent operational/security data. Excludes volatile

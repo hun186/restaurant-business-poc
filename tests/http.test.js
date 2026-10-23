@@ -6,9 +6,9 @@ function request(port,route,opts={}){return new Promise((resolve,reject)=>{
  const req=http.request({hostname:'127.0.0.1',port,path:route,method:opts.method||'GET',headers:{...(body?{'content-type':'application/json','content-length':Buffer.byteLength(body)}:{}),...(opts.headers||{})}},res=>{let raw='';res.on('data',x=>raw+=x);res.on('end',()=>resolve({status:res.statusCode,body:JSON.parse(raw),cookies:res.headers['set-cookie']}));});req.on('error',reject);req.end(body);
  });}
 test('HTTP session login, CSRF, authorization, logout',async t=>{
- const folder=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-http-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));
- const {db,bootstrapPassword}=openDb(folder);t.after(()=>db.close());
- const server=http.createServer(makeHandler(db));await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-http-'));
+ const {db,bootstrapPassword}=openDb(folder);
+ const server=http.createServer(makeHandler(db));await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(async()=>{await new Promise(r=>server.close(r));db.close();fs.rmSync(folder,{recursive:true,force:true});});
  const port=server.address().port;
  assert.equal((await request(port,'/api/me')).status,401);
  assert.equal((await request(port,'/api/login',{method:'POST',body:{username:'owner',password:'bad'}})).status,401);

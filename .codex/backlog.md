@@ -2,7 +2,7 @@
 
 | ID | Status | Priority | Work |
 | --- | --- | --- | --- |
-| RB-001 | BLOCKED | P1 | 建立遠端 Public GitHub `hun186/restaurant-business-poc`、推送、CI、正式 Review；需要 repository 建立權限／使用者建立空白庫 |
+| RB-001 | IN_REVIEW | P1 | Public Repo 已建立，PR #1 已提交完整 PoC；等待新 HEAD 對應的 Windows／Ubuntu Hosted CI 與正式 Codex Review，未授權不可 Merge |
 | RB-002 | PLANNED | P1 | 多人正式部署拓樸、HTTPS、Secure Cookie、遠端連線安全與後端儲存選型 |
 | RB-003 | PLANNED | P1 | 角色細粒度授權、跨店／跨角色越權完整測試與帳號停權操作流程 |
 | RB-004 | PLANNED | P1 | 自動備份、無變化跳過、管理介面、隔離還原及跨磁碟備份 |

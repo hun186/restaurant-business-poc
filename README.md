@@ -45,18 +45,12 @@
 - 手動備份保存在同一台主機上不等於災難備援。資料還原需先停機、保存原 `.sqlite`／`-wal`／`-shm` 整組、在隔離環境確認備份再操作。
 - 稽核僅保護「經應用程式呼叫的操作路徑」，尚非加密簽章防竄改日誌；不得把它當作符合特定法規稽核標準的保證。
 
-## 新建 GitHub Public Repository
+## GitHub 開發及驗證
 
-新專案建議命名為 `hun186/restaurant-business-poc`，公開的是**程式碼**，不是營運／人事資料。若已安裝 GitHub CLI 並登入（`gh auth login`），在下載並解壓本程式包後，於專案根目錄執行：
-
-```bash
-git init -b main
-git add .
-git commit -m "feat: bootstrap restaurant operations management PoC"
-gh repo create hun186/restaurant-business-poc --public --source . --remote origin --push
-```
-
-若選用 GitHub 網頁手動建 repo，請建立**空白公開庫**（不要先勾選 README）再依畫面操作把本程式碼 push 到 `main`。GitHub Actions `Verify` 會對 Ubuntu/Windows 的 Node 22/24 分別執行 `npm run check`。**CI 通過不代表已完成業主場域驗收。**
+- 公開原始碼位於 [`hun186/restaurant-business-poc`](https://github.com/hun186/restaurant-business-poc)，`main` 是基線，第一版功能放在 [Draft PR #1](https://github.com/hun186/restaurant-business-poc/pull/1)（`feat/restaurant-poc-v0.1`）。
+- `.github/workflows/verify.yml` 針對 PR 與 main，在 Ubuntu/Windows、Node 22/24 四個組合執行 `npm run check`。以**當次 PR 最新 HEAD SHA** 的 Hosted CI 結果為準。
+- 目前屬初始 PoC，不代表正式跨門市／公網安全可部署；正式 Codex Review 與營運場域驗收仍應另外執行，未獲維護者核准前不可自動 Merge。
+- Public Repository 只能包含程式碼與虛構測試資料，不能包含任何員工、薪資、客戶、食材營運機密、密碼、`.env` 或 SQLite/備份。
 
 ## 開發方式
 

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),os=require('node:os'),path=require('node:path'),fs=require('node:fs');
 const {openDb}=require('../src/db'),{command,rows,balance,overview}=require('../src/service'),{hashPassword,checkPassword,uuid}=require('../src/security');
-function fixture(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-poc-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const {db,bootstrapPassword}=openDb(dir);t.after(()=>db.close());const owner=db.prepare("SELECT id,username,role FROM users WHERE role='owner'").get();const loc=db.prepare('SELECT id FROM locations').get().id;return {db,owner,loc,bootstrapPassword};}
+function fixture(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-poc-'));const {db,bootstrapPassword}=openDb(dir);t.after(()=>{db.close();fs.rmSync(dir,{recursive:true,force:true});});const owner=db.prepare("SELECT id,username,role FROM users WHERE role='owner'").get();const loc=db.prepare('SELECT id FROM locations').get().id;return {db,owner,loc,bootstrapPassword};}
 const cmd=(f,act,data)=>command(f.db,f.owner,act,data);
 const addIngredient=(f,sku='RICE')=>cmd(f,'ingredient.create',{sku,name:'白米',unit:'公斤',min_stock:5}).id;
 test('bootstrap creates random owner password, SQLite schema, and preserves credentials',t=>{

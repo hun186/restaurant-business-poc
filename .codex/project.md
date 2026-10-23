@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc`；預計 GitHub `hun186/restaurant-business-poc` **Public**。
+- 專案：餐廳好管家 / `restaurant-business-poc`；GitHub `hun186/restaurant-business-poc` **Public**；PR #1 Draft（工作分支 `feat/restaurant-poc-v0.1`）。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。
@@ -14,6 +14,6 @@
 
 ## Not Yet Validated
 
-- 尚未建立遠端 GitHub 新 Repository 或取得其 Hosted CI／正式 Review。
+- GitHub Public Repo 已建立；PR #1 於 2026-10-23 建立，Hosted CI 須以最新 HEAD 核實，正式 Codex Review 尚未確認完成。
 - 尚未取得業主實際工作流程、真實欄位範例與正式門市權限表。
 - 尚未進行 Windows 真機及正式場域資安、備份還原／多使用者負載驗收。

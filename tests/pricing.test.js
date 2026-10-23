@@ -5,14 +5,15 @@ const {conversion,inventoryValue}=require('../src/pricing');
 const {fingerprint,perform,verifySnapshot,list}=require('../src/backup-manager');
 function fixture(t){
  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-pricing-'));
+ const backupDir=path.join(path.dirname(folder),path.basename(folder)+'-copies');
  const opened=openDb(folder),db=opened.db;
- t.after(()=>{try{db.close();}catch{}fs.rmSync(folder,{recursive:true,force:true})});
+ t.after(()=>{try{db.close();}catch{}fs.rmSync(folder,{recursive:true,force:true});fs.rmSync(backupDir,{recursive:true,force:true});});
  const owner=db.prepare("SELECT id,role,username FROM users WHERE role='owner'").get();
  const loc=db.prepare('SELECT id FROM locations LIMIT 1').get().id;
  const ing=command(db,owner,'ingredient.create',{sku:'SAMPLE',name:'示範米',unit:'公斤',min_stock:2}).id;
  const dish=command(db,owner,'dish.create',{name:'示範飯',sale_price_twd:'120'}).id;
  command(db,owner,'recipe.set',{dish_id:dish,ingredient_id:ing,qty:250,unit:'公克'});
- return {folder,db,owner,loc,ing,dish,backupDir:path.join(folder,'backup-copy')};
+ return {folder,db,owner,loc,ing,dish,backupDir};
 }
 const act=(f,action,data,user=f.owner)=>command(f.db,user,action,data);
 test('unit conversion supports compatible metric families only',()=>{

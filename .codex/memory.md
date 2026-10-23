@@ -47,3 +47,26 @@
 - v1/v2 preflight 拒絕已出現的較新版物件（含 backup_settings 和 v3 索引），避免不正確的 migration snapshot。
 - 新增價格欄位缺失、配方/價格索引缺失、v1 與 v2 混入新物件的回歸測試；本機 Node 22 合計 44/44 PASS。正式 Hosted CI / Codex Review 依 PR 最新 HEAD 核對。
 - PR #2 Draft stacked PR，不可未授權 Merge。
+
+## 2026-10-23 PR #1 Codex P1/P2 修正
+- 修補庫存任意入庫繞過核准（僅有已核准單可驗收；業主能單次建期初庫存），新增門市授權即撤銷受授員工 Session。
+- 將跨門市/員工表列權限篩選移至 SQL LIMIT 前；修復使用者加授門市表單、員工重設密碼錯誤登出。
+- 備份中斷清理受解鎖 finally 保護；使用 realpath 避免 symlink/Windows Junction 嵌入營運資料資料夾。DATA_DIR 已在 PR #1 HEAD 的 server.start 套用。
+- 新增針對上述問題的回歸測試。以新 HEAD 的 Hosted CI/最新 Codex Review 為準。PR 不可未授權 Merge。
+
+## 2026-10-23 PR #1 Codex 後續 4 個 P2
+- 總覽 KPI 以具門市/員工範圍的 SQL COUNT 計算，不受列表 500 筆限制，涵蓋訓練未完成、待處理工作/叫貨/維修與逾期工作。
+- 備份完整性納入 sessions/login_attempts 必要結構，但 fingerprint 繼續排除易變登入狀態。
+- 逾期且截斷的普通鎖定檔可安全回收；活躍 PID 或尚未逾期則拒絕重入。
+- v1→v2 migration snapshot 在目錄建立前重用 getPaths canonical containment，保護 symlink/Junction 祖先。
+- openDb 失敗時確實關閉 DB handle；本機 Node22 npm run check：32/32 PASS，正式 Hosted CI 與 Codex 以最新 HEAD 為準。未經許可禁止 Merge。
+
+## 2026-10-24｜Codex PR #1 v1 升級前完整 Schema P2
+- v1→v2 在建立遷移快照前對照 db/schema.sql 的完整 v1 結構（17 張必要表、具名索引及 DDL 約束），拒絕缺少 sessions/login_attempts、必要索引/欄位與誤置的 v2 backup_settings。
+- 不符合時保持 user_version=1，不建立備份目錄或資料庫更新；補上破壞性回歸測試。本機 38/38 PASS，Hosted CI 與最新 Codex Review 待核對，未授權禁止 Merge。
+
+
+## 2026-10-24｜PR #2 與 PR #1 安全相容整合
+- 將 PR #1 最新 v1 升級前完整性驗證、canonical 備份路徑、庫存核准驗收、期初庫存、Session 與 UI 修正帶入 v3 定價分支。
+- 明確拒絕 stock.purchase 直接入庫；價格僅在核准單 order.receive 驗收時與 stock_moves 原子性寫入，保留歷史價格與毛利估算。新增對應價格回歸。
+- 原 PR #2 Review 無 Findings，但舊分支與 PR #1 基底分歧且存在安全回退風險；本整合需以最新 HEAD 的 Hosted Ubuntu/Windows CI 和正式 Codex Review 再確認。PR #1/#2 均不合併至目標分支。

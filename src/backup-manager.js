@@ -8,10 +8,21 @@ const ROOT=path.resolve(__dirname,'..');
 const NAME=/^restaurant-backup-\d{8}-\d{6}-[a-f0-9]{8}-(auto|manual|migration)\.sqlite$/;
 const TABLES=['locations','users','user_locations','audit_logs','tasks','ingredients','stock_moves','purchase_orders','stocktakes','repairs','shifts','leave_requests','training_courses','training_records','evaluations','ingredient_prices','menu_dishes','dish_ingredients'];
 function problem(code,message){const err=new Error(message);err.code=code;throw err;}
+// Resolve existing ancestors to catch symlink/Junction aliases even if leaf is absent.
+function canonicalPath(p){
+ p=path.resolve(p);const rest=[];let cursor=p;
+ while(!fs.existsSync(cursor)){
+  const parent=path.dirname(cursor);if(parent===cursor)break;
+  rest.unshift(path.basename(cursor));cursor=parent;
+ }
+ const resolved=fs.existsSync(cursor)?fs.realpathSync.native(cursor):cursor;
+ const full=path.join(resolved,...rest);
+ return process.platform==='win32'?full.toLowerCase():full;
+}
 function getPaths(opts={}){
  const folder=path.resolve(opts.folder||process.env.DATA_DIR||path.join(ROOT,'data'));
  const backupDir=path.resolve(opts.backupDir||process.env.BACKUP_DIR||path.join(ROOT,'backups'));
- const relative=path.relative(folder,backupDir);
+ const relative=path.relative(canonicalPath(folder),canonicalPath(backupDir));
  if(!relative||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative)))problem('E_CONFIG','備份資料夾不能位於正式資料庫目錄內');
  return {folder,backupDir};
 }
@@ -44,7 +55,7 @@ function integrity(db){
  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')problem('E_DB','SQLite 完整性檢查失敗');
  if(db.prepare('PRAGMA foreign_key_check').all().length)problem('E_DB','SQLite 外鍵檢查失敗');
  if(db.prepare('PRAGMA user_version').get().user_version!==3)problem('E_DB','未辨識的資料庫版本');
- for(const table of [...TABLES,'backup_settings'])if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))problem('E_DB','缺少必要資料表：'+table);
+ for(const table of [...TABLES,'sessions','login_attempts','backup_settings'])if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))problem('E_DB','缺少必要資料表：'+table);
 }
 // Deterministic row digest of persistent operational/security data. Excludes volatile
 // sessions, login_attempts and backup metadata; includes meaningful audit events.
@@ -72,7 +83,10 @@ function acquire(dir){directory(dir,true);const lock=path.join(dir,'.restaurant-
   // A dead writer's lock is reclaimed only after two hours. Never reclaim a live PID.
   let pid=null,age=0;
   try{const st=fs.lstatSync(lock);if(!st.isFile()||st.isSymbolicLink())problem('E_BACKUP_BUSY','不安全的備份鎖定檔');age=Date.now()-st.mtimeMs;pid=JSON.parse(fs.readFileSync(lock,'utf8')).pid;}catch(err){if(err.code==='E_BACKUP_BUSY')throw err;}
-  let live=true;if(Number.isSafeInteger(pid)&&pid>0){try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')live=false;}}
+  // A truncated/empty lock contains no reliable PID; only reclaim after the
+  // two-hour safety period and only after lstat confirmed a regular file.
+  let live=Number.isSafeInteger(pid)&&pid>0;
+  if(live){try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')live=false;}}
   if(live||age<7200000)problem('E_BACKUP_BUSY','備份正在執行或舊鎖尚未安全過期');
   fs.unlinkSync(lock);return acquire(dir);
  }
@@ -81,8 +95,9 @@ function perform({folder,backupDir,type='manual',at}={}){
  if(!['manual','auto'].includes(type))problem('E_CONFIG','不支援的備份類型');
  ({folder,backupDir}=getPaths({folder,backupDir}));
  const source=path.join(folder,'restaurant.sqlite');if(!fs.existsSync(source))problem('E_DB','資料庫不存在，禁止備份空白資料庫');
- const release=acquire(backupDir);reclaimPartial(backupDir);let db,partial=null;const now=at?new Date(at):new Date();
+ const release=acquire(backupDir);let db,partial=null;const now=at?new Date(at):new Date();
  try{
+  reclaimPartial(backupDir);
   const {openDb}=require('./db');db=openDb(folder).db;integrity(db);
   const s=settings(db);
   if(type==='auto'&&dueAt(s)&&Date.parse(dueAt(s))>now.getTime())return {result:'not_due'};

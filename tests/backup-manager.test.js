@@ -99,3 +99,84 @@ test('older abandoned partial can be safely reclaimed without deleting completed
 test('refuse writing backup directory inside operational data directory',t=>{
  const f=fixture(t);assert.throws(()=>perform({...f,backupDir:path.join(f.folder,'backups'),type:'manual'}),{code:'E_CONFIG'});
 });
+
+test('unsafe interrupted partial does not strand backup lock after cleanup throws',t=>{
+ const f=fixture(t);fs.mkdirSync(f.backupDir,{recursive:true});
+ const unsafe=path.join(f.backupDir,'restaurant-backup-20261023-090000-deadbeef-auto.sqlite.partial');
+ fs.mkdirSync(unsafe);
+ assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_BACKUP'});
+ assert.equal(fs.existsSync(path.join(f.backupDir,'.restaurant-backup.lock')),false);
+ fs.rmSync(unsafe,{recursive:true});
+ assert.equal(perform({...f,type:'manual',at:day}).result,'created');
+});
+test('symlink aliases and non-existent descendants cannot place backups inside operational data',t=>{
+ if(process.platform==='win32')return t.skip('Junction creation privileges vary on Windows; canonicalPath uses realpathSync.native');
+ const f=fixture(t),alias=path.join(f.root,'alias');fs.symlinkSync(f.folder,alias,'dir');
+ assert.throws(()=>perform({...f,backupDir:path.join(alias,'backup-inside'),type:'manual'}),{code:'E_CONFIG'});
+});
+
+test('structural backup verification rejects missing volatile login tables',t=>{
+ for(const table of ['sessions','login_attempts']){
+  const f=fixture(t);
+  f.db.exec('DROP TABLE '+table+';');
+  assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+  assert.throws(()=>perform({...f,type:'manual',at:day}),e=>e.code==='E_DB'&&e.message.includes(table));
+  assert.equal(list(f.backupDir).length,0);
+ }
+});
+test('old truncated backup lock can be reclaimed, but recent truncated locks stay busy',t=>{
+ const f=fixture(t);fs.mkdirSync(f.backupDir,{recursive:true});
+ const file=path.join(f.backupDir,'.restaurant-backup.lock');fs.writeFileSync(file,'{bad json');
+ assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_BACKUP_BUSY'});
+ const old=new Date(Date.now()-3*3600000);fs.utimesSync(file,old,old);
+ const saved=perform({...f,type:'manual',at:day});
+ assert.equal(saved.result,'created');assert.equal(fs.existsSync(file),false);
+});
+test('v1 migration rejects backup directory nested under the operational database',t=>{
+ const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+ const expected=path.join(f.folder,'misplaced-migration');
+ const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=expected;
+ try{assert.throws(()=>openDb(f.folder),{code:'E_CONFIG'});}
+ finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
+ assert.equal(fs.existsSync(expected),false,'no migration artifact before validation');
+});
+test('v1 migration detects ancestor symlink aliases in backup path',t=>{
+ if(process.platform==='win32')return t.skip('Requires symlink permission; Windows path protection uses native realpath');
+ const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+ const alias=path.join(f.root,'alias');fs.symlinkSync(f.folder,alias,'dir');
+ const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=path.join(alias,'migrations');
+ try{assert.throws(()=>openDb(f.folder),{code:'E_CONFIG'});}
+ finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
+ assert.equal(fs.existsSync(path.join(f.folder,'migrations')),false);
+});
+
+
+// Codex v1 upgrade regression: reject corruption *before* publishing migration backups.
+test('v1 migration rejects incomplete tables, columns and indices before backup or version change',async t=>{
+ for(const [label,corruption] of [
+  ['missing sessions','DROP TABLE sessions;'],
+  ['missing login_attempts','DROP TABLE login_attempts;'],
+  ['missing login_attempts_lookup','DROP INDEX login_attempts_lookup;'],
+  ['missing login attempts column','ALTER TABLE login_attempts DROP COLUMN ip_hash;'],
+ ])await t.test(label,sub=>{
+  const f=fixture(sub);
+  f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');
+  f.db.exec(corruption);f.db.close();
+  const before=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
+  try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*拒絕升級/);}
+  finally{if(before===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=before;}
+  assert.equal(fs.existsSync(f.backupDir),false,'invalid v1 must not create backup directory');
+  const db=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+  try{
+   assert.equal(db.prepare('PRAGMA user_version').get().user_version,1);
+   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='backup_settings'").get().n,0);
+  }finally{db.close();}
+ });
+});
+test('v1 migration refuses partially applied v2 backup_settings before snapshot',t=>{
+ const f=fixture(t);f.db.exec('PRAGMA user_version=1;');f.db.close();
+ const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
+ try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*v2 備份設定表/);}
+ finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
+ assert.equal(fs.existsSync(f.backupDir),false);
+});

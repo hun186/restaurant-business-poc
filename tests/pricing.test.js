@@ -51,9 +51,14 @@ test('order receiving stores exactly one inventory movement and actual price ato
  const history=rows(f.db,f.owner,'ingredient_prices');assert.equal(history.length,1);
  assert.equal(history[0].source,'receiving');assert.equal(history[0].reference_id,order);
 });
-test('stock purchase price and valuation are estimated, not accounting costs',t=>{
+test('approved purchase receipt price and valuation are estimated, not accounting costs',t=>{
  const f=fixture(t);
- act(f,'stock.purchase',{location_id:f.loc,ingredient_id:f.ing,qty:5,unit_price_twd:'80',price_unit:'公斤',price_date:'2020-01-01'});
+ // PR #1 safety contract: a price must never reopen direct stock.purchase.
+ assert.throws(()=>act(f,'stock.purchase',{location_id:f.loc,ingredient_id:f.ing,qty:5,unit_price_twd:'80',price_unit:'公斤',price_date:'2020-01-01'}),{status:409});
+ assert.equal(balance(f.db,f.ing,f.loc),0);
+ const order=act(f,'order.create',{location_id:f.loc,ingredient_id:f.ing,qty:5,supplier:'測試供應商'}).id;
+ act(f,'order.approve',{id:order});
+ act(f,'order.receive',{id:order,unit_price_twd:'80',price_unit:'公斤',price_date:'2020-01-01'});
  assert.equal(inventoryValue(f.db,f.owner)[0].estimated_value_twd,400);
  act(f,'stock.usage',{location_id:f.loc,ingredient_id:f.ing,qty:2});
  assert.equal(inventoryValue(f.db,f.owner)[0].estimated_value_twd,240);

@@ -64,7 +64,8 @@ function openDb(folder=path.join(__dirname,'..','data')){
    verifyInstalledSchema(db,1);
    // Make a consistent, verified v1 safety snapshot before the schema migration.
    // Do not silently reinitialize an established database on failure.
-   const backupDir=path.resolve(process.env.BACKUP_DIR||path.join(__dirname,'../backups'));
+   // Migration and operational backups must obey identical canonical path safety.
+   const {backupDir}=require('./backup-manager').getPaths({folder});
    fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
    if(!fs.lstatSync(backupDir).isDirectory()||fs.lstatSync(backupDir).isSymbolicLink())throw new Error('E_BACKUP: 不安全的備份目錄');
    protect(backupDir);
@@ -91,7 +92,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
    if(db.prepare('PRAGMA foreign_key_check').all().length)throw new Error('E_DB: 升級前外鍵錯誤');
    for(const table of ['ingredient_prices','menu_dishes','dish_ingredients'])
     if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 價格表不完整，拒絕自動補建');
-   const backupDir=path.resolve(process.env.BACKUP_DIR||path.join(__dirname,'../backups'));
+   const {backupDir}=require('./backup-manager').getPaths({folder});
    fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
    if(!fs.lstatSync(backupDir).isDirectory()||fs.lstatSync(backupDir).isSymbolicLink())throw new Error('E_BACKUP: 備份路徑不安全');
    protect(backupDir);

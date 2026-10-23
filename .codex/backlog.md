@@ -1,0 +1,14 @@
+# Backlog
+
+| ID | Status | Priority | Work |
+| --- | --- | --- | --- |
+| RB-001 | BLOCKED | P1 | 建立遠端 Public GitHub `hun186/restaurant-business-poc`、推送、CI、正式 Review；需要 repository 建立權限／使用者建立空白庫 |
+| RB-002 | PLANNED | P1 | 多人正式部署拓樸、HTTPS、Secure Cookie、遠端連線安全與後端儲存選型 |
+| RB-003 | PLANNED | P1 | 角色細粒度授權、跨店／跨角色越權完整測試與帳號停權操作流程 |
+| RB-004 | PLANNED | P1 | 自動備份、無變化跳過、管理介面、隔離還原及跨磁碟備份 |
+| RB-005 | PLANNED | P2 | 多品項採購、批號效期、進銷存成本、配方與耗損報表 |
+| RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
+| RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |
+| RB-008 | PLANNED | P2 | 預定保養、開關店 SOP、值日表、設備／食安檢查表 |
+| RB-009 | PLANNED | P2 | Excel 匯出、庫存成本／營運分析、POS 與報表介接 |
+| RB-010 | PLANNED | P1 | 業主 Windows 實機部署、登入／測試帳號／備份還原與簽收 |

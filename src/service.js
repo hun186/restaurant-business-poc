@@ -237,6 +237,26 @@ function command(db,u,action,x={}){
  }
  });
 }
-function overview(db,u){const own=rows(db,u,'tasks'),stock=rows(db,u,'stock'),repairs=rows(db,u,'repairs'),orders=rows(db,u,'purchase_orders'),training=rows(db,u,'training_records');
- return {todo:own.filter(x=>x.status!=='done').length,late:own.filter(x=>x.due_date&&x.due_date<new Date().toISOString().slice(0,10)&&x.status!=='done').length,low:stock.filter(x=>x.on_hand<x.min_stock).length,orders:orders.filter(x=>x.status==='requested').length,repairs:repairs.filter(x=>x.status!=='closed').length,trainingPending:training.filter(x=>x.score===null).length};}
+// Dashboard aggregates must not inherit the row limits of list endpoints.
+// All predicates are applied in SQL using the same store and staff visibility rules.
+function overview(db,u){
+ const count=(table,alias,condition,staffColumn=null,extra=[])=>{
+  const clauses=[condition],params=[...extra];
+  if(u.role!=='owner'){
+   clauses.push(alias+'.location_id IN (SELECT location_id FROM user_locations WHERE user_id=?)');params.push(u.id);
+   if(u.role==='staff'&&staffColumn){clauses.push(alias+'.'+staffColumn+'=?');params.push(u.id);}
+  }
+  return db.prepare(`SELECT COUNT(*) AS n FROM ${table} ${alias} WHERE ${clauses.join(' AND ')}`).get(...params).n;
+ };
+ const pending="t.status!='done'";
+ const stock=rows(db,u,'stock'); // stock listing is not capped
+ return {
+  todo:count('tasks','t',pending,'assigned_to'),
+  late:count('tasks','t',pending+' AND t.due_date IS NOT NULL AND t.due_date<?','assigned_to',[new Date().toISOString().slice(0,10)]),
+  low:stock.filter(x=>x.on_hand<x.min_stock).length,
+  orders:count('purchase_orders','o',"o.status='requested'",'created_by'),
+  repairs:count('repairs','r',"r.status!='closed'",'created_by'),
+  trainingPending:count('training_records','r','r.score IS NULL','user_id')
+ };
+}
 module.exports={rows,command,overview,audit,scope,balance};

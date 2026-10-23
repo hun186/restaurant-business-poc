@@ -109,3 +109,37 @@ test('location and ownership filters precede row LIMIT',t=>{
  command(f.db,staff,'order.create',{location_id:f.loc,ingredient_id:f.db.prepare('SELECT id FROM ingredients LIMIT 1').get().id,qty:2,supplier:'授權門市'});
  assert.equal(rows(f.db,staff,'purchase_orders').length,1);
 });
+
+test('dashboard aggregates are not truncated to 500 rows and honor store/user scope',t=>{
+ const f=fixture(t),ingredient=addIngredient(f,'KPI-RICE');
+ const other=cmd(f,'location.create',{name:'跨門市統計測試'}).id;
+ const m=cmd(f,'user.create',{username:'kpimanager',display_name:'主管',role:'manager',password:'test-password-234',location_id:f.loc}).id;
+ const s=cmd(f,'user.create',{username:'kpistaff',display_name:'員工',role:'staff',password:'test-password-234',location_id:f.loc}).id;
+ const manager={id:m,role:'manager',username:'kpimanager'},staff={id:s,role:'staff',username:'kpistaff'};
+ const tasks=f.db.prepare('INSERT INTO tasks(id,location_id,title,due_date,status,assigned_to,created_by) VALUES(?,?,?,?,?,?,?)');
+ const orders=f.db.prepare('INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,status,created_by) VALUES(?,?,?,?,?,?,?,?)');
+ const repairs=f.db.prepare('INSERT INTO repairs(id,location_id,equipment,description,status,created_by) VALUES(?,?,?,?,?,?)');
+ for(let i=0;i<505;i++){
+  tasks.run(uuid(),f.loc,'工作'+i,'2020-01-01','todo',s,f.owner.id);
+  orders.run(uuid(),'KPI-PO-'+i,f.loc,ingredient,'示範供應商',1,'requested',s);
+  repairs.run(uuid(),f.loc,'設備'+i,'處理中','reported',s);
+ }
+ for(let i=0;i<15;i++){
+  tasks.run(uuid(),other,'外店'+i,'2020-01-01','todo',s,f.owner.id);
+  orders.run(uuid(),'KPI-OUT-'+i,other,ingredient,'第二門市',1,'requested',f.owner.id);
+  repairs.run(uuid(),other,'外店設備'+i,'外店','reported',f.owner.id);
+ }
+ const owner=overview(f.db,f.owner), scoped=overview(f.db,manager),personal=overview(f.db,staff);
+ assert.equal(owner.todo,520);assert.equal(owner.late,520);assert.equal(owner.orders,520);assert.equal(owner.repairs,520);
+ for(const v of [scoped,personal]){assert.equal(v.todo,505);assert.equal(v.late,505);assert.equal(v.orders,505);assert.equal(v.repairs,505);}
+ assert.equal(rows(f.db,manager,'purchase_orders').length,500);
+ const course=f.db.prepare('INSERT INTO training_courses(id,title) VALUES(?,?)');
+ const training=f.db.prepare('INSERT INTO training_records(id,course_id,user_id,location_id,score) VALUES(?,?,?,?,?)');
+ for(let i=0;i<520;i++){
+  const cid=uuid();course.run(cid,'課程'+i);training.run(uuid(),cid,s,i<505?f.loc:other,null);
+ }
+ assert.equal(overview(f.db,f.owner).trainingPending,520);
+ assert.equal(overview(f.db,manager).trainingPending,505);
+ assert.equal(overview(f.db,staff).trainingPending,505);
+ assert.equal(rows(f.db,staff,'training_records').length,500);
+});

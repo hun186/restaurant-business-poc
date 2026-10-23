@@ -114,3 +114,38 @@ test('symlink aliases and non-existent descendants cannot place backups inside o
  const f=fixture(t),alias=path.join(f.root,'alias');fs.symlinkSync(f.folder,alias,'dir');
  assert.throws(()=>perform({...f,backupDir:path.join(alias,'backup-inside'),type:'manual'}),{code:'E_CONFIG'});
 });
+
+test('structural backup verification rejects missing volatile login tables',t=>{
+ for(const table of ['sessions','login_attempts']){
+  const f=fixture(t);
+  f.db.exec('DROP TABLE '+table+';');
+  assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+  assert.throws(()=>perform({...f,type:'manual',at:day}),e=>e.code==='E_DB'&&e.message.includes(table));
+  assert.equal(list(f.backupDir).length,0);
+ }
+});
+test('old truncated backup lock can be reclaimed, but recent truncated locks stay busy',t=>{
+ const f=fixture(t);fs.mkdirSync(f.backupDir,{recursive:true});
+ const file=path.join(f.backupDir,'.restaurant-backup.lock');fs.writeFileSync(file,'{bad json');
+ assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_BACKUP_BUSY'});
+ const old=new Date(Date.now()-3*3600000);fs.utimesSync(file,old,old);
+ const saved=perform({...f,type:'manual',at:day});
+ assert.equal(saved.result,'created');assert.equal(fs.existsSync(file),false);
+});
+test('v1 migration rejects backup directory nested under the operational database',t=>{
+ const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+ const expected=path.join(f.folder,'misplaced-migration');
+ const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=expected;
+ try{assert.throws(()=>openDb(f.folder),{code:'E_CONFIG'});}
+ finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
+ assert.equal(fs.existsSync(expected),false,'no migration artifact before validation');
+});
+test('v1 migration detects ancestor symlink aliases in backup path',t=>{
+ if(process.platform==='win32')return t.skip('Requires symlink permission; Windows path protection uses native realpath');
+ const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+ const alias=path.join(f.root,'alias');fs.symlinkSync(f.folder,alias,'dir');
+ const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=path.join(alias,'migrations');
+ try{assert.throws(()=>openDb(f.folder),{code:'E_CONFIG'});}
+ finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
+ assert.equal(fs.existsSync(path.join(f.folder,'migrations')),false);
+});

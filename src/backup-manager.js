@@ -55,7 +55,7 @@ function integrity(db){
  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')problem('E_DB','SQLite 完整性檢查失敗');
  if(db.prepare('PRAGMA foreign_key_check').all().length)problem('E_DB','SQLite 外鍵檢查失敗');
  if(db.prepare('PRAGMA user_version').get().user_version!==2)problem('E_DB','未辨識的資料庫版本');
- for(const table of [...TABLES,'backup_settings'])if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))problem('E_DB','缺少必要資料表：'+table);
+ for(const table of [...TABLES,'sessions','login_attempts','backup_settings'])if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table))problem('E_DB','缺少必要資料表：'+table);
 }
 // Deterministic row digest of persistent operational/security data. Excludes volatile
 // sessions, login_attempts and backup metadata; includes meaningful audit events.
@@ -83,7 +83,10 @@ function acquire(dir){directory(dir,true);const lock=path.join(dir,'.restaurant-
   // A dead writer's lock is reclaimed only after two hours. Never reclaim a live PID.
   let pid=null,age=0;
   try{const st=fs.lstatSync(lock);if(!st.isFile()||st.isSymbolicLink())problem('E_BACKUP_BUSY','不安全的備份鎖定檔');age=Date.now()-st.mtimeMs;pid=JSON.parse(fs.readFileSync(lock,'utf8')).pid;}catch(err){if(err.code==='E_BACKUP_BUSY')throw err;}
-  let live=true;if(Number.isSafeInteger(pid)&&pid>0){try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')live=false;}}
+  // A truncated/empty lock contains no reliable PID; only reclaim after the
+  // two-hour safety period and only after lstat confirmed a regular file.
+  let live=Number.isSafeInteger(pid)&&pid>0;
+  if(live){try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')live=false;}}
   if(live||age<7200000)problem('E_BACKUP_BUSY','備份正在執行或舊鎖尚未安全過期');
   fs.unlinkSync(lock);return acquire(dir);
  }

@@ -11,6 +11,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
  const marker=path.join(folder,'.installed');
  if(!exists && (fs.existsSync(marker) || fs.readdirSync(folder).some(x=>x!=='.DS_Store')))throw new Error('E_DB: 既有資料目錄內資料庫遺失，拒絕重建空白資料庫');
  const db=new DatabaseSync(filename,{timeout:3000});
+ try{
  db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000;');
  if(exists){
   const integrity=db.prepare('PRAGMA quick_check').get();
@@ -21,7 +22,8 @@ function openDb(folder=path.join(__dirname,'..','data')){
   if(version===1){
    // Make a consistent, verified v1 safety snapshot before the schema migration.
    // Do not silently reinitialize an established database on failure.
-   const backupDir=path.resolve(process.env.BACKUP_DIR||path.join(__dirname,'../backups'));
+   // Migration and operational backups must obey identical canonical path safety.
+   const {backupDir}=require('./backup-manager').getPaths({folder});
    fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
    if(!fs.lstatSync(backupDir).isDirectory()||fs.lstatSync(backupDir).isSymbolicLink())throw new Error('E_BACKUP: 不安全的備份目錄');
    protect(backupDir);
@@ -60,6 +62,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
  }
  if(!fs.existsSync(marker))fs.writeFileSync(marker,'restaurant-business-poc installed\n',{mode:0o600});
  return {db,bootstrapPassword:null};
+ }catch(e){try{db.close()}catch{}throw e;}
 }
 function inTransaction(db,fn){db.exec('BEGIN IMMEDIATE');try{const value=fn();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}}
 module.exports={openDb,inTransaction};

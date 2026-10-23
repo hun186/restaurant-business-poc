@@ -3,6 +3,30 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {DatabaseSync}=require('node:sqlite');
 const {uuid,hashPassword}=require('./security');
 const {protect}=require('./backup-acl');
+// Build a trusted v2 contract in a separate in-memory database, not the
+// business DB. Missing structures must never be silently recreated.
+function verifyInstalledSchema(db,version){
+ const schema=fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8');
+ const marker='CREATE TABLE ingredient_prices (';
+ const cut=schema.indexOf(marker);
+ if(cut<0)throw new Error('E_DB: 無法辨識 v2 Schema 驗證基準，拒絕升級');
+ const expected=new DatabaseSync(':memory:');
+ const compact=sql=>String(sql||'').replace(/\bIF\s+NOT\s+EXISTS\b/gi,'').replace(/\s+/g,'').replace(/;$/,'').toUpperCase();
+ try{
+  expected.exec(schema.slice(0,cut));
+  const objects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
+  if(objects.filter(x=>x.type==='table').length<18)throw new Error('E_DB: v2 Schema 驗證基準不完整');
+  for(const item of objects){
+   if(version===1&&item.name==='backup_settings')continue;
+   const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(item.type,item.name);
+   if(!actual)throw new Error('E_DB: v'+version+' 資料庫缺少必要'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
+   // Compares full CREATE TABLE/INDEX definitions: required columns, PK,
+   // UNIQUE, CHECK, foreign keys and named indexes, not just table names.
+   if(compact(actual.sql)!==compact(item.sql))
+    throw new Error('E_DB: v'+version+' 資料庫結構不符合既有 Schema：'+item.name+'，拒絕升級');
+  }
+ }finally{expected.close();}
+}
 function openDb(folder=path.join(__dirname,'..','data')){
  fs.mkdirSync(folder,{recursive:true,mode:0o700});
  const filename=path.join(folder,'restaurant.sqlite');
@@ -11,6 +35,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
  const marker=path.join(folder,'.installed');
  if(!exists && (fs.existsSync(marker) || fs.readdirSync(folder).some(x=>x!=='.DS_Store')))throw new Error('E_DB: 既有資料目錄內資料庫遺失，拒絕重建空白資料庫');
  const db=new DatabaseSync(filename,{timeout:3000});
+ try{
  db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000;');
  if(exists){
   const integrity=db.prepare('PRAGMA quick_check').get();
@@ -19,6 +44,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
   if(tables.length!==3)throw new Error('E_DB: 已有資料庫缺少關鍵資料表，拒絕建立空白替代表');
   const version=db.prepare('PRAGMA user_version').get().user_version;
   if(version===1){
+   verifyInstalledSchema(db,1);
    // Make a consistent, verified v1 safety snapshot before the schema migration.
    // Do not silently reinitialize an established database on failure.
    const backupDir=path.resolve(process.env.BACKUP_DIR||path.join(__dirname,'../backups'));
@@ -43,10 +69,9 @@ function openDb(folder=path.join(__dirname,'..','data')){
   if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='backup_settings'").get()||!db.prepare('SELECT id FROM backup_settings WHERE id=1').get())throw new Error('E_DB: 備份設定表缺失，拒絕補建');
 
   const cv=db.prepare('PRAGMA user_version').get().user_version;
+  verifyInstalledSchema(db,cv); // Full structure check before migration snapshot or version change.
   if(cv===2){
    if(db.prepare('PRAGMA foreign_key_check').all().length)throw new Error('E_DB: 升級前外鍵錯誤');
-   for(const table of ['users','ingredients','stock_moves','purchase_orders','backup_settings'])
-    if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 原資料表遺失 '+table);
    for(const table of ['ingredient_prices','menu_dishes','dish_ingredients'])
     if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 價格表不完整，拒絕自動補建');
    const backupDir=path.resolve(process.env.BACKUP_DIR||path.join(__dirname,'../backups'));
@@ -89,6 +114,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
  }
  if(!fs.existsSync(marker))fs.writeFileSync(marker,'restaurant-business-poc installed\n',{mode:0o600});
  return {db,bootstrapPassword:null};
+ }catch(e){try{db.close()}catch{}throw e;}
 }
 function inTransaction(db,fn){db.exec('BEGIN IMMEDIATE');try{const value=fn();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}}
 module.exports={openDb,inTransaction};

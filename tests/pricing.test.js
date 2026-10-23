@@ -96,3 +96,43 @@ test('backup digest and verified backup include price and recipe changes',t=>{
  assert.equal(saved.result,'created');
  assert.equal(verifySnapshot(path.join(f.backupDir,saved.name)),fingerprint(f.db));
 });
+
+
+// Codex P1 regression: quick_check alone misses missing tables/columns/indexes.
+async function brokenV2Fixture(t,brokenSql){
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients; DROP TABLE menu_dishes; DROP TABLE ingredient_prices; PRAGMA user_version=2;');
+ f.db.exec(brokenSql);
+ f.db.close();
+ const backupDir=path.join(f.folder,'..',path.basename(f.folder)+'-migration-blocked');
+ t.after(()=>fs.rmSync(backupDir,{recursive:true,force:true}));
+ const old=process.env.BACKUP_DIR;process.env.BACKUP_DIR=backupDir;
+ let caught;
+ try{assert.throws(()=>openDb(f.folder),e=>{caught=e;return /E_DB: v2 .*?(缺少必要|結構不符合)/.test(e.message);});}
+ finally{if(old===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=old;}
+ assert.ok(caught?.message.includes('拒絕升級'),caught?.message);
+ const reader=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+ try{
+  assert.equal(reader.prepare('PRAGMA user_version').get().user_version,2,'failed preflight must not advance version');
+  assert.equal(reader.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name IN ('ingredient_prices','menu_dishes','dish_ingredients')").get().n,0,'failed preflight must not create v3 objects');
+ }finally{reader.close();}
+ assert.equal(fs.existsSync(backupDir),false,'no misleading migration snapshot before verifying schema');
+}
+test('v2 -> v3 refuses missing repairs/stocktakes/evaluations even when quick_check is ok',async t=>{
+ for(const table of ['repairs','stocktakes','evaluations'])await t.test('missing '+table,async sub=>{
+  await brokenV2Fixture(sub,'DROP TABLE '+table+';');
+ });
+});
+test('v2 -> v3 refuses malformed existing table columns and missing business index',async t=>{
+ await t.test('missing description column',async sub=>{
+  await brokenV2Fixture(sub,'ALTER TABLE repairs DROP COLUMN description;');
+ });
+ await t.test('missing indexed stock ledger',async sub=>{
+  await brokenV2Fixture(sub,'DROP INDEX stock_moves_stock;');
+ });
+});
+test('v3 opening refuses missing base business table without silently healing it',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE repairs;');f.db.close();
+ assert.throws(()=>openDb(f.folder),/E_DB: v3 資料庫缺少必要資料表 repairs/);
+});

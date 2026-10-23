@@ -35,3 +35,9 @@
 - 備份 fingerprint 加入價格、菜品、配方，v2→v3 安全 migration snapshot。
 - 沒有 AI 跨系統同步，亦非 FIFO/移動平均/POS 實際毛利。見 docs/菜單價格與成本試算.md。
 - 此項開發分支 feat/menu-pricing-costs-v3，未經使用者同意不能 Merge。
+
+## 2026-10-23 PR #2 Codex P1 修正
+- 針對最新 Code Review `c3f4ed5` 的未解 P1，v2→v3 升級前以獨立記憶體 SQLite 的版本化 Schema 合約核對全部 v2 資料表及具名索引的完整建表 DDL，不再只檢查少數表是否存在。
+- v1→v2 與 v3 開啟亦核對必要舊 Schema；異常時關閉 SQLite，拒絕自動修補、建立 migration snapshot 或更改 `user_version`。
+- 新增 `repairs`、`stocktakes`、`evaluations` 遺失、欄位遺失、索引遺失及 v3 殘缺的回歸測試；本機對應設計驗證 38/38 PASS。以本 PR 最新 HEAD 的 Hosted CI 與 Codex 複審為最終依據。
+- PR #2 仍為 Draft 且依賴 PR #1，未授權不可 Merge。

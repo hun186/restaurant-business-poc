@@ -57,3 +57,7 @@
 - 所有功能都透過 `src/service.js` 的後端權限檢查及 SQLite transaction 更新，不能只靠前端隱藏按鈕。
 - `AGENTS.md` 與 `.codex/*` 保存專案定位、驗證命令、進度及規格，避免下一輪對話遺失。
 - 參閱 [`docs/開發階段與驗收清單.md`](docs/開發階段與驗收清單.md)。
+
+## 公開 Vercel 展示版（僅虛構資料）
+
+`vercel-demo/` 是獨立靜態站，採用瀏覽器內部模擬資料（sessionStorage），不啟用 Node.js SQLite API、真實登入、角色授權或伺服器稽核。Vercel 專案 Root Directory 設 `vercel-demo`，PR 分支提供 Preview；正式資料僅能於安全驗證後另外部署固定後端。**請勿在公開 Demo 輸入真實人事與營運資訊。**

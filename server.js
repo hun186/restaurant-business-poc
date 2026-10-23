@@ -3,8 +3,9 @@ const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),
 const {openDb}=require('./src/db'),{uuid,checkPassword,randomToken,sha}=require('./src/security');
 const {rows,command,overview,audit}=require('./src/service');
 const APP_ROOT=path.join(__dirname,'public');
+const {createManager}=require('./src/backup-manager');
 const safeJson=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
-function makeHandler(db){
+function makeHandler(db,backups=null){
  const pepper=crypto.randomBytes(32).toString('hex');
  const ipHash=req=>sha(pepper+String(req.socket.remoteAddress||'unknown'));
  function current(req){
@@ -47,6 +48,46 @@ function makeHandler(db){
     }
     const u=current(req);
     if(!u)return safeJson(res,401,{error:'請先登入'});
+    if(route==='/api/backups'){
+     if(u.role!=='owner')return safeJson(res,403,{error:'僅業主可管理資料庫備份'});
+     if(!backups)return safeJson(res,503,{error:'E_BACKUP: 此服務未啟用備份管理'});
+     if(req.method==='GET'){
+      if(url.searchParams.has('file')){
+       const name=url.searchParams.get('file');
+       const {file}=backups.safeFile(name);
+       // O_NOFOLLOW refuses symlink substitution between validation and opening.
+       const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
+       const info=fs.fstatSync(fd);
+       if(!info.isFile()){fs.closeSync(fd);return safeJson(res,400,{error:'不是有效的備份檔案'});}
+       audit(db,u,'backup.download','backups',name,null,{});
+       res.writeHead(200,{'Content-Type':'application/vnd.sqlite3','Content-Length':info.size,'Cache-Control':'no-store','Content-Disposition':'attachment; filename="'+name+'"'});
+       return fs.createReadStream(null,{fd,autoClose:true}).on('error',()=>res.destroy()).pipe(res);
+      }
+      return safeJson(res,200,backups.status());
+     }
+     if(req.method==='POST'){
+      originCheck(req);
+      if(req.headers['x-csrf-token']!==u.csrf_token)return safeJson(res,403,{error:'CSRF 驗證失敗'});
+      const x=await parse(req);
+      if(x.action==='save'){
+       const next=backups.save({intervalDays:x.intervalDays,retentionCount:x.retentionCount});
+       audit(db,u,'backup.settings','backup_settings','1',null,{intervalDays:x.intervalDays,retentionCount:x.retentionCount});
+       return safeJson(res,200,next);
+      }
+      if(x.action==='create'){
+       const result=await backups.run('manual');
+       audit(db,u,'backup.create','backups',result.name,null,{});
+       return safeJson(res,200,{...backups.status(),result});
+      }
+      if(x.action==='delete'){
+       const next=backups.remove(x.name);
+       audit(db,u,'backup.delete','backups',x.name,null,{});
+       return safeJson(res,200,next);
+      }
+      return safeJson(res,400,{error:'不支援的備份操作'});
+     }
+     return safeJson(res,405,{error:'不支援的備份方法'});
+    }
     if(req.method==='GET'&&route==='/api/me'){
      const locations=db.prepare('SELECT location_id FROM user_locations WHERE user_id=?').all(u.id).map(x=>x.location_id);
      return safeJson(res,200,{user:{id:u.id,username:u.username,display_name:u.display_name,role:u.role,locations},csrf:u.csrf_token});
@@ -70,11 +111,11 @@ function makeHandler(db){
    }
    if(req.method!=='GET'&&req.method!=='HEAD')return safeJson(res,405,{error:'方法不允許'});
    let filename=route==='/'?'/index.html':route;
-   if(!['/index.html','/styles.css','/app.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
+   if(!['/index.html','/styles.css','/app.js','/backup-ui.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
    const abs=path.join(APP_ROOT,filename.slice(1)),types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
    res.writeHead(200,{'Content-Type':types[path.extname(abs)],'Cache-Control':'no-store'});
    if(req.method==='HEAD')return res.end();fs.createReadStream(abs).pipe(res);
-  }catch(e){const status=e.status||(/constraint|UNIQUE|FOREIGN KEY/.test(String(e))?409:500);
+  }catch(e){const status=e.status||({E_CONFIG:400,E_BACKUP:404,E_BACKUP_BUSY:409}[e.code])||(/constraint|UNIQUE|FOREIGN KEY/.test(String(e))?409:500);
    if(status>=500)console.error('E_SERVER:',e.message);
    if(!res.headersSent)safeJson(res,status,{error:status>=500?'E_SERVER: 系統處理失敗':e.message});
    else res.end();
@@ -82,15 +123,19 @@ function makeHandler(db){
  };
 }
 function start({folder,port}={}){
- const {db,bootstrapPassword}=openDb(folder);
+ const dataFolder=path.resolve(folder||process.env.DATA_DIR||path.join(__dirname,'data'));
+ const {db,bootstrapPassword}=openDb(dataFolder);
+ const backups=createManager(db,{folder:dataFolder});
  const p=port||Number(process.env.PORT)||3000;
  if(!Number.isInteger(p)||p<1||p>65535)throw Error('PORT 無效');
- const server=http.createServer(makeHandler(db));
+ const server=http.createServer(makeHandler(db,backups));
+ server.on('close',()=>backups.stop());
  server.listen(p,'127.0.0.1',()=>{
+  backups.start();
   console.log('餐廳好管家：http://127.0.0.1:'+server.address().port);
   if(bootstrapPassword){console.log('首次管理帳號：owner');console.log('首次隨機密碼（僅此一次顯示，請妥善保管）：'+bootstrapPassword);}
  });
- return {db,server,bootstrapPassword};
+ return {db,server,bootstrapPassword,backups};
 }
 if(require.main===module)start();
 module.exports={makeHandler,start};

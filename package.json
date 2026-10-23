@@ -4,7 +4,7 @@
   "private": true,
   "description": "餐廳好管家｜餐飲營運管理 PoC（Node.js / SQLite / RBAC / Audit）",
   "engines": {"node": ">=22.13.0"},
-  "scripts": {"start": "node server.js", "dev": "node server.js", "check": "node --check server.js && node --check src/db.js && node --check src/security.js && node --check src/service.js && node --check public/app.js && node --test tests/*.test.js"},
+  "scripts": {"start": "node server.js", "dev": "node server.js", "check": "node --check server.js && node --check src/db.js && node --check src/security.js && node --check src/service.js && node --check src/backup-acl.js && node --check src/backup-manager.js && node --check src/backup-worker.js && node --check tools/backup.js && node --check public/backup-ui.js && node --check public/app.js && node --test tests/*.test.js"},
   "dependencies": {},
   "devDependencies": {}
 }

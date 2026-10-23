@@ -3,6 +3,28 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {DatabaseSync}=require('node:sqlite');
 const {uuid,hashPassword}=require('./security');
 const {protect}=require('./backup-acl');
+// Validate the complete legacy v1 contract before a migration snapshot is published.
+// SQLite quick_check / foreign_key_check do not detect deleted tables or columns.
+function verifyLegacyV1Schema(db){
+ const schema=fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8');
+ const boundary=schema.indexOf('CREATE TABLE backup_settings (');
+ if(boundary<0)throw new Error('E_DB: 找不到 v1 Schema 驗證基準，拒絕升級');
+ const expected=new DatabaseSync(':memory:');
+ try{
+  expected.exec(schema.slice(0,boundary));
+  const objects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
+  if(objects.filter(x=>x.type==='table').length!==17)throw new Error('E_DB: v1 Schema 基準不完整，拒絕升級');
+  if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backup_settings'").get())
+   throw new Error('E_DB: v1 資料庫意外包含 v2 備份設定表，拒絕升級');
+  const normalize=sql=>String(sql||'').replace(/\bIF\s+NOT\s+EXISTS\b/gi,'').replace(/\s+/g,'').replace(/;$/,'').toUpperCase();
+  for(const object of objects){
+   const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(object.type,object.name);
+   if(!actual)throw new Error('E_DB: v1 資料庫缺少必要'+(object.type==='index'?'索引 ':'資料表 ')+object.name+'，拒絕升級');
+   // Covers columns, foreign keys, CHECK/UNIQUE constraints and named indexes.
+   if(normalize(actual.sql)!==normalize(object.sql))throw new Error('E_DB: v1 Schema 結構不相容：'+object.name+'，拒絕升級');
+  }
+ }finally{expected.close();}
+}
 function openDb(folder=path.join(__dirname,'..','data')){
  fs.mkdirSync(folder,{recursive:true,mode:0o700});
  const filename=path.join(folder,'restaurant.sqlite');
@@ -20,6 +42,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
   if(tables.length!==3)throw new Error('E_DB: 已有資料庫缺少關鍵資料表，拒絕建立空白替代表');
   const version=db.prepare('PRAGMA user_version').get().user_version;
   if(version===1){
+   verifyLegacyV1Schema(db); // Reject broken v1 before backup dir creation or migration.
    // Make a consistent, verified v1 safety snapshot before the schema migration.
    // Do not silently reinitialize an established database on failure.
    // Migration and operational backups must obey identical canonical path safety.

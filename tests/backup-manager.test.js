@@ -149,3 +149,34 @@ test('v1 migration detects ancestor symlink aliases in backup path',t=>{
  finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
  assert.equal(fs.existsSync(path.join(f.folder,'migrations')),false);
 });
+
+
+// Codex v1 upgrade regression: reject corruption *before* publishing migration backups.
+test('v1 migration rejects incomplete tables, columns and indices before backup or version change',async t=>{
+ for(const [label,corruption] of [
+  ['missing sessions','DROP TABLE sessions;'],
+  ['missing login_attempts','DROP TABLE login_attempts;'],
+  ['missing login_attempts_lookup','DROP INDEX login_attempts_lookup;'],
+  ['missing login attempts column','ALTER TABLE login_attempts DROP COLUMN ip_hash;'],
+ ])await t.test(label,sub=>{
+  const f=fixture(sub);
+  f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');
+  f.db.exec(corruption);f.db.close();
+  const before=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
+  try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*拒絕升級/);}
+  finally{if(before===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=before;}
+  assert.equal(fs.existsSync(f.backupDir),false,'invalid v1 must not create backup directory');
+  const db=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+  try{
+   assert.equal(db.prepare('PRAGMA user_version').get().user_version,1);
+   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='backup_settings'").get().n,0);
+  }finally{db.close();}
+ });
+});
+test('v1 migration refuses partially applied v2 backup_settings before snapshot',t=>{
+ const f=fixture(t);f.db.exec('PRAGMA user_version=1;');f.db.close();
+ const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
+ try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*v2 備份設定表/);}
+ finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
+ assert.equal(fs.existsSync(f.backupDir),false);
+});

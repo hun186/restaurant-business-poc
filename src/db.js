@@ -3,6 +3,23 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const {DatabaseSync}=require('node:sqlite');
 const {uuid,hashPassword}=require('./security');
 const {protect}=require('./backup-acl');
+// SQL keywords and identifiers are case-insensitive; quoted literals must retain case.
+function schemaError(message){const e=new Error('E_DB: '+message);e.code='E_DB';throw e;}
+function normalizedDdl(sql){
+ const source=String(sql||'').trim().replace(/;\s*$/,'').replace(/^(CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+)IF\s+NOT\s+EXISTS\s+/i,'$1');
+ let result='',quote=null;
+ for(let i=0;i<source.length;i++){
+  const ch=source[i];
+  if(quote){
+   result+=ch;
+   if(quote==='['){if(ch===']')quote=null;}
+   else if(ch===quote){if(source[i+1]===quote){result+=source[++i];}else quote=null;}
+  }else if(ch==="'"||ch==='"'||ch.charCodeAt(0)===96||ch==='['){quote=ch;result+=ch;}
+  else if(!/\s/.test(ch))result+=ch.toUpperCase();
+ }
+ if(quote)schemaError('Schema DDL 含未結束的字串或識別碼');
+ return result;
+}
 // Build a trusted v2 contract in a separate in-memory database, not the
 // business DB. Missing structures must never be silently recreated.
 // Check persisted schema against versioned DDL without modifying the business DB.
@@ -12,9 +29,9 @@ function verifyInstalledSchema(db,version){
  const v2At=schema.indexOf('CREATE TABLE backup_settings (');
  const v3At=schema.indexOf('CREATE TABLE ingredient_prices (');
  if(v2At<0||v3At<=v2At||![1,2,3].includes(version))
-  throw new Error('E_DB: 無法辨識版本化 Schema 驗證基準，拒絕升級');
+  schemaError('無法辨識版本化 Schema 驗證基準，拒絕升級');
  const expected=new DatabaseSync(':memory:');
- const compact=sql=>String(sql||'').replace(/\bIF\s+NOT\s+EXISTS\b/gi,'').replace(/\s+/g,'').replace(/;$/,'').toUpperCase();
+ const compact=normalizedDdl;
  try{
   expected.exec(schema);
   const expectedObjects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
@@ -28,21 +45,33 @@ function verifyInstalledSchema(db,version){
    v1Names=names(v1Reference);v2Names=names(v2Reference);
   }finally{v1Reference.close();v2Reference.close();}
   if(v1Names.size<17||v2Names.size<=v1Names.size||expectedObjects.length<=v2Names.size)
-   throw new Error('E_DB: 版本化 Schema 驗證基準不完整，拒絕升級');
+   schemaError('版本化 Schema 驗證基準不完整，拒絕升級');
   // Reject future-version objects even if the recorded user_version is old.
   for(const item of expectedObjects){
    const isExpected=version===3||(version===2?v2Names:v1Names).has(item.name);
    const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(item.type,item.name);
    if(!isExpected){
-    if(actual)throw new Error('E_DB: v'+version+' 資料庫意外包含新版'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
+    if(actual)schemaError('v'+version+' 資料庫意外包含新版'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
     continue;
    }
-   if(!actual)throw new Error('E_DB: v'+version+' 資料庫缺少必要'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
+   if(!actual)schemaError('v'+version+' 資料庫缺少必要'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
    // Verify full DDL: columns, PK/UNIQUE, CHECK, FK, v3 price/recipe indexes.
    if(compact(actual.sql)!==compact(item.sql))
-    throw new Error('E_DB: v'+version+' 資料庫結構不符合既有 Schema：'+item.name+'，拒絕升級');
+    schemaError('v'+version+' 資料庫結構不符合既有 Schema：'+item.name+'，拒絕升級');
   }
  }finally{expected.close();}
+}
+// Read-only preflight must reject broken v1/v2/v3 before journal_mode=WAL writes.
+function preflightExisting(filename){
+ const db=new DatabaseSync(filename,{readOnly:true,timeout:3000});
+ try{
+  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')schemaError('SQLite 完整性檢查失敗');
+  if(db.prepare('PRAGMA foreign_key_check').all().length)schemaError('原始資料庫外鍵檢查失敗');
+  const version=db.prepare('PRAGMA user_version').get().user_version;
+  verifyInstalledSchema(db,version);
+  if(version>=2&&!db.prepare('SELECT id FROM backup_settings WHERE id=1').get())schemaError('備份設定表缺少設定資料');
+  if(!db.prepare("SELECT 1 FROM users WHERE role='owner' LIMIT 1").get())schemaError('既有資料庫缺少業主帳號，拒絕自動重設管理密碼');
+ }finally{db.close();}
 }
 function openDb(folder=path.join(__dirname,'..','data')){
  fs.mkdirSync(folder,{recursive:true,mode:0o700});
@@ -51,6 +80,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
  const exists=fs.existsSync(filename);
  const marker=path.join(folder,'.installed');
  if(!exists && (fs.existsSync(marker) || fs.readdirSync(folder).some(x=>x!=='.DS_Store')))throw new Error('E_DB: 既有資料目錄內資料庫遺失，拒絕重建空白資料庫');
+ if(exists)preflightExisting(filename);
  const db=new DatabaseSync(filename,{timeout:3000});
  try{
  db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000;');
@@ -135,4 +165,4 @@ function openDb(folder=path.join(__dirname,'..','data')){
  }catch(e){try{db.close()}catch{}throw e;}
 }
 function inTransaction(db,fn){db.exec('BEGIN IMMEDIATE');try{const value=fn();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}}
-module.exports={openDb,inTransaction};
+module.exports={openDb,inTransaction,verifyInstalledSchema};

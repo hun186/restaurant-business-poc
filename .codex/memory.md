@@ -74,3 +74,8 @@
 ## 2026-10-24｜PR #2 跨版本測試修正
 - Hosted Ubuntu Node22/24 首輪指出 4 項測試失敗：PR #1 v1 fixture 在 PR #2 v3 新庫未移除 v3 價格表，致 preflight 提早拒絕；另備份結構驗證的錯誤訊息正確但錯誤 code 斷言過嚴。
 - 已修正測試 fixture 先移除 v3 價格表、保留需要驗證的 v2 部分升級表，並驗證缺表/缺索引的確切訊息；未放寬任何資料庫驗證或重新開放 stock.purchase。Hosted CI 須以後續 HEAD 為準。
+
+## 2026-10-24｜PR #1 新 3 P2 同步至 PR #2
+- 將 PR #1 最新唯讀 preflight（v1/v2/v3）、保留 SQL quoted literals 大小寫的完整 DDL 比對及備份 Schema 驗證整合至 v3；完整檢查 price/recipe 及登入欄位、具名索引。
+- 新增 v3 備份破損欄位/索引、v1 quoted CHECK 與 WAL 無副作用回歸。仍禁止 stock.purchase 直接入庫，只有核准單 order.receive 原子寫入價格/庫存。
+- PR #2 只同步相依分支 commit，未變更 PR base 或合併 PR；正式 Hosted CI/Review 需重新驗證最新 HEAD。

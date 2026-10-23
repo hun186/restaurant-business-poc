@@ -180,3 +180,39 @@ test('v1 migration refuses partially applied v2 backup_settings before snapshot'
  finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
  assert.equal(fs.existsSync(f.backupDir),false);
 });
+
+
+test('v3 backups reject missing login columns, indexes and pricing indexes',t=>{
+ for(const sql of ['ALTER TABLE login_attempts DROP COLUMN ip_hash;','DROP INDEX login_attempts_lookup;','DROP INDEX idx_ingredient_prices_effective;']){
+  const f=fixture(t);f.db.exec(sql);
+  assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+  assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_DB'});
+  assert.equal(list(f.backupDir).length,0);
+ }
+ const f=fixture(t),saved=perform({...f,type:'manual',at:day});
+ const snapshot=new (require('node:sqlite').DatabaseSync)(path.join(f.backupDir,saved.name));
+ try{snapshot.exec('ALTER TABLE login_attempts DROP COLUMN ip_hash;');}finally{snapshot.close();}
+ assert.throws(()=>verifySnapshot(path.join(f.backupDir,saved.name)),{code:'E_DB'});
+});
+test('v1 quoted CHECK literal mismatch is rejected without changing DB bytes or WAL mode',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings;PRAGMA user_version=1;');
+ const ddl=f.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get().sql;
+ f.db.exec('DROP TABLE tasks;');f.db.exec(ddl.replaceAll("'todo'","'TODO'"));
+ f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
+ const filename=path.join(f.folder,'restaurant.sqlite'),bytes=fs.readFileSync(filename);
+ assert.throws(()=>openDb(f.folder),/Schema/);
+ assert.deepEqual(fs.readFileSync(filename),bytes);
+ const probe=new (require('node:sqlite').DatabaseSync)(filename,{readOnly:true});
+ try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
+});
+test('missing v1 sessions table is rejected without altering DB bytes or journal mode',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings;DROP TABLE sessions;PRAGMA user_version=1;');
+ f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
+ const filename=path.join(f.folder,'restaurant.sqlite'),bytes=fs.readFileSync(filename);
+ assert.throws(()=>openDb(f.folder),/sessions/);
+ assert.deepEqual(fs.readFileSync(filename),bytes);
+ const probe=new (require('node:sqlite').DatabaseSync)(filename,{readOnly:true});
+ try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
+});

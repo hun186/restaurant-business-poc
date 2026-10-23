@@ -41,3 +41,9 @@
 - v1→v2 與 v3 開啟亦核對必要舊 Schema；異常時關閉 SQLite，拒絕自動修補、建立 migration snapshot 或更改 `user_version`。
 - 新增 `repairs`、`stocktakes`、`evaluations` 遺失、欄位遺失、索引遺失及 v3 殘缺的回歸測試；本機對應設計驗證 38/38 PASS。以本 PR 最新 HEAD 的 Hosted CI 與 Codex 複審為最終依據。
 - PR #2 仍為 Draft 且依賴 PR #1，未授權不可 Merge。
+
+## PR #2 最新 Codex P1/P2 修正（2026-10-23）
+- 驗證既有 v3 所有版本化 DDL，包括 ingredient_prices、menu_dishes、dish_ingredients 的欄位、FK/CHECK 和具名索引；破損時拒絕啟動，不自動補建。
+- v1/v2 preflight 拒絕已出現的較新版物件（含 backup_settings 和 v3 索引），避免不正確的 migration snapshot。
+- 新增價格欄位缺失、配方/價格索引缺失、v1 與 v2 混入新物件的回歸測試；本機 Node 22 合計 44/44 PASS。正式 Hosted CI / Codex Review 依 PR 最新 HEAD 核對。
+- PR #2 Draft stacked PR，不可未授權 Merge。

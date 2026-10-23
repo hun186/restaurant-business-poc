@@ -136,3 +136,45 @@ test('v3 opening refuses missing base business table without silently healing it
  f.db.exec('DROP TABLE repairs;');f.db.close();
  assert.throws(()=>openDb(f.folder),/E_DB: v3 資料庫缺少必要資料表 repairs/);
 });
+
+
+// Codex P1: existing v3 must check full price/recipe schema and indexes.
+test('v3 rejects corrupt ingredient_prices column and missing recipe price index',async t=>{
+ for(const [label,sql,re] of [
+  ['price column missing','ALTER TABLE ingredient_prices DROP COLUMN supplier;',/E_DB: v3 資料庫結構不符合既有 Schema：ingredient_prices/],
+  ['recipe index missing','DROP INDEX idx_dish_ingredients_dish;',/E_DB: v3 資料庫缺少必要索引 idx_dish_ingredients_dish/],
+  ['price index missing','DROP INDEX idx_ingredient_prices_effective;',/E_DB: v3 資料庫缺少必要索引 idx_ingredient_prices_effective/]
+ ])await t.test(label,sub=>{
+  const f=fixture(sub);f.db.exec(sql);
+  assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+  f.db.close();assert.throws(()=>openDb(f.folder),re);
+  const db=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+  try{assert.equal(db.prepare('PRAGMA user_version').get().user_version,3);}finally{db.close();}
+ });
+});
+// Codex P2: reject partial migrations *before* creating any upgrade snapshot.
+test('v1 rejects stray backup_settings prior to migration snapshot',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;PRAGMA user_version=1;');
+ f.db.close();
+ const backupDir=path.join(path.dirname(f.folder),path.basename(f.folder)+'-v1-blocked');
+ t.after(()=>fs.rmSync(backupDir,{recursive:true,force:true}));
+ const previous=process.env.BACKUP_DIR;process.env.BACKUP_DIR=backupDir;
+ try{assert.throws(()=>openDb(f.folder),/E_DB: v1 資料庫意外包含新版資料表 backup_settings，拒絕升級/);}
+ finally{if(previous===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=previous;}
+ assert.equal(fs.existsSync(backupDir),false,'rejected v1 must not publish migration snapshot');
+ const db=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+ try{assert.equal(db.prepare('PRAGMA user_version').get().user_version,1);}finally{db.close();}
+});
+test('v2 rejects stray v3-named price index prior to migration snapshot',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;PRAGMA user_version=2;');
+ f.db.exec('CREATE INDEX idx_dish_ingredients_dish ON ingredients(name);');
+ f.db.close();
+ const backupDir=path.join(path.dirname(f.folder),path.basename(f.folder)+'-v2-index-blocked');
+ t.after(()=>fs.rmSync(backupDir,{recursive:true,force:true}));
+ const previous=process.env.BACKUP_DIR;process.env.BACKUP_DIR=backupDir;
+ try{assert.throws(()=>openDb(f.folder),/E_DB: v2 資料庫意外包含新版索引 idx_dish_ingredients_dish，拒絕升級/);}
+ finally{if(previous===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=previous;}
+ assert.equal(fs.existsSync(backupDir),false);
+});

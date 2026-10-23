@@ -5,23 +5,40 @@ const {uuid,hashPassword}=require('./security');
 const {protect}=require('./backup-acl');
 // Build a trusted v2 contract in a separate in-memory database, not the
 // business DB. Missing structures must never be silently recreated.
+// Check persisted schema against versioned DDL without modifying the business DB.
+// A partial/failed migration must be rejected before publishing a backup.
 function verifyInstalledSchema(db,version){
  const schema=fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8');
- const marker='CREATE TABLE ingredient_prices (';
- const cut=schema.indexOf(marker);
- if(cut<0)throw new Error('E_DB: 無法辨識 v2 Schema 驗證基準，拒絕升級');
+ const v2At=schema.indexOf('CREATE TABLE backup_settings (');
+ const v3At=schema.indexOf('CREATE TABLE ingredient_prices (');
+ if(v2At<0||v3At<=v2At||![1,2,3].includes(version))
+  throw new Error('E_DB: 無法辨識版本化 Schema 驗證基準，拒絕升級');
  const expected=new DatabaseSync(':memory:');
  const compact=sql=>String(sql||'').replace(/\bIF\s+NOT\s+EXISTS\b/gi,'').replace(/\s+/g,'').replace(/;$/,'').toUpperCase();
  try{
-  expected.exec(schema.slice(0,cut));
-  const objects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
-  if(objects.filter(x=>x.type==='table').length<18)throw new Error('E_DB: v2 Schema 驗證基準不完整');
-  for(const item of objects){
-   if(version===1&&item.name==='backup_settings')continue;
+  expected.exec(schema);
+  const expectedObjects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
+  const v1Reference=new DatabaseSync(':memory:');
+  const v2Reference=new DatabaseSync(':memory:');
+  let v1Names,v2Names;
+  try{
+   v1Reference.exec(schema.slice(0,v2At));
+   v2Reference.exec(schema.slice(0,v3At));
+   const names=ref=>new Set(ref.prepare("SELECT name FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all().map(x=>x.name));
+   v1Names=names(v1Reference);v2Names=names(v2Reference);
+  }finally{v1Reference.close();v2Reference.close();}
+  if(v1Names.size<17||v2Names.size<=v1Names.size||expectedObjects.length<=v2Names.size)
+   throw new Error('E_DB: 版本化 Schema 驗證基準不完整，拒絕升級');
+  // Reject future-version objects even if the recorded user_version is old.
+  for(const item of expectedObjects){
+   const isExpected=version===3||(version===2?v2Names:v1Names).has(item.name);
    const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(item.type,item.name);
+   if(!isExpected){
+    if(actual)throw new Error('E_DB: v'+version+' 資料庫意外包含新版'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
+    continue;
+   }
    if(!actual)throw new Error('E_DB: v'+version+' 資料庫缺少必要'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
-   // Compares full CREATE TABLE/INDEX definitions: required columns, PK,
-   // UNIQUE, CHECK, foreign keys and named indexes, not just table names.
+   // Verify full DDL: columns, PK/UNIQUE, CHECK, FK, v3 price/recipe indexes.
    if(compact(actual.sql)!==compact(item.sql))
     throw new Error('E_DB: v'+version+' 資料庫結構不符合既有 Schema：'+item.name+'，拒絕升級');
   }

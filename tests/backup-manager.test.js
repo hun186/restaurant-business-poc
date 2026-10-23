@@ -196,10 +196,9 @@ test('v2 backup rejects missing login column and named index, including restored
 });
 test('read-only preflight rejects case-changed CHECK literals before any WAL write',t=>{
  const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');
- const version=f.db.prepare('PRAGMA schema_version').get().schema_version;
- f.db.exec('PRAGMA writable_schema=ON;');
- f.db.prepare("UPDATE sqlite_schema SET sql=replace(sql, ?, ?) WHERE name='tasks'").run("'todo'","'TODO'");
- f.db.exec('PRAGMA writable_schema=OFF; PRAGMA schema_version='+(version+1));
+ const ddl=f.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get().sql;
+ f.db.exec('DROP TABLE tasks;');
+ f.db.exec(ddl.replaceAll("'todo'","'TODO'"));
  f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
  const bytes=fs.readFileSync(path.join(f.folder,'restaurant.sqlite'));
  assert.throws(()=>openDb(f.folder),/Schema 結構不相容：tasks/);

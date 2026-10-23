@@ -70,3 +70,7 @@
 - 將 PR #1 最新 v1 升級前完整性驗證、canonical 備份路徑、庫存核准驗收、期初庫存、Session 與 UI 修正帶入 v3 定價分支。
 - 明確拒絕 stock.purchase 直接入庫；價格僅在核准單 order.receive 驗收時與 stock_moves 原子性寫入，保留歷史價格與毛利估算。新增對應價格回歸。
 - 原 PR #2 Review 無 Findings，但舊分支與 PR #1 基底分歧且存在安全回退風險；本整合需以最新 HEAD 的 Hosted Ubuntu/Windows CI 和正式 Codex Review 再確認。PR #1/#2 均不合併至目標分支。
+
+## 2026-10-24｜PR #2 跨版本測試修正
+- Hosted Ubuntu Node22/24 首輪指出 4 項測試失敗：PR #1 v1 fixture 在 PR #2 v3 新庫未移除 v3 價格表，致 preflight 提早拒絕；另備份結構驗證的錯誤訊息正確但錯誤 code 斷言過嚴。
+- 已修正測試 fixture 先移除 v3 價格表、保留需要驗證的 v2 部分升級表，並驗證缺表/缺索引的確切訊息；未放寬任何資料庫驗證或重新開放 stock.purchase。Hosted CI 須以後續 HEAD 為準。

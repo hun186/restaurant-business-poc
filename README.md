@@ -60,7 +60,7 @@
 
 ## 公開 Vercel 展示版（僅虛構資料）
 
-`vercel-demo/` 是獨立靜態站，採用瀏覽器內部模擬資料（sessionStorage），不啟用 Node.js SQLite API、真實登入、角色授權或伺服器稽核。Vercel 專案 Root Directory 設 `vercel-demo`，PR 分支提供 Preview；正式資料僅能於安全驗證後另外部署固定後端。**請勿在公開 Demo 輸入真實人事與營運資訊。**
+`vercel-demo/` 是獨立靜態站，包含菜單售價／配方／歷史價格與試算的互動展示，採用瀏覽器內部模擬資料（sessionStorage），不啟用 Node.js SQLite API、真實登入、角色授權或伺服器稽核。Vercel 專案 Root Directory 設 `vercel-demo`，PR 分支提供 Preview；正式資料僅能於安全驗證後另外部署固定後端。**請勿在公開 Demo 輸入真實人事與營運資訊。**
 
 ## 自動備份與歷史管理（PR #1 分支新增，待 Hosted CI 與正式複審）
 

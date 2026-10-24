@@ -90,3 +90,9 @@
 - PR #2 由於 PR #1 後續 auth race 與 POSIX 備份權限修正，已在本分支同步最新 server、backup ACL、HTTP regression；v3 備份測試沿用 PR #1 兩個 VACUUM INTO 前 0700 權限測試，並調整 v1 fixture 移除 v3 價格／配方表。
 - 保留 v3 價格、配方、已核准單 order.receive 原子入庫/進價及 stock.purchase 禁止直接入庫；不變更 PR base，不合併至 main。
 - 需以本次同步的新 HEAD CI 及正式 Codex Review 重新驗收，未經使用者授權不可合併。
+
+## 2026-10-24｜Vercel Demo 菜單與成本功能（新 PR）
+- 新增獨立 browser-only `pricing-demo.js`，以虛構歷史價及菜品配方計算跨門市材料成本、毛利、缺價和庫存估值，沿用現有 Mock API/sessionStorage，不連真實 SQLite。
+- Demo 加入「菜單與成本」與「食材歷史價格／庫存估值」選單，允許新增價格、菜品、改售價、調整配方；核准叫貨後可驗收入庫並選填進價。
+- 禁止過時 Demo `stock.purchase` 直接入庫操作；可對未有庫存的食材建立單次期初庫存，保留虛構資料警語和重設入口。
+- 新 PR 須通過 Hosted CI、正式 Codex Review 及使用者 Merge 授權；Vercel Connector 此前對該 Team 回 403，正式部署仍須核對，不能提前聲稱已上線。

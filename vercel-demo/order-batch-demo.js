@@ -19,7 +19,7 @@ function detail(db,number){
  const r=rows[0];
  return {number,rows,location_id:r.location_id,location_name:r.location_name,supplier:r.supplier,created_at:r.created_at,states:[...new Set(rows.map(x=>x.status))],line_manual_confirmation:db.demo_order_sent?.find(x=>x.number===number)||null};
 }
-function command(db,action,x,{makeId,changeStock,log}){
+function command(db,action,x,{makeId,changeStock,log,makePrice}){
  if(action==='order.batch-create'){
   if(!db.locations.some(l=>l.id===x.location_id&&l.active!==0))throw Error('找不到門市');
   if(!Array.isArray(x.items)||x.items.length<1||x.items.length>60)throw Error('一次限 1～60 筆食材');
@@ -59,7 +59,24 @@ function command(db,action,x,{makeId,changeStock,log}){
  if(action==='order.batch-approve')lines.forEach(r=>r.status='approved');
  else if(action==='order.batch-cancel')lines.forEach(r=>r.status='cancelled');
  else if(action==='order.batch-receive'){
+  // Validate EVERY optional per-line historical price before touching ANY stock.
+  // This preserves all-or-nothing receipt behavior like the real SQLite flow.
+  const prices=x.prices;
+  if(prices!==undefined&&(!prices||typeof prices!=='object'||Array.isArray(prices)))throw Error('驗收單價格式錯誤');
+  if(prices&&Object.keys(prices).some(id=>!lines.some(r=>r.id===id)))throw Error('其他單據的進價明細');
+  const staged=[];
+  for(const r of lines){
+   const input=prices?.[r.id];
+   if(input!==undefined){
+    if(!input||typeof input!=='object'||Array.isArray(input))throw Error('品項單價格式不正確');
+    const price=makePrice(db,{...input,ingredient_id:r.ingredient_id,location_id:r.location_id,supplier:r.supplier},makeId(),'purchase');
+    staged.push(price);
+   }
+   const ingredient=db.ingredients.find(i=>i.id===r.ingredient_id&&i.active!==0);
+   if(!ingredient||!Number.isFinite(Number(r.qty))||!(Number(r.qty)>0))throw Error('無效品項，不能入庫');
+  }
   for(const r of lines){changeStock(r.location_id,r.ingredient_id,r.qty,'purchase','虛構叫貨單 '+x.number);r.status='received';}
+  db.ingredient_prices.push(...staged);
  }else throw Error('不支援的操作');
  log(action,'purchase_orders',x.number);return {number:x.number,item_count:lines.length};
 }

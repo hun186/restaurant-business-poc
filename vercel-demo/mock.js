@@ -95,7 +95,13 @@
   return rows;
  };
  function command(action,d){
-  if(action.startsWith('order.batch-')){const out=orders.command(db,action,d,{makeId,changeStock,log});save();return out;}
+  if(action.startsWith('order.batch-')){
+   // Simulate an atomic transaction: a failed second line cannot leak the
+   // first line's stock movement, price or state into persisted mock data.
+   const snapshot=JSON.stringify(db);
+   try{const out=orders.command(db,action,d,{makeId,changeStock,log,makePrice:pricing.makePrice});save();return out;}
+   catch(err){db=JSON.parse(snapshot);throw err;}
+  }
   if(action.startsWith('user.'))throw Error('展示版不提供真實帳號、角色及密碼操作');
   if(['price.record','dish.create','dish.price','recipe.set'].includes(action)){
    const out=pricing.handle(db,action,d,makeId());

@@ -11,11 +11,15 @@ window.OrderBatchUI=(()=>{
   return lines.join('\n');
  };
  const modal=()=>document.querySelector('#modal-root');
+ const active=(epoch,userId)=>!!S.me&&S.me.id===userId&&S.authEpoch===epoch&&!document.body.classList.contains('auth-locked');
  function show(html){const node=modal();node.hidden=false;node.innerHTML=html;node.querySelector('[data-close-batch]')?.addEventListener('click',()=>{node.hidden=true;node.innerHTML='';});return node;}
  async function start(){
+  const epoch=S.authEpoch,userId=S.me?.id;
+  if(!active(epoch,userId))return;
   const [locRes,ingRes,supplierRes]=await Promise.all([
    api('/api/data?entity=locations'),api('/api/data?entity=ingredients'),api('/api/data?entity=purchase_supplier_suggestions')
   ]);
+  if(!active(epoch,userId))return;
   const locations=locRes.rows.filter(r=>r.active!==0),ingredients=ingRes.rows.filter(r=>r.active!==0);
   const catalog=supplierRes.rows;
   const node=show('<div class="modal" role="dialog" aria-modal="true" aria-label="建立多品項叫貨">'+
@@ -49,7 +53,9 @@ window.OrderBatchUI=(()=>{
   node.querySelector('#batch-suggest').onclick=async()=>{
    try{
     const location=node.querySelector('#batch-location').value;
-    const stock=(await api('/api/data?entity=stock')).rows.filter(r=>r.location_id===location);
+    const data=await api('/api/data?entity=stock');
+    if(!active(epoch,userId)||node.hidden||node.querySelector('#batch-location')?.value!==location){toast('門市或登入狀態已變更，已丟棄舊的補貨建議');return;}
+    const stock=data.rows.filter(r=>r.location_id===location);
     const shortages=stock.filter(r=>Number(r.min_stock)>Number(r.on_hand));
     if(!shortages.length){toast('目前沒有低於安全庫存的食材；仍可手動輸入叫貨。');return;}
     let added=0;
@@ -76,8 +82,10 @@ window.OrderBatchUI=(()=>{
      supplier:r.querySelector('.batch-supplier').value.trim()}));
     if(new Set(items.map(x=>x.ingredient_id)).size!==items.length)throw Error('同一食材不可重複；請合併數量');
     if(items.some(x=>!(x.qty>0)||!Number.isFinite(x.qty)||!x.supplier))throw Error('數量和供應商必須完整');
+    const locationId=node.querySelector('#batch-location').value;
     const answer=await api('/api/command','POST',{action:'order.batch-create',data:{
-     location_id:node.querySelector('#batch-location').value,items}});
+     location_id:locationId,items}});
+    if(!active(epoch,userId)||node.hidden)return;
     node.hidden=true;node.innerHTML='';
     toast('已按供應商產生 '+answer.result.groups.length+' 張叫貨單，需主管核准後才能發送');
     await refresh();
@@ -85,7 +93,10 @@ window.OrderBatchUI=(()=>{
   };
  }
  async function preview(number){
+  const epoch=S.authEpoch,userId=S.me?.id;
+  if(!active(epoch,userId))return;
   const data=await api('/api/order-batch?number='+encodeURIComponent(number));
+  if(!active(epoch,userId))return;
   const state=data.states.length===1?data.states[0]:'mixed';
   const status={requested:'待主管核准',approved:'已核准，待人工發送',received:'已驗收入庫',cancelled:'已取消',mixed:'明細狀態不一致'}[state]||state;
   const message=lineText(data);
@@ -120,7 +131,7 @@ window.OrderBatchUI=(()=>{
    if(!window.confirm(action==='order.batch-receive'?'確認所有品項均已實際驗收？這會逐筆入庫，不能重複。':
     action==='order.batch-approve'?'主管確認此廠商叫貨單的所有食材及數量？':
     action==='order.batch-mark-sent'?'你是否已真的在 LINE 選擇正確廠商並按送出？此操作僅記錄人工確認，不代表 LINE 已送達。':'確定取消整張叫貨單？若已透過 LINE 送出，還必須人工聯絡供應商取消。'))return;
-   try{await api('/api/command','POST',{action,data:{number}});node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();}
+   try{await api('/api/command','POST',{action,data:{number}});if(!active(epoch,userId))return;node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();}
    catch(err){toast('處理失敗：'+err.message);}
   }));
  }

@@ -130,3 +130,5 @@
 - 不更改嚴格版控的 v3 SQLite Schema：沿用 purchase_orders 每筆一食材，新的多品項群組以 `POB-<randomUUIDhex>-001` 等內部行號與共同 `POB-<randomUUIDhex>` 廠商主單號表示。原始舊單完全保留；同一供應商／門市的多行在交易內一併核准、取消、驗收入庫，逐行 reference_id 防重複，維持後端角色與門市 scope。
 - 供應商建議源自門市最近有效歷史價格供應商；可明確覆寫，缺廠商須人工輸入，正式供應商主檔／自動推估安全庫存缺口／外部傳送回執後續可再擴充。
 - 新 `src/order-batches.js`、`public/order-batch-ui.js`、`/api/order-batch` 及虛構 Vercel Mock。此為 PoC 功能，需實際 Hosted CI、Codex Review 與 Windows／LINE 操作驗收；未授權不可合併。
+
+- PR #10 Codex 最新 HEAD 8d5ac3 3 個 P2：廠商預覽回應晚於登出可能重開敏感 modal，已於 start/preview/submit/action 檢查 authEpoch+userId；補貨建議等待 API 時若門市由 A 改 B，改成丟棄舊結果；Vercel Mock 新版整張驗收支援各行有效價格先完整驗證才變更庫存，失敗則還原虛構資料 snapshot，不會部分入庫。正式與 Demo UI 同步；補回歸後依最新 SHA 重新送 Review。

@@ -213,3 +213,98 @@ test('demo manual sent confirmation is explicit and retained in mock session dat
  assert.match(script,/我已在 LINE 手動送出/);
  assert.match(script,/並非 LINE 平台/);
 });
+
+test('late vendor detail and late form bootstrap cannot reopen a signed-out user modal (real + demo)',async()=>{
+ for(const dir of ['public','vercel-demo']){
+  const source=fs.readFileSync(path.join(__dirname,'..',dir,'order-batch-ui.js'),'utf8');
+  for(const fn of ['preview','start']){
+   let deliver;
+   const modal={hidden:true,innerHTML:'PRIVATE_DO_NOT_RENDER',querySelector:()=>null};
+   const S={me:{id:'owner1',role:'owner'},authEpoch:4};
+   const document={body:{classList:{contains:()=>false}},querySelector:()=>modal};
+   const window={};
+   const api=url=>(fn==='preview'||url.includes('entity=purchase_supplier_suggestions'))?new Promise(resolve=>{deliver=resolve;}):Promise.resolve({rows:[]});
+   const ctx=vm.createContext({window,S,document,api,toast:()=>{},console});
+   vm.runInContext(source,ctx);
+   const task=fn==='preview'?window.OrderBatchUI.preview('POB-'+'A'.repeat(32)):window.OrderBatchUI.start();
+   S.me=null;S.authEpoch++;
+   if(fn==='preview')deliver({states:['approved'],number:'POB-'+'A'.repeat(32),rows:[],supplier:'PREVIOUS_USER_VENDOR'});
+   else deliver({rows:[]});
+   await task;
+   assert.equal(modal.hidden,true,dir+': '+fn+' must not open after logout');
+   assert.equal(modal.innerHTML,'PRIVATE_DO_NOT_RENDER',dir+': '+fn+' must not re-render');
+  }
+ }
+});
+test('store selection changed while stock request in flight discards old replenishment suggestions',async()=>{
+ for(const dir of ['public','vercel-demo']){
+  const script=fs.readFileSync(path.join(__dirname,'..',dir,'order-batch-ui.js'),'utf8');
+  let releaseStock;
+  const child={value:'',title:'',addEventListener(){},onclick:null,querySelector(){return null;}};
+  const rows=[];
+  const location={value:'l1',onchange:null};
+  const form={onsubmit:null};
+  const elements={
+   '#batch-location':location,'#batch-lines':{appendChild:r=>rows.push(r),addEventListener(){}},
+   '#batch-add':{onclick:null},'#batch-suggest':{onclick:null},'#batch-form':form
+  };
+  function makeRow(){
+   const selected={value:''},qty={value:''},supplier={value:'',title:'',addEventListener(){}},remove={onclick:null};
+   return {className:'',innerHTML:'',remove(){},
+    querySelector:key=>({'.batch-ingredient':selected,'.batch-qty':qty,'.batch-supplier':supplier,'.batch-remove':remove}[key]),
+    elements:{selected,qty,supplier}};
+  }
+  const node={hidden:true,innerHTML:'',querySelector:sel=>{
+    if(sel==='[data-close-batch]')return {addEventListener(){}};
+    return elements[sel]||null;},querySelectorAll:sel=>sel==='.batch-line'?rows:[]};
+  const document={querySelector:()=>node,createElement:()=>makeRow(),body:{classList:{contains:()=>false}}};
+  const S={me:{id:'owner1'},authEpoch:0};
+  const api=url=>url.includes('entity=stock')?new Promise(resolve=>{releaseStock=resolve;}):Promise.resolve({rows:
+   url.includes('entity=locations')?[{id:'l1',name:'甲店',active:1},{id:'l2',name:'乙店',active:1}]:
+   url.includes('entity=ingredients')?[{id:'i1',name:'豬肉',unit:'公斤',active:1}]:[]});
+  const notes=[],window={},ctx=vm.createContext({document,window,api,S,console,toast:x=>notes.push(x)});
+  vm.runInContext(script,ctx);
+  await window.OrderBatchUI.start();
+  assert.equal(rows.length,1);
+  const pending=elements['#batch-suggest'].onclick();
+  location.value='l2';releaseStock({rows:[{location_id:'l1',ingredient_id:'i1',on_hand:0,min_stock:12}]});
+  await pending;
+  assert.equal(rows[0].elements.selected.value,'',dir+' should not fill A ingredient for B location');
+  assert.equal(rows[0].elements.qty.value,'');
+  assert.ok(notes.some(x=>x.includes('門市或登入狀態已變更')));
+ }
+});
+test('demo batch receipt validates all per-line prices before ANY stock mutation',async()=>{
+ const dir=path.join(__dirname,'..','vercel-demo'),storage=new Map();
+ const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ const window={fetch:async()=>{throw Error('unexpected network')},confirm:()=>true};
+ const ctx=vm.createContext({window,sessionStorage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
+ for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])
+  vm.runInContext(fs.readFileSync(path.join(dir,name),'utf8'),ctx,{filename:name});
+ async function send(action,data){
+  const r=await window.fetch('/api/command',{method:'POST',body:JSON.stringify({action,data})});
+  return {status:r.status,body:await r.json()};
+ }
+ const created=await send('order.batch-create',{location_id:'l1',items:[
+  {ingredient_id:'i1',qty:3,supplier:'示範蔬果商'},
+  {ingredient_id:'i3',qty:2,supplier:'示範蔬果商'}
+ ]});
+ const number=created.body.result.groups[0].number;
+ const data=await (await window.fetch('/api/order-batch?number='+number)).json();
+ assert.equal(await (await send('order.batch-approve',{number})).status,200);
+ const old=JSON.parse(storage.get('restaurant-public-demo-v1'));
+ const prices={};
+ prices[data.rows[0].id]={unit:'公斤',unit_price_twd:'30',price_date:'2020-01-01'};
+ prices[data.rows[1].id]={unit:'公斤',unit_price_twd:'not-a-price',price_date:'2020-01-01'};
+ assert.equal((await send('order.batch-receive',{number,prices})).status,400);
+ let current=JSON.parse(storage.get('restaurant-public-demo-v1'));
+ assert.deepEqual(current.stock,old.stock,'invalid second price cannot leave first stock entry');
+ assert.deepEqual(current.purchase_orders,old.purchase_orders);
+ assert.deepEqual(current.ingredient_prices,old.ingredient_prices);
+ prices[data.rows[1].id]={unit:'公斤',unit_price_twd:'40',price_date:'2020-01-01'};
+ assert.equal((await send('order.batch-receive',{number,prices})).status,200);
+ current=JSON.parse(storage.get('restaurant-public-demo-v1'));
+ assert.equal(current.ingredient_prices.length,old.ingredient_prices.length+2);
+ assert.equal(current.ingredient_prices.filter(x=>x.source==='purchase').length,2);
+ assert.equal((await send('order.batch-receive',{number})).status,400);
+});

@@ -18,7 +18,7 @@ function inspectOwner(filename){
   const version=db.prepare('PRAGMA user_version').get().user_version;
   if(version!==3)error('資料庫不是目前 v3 版本；請先使用正常升級流程，勿離線修改');
   verifyInstalledSchema(db,3);
-  const owner=db.prepare("SELECT id,username FROM users WHERE username='owner' COLLATE NOCASE AND role='owner' AND active=1").all();
+  const owner=db.prepare("SELECT id,username,password_salt,password_hash FROM users WHERE username='owner' COLLATE NOCASE AND role='owner' AND active=1").all();
   if(owner.length!==1)error('無法唯一識別有效的 owner 管理帳號，拒絕重設');
   return owner[0];
  }finally{db.close();}
@@ -41,10 +41,16 @@ function recoverOwner({folder=process.env.DATA_DIR||path.join(__dirname,'..','da
  try{
   db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=3000; BEGIN IMMEDIATE');
   try{
-   const latest=db.prepare('SELECT id,role,active FROM users WHERE id=? AND username=? COLLATE NOCASE').get(owner.id,'owner');
+   const latest=db.prepare('SELECT id,role,active,password_salt,password_hash FROM users WHERE id=? AND username=? COLLATE NOCASE').get(owner.id,'owner');
    if(!latest||latest.role!=='owner'||latest.active!==1)error('備份後 owner 帳號狀態變更，拒絕重設');
-   const changed=db.prepare('UPDATE users SET password_salt=?,password_hash=? WHERE id=? AND role=? AND active=1')
-    .run(hashed.salt,hashed.hash,owner.id,'owner');
+   // Another offline recovery may have finished between this process's
+   // read-only preflight, verified backup and BEGIN IMMEDIATE. Never overwrite
+   // credentials whose preflight hash/salt changed while the backup lock was
+   // released. BEGIN IMMEDIATE serializes the final compare-and-swap.
+   if(latest.password_salt!==owner.password_salt||latest.password_hash!==owner.password_hash)
+    error('備份後 owner 憑證已被另一程序變更，拒絕覆寫；請確認最新重設結果');
+   const changed=db.prepare("UPDATE users SET password_salt=?,password_hash=? WHERE id=? AND role='owner' AND active=1 AND password_salt=? AND password_hash=?")
+    .run(hashed.salt,hashed.hash,owner.id,owner.password_salt,owner.password_hash);
    if(changed.changes!==1)error('未更新到唯一的有效 owner 帳號');
    db.prepare('DELETE FROM sessions WHERE user_id=?').run(owner.id);
    db.prepare('DELETE FROM login_attempts WHERE username=? COLLATE NOCASE').run('owner');

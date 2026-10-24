@@ -85,3 +85,43 @@ test('disabled or missing owner is refused; no new account is silently created',
  try{assert.equal(db.prepare("SELECT count(*) n FROM users WHERE username='owner'").get().n,1);}
  finally{db.close();}
 });
+
+test('overlapping recovery cannot overwrite a freshly rotated owner password after backup lock releases',t=>{
+ const f=fixture(t);
+ f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+  .run('session-present','csrf',f.owner.id,'2099-01-01T00:00:00Z');
+ f.db.close();
+ const {DatabaseSync}=require('node:sqlite');
+ const originalExec=DatabaseSync.prototype.exec;
+ let nested=null,triggered=false;
+ // Deterministically pause the older recovery immediately after its verified
+ // snapshot and before BEGIN IMMEDIATE. Let a second recovery complete first.
+ // This mirrors the P2 interleaving without relying on timing or sleep().
+ DatabaseSync.prototype.exec=function(sql){
+  if(!triggered&&String(sql)==='PRAGMA foreign_keys=ON; PRAGMA busy_timeout=3000; BEGIN IMMEDIATE'){
+   triggered=true;
+   nested=recoverOwner({folder:f.folder,backupDir:f.backupDir});
+  }
+  return originalExec.call(this,sql);
+ };
+ try{
+  assert.throws(()=>recoverOwner({folder:f.folder,backupDir:f.backupDir}),{
+   code:'E_RECOVERY',message:/憑證已被另一程序變更/
+  });
+ }finally{DatabaseSync.prototype.exec=originalExec;}
+ assert.equal(triggered,true);
+ assert.ok(nested&&nested.password);
+ const {db}=openDb(f.folder);
+ try{
+  const owner=db.prepare("SELECT * FROM users WHERE username='owner'").get();
+  assert.ok(checkPassword(nested.password,owner.password_salt,owner.password_hash));
+  assert.equal(checkPassword(f.bootstrapPassword,owner.password_salt,owner.password_hash),false);
+  assert.equal(db.prepare('SELECT count(*) n FROM sessions WHERE user_id=?').get(owner.id).n,0);
+  assert.equal(db.prepare("SELECT count(*) n FROM audit_logs WHERE action='auth.owner_password_recovered'").get().n,1);
+  assert.equal(db.prepare('PRAGMA quick_check').get().quick_check,'ok');
+ }finally{db.close();}
+ // Each invocation produced a valid backup; the rejected stale invocation
+ // performed no credential update, leaving only the winner's password valid.
+ assert.equal(list(f.backupDir).length,2);
+ for(const item of list(f.backupDir))assert.equal(verifySnapshot(path.join(f.backupDir,item.name)).length,64);
+});

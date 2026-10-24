@@ -172,6 +172,7 @@ function command(db,u,action,x={}){
  }
  case 'order.approve':case 'order.receive':case 'order.cancel':{
   const o=db.prepare('SELECT * FROM purchase_orders WHERE id=?').get(uid(x.id));if(!o)bad('找不到叫貨單',404);
+   if(batches.groupOf(o.number)!==o.number)bad('多品項叫貨單須使用整張核准、取消或驗收入庫',409);
   scope(db,u,o.location_id,'manager');
   if(action==='order.approve'&&o.status==='requested'){
    db.prepare("UPDATE purchase_orders SET status='approved',approved_by=? WHERE id=?").run(u.id,o.id);

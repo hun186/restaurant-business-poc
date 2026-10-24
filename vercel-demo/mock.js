@@ -138,6 +138,7 @@
     'stocktake.confirm':'stocktakes','repair.status':'repairs','leave.review':'leave_requests','training.score':'training_records'};
    const group=groups[action];if(!group)throw Error('這個展示操作尚未提供');
    const row=lookup(group,d.id);if(!row)throw Error('找不到示範資料');
+    if(group==='purchase_orders'&&orders.groupOf(row.number)!==row.number)throw Error('多品項叫貨須整張處理');
    if(action==='order.approve'){if(row.status!=='requested')throw Error('狀態已變更');row.status='approved';}
    if(action==='order.receive'){
     if(row.status!=='approved')throw Error('請先核准叫貨');

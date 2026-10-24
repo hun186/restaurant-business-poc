@@ -140,3 +140,26 @@ test('Vercel demo can split mock batch, approve and receive without any backend 
  assert.ok(html.indexOf('order-batch-demo.js')<html.indexOf('mock.js'));
  assert.ok(html.indexOf('order-batch-ui.js')>html.indexOf('app.js'));
 });
+
+test('legacy per-line actions cannot partially mutate new multi-item groups',t=>{
+ const f=fixture(t),batch=create(f),number=batch.groups.find(g=>g.item_count===2).number;
+ const line=details(f.db,f.owner,number,scope).rows[0];
+ for(const action of ['order.approve','order.receive','order.cancel'])
+  assert.throws(()=>cmd(f,action,{id:line.id}),{status:409},action);
+ assert.ok(details(f.db,f.owner,number,scope).rows.every(x=>x.status==='requested'));
+ cmd(f,'order.batch-approve',{number});
+ for(const action of ['order.approve','order.receive','order.cancel'])
+  assert.throws(()=>cmd(f,action,{id:line.id}),{status:409},action);
+ assert.ok(details(f.db,f.owner,number,scope).rows.every(x=>x.status==='approved'));
+ assert.equal(balance(f.db,f.ing1,f.location),0);
+});
+test('replenishment button uses inventory shortfall, not invented demand forecasting',()=>{
+ for(const dir of ['public','vercel-demo']){
+  const text=fs.readFileSync(path.join(__dirname,'..',dir,'order-batch-ui.js'),'utf8');
+  assert.match(text,/id="batch-suggest"/);
+  assert.match(text,/entity=stock/);
+  assert.match(text,/Number\(item\.min_stock\)-Number\(item\.on_hand\)/);
+  assert.match(text,/不含預估營業用量/);
+  assert.match(text,/if\(!target\)break/);
+ }
+});

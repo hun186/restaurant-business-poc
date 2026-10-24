@@ -21,7 +21,8 @@ window.OrderBatchUI=(()=>{
   const node=show('<div class="modal" role="dialog" aria-modal="true" aria-label="建立多品項叫貨">'+
    '<h2>一次選品，自動依廠商分單</h2><p>供應商建議來自各門市近期有效進價紀錄，可能不是目前的合約廠商；請在送單前確認。</p>'+
    '<form id="batch-form"><label>門市<select id="batch-location" required>'+locations.map(l=>'<option value="'+safe(l.id)+'">'+safe(l.name)+'</option>').join('')+'</select></label>'+
-   '<div id="batch-lines"></div><button type="button" class="btn ghost" id="batch-add">＋ 加入食材</button>'+
+   '<div id="batch-lines"></div><button type="button" class="btn ghost" id="batch-add">＋ 加入食材</button> '+
+   '<button type="button" class="btn ghost" id="batch-suggest">依安全庫存填入補貨建議</button>'+
    '<div class="form-actions"><button type="button" class="btn" data-close-batch>取消</button><button type="submit" class="btn primary">依供應商產生叫貨單</button></div></form></div>');
   const options=ingredients.map(i=>'<option value="'+safe(i.id)+'">'+safe(i.name)+'（'+safe(i.unit)+'）</option>').join('');
   let supplierEdited=new WeakSet();
@@ -45,6 +46,24 @@ window.OrderBatchUI=(()=>{
    input.title=recommended?'歷史進價建議：'+recommended:'無最近有效供應商，請自行選擇';
   };
   node.querySelector('#batch-add').onclick=()=>add();
+  node.querySelector('#batch-suggest').onclick=async()=>{
+   try{
+    const location=node.querySelector('#batch-location').value;
+    const stock=(await api('/api/data?entity=stock')).rows.filter(r=>r.location_id===location);
+    const shortages=stock.filter(r=>Number(r.min_stock)>Number(r.on_hand));
+    if(!shortages.length){toast('目前沒有低於安全庫存的食材；仍可手動輸入叫貨。');return;}
+    let added=0;
+    for(const item of shortages){
+     if([...node.querySelectorAll('.batch-ingredient')].some(s=>s.value===item.ingredient_id))continue;
+     const target=[...node.querySelectorAll('.batch-line')].find(r=>!r.querySelector('.batch-ingredient').value)||add();
+     if(!target)break;
+     target.querySelector('.batch-ingredient').value=item.ingredient_id;
+     target.querySelector('.batch-qty').value=Math.round((Number(item.min_stock)-Number(item.on_hand))*1000000)/1000000;
+     fillSupplier(target);added++;
+    }
+    toast('已填入 '+added+' 項安全庫存缺口；不含預估營業用量，送單前請人工確認。');
+   }catch(e){toast('補貨建議失敗：'+e.message);}
+  };
   node.querySelector('#batch-location').onchange=()=>node.querySelectorAll('.batch-line').forEach(fillSupplier);
   node.querySelector('#batch-lines').addEventListener('change',e=>{const row=e.target.closest('.batch-line');if(row&&e.target.matches('.batch-ingredient'))fillSupplier(row);});
   add();

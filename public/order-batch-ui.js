@@ -89,17 +89,20 @@ window.OrderBatchUI=(()=>{
   const state=data.states.length===1?data.states[0]:'mixed';
   const status={requested:'待主管核准',approved:'已核准，待人工發送',received:'已驗收入庫',cancelled:'已取消',mixed:'明細狀態不一致'}[state]||state;
   const message=lineText(data);
+  const sent=data.line_manual_confirmation;
   const approved=state==='approved',manager=can('manager');
   const node=show('<div class="modal order-batch-modal" role="dialog" aria-modal="true" aria-label="廠商叫貨單">'+
    '<h2>廠商叫貨單預覽</h2><p><strong>'+safe(data.number)+'</strong> · '+safe(status)+' · '+safe(data.supplier)+'</p>'+
    '<table><thead><tr><th>食材</th><th>數量</th><th>單位</th><th>狀態</th></tr></thead><tbody>'+
    data.rows.map(r=>'<tr><td>'+safe(r.ingredient_name)+'</td><td>'+safe(r.qty)+'</td><td>'+safe(r.unit)+'</td><td>'+safe(r.status)+'</td></tr>').join('')+'</tbody></table>'+
    '<p>LINE 文字草稿（請自行核對廠商與數量）</p><textarea id="batch-share-text" readonly rows="10">'+safe(message)+'</textarea>'+
-   '<p class="notice warning">系統不會自動向 LINE 傳訊，也無法確認廠商是否收到；主管核准、實際送出與驗收入庫是不同步驟。</p>'+
+   '<p class="notice warning">系統不會自動向 LINE 傳訊。人工確認送出僅是操作者的自填紀錄，並非 LINE 平台的送達／已讀回執。</p>'+
+   (sent?'<p>人工確認送出：'+safe(sent.at)+' · '+safe(sent.actor_name)+'</p>':'<p>LINE 傳送紀錄：尚未有人確認送出。</p>')+
    '<div class="form-actions">'+
    (manager&&state==='requested'?'<button type="button" class="btn primary" data-batch-action="order.batch-approve">主管核准</button>':'')+
    (approved?'<button type="button" class="btn primary" id="batch-copy">複製 LINE 文字</button>'+
      '<a class="btn" id="batch-share" target="_blank" rel="noopener noreferrer">開啟 LINE 分享畫面</a>':'')+
+   (approved&&!sent?'<button type="button" class="btn" data-batch-action="order.batch-mark-sent">我已在 LINE 手動送出</button>':'')+
    (manager&&approved?'<button type="button" class="btn" data-batch-action="order.batch-receive">整張驗收入庫</button>':'')+
    (manager&&['requested','approved'].includes(state)?'<button type="button" class="btn ghost" data-batch-action="order.batch-cancel">取消整張單</button>':'')+
    '<button type="button" class="btn" data-close-batch>關閉</button></div></div>');
@@ -114,7 +117,9 @@ window.OrderBatchUI=(()=>{
   }
   node.querySelectorAll('[data-batch-action]').forEach(b=>b.addEventListener('click',async()=>{
    const action=b.dataset.batchAction;
-   if(!window.confirm(action==='order.batch-receive'?'確認所有品項均已實際驗收？這會逐筆入庫，不能重複。':action==='order.batch-approve'?'主管確認此廠商叫貨單的所有食材及數量？':'確定取消整張叫貨單？'))return;
+   if(!window.confirm(action==='order.batch-receive'?'確認所有品項均已實際驗收？這會逐筆入庫，不能重複。':
+    action==='order.batch-approve'?'主管確認此廠商叫貨單的所有食材及數量？':
+    action==='order.batch-mark-sent'?'你是否已真的在 LINE 選擇正確廠商並按送出？此操作僅記錄人工確認，不代表 LINE 已送達。':'確定取消整張叫貨單？若已透過 LINE 送出，還必須人工聯絡供應商取消。'))return;
    try{await api('/api/command','POST',{action,data:{number}});node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();}
    catch(err){toast('處理失敗：'+err.message);}
   }));

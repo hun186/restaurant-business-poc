@@ -17,7 +17,7 @@ function detail(db,number){
  const rows=db.purchase_orders.filter(r=>groupOf(r.number)===number).sort((a,b)=>a.number.localeCompare(b.number));
  if(!rows.length)throw Error('找不到叫貨單');
  const r=rows[0];
- return {number,rows,location_id:r.location_id,location_name:r.location_name,supplier:r.supplier,created_at:r.created_at,states:[...new Set(rows.map(x=>x.status))]};
+ return {number,rows,location_id:r.location_id,location_name:r.location_name,supplier:r.supplier,created_at:r.created_at,states:[...new Set(rows.map(x=>x.status))],line_manual_confirmation:db.demo_order_sent?.find(x=>x.number===number)||null};
 }
 function command(db,action,x,{makeId,changeStock,log}){
  if(action==='order.batch-create'){
@@ -45,6 +45,14 @@ function command(db,action,x,{makeId,changeStock,log}){
   return {groups:output};
  }
  const order=detail(db,x.number),lines=order.rows;
+ if(action==='order.batch-mark-sent'){
+  if(lines.some(r=>r.status!=='approved'))throw Error('尚未核准，無法登記已送出');
+  if(order.line_manual_confirmation)throw Error('已記錄人工送出');
+  if(!Array.isArray(db.demo_order_sent))db.demo_order_sent=[];
+  db.demo_order_sent.push({number:x.number,at:new Date().toLocaleString('zh-TW'),actor_name:'展示業主'});
+  log(action,'purchase_orders',x.number);
+  return {number:x.number,manual_confirmation:true};
+ }
  if(lines.some(r=>r.location_id!==order.location_id||r.supplier!==order.supplier))throw Error('單據資料不一致');
  const accepted=action==='order.batch-cancel'?['requested','approved']:[action==='order.batch-receive'?'approved':'requested'];
  if(lines.some(r=>!accepted.includes(r.status)))throw Error('單據狀態不符或已處理過');

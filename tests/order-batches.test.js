@@ -163,3 +163,53 @@ test('replenishment button uses inventory shortfall, not invented demand forecas
   assert.match(text,/if\(!target\)break/);
  }
 });
+
+test('LINE sent status is a one-time, audited HUMAN attestation, never inferred from sharing or copying',t=>{
+ const f=fixture(t),managerId=cmd(f,'user.create',{username:'markmgr',display_name:'核准主管',password:'password-length-1234',role:'manager',location_id:f.location}).id;
+ const staffId=cmd(f,'user.create',{username:'markstaff',display_name:'叫貨人員',password:'password-length-1234',role:'staff',location_id:f.location}).id;
+ const otherId=cmd(f,'user.create',{username:'markother',display_name:'其他員工',password:'password-length-1234',role:'staff',location_id:f.location}).id;
+ const staff={id:staffId,role:'staff',username:'markstaff'};
+ const manager={id:managerId,role:'manager',username:'markmgr'};
+ const outsider={id:otherId,role:'staff',username:'markother'};
+ const result=cmd(f,'order.batch-create',{location_id:f.location,items:[
+  {ingredient_id:f.ing1,qty:3,supplier:'肉商'},
+  {ingredient_id:f.ing2,qty:2,supplier:'肉商'}
+ ]},staff);
+ const number=result.groups[0].number;
+ assert.equal(details(f.db,staff,number,scope).line_manual_confirmation,null);
+ assert.throws(()=>cmd(f,'order.batch-mark-sent',{number},staff),{status:409},'not approved');
+ assert.throws(()=>cmd(f,'order.batch-mark-sent',{number},outsider),{status:403});
+ cmd(f,'order.batch-approve',{number},manager);
+ assert.equal(details(f.db,staff,number,scope).line_manual_confirmation,null,'approval not proof of sending');
+ assert.throws(()=>cmd(f,'order.batch-mark-sent',{number},outsider),{status:403});
+ assert.equal(balance(f.db,f.ing1,f.location),0,'LINE metadata does not touch stock');
+ cmd(f,'order.batch-mark-sent',{number},staff);
+ const confirm=details(f.db,staff,number,scope).line_manual_confirmation;
+ assert.ok(confirm.at);assert.equal(confirm.actor_name,'markstaff');
+ assert.throws(()=>cmd(f,'order.batch-mark-sent',{number},staff),{status:409},'no duplicate manual sent record');
+ assert.equal(balance(f.db,f.ing1,f.location),0);
+ const audit=f.db.prepare("SELECT detail FROM audit_logs WHERE action='order.batch-mark-sent'").all();
+ assert.equal(audit.length,1);
+ assert.equal(JSON.parse(audit[0].detail).manual_confirmation,true);
+});
+test('demo manual sent confirmation is explicit and retained in mock session data',async()=>{
+ const dir=path.join(__dirname,'..','vercel-demo'),storage=new Map();
+ const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ const window={fetch:async()=>{throw Error('unexpected network')},confirm:()=>true};
+ const ctx=vm.createContext({window,sessionStorage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
+ for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])
+  vm.runInContext(fs.readFileSync(path.join(dir,name),'utf8'),ctx,{filename:name});
+ const send=async(action,data)=>{const response=await window.fetch('/api/command',{method:'POST',body:JSON.stringify({action,data})});return response.status;};
+ const result=await (await window.fetch('/api/command',{method:'POST',body:JSON.stringify({action:'order.batch-create',data:{location_id:'l1',items:[{ingredient_id:'i1',qty:2,supplier:'虛構蔬果商'}]}})})).json();
+ const number=result.result.groups[0].number;
+ assert.equal(await send('order.batch-mark-sent',{number}),400);
+ assert.equal(await send('order.batch-approve',{number}),200);
+ let read=async()=>(await (await window.fetch('/api/order-batch?number='+number)).json()).line_manual_confirmation;
+ assert.equal(await read(),null);
+ assert.equal(await send('order.batch-mark-sent',{number}),200);
+ assert.ok((await read()).at);
+ assert.equal(await send('order.batch-mark-sent',{number}),400);
+ const script=fs.readFileSync(path.join(dir,'order-batch-ui.js'),'utf8');
+ assert.match(script,/我已在 LINE 手動送出/);
+ assert.match(script,/並非 LINE 平台/);
+});

@@ -12,8 +12,11 @@ function suggestions(db,u){
  const allowed=new Set(db.prepare('SELECT location_id FROM user_locations WHERE user_id=?').all(u.id).map(r=>r.location_id));
  return result.filter(r=>allowed.has(r.location_id));
 }
+function confirmedSent(db,number){
+ return db.prepare("SELECT at,actor_name FROM audit_logs WHERE action='order.batch-mark-sent' AND json_extract(detail,'$.number')=? ORDER BY rowid DESC LIMIT 1").get(number)||null;
+}
 function handle(db,u,action,x,{scope,audit,move,pricing}){
- if(!['order.batch-create','order.batch-approve','order.batch-cancel','order.batch-receive'].includes(action))return null;
+ if(!['order.batch-create','order.batch-approve','order.batch-cancel','order.batch-receive','order.batch-mark-sent'].includes(action))return null;
  return inTransaction(db,()=>{
   if(action==='order.batch-create'){
    scope(db,u,x.location_id);
@@ -44,12 +47,21 @@ function handle(db,u,action,x,{scope,audit,move,pricing}){
    }
    return {groups};
   }
-  requiredRole(u,'manager');
+  if(action!=='order.batch-mark-sent')requiredRole(u,'manager');
   if(!GROUP.test(x.number||''))bad('單號格式不正確');
   const lines=db.prepare('SELECT * FROM purchase_orders WHERE number LIKE ? ORDER BY number').all(x.number+'-%').filter(r=>groupOf(r.number)===x.number);
   if(!lines.length)bad('找不到這張廠商叫貨單',404);
-  scope(db,u,lines[0].location_id,'manager');
+  scope(db,u,lines[0].location_id,action==='order.batch-mark-sent'?'staff':'manager');
   if(lines.some(r=>r.location_id!==lines[0].location_id||r.supplier!==lines[0].supplier))bad('單據明細異常',409);
+  if(action==='order.batch-mark-sent'){
+   if(u.role==='staff'&&lines.some(r=>r.created_by!==u.id))bad('僅可確認自己建立的叫貨單',403);
+   if(lines.some(r=>r.status!=='approved'))bad('叫貨單尚未核准，無法登記已傳送',409);
+   if(confirmedSent(db,x.number))bad('此單已有人記錄傳送確認，不能重複登記',409);
+   audit(db,u,action,'purchase_orders',lines[0].id,lines[0].location_id,
+    {number:x.number,supplier:lines[0].supplier,manual_confirmation:true,
+     note:'僅代表操作者自行確認送出 LINE，並非 LINE 平台送達或已讀回執'});
+   return {number:x.number,manual_confirmation:true};
+  }
   const allowed=action==='order.batch-cancel'?['requested','approved']:[action==='order.batch-receive'?'approved':'requested'];
   if(lines.some(r=>!allowed.includes(r.status)))bad('此單已部分處理或狀態不符，拒絕重複操作',409);
   if(action==='order.batch-approve'){
@@ -85,6 +97,6 @@ function details(db,u,number,scope){
  if(data.some(r=>r.location_id!==first.location_id||r.supplier!==first.supplier))bad('叫貨單資料異常',409);
  if(u.role==='staff'&&data.some(r=>r.created_by!==u.id))bad('無權查詢其他人叫貨單',403);
  return {number,supplier:first.supplier,location_id:first.location_id,location_name:first.location_name,created_at:first.created_at,
-  rows:data,states:[...new Set(data.map(r=>r.status))]};
+  rows:data,states:[...new Set(data.map(r=>r.status))],line_manual_confirmation:confirmedSent(db,number)};
 }
 module.exports={groupOf,suggestions,handle,details};

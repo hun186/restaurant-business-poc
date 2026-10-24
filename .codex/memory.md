@@ -105,3 +105,8 @@
 ## 2026-10-24｜本機版登入畫面 currentTarget null 修正（新 PR）
 - 使用者提供本機 owner 登入截圖，錯誤 `Cannot read properties of null (reading 'reset')`。根因是 `public/app.js` 登入 submit handler `await api('/api/login')` 後才讀 `e.currentTarget.reset()`，瀏覽器事件 dispatch 結束後 currentTarget 已為 null，成功登入卻在前端拋錯。
 - 在 await 前保存 `const form=e.currentTarget`，成功後 `form.reset()`；同步修正 Vercel Demo 共用程式碼。新增模擬真實 event.currentTarget 非同步失效的回歸測試；不更動登入憑證、Session、資料庫 Schema 或備份。Hosted CI／最新 Codex Review 需另驗收；無授權不得 Merge。
+
+## 2026-10-24｜Owner 初始密碼遺失之本機復原工具（新 PR）
+- 使用者反映首次 owner 隨機密碼只於第一次啟動視窗顯示，未抄寫即無法再次取得。密碼以 scrypt 雜湊儲存，不可反查；已有 Session 可在「變更密碼」設定新密碼。
+- 新增僅本機互動式 `node tools/reset-owner-password.js`，使用 `DATA_DIR` 定位現有資料庫。執行前要求停止 Node 服務、鍵入 `RESET owner`。拒絕不存在或不可信 `.installed`／SQLite、非 v3 或 owner 非唯一有效等情形；先驗證備份，再交易更新 owner 密碼、撤銷其 Session／登入限流狀態並記錄不含密碼的稽核。
+- 不新增任何可匿名呼叫的 Web password-reset endpoint、不修改正式 SQLite schema，也不可刪除既有資料。增加成功復原、非破壞性備份失敗／缺 DB／停用 owner 等回歸測試。正式 Hosted CI / Codex 審查與使用者 Merge 授權須以最新 SHA 為準。

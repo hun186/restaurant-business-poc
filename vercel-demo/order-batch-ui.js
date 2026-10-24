@@ -11,15 +11,18 @@ window.OrderBatchUI=(()=>{
   return lines.join('\n');
  };
  const modal=()=>document.querySelector('#modal-root');
+ // start() and preview() share one opening generation: late GETs cannot overwrite newer drafts.
+ let openGeneration=0;
  const active=(epoch,userId)=>!!S.me&&S.me.id===userId&&S.authEpoch===epoch&&!document.body.classList.contains('auth-locked');
  function show(html){const node=modal();node.hidden=false;node.innerHTML=html;node.querySelector('[data-close-batch]')?.addEventListener('click',()=>{node.hidden=true;node.innerHTML='';});return node;}
  async function start(){
   const epoch=S.authEpoch,userId=S.me?.id;
   if(!active(epoch,userId))return;
+  const generation=++openGeneration;
   const [locRes,ingRes,supplierRes]=await Promise.all([
    api('/api/data?entity=locations'),api('/api/data?entity=ingredients'),api('/api/data?entity=purchase_supplier_suggestions')
   ]);
-  if(!active(epoch,userId))return;
+  if(!active(epoch,userId)||generation!==openGeneration)return;
   const locations=locRes.rows.filter(r=>r.active!==0),ingredients=ingRes.rows.filter(r=>r.active!==0);
   const catalog=supplierRes.rows;
   const node=show('<div class="modal" role="dialog" aria-modal="true" aria-label="建立多品項叫貨">'+
@@ -118,8 +121,9 @@ window.OrderBatchUI=(()=>{
  async function preview(number){
   const epoch=S.authEpoch,userId=S.me?.id;
   if(!active(epoch,userId))return;
+  const generation=++openGeneration;
   const data=await api('/api/order-batch?number='+encodeURIComponent(number));
-  if(!active(epoch,userId))return;
+  if(!active(epoch,userId)||generation!==openGeneration)return;
   const state=data.states.length===1?data.states[0]:'mixed';
   const status={requested:'待主管核准',approved:'已核准，待人工發送',received:'已驗收入庫',cancelled:'已取消',mixed:'明細狀態不一致'}[state]||state;
   const message=lineText(data);

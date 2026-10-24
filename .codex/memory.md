@@ -110,3 +110,9 @@
 - 使用者反映首次 owner 隨機密碼只於第一次啟動視窗顯示，未抄寫即無法再次取得。密碼以 scrypt 雜湊儲存，不可反查；已有 Session 可在「變更密碼」設定新密碼。
 - 新增僅本機互動式 `node tools/reset-owner-password.js`，使用 `DATA_DIR` 定位現有資料庫。執行前要求停止 Node 服務、鍵入 `RESET owner`。拒絕不存在或不可信 `.installed`／SQLite、非 v3 或 owner 非唯一有效等情形；先驗證備份，再交易更新 owner 密碼、撤銷其 Session／登入限流狀態並記錄不含密碼的稽核。
 - 不新增任何可匿名呼叫的 Web password-reset endpoint、不修改正式 SQLite schema，也不可刪除既有資料。增加成功復原、非破壞性備份失敗／缺 DB／停用 owner 等回歸測試。正式 Hosted CI / Codex 審查與使用者 Merge 授權須以最新 SHA 為準。
+
+## 2026-10-24｜Windows 業主密碼復原 BAT 操作引導（新 PR）
+- 業主實機執行 `node tools/reset-owner-password.js` 停在輸入 `RESET owner` 提示，又出現 Node.js SQLite ExperimentalWarning；希望降低非資訊背景使用者的操作困難。
+- 新增根目錄「重設業主密碼.bat」，檢查 Node.js 版本、原有資料庫與 `.installed`、工作目錄，以 UTF-8 顯示中文步驟，呼叫 CLI `--guided`，改成輸入數字 1 確認；無論成功失敗都 pause 留下畫面。僅針對 ExperimentalWarning 停用警告，其他錯誤照常顯示。
+- CLI 原本互動式 `RESET owner` 保留，`--guided` 只改確認方式，不繞過 TTY、schema / owner 驗證、完整備份、CAS 並行保護、Session 撤銷與稽核。正式 Windows 實機操作仍需額外驗收。
+- 仍須 Hosted CI 及 Codex Review，未獲 Merge 指示不得合併。

@@ -24,3 +24,5 @@
 | RB-016 | IN_REVIEW | P1 | 本機登入後 `e.currentTarget.reset()` 非同步 null 錯誤；已修前端並新增 regression，待 Hosted CI／Codex Review、使用者授權 Merge |
 
 | RB-017 | IN_REVIEW | P1 | Owner 初始密碼遺失：本機離線密碼復原工具（先驗證備份、保留 SQLite、撤銷 Session、稽核），待 Hosted CI / Codex Review / Merge 授權 |
+
+| RB-018 | IN_REVIEW | P1 | Windows 業主友善密碼復原：雙擊 BAT 中文操作、輸入 1 確認、隱藏非致命 SQLite 實驗性警告、保留安全 CLI 及新增測試；待 CI／Review／Merge |

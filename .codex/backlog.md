@@ -24,3 +24,6 @@
 | RB-016 | IN_REVIEW | P1 | 本機登入後 `e.currentTarget.reset()` 非同步 null 錯誤；已修前端並新增 regression，待 Hosted CI／Codex Review、使用者授權 Merge |
 
 | RB-017 | IN_REVIEW | P1 | Owner 初始密碼遺失：本機離線密碼復原工具（先驗證備份、保留 SQLite、撤銷 Session、稽核），待 Hosted CI / Codex Review / Merge 授權 |
+
+| RB-019 | IN_REVIEW | P1 | 安全稽核加入 TCP 來源 IP（owner 查閱、不採信偽造標頭、舊資料無法還原），待 CI／Review／Merge |
+| RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |

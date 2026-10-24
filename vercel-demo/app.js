@@ -6,10 +6,17 @@ const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核�
 const label=v=>nice[v]||String(v??'—');
 const fmt=v=>(v===null||v===undefined||v==='')?'—':E(v);
 const pages={
+
+ ingredient_prices:{title:'食材歷史價格',desc:'分門市留存價格日期、供應商；變更後立即重新試算',action:'price.record',permission:'manager',columns:[['price_date','生效日'],['location_name','門市'],['ingredient_name','食材'],['unit_price_twd','單價（元）'],['unit','計價單位'],['supplier','供應商'],['source','來源']]},
+ inventory_values:{title:'庫存估算價值',desc:'最新有效單價 × 實際庫存；不是會計成本',permission:'manager',columns:[['location_name','門市'],['ingredient_name','食材'],['on_hand','庫存量'],['unit','庫存單位'],['unit_price_twd','最近單價（元）'],['price_unit','價格單位'],['estimated_value_twd','估值（元）'],['cost_status','狀態']]},
+ menu_dishes:{title:'菜品與售價',desc:'新增菜品並調整售價；展示資料不會保存至伺服器',action:'dish.create',permission:'owner',columns:[['name','菜品'],['sale_price_twd','售價（元）'],['ingredient_count','配方食材數'],['active','啟用']]},
+ dish_ingredients:{title:'每份菜品配方',desc:'設定食材用量，重複設定同一食材即更新',action:'recipe.set',permission:'owner',columns:[['dish_name','菜品'],['ingredient_name','食材'],['qty','每份用量'],['unit','單位']]},
+ dish_costs:{title:'菜品成本／毛利估算',desc:'依門市有效價格估算；缺價不能算成零成本',permission:'manager',columns:[['dish_name','菜品'],['location_name','門市'],['sale_price_twd','售價（元）'],['estimated_cost_twd','食材成本'],['gross_profit_twd','材料毛利'],['gross_margin_pct','毛利率 %'],['cost_status','核算狀態']]},
+ dish_cost_lines:{title:'成本逐項明細',desc:'追蹤各項食材用量與缺價情況',permission:'manager',columns:[['dish_name','菜品'],['location_name','門市'],['ingredient_name','食材'],['qty','用量'],['unit','單位'],['unit_price_twd','單價（元）'],['price_unit','計價單位'],['line_cost_twd','單項成本'],['cost_status','狀態']]},
  dashboard:{title:'今日營運總覽',desc:'工作、叫貨、庫存、人事與設備的即時概覽'},
  tasks:{title:'今日工作',desc:'工作指派、完成紀錄與逾期追蹤',action:'task.create',permission:'manager',columns:[['title','工作內容'],['location_name','門市'],['assigned_name','負責人'],['due_date','期限'],['status','狀態']]},
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
- stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；所有出入庫保留流水紀錄',action:'stock.purchase',permission:'manager',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
+ stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；新增期初庫存僅供未有庫存的食材',action:'stock.opening',permission:'owner',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
  stock_moves:{title:'庫存異動流水',desc:'不可直接修改的入庫、耗用與盤點調整紀錄',columns:[['created_at','時間'],['location_name','門市'],['ingredient_name','食材'],['move_type','類別'],['qty_delta','異動量'],['note','說明']]},
  purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['number','單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['status','狀態']]},
  stocktakes:{title:'食材盤點',desc:'員工申報盤點數，主管確認後產生有稽核紀錄的庫存差異',action:'stocktake.create',permission:'staff',columns:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面數量'],['counted_qty','盤點數量'],['status','狀態']]},
@@ -46,6 +53,7 @@ const colValue=(key,r)=>{
 };
 function rowActions(page,r){const a=[];
  const btn=(act,txt,fields={})=>`<button class="btn small ghost" data-operation="${act}" data-id="${E(r.id)}" data-state="${E(fields.status||'')}">${E(txt)}</button>`;
+ if(page==='menu_dishes'&&can('owner'))a.push(btn('dish.price','修改售價'));
  if(page==='tasks'&&(can('manager')||r.assigned_to===S.me.id)&&r.status!=='done')a.push(btn('task.status',r.status==='todo'?'開始處理':'標記完成',{status:r.status==='todo'?'doing':'done'}));
  if(page==='purchase_orders'&&can('manager')){if(r.status==='requested')a.push(btn('order.approve','核准'),btn('order.cancel','取消'));if(r.status==='approved')a.push(btn('order.receive','驗收入庫'),btn('order.cancel','取消'));}
  if(page==='stocktakes'&&can('manager')&&r.status==='pending')a.push(btn('stocktake.confirm','確認入帳'));
@@ -71,17 +79,22 @@ async function dashboard(){setActive('dashboard');$('#main').innerHTML=head('今
   $('#main').innerHTML+=`<div class="stat-grid">${stat('待辦工作',z.todo,'待處理與處理中','☑')}${stat('已逾期工作',z.late,'需優先追蹤','◷')}${stat('庫存不足品項',z.low,'低於安全存量','⬡')}${stat('待核准叫貨',z.orders,'待主管處理','▤')}${stat('設備未結案',z.repairs,'維修追蹤中','⚒')}${stat('未完成訓練',z.trainingPending,'已指派但尚未評分','♙')}</div><div class="dashboard-panels"><section class="hero"><div class="hero-title"><span class="brand-mark">♜</span><div><div class="dark-kicker">餐廳好管家</div><h2>今日營運工作台</h2><p>多層級權限 × 營運工作管理</p></div></div><div class="hero-line"></div><div class="quick-grid"><button class="quick" data-page="tasks"><span class="symbol">☑</span><strong>今日工作</strong><small>待辦、逾期、完成紀錄</small></button><button class="quick" data-page="purchase_orders"><span class="symbol">⬡</span><strong>叫貨與庫存</strong><small>缺貨、安全庫存、進貨</small></button><button class="quick" data-page="repairs"><span class="symbol">⚒</span><strong>設備維修</strong><small>報修、派工、保養</small></button><button class="quick" data-page="training_records"><span class="symbol">♙</span><strong>人事與訓練</strong><small>班表、請假、SOP、考核</small></button></div></section><section class="panel"><h2>帳號與資料保護</h2><div class="rowlist"><div class="item"><strong>目前登入</strong><span>${E(S.me.display_name)}</span></div><div class="item"><strong>身分角色</strong><span>${E(label(S.me.role))}</span></div><div class="item"><strong>授權門市</strong><span>${E(S.me.role==='owner'?'全部門市':String(S.me.locations.length)+' 間')}</span></div><div class="item"><strong>操作稽核</strong><span>僅展示虛構稽核紀錄</span></div><div class="item"><strong>正式資料模式</strong><span>僅瀏覽器虛構資料</span></div></div><p class="notice warning" style="margin-top:20px">公開展示版沒有實際身分驗證，也不連線正式營運資料庫。請勿輸入任何真實個資或密碼。</p></section></div>`;
  }catch(e){$('#main').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
-async function getLists(){for(const k of ['locations','ingredients','staff_directory','users','training_courses']){
+async function getLists(){for(const k of ['locations','ingredients','staff_directory','users','training_courses','menu_dishes']){
  try{S.cache[k]=(await api('/api/data?entity='+k)).rows;}catch{S.cache[k]=[];}
  }}
 const field=(name,display,type='text',required=true,extra={})=>({name,display,type,required,...extra});
 const def={
  'location.create':{title:'新增門市',fields:[field('name','門市名稱')]},
  'user.create':{title:'新增員工帳號',fields:[field('username','登入帳號（英文與數字）'),field('display_name','員工姓名'),field('password','初始密碼（至少 12 字元）','password'),field('role','角色','role'),field('location_id','授權門市','locations')]},
+ 'price.record':{title:'新增食材歷史單價',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('unit_price_twd','單價（元）','number'),field('unit','計價單位（例如：公斤、顆）'),field('price_date','生效日期','date',true,{value:new Date().toLocaleDateString('sv-SE')}),field('supplier','供應商','text',false)]},
+ 'dish.create':{title:'新增菜品',fields:[field('name','菜品名稱'),field('sale_price_twd','售價（元）','number')]},
+ 'dish.price':{title:'修改菜品售價',fields:[field('sale_price_twd','新售價（元）','number')]},
+ 'recipe.set':{title:'新增／調整每份食材配方',fields:[field('dish_id','菜品','menu_dishes'),field('ingredient_id','食材','ingredients'),field('qty','每份用量','number'),field('unit','計量單位（例如：公克、顆）')]},
+ 'order.receive':{title:'示範驗收入庫（可選填進價）',fields:[field('unit_price_twd','本次進價（元；不填則不記價格）','number',false),field('unit','計價單位（例如：公斤）','text',false),field('price_date','價格生效日','date',false),field('supplier','供應商','text',false)]},
  'task.create':{title:'新增工作',fields:[field('location_id','所屬門市','locations'),field('title','工作名稱'),field('due_date','期限','date',false),field('assigned_to','指派員工','users',false),field('description','工作說明','textarea',false)]},
  'ingredient.create':{title:'新增食材',fields:[field('sku','料號'),field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'stock.usage':{title:'登錄食材耗用',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','耗用數量','number'),field('note','用途說明','textarea',false)]},
- 'stock.purchase':{title:'進貨入庫（主管直接登錄）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','入庫數量','number'),field('note','入庫備註','textarea',false)]},
+ 'stock.opening':{title:'建立期初庫存（不可重複）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','期初數量','number'),field('note','期初庫存來源','textarea',false)]},
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
  'stocktake.create':{title:'新增盤點記錄',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('counted_qty','實際數量','number')]},
  'repair.create':{title:'回報設備問題',fields:[field('location_id','門市','locations'),field('equipment','設備名稱'),field('description','故障描述','textarea')]},
@@ -102,7 +115,7 @@ function options(type){let data=S.cache[type]||[];
  return data.filter(x=>x.active!==0).map(x=>[x.id,x.display_name||x.name||x.title]);
 }
 function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(f.value||''),label=E(f.display);
- if(['role','locations','ingredients','users','training_courses'].includes(f.type)){const opts=options(f.type);return `<label>${label}<select name="${name}" ${req}><option value="">請選擇…</option>${opts.map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('')}</select></label>`;}
+ if(['role','locations','ingredients','users','training_courses','menu_dishes'].includes(f.type)){const opts=options(f.type);return `<label>${label}<select name="${name}" ${req}><option value="">請選擇…</option>${opts.map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('')}</select></label>`;}
  if(f.type==='textarea')return `<label class="full">${label}<textarea name="${name}" rows="3" ${req}></textarea></label>`;
  const step=f.type==='number'?'step="any" min="0"':'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
@@ -111,12 +124,12 @@ async function showForm(action,id){const d=def[action];if(!d){toast('此操作�
  const root=$('#modal-root');root.hidden=false;
  root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>僅修改本次瀏覽器中的虛構示範資料，不產生正式紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
  const close=()=>{root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
- $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':'id']=id;
+ $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
  try{await api('/api/command','POST',{action,data:raw});close();toast(action==='user.password'?'密碼已變更，請重新登入':'已成功儲存');if(action==='user.password'){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
 }
 async function operation(action,id,status){try{
- if(['training.score','user.role','user.password'].includes(action))return showForm(action,id);
- if(['order.receive','stocktake.confirm','order.cancel','user.active','repair.status','leave.review'].includes(action)&&!window.confirm('確定執行「'+label(status||action)+'」？此操作會留下稽核紀錄。'))return;
+ if(['training.score','user.role','user.password','dish.price','order.receive'].includes(action))return showForm(action,id);
+ if(['stocktake.confirm','order.cancel','user.active','repair.status','leave.review'].includes(action)&&!window.confirm('確定執行「'+label(status||action)+'」？此操作會留下稽核紀錄。'))return;
  let data={id};if(status)data.status=status;
  if(action==='user.active')data={user_id:id,active:status==='on'};
  if(action==='repair.status')data={id,status};

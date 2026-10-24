@@ -16,3 +16,5 @@
 | RB-011 | IN_REVIEW | P1 | v3 食材歷史價、叫貨驗收單價、每份配方和估算毛利，待 Hosted CI / Codex 正式審查 |
 | RB-012 | PLANNED | P2 | FIFO／移動平均、批次效期、稅費／折扣、POS 出餐扣料與營運會計成本 |
 | RB-013 | PLANNED | P2 | 與 AI menu-planner 的可控、版本化資料交換與食材識別碼映射，目前未做 |
+
+| RB-014 | IN_REVIEW | P1 | Vercel Public Demo 增加虛構菜單、歷史價、配方、成本毛利試算與進貨驗收單價；待 Hosted CI、Codex Review、Merge 及 Vercel 部署驗收 |

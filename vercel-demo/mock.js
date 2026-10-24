@@ -45,6 +45,9 @@
  let db;
  try{const saved=sessionStorage.getItem(key);db=saved?JSON.parse(saved):copy(initial);}catch{db=copy(initial);}
  if(!db||!Array.isArray(db.tasks)||!Array.isArray(db.stock))db=copy(initial);
+ const pricing=window.RestaurantDemoPricing;
+ if(!pricing)throw Error('公開示範價格模組載入失敗');
+ pricing.seed(db);
  const save=()=>{try{sessionStorage.setItem(key,JSON.stringify(db));}catch{}};
  const makeId=()=>('demo-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
  const lookup=(group,id)=>db[group].find(x=>String(x.id)===String(id));
@@ -73,10 +76,24 @@
  });
  const enrich=(entity,rows)=>{
   if(entity==='staff_directory')return db.users.map(x=>({id:x.id,display_name:x.display_name,role:x.role,active:x.active}));
+  const projected=pricing.rows(db,entity);if(projected)return projected;
   return rows;
  };
  function command(action,d){
   if(action.startsWith('user.'))throw Error('展示版不提供真實帳號、角色及密碼操作');
+  if(['price.record','dish.create','dish.price','recipe.set'].includes(action)){
+   const out=pricing.handle(db,action,d,makeId());
+   log(action,'pricing',out.id);save();return out;
+  }
+  if(action==='stock.purchase')throw Error('必須先核准叫貨單，不能直接進貨入庫');
+  if(action==='stock.opening'){
+   const q=Number(d.qty);
+   if(!Number.isFinite(q)||q<=0)throw Error('期初庫存數量須大於零');
+   if(stockFor(d.location_id,d.ingredient_id))throw Error('已有庫存資料，不能重複建立期初庫存');
+   if(!lookup('locations',d.location_id))throw Error('無效門市');
+   changeStock(d.location_id,d.ingredient_id,q,'adjustment','期初庫存：'+String(d.note||'示範資料'));
+   log(action,'stock_moves',d.ingredient_id);save();return {ok:true};
+  }
   const defs={
    'location.create':'locations','task.create':'tasks','ingredient.create':'ingredients','order.create':'purchase_orders',
    'stocktake.create':'stocktakes','repair.create':'repairs','shift.create':'shifts','leave.create':'leave_requests',
@@ -97,16 +114,27 @@
    if(group==='locations')r.active=1;
    db[group].unshift(r);log(action,group,r.id);save();return r;
   }
-  if(action==='stock.purchase'||action==='stock.usage'){
+  if(action==='stock.usage'){
    const q=Number(d.qty);if(!Number.isFinite(q)||q<=0)throw Error('數量必須大於 0');
-   changeStock(d.location_id,d.ingredient_id,q*(action==='stock.purchase'?1:-1),action==='stock.purchase'?'purchase':'usage',d.note);
+   changeStock(d.location_id,d.ingredient_id,-q,'usage',d.note);
   }else{
    const groups={'task.status':'tasks','order.approve':'purchase_orders','order.receive':'purchase_orders','order.cancel':'purchase_orders',
     'stocktake.confirm':'stocktakes','repair.status':'repairs','leave.review':'leave_requests','training.score':'training_records'};
    const group=groups[action];if(!group)throw Error('這個展示操作尚未提供');
    const row=lookup(group,d.id);if(!row)throw Error('找不到示範資料');
    if(action==='order.approve'){if(row.status!=='requested')throw Error('狀態已變更');row.status='approved';}
-   if(action==='order.receive'){if(row.status!=='approved')throw Error('請先核准叫貨');changeStock(row.location_id,row.ingredient_id,Number(row.qty),'purchase','示範叫貨驗收 '+row.number);row.status='received';}
+   if(action==='order.receive'){
+    if(row.status!=='approved')throw Error('請先核准叫貨');
+    const ing=lookup('ingredients',row.ingredient_id);
+    // Validate price before stock changes; the demo is synchronous and saves as one state.
+    const price=d.unit_price_twd===undefined?null:pricing.makePrice(db,{
+     ...d,ingredient_id:row.ingredient_id,location_id:row.location_id,
+     unit:d.unit||ing.unit,supplier:d.supplier||row.supplier
+    },makeId(),'purchase');
+    changeStock(row.location_id,row.ingredient_id,Number(row.qty),'purchase','示範叫貨驗收 '+row.number);
+    if(price)db.ingredient_prices.push(price);
+    row.status='received';
+   }
    if(action==='order.cancel'){if(!['requested','approved'].includes(row.status))throw Error('狀態已變更');row.status='cancelled';}
    if(action==='stocktake.confirm'){if(row.status!=='pending')throw Error('已確認盤點');const current=stockFor(row.location_id,row.ingredient_id)?.on_hand||0;if(Number(current)!==Number(row.expected_qty))throw Error('盤點過期，請重新盤點');const diff=Number(row.counted_qty)-Number(current);if(diff)changeStock(row.location_id,row.ingredient_id,diff,'adjustment','示範盤點調整');row.status='confirmed';}
    if(action==='task.status'||action==='repair.status'||action==='leave.review')row.status=d.status;

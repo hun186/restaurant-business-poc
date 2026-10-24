@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#102f43">
 <title>餐廳好管家｜公開功能展示（虛構資料）</title>
 <link rel="stylesheet" href="/styles.css">
+<script src="/pricing-demo.js" defer></script>
 <script src="/mock.js" defer></script>
 <script src="/app.js" defer></script>
 </head>
@@ -20,7 +21,8 @@
    <details open><summary>☷ 日常營運 <span>⌄</span></summary><div class="nav-children">
     <button data-page="tasks">☑ 今日工作</button><button data-page="repairs">⚒ 設備維修</button></div></details>
    <details open><summary>⬡ 採購與庫存 <span>⌄</span></summary><div class="nav-children">
-    <button data-page="ingredients">♧ 食材主檔</button><button data-page="stock">▣ 庫存管理</button><button data-page="purchase_orders">▤ 叫貨管理</button><button data-page="stocktakes">☷ 食材盤點</button><button data-page="stock_moves">↔ 庫存流水</button></div></details>
+    <button data-page="ingredients">♧ 食材主檔</button><button data-page="ingredient_prices">＄ 食材歷史價格</button><button data-page="inventory_values">▣ 庫存估值</button><button data-page="stock">▣ 庫存管理</button><button data-page="purchase_orders">▤ 叫貨管理</button><button data-page="stocktakes">☷ 食材盤點</button><button data-page="stock_moves">↔ 庫存流水</button></div></details>
+   <details open><summary>♜ 菜單與成本 <span>⌄</span></summary><div class="nav-children"><button data-page="menu_dishes">▤ 菜品與售價</button><button data-page="dish_ingredients">☷ 每份食材配方</button><button data-page="dish_costs">◈ 成本／毛利分析</button><button data-page="dish_cost_lines">↳ 成本明細與缺漏</button></div></details>
    <details><summary>♙ 人事與訓練 <span>⌄</span></summary><div class="nav-children">
     <button data-page="shifts">▦ 人事排班</button><button data-page="leave_requests">◷ 請假申請</button><button data-page="training_courses">▥ 教育訓練</button><button data-page="training_records">✓ 訓練紀錄</button><button data-page="evaluations">★ 員工考核</button></div></details>
    <details><summary>⚙ 系統管理 <span>⌄</span></summary><div class="nav-children">

@@ -124,3 +124,9 @@
 - 修補本機正式版與 Vercel Demo：showAuth(true) 即清空 main、modal、S.cache／filter／身份，更新 authEpoch，對 body 設置 auth-locked；登出按下即開始 API 並同步鎖定畫面，回應失敗提醒伺服器登出未確認；print CSS 在 auth-locked 狀態一律隱藏 main／預覽，對殘留非同步 DOM 也 fail closed；匯出／列印非同步待命若權限階段變化即中止。增加 Node VM 回歸測試模擬共享終端 Ctrl+P 與登出未完成的非同步流程。仍須最新 Hosted CI、Codex Review，未授權不得 Merge。
 
 - 2026-10-24 Codex 新 P2（HEAD 2b7f277）：舊 logout Set-Cookie 清除可能晚於新 login Set-Cookie，導致新登入 Session 被抹除。正式版與 Demo 新增 logoutInFlight Promise，登出按下同步清畫面／鎖定列印不變；新登入 submit 須先等舊登出請求完成才發送 /api/login，登出失敗亦不得永久卡住；加入 VM 延遲登出回應回歸測試。待 Hosted CI／Codex 複審。
+
+## 2026-10-24｜多品項叫貨與供應商自動分單＋LINE 半自動草稿（新 PR）
+- 業主提供先前系統三張畫面：員工盤點→自動整理叫貨→主管核准→依廠商分單→複製 LINE 文字或開啟分享，員工自行按送出。依官方 LINE 文件用 `https://line.me/R/share?text=`，不做自動傳送或假造已讀／已送狀態。
+- 不更改嚴格版控的 v3 SQLite Schema：沿用 purchase_orders 每筆一食材，新的多品項群組以 `POB-<randomUUIDhex>-001` 等內部行號與共同 `POB-<randomUUIDhex>` 廠商主單號表示。原始舊單完全保留；同一供應商／門市的多行在交易內一併核准、取消、驗收入庫，逐行 reference_id 防重複，維持後端角色與門市 scope。
+- 供應商建議源自門市最近有效歷史價格供應商；可明確覆寫，缺廠商須人工輸入，正式供應商主檔／自動推估安全庫存缺口／外部傳送回執後續可再擴充。
+- 新 `src/order-batches.js`、`public/order-batch-ui.js`、`/api/order-batch` 及虛構 Vercel Mock。此為 PoC 功能，需實際 Hosted CI、Codex Review 與 Windows／LINE 操作驗收；未授權不可合併。

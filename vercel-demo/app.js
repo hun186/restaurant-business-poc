@@ -21,7 +21,7 @@ const pages={
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
  stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；新增期初庫存僅供未有庫存的食材',action:'stock.opening',permission:'owner',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
  stock_moves:{title:'庫存異動流水',desc:'不可直接修改的入庫、耗用與盤點調整紀錄',columns:[['created_at','時間'],['location_name','門市'],['ingredient_name','食材'],['move_type','類別'],['qty_delta','異動量'],['note','說明']]},
- purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['number','單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['status','狀態']]},
+ purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['group_number','廠商叫貨單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['unit','單位'],['status','狀態']]},
  stocktakes:{title:'食材盤點',desc:'員工申報盤點數，主管確認後產生有稽核紀錄的庫存差異',action:'stocktake.create',permission:'staff',columns:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面數量'],['counted_qty','盤點數量'],['status','狀態']]},
  repairs:{title:'設備維修',desc:'報修、指派、結案與維修追蹤',action:'repair.create',permission:'staff',columns:[['location_name','門市'],['equipment','設備'],['description','問題描述'],['assigned_name','處理人員'],['status','狀態']]},
  shifts:{title:'人事排班',desc:'主管安排班次；一般員工只能查看自己的班表',action:'shift.create',permission:'manager',columns:[['shift_date','日期'],['staff_name','員工'],['location_name','門市'],['start_time','上班'],['end_time','下班'],['note','備註']]},
@@ -66,6 +66,7 @@ const colValue=(key,r)=>{
  return fmt(v);
 };
 function rowActions(page,r){const a=[];
+ if(page==='purchase_orders'&&typeof r.group_number==='string'&&r.group_number.startsWith('POB-'))return `<button class="btn small ghost" data-batch-preview="${E(r.group_number)}">查看廠商單／LINE</button>`;
  const btn=(act,txt,fields={})=>`<button class="btn small ghost" data-operation="${act}" data-id="${E(r.id)}" data-state="${E(fields.status||'')}">${E(txt)}</button>`;
  if(page==='menu_dishes'&&can('owner'))a.push(btn('dish.price','修改售價'));
  if(page==='tasks'&&(can('manager')||r.assigned_to===S.me.id)&&r.status!=='done')a.push(btn('task.status',r.status==='todo'?'開始處理':'標記完成',{status:r.status==='todo'?'doing':'done'}));
@@ -79,7 +80,7 @@ function rowActions(page,r){const a=[];
 }
 async function dataPage(page){
  const cfg=pages[page];setActive(page);
- $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
+ $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+(page==='purchase_orders'?'<div class="toolbar"><button class="btn primary" data-new-batch="1">＋ 多品項叫貨／依供應商分單</button><span class="muted">虛構展示，勿向真實供應商發送。</span></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
  try{const x=await api('/api/data?entity='+encodeURIComponent(page));S.cache[page]=x.rows;drawTable(page);}catch(e){$('#table-wrap').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
 function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
@@ -160,7 +161,9 @@ $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
  if(b.dataset.exportCurrent)exportCurrentPage('xlsx');
  if(b.dataset.printCurrent)exportCurrentPage('print');
  if(b.dataset.create)showForm(b.dataset.create);
- if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
+ if(b.dataset.newBatch)OrderBatchUI.start().catch(e=>toast(e.message));
+  if(b.dataset.batchPreview)OrderBatchUI.preview(b.dataset.batchPreview).catch(e=>toast(e.message));
+  if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
 });
 $('#main').addEventListener('input',e=>{if(e.target.id==='search'){S.filter=e.target.value;drawTable(S.page);}});
 $('#menu-btn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));

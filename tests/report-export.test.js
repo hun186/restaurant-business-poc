@@ -151,7 +151,7 @@ test('real Vercel mock newly created orders, stocktakes and repairs pass todays 
  const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
  const window={fetch:async()=>{throw Error('unexpected network request')},confirm:()=>true};
  const context=vm.createContext({window,sessionStorage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
- for(const filename of ['pricing-demo.js','backup-demo.js','mock.js']){
+ for(const filename of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js']){
   vm.runInContext(fs.readFileSync(path.join(demo,filename),'utf8'),context,{filename});
  }
  const project=vm.runInContext(fs.readFileSync(path.join(demo,'report-ui.js'),'utf8')+'\nReportKit.project;',context);
@@ -178,7 +178,7 @@ test('legacy Vercel sessionStorage upgrade fills missing sample dates without di
  const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
  const window={fetch:async()=>{throw Error('unexpected network')},confirm:()=>true};
  const ctx=vm.createContext({window,sessionStorage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
- for(const filename of ['pricing-demo.js','backup-demo.js','mock.js'])
+ for(const filename of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])
   vm.runInContext(fs.readFileSync(path.join(demo,filename),'utf8'),ctx,{filename});
  const existing=await (await window.fetch('/api/data?entity=purchase_orders')).json();
  assert.equal(existing.rows.length,1);assert.equal(existing.rows[0].number,'PO-OLD');

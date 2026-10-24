@@ -29,3 +29,5 @@
 | RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |
 
 | RB-020-SEC | IN_REVIEW | P2 | PR #8 登出清除報表快取、即刻鎖定列印 CSS、防範非同步舊報表重現（正式版＋Demo）；待 Hosted CI／最新 Codex 重審 |
+
+| RB-022 | IN_REVIEW | P1 | 一張廠商單號多筆食材、按最近歷史價格廠商建議分單、主管整張核准與驗收、LINE 複製／分享草稿（非實際送訊）；確保 v3 舊單據相容，待 CI／Review／Merge |

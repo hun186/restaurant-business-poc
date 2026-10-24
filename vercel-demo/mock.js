@@ -53,6 +53,8 @@
     if(!record.created_at)record.created_at=createdAt();
    }
   }
+ const orders=window.RestaurantDemoOrders;
+ if(!orders)throw Error('缺少虛構廠商分單模組');
  const pricing=window.RestaurantDemoPricing;
  if(!pricing)throw Error('公開示範價格模組載入失敗');
  pricing.seed(db);
@@ -87,10 +89,13 @@
  });
  const enrich=(entity,rows)=>{
   if(entity==='staff_directory')return db.users.map(x=>({id:x.id,display_name:x.display_name,role:x.role,active:x.active}));
+  if(entity==='purchase_supplier_suggestions')return orders.suppliers(db);
+  if(entity==='purchase_orders')return rows.map(r=>({...r,group_number:orders.groupOf(r.number)}));
   const projected=pricing.rows(db,entity);if(projected)return projected;
   return rows;
  };
  function command(action,d){
+  if(action.startsWith('order.batch-')){const out=orders.command(db,action,d,{makeId,changeStock,log});save();return out;}
   if(action.startsWith('user.'))throw Error('展示版不提供真實帳號、角色及密碼操作');
   if(['price.record','dish.create','dish.price','recipe.set'].includes(action)){
    const out=pricing.handle(db,action,d,makeId());
@@ -168,7 +173,8 @@
     else if(url.pathname==='/api/me')result={user:{id:'u1',username:'demo-owner',display_name:'展示業主',role:'owner',locations:['l1','l2']},csrf:'demo-only'};
    else if(url.pathname==='/api/overview')result={overview:overview()};
    else if(url.pathname==='/api/data'){const entity=url.searchParams.get('entity');result={rows:copy(enrich(entity,entity==='staff_directory'?[]:(db[entity]||[])))};}
-   else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:command(body.action,body.data||{})};}
+   else if(url.pathname==='/api/order-batch'&&method==='GET')result=orders.detail(db,url.searchParams.get('number'));
+    else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:command(body.action,body.data||{})};}
    else if(url.pathname==='/api/logout')result={ok:true};
    else if(url.pathname==='/api/login')result={error:'展示模式沒有真實帳號登入'} ,status=403;
    else result={error:'展示路由不存在'},status=404;

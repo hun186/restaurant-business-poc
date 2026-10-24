@@ -75,4 +75,16 @@ function handle(db,u,action,x,{scope,audit,move,pricing}){
   return {number:x.number,item_count:lines.length};
  });
 }
-module.exports={groupOf,suggestions,handle};
+function details(db,u,number,scope){
+ if(!GROUP.test(number||''))bad('單號格式不正確');
+ const data=db.prepare('SELECT o.*,i.name AS ingredient_name,i.unit,l.name AS location_name FROM purchase_orders o JOIN ingredients i ON i.id=o.ingredient_id JOIN locations l ON l.id=o.location_id WHERE o.number LIKE ? ORDER BY o.number')
+  .all(number+'-%').filter(r=>groupOf(r.number)===number);
+ if(!data.length)bad('找不到叫貨單',404);
+ const first=data[0];
+ scope(db,u,first.location_id);
+ if(data.some(r=>r.location_id!==first.location_id||r.supplier!==first.supplier))bad('叫貨單資料異常',409);
+ if(u.role==='staff'&&data.some(r=>r.created_by!==u.id))bad('無權查詢其他人叫貨單',403);
+ return {number,supplier:first.supplier,location_id:first.location_id,location_name:first.location_name,created_at:first.created_at,
+  rows:data,states:[...new Set(data.map(r=>r.status))]};
+}
+module.exports={groupOf,suggestions,handle,details};

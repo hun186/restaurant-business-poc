@@ -80,3 +80,16 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 ## 本機登入異常排除（2026-10-24）
 
 若舊版登入後出現 `Cannot read properties of null (reading 'reset')`，是前端在 `await /api/login` 之後使用已結束事件的 `e.currentTarget`，**不是提示 SQLite 損毀或密碼錯誤**。先按 `Ctrl + F5` 重新整理（登入成功的 Session 可能已建立），不要刪除 `data/restaurant.sqlite`、`data/.installed` 或備份。更新本修補版本後再登入；如仍無法登入，查詢 Network `/api/login` HTTP 狀態及 Node 終端機錯誤，不要在公開 Issue 貼登入憑證／Cookie。
+
+
+## 忘記 owner 密碼：本機離線安全復原
+
+若首次啟動終端機顯示的隨機密碼沒有記錄，無法從 SQLite 雜湊反查；**切勿刪除 `data/restaurant.sqlite`、`data/.installed`、`data/restaurant.sqlite-wal`／`-shm` 或 `backups/`**。
+
+- **尚未登出且 Session 有效**：登入後點「變更密碼」，輸入新密碼（至少 12 字元）。系統會撤銷舊 Session，之後用新密碼登入。
+- **已登出且忘記密碼**：務必使用有權存取資料庫的本機電腦，先停止 `npm start` 或關閉 `啟動餐廳好管家.bat` 的 Node 服務；不得對正在運作的資料庫強行執行復原。
+- 在專案根目錄以互動式終端機執行：`node tools/reset-owner-password.js`。
+- 閱讀提示後鍵入 `RESET owner` 確認。工具先確認 `.installed`、既有 v3 Schema、SQLite 完整性及唯一的有效 owner，再**建立並驗證一份完整手動備份**。備份失敗時**不改動密碼**；成功後於交易內更新隨機 scrypt 密碼、撤銷 owner Session／清理登入錯誤計數、留下不包含密碼的稽核記錄。
+- 終端機僅顯示**新的隨機密碼一次**，請立即存入密碼管理器。重新執行 `npm start` 登入；可再使用網頁「變更密碼」設定個人密碼。
+- 若使用 `DATA_DIR` 將資料庫放在自訂位置，請在同一終端機環境設定該變數後再執行。工具不會尋找其他資料庫，也不會重建遺失的資料庫。
+- 不要在遠端共用會話、公開直播或蒐集終端機輸出的環境執行。此離線工具限受控主機／檔案權限人員使用，不提供匿名遠端「忘記密碼」API。

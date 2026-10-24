@@ -308,3 +308,38 @@ test('demo batch receipt validates all per-line prices before ANY stock mutation
  assert.equal(current.ingredient_prices.filter(x=>x.source==='purchase').length,2);
  assert.equal((await send('order.batch-receive',{number})).status,400);
 });
+
+test('demo latest supplier tie-breaker uses the newest recorded price on the same day',async()=>{
+ const dir=path.join(__dirname,'..','vercel-demo'),saved=new Map();
+ const storage={getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)};
+ const win={fetch:async()=>{throw Error('unexpected network')},confirm:()=>true};
+ const ctx=vm.createContext({window:win,sessionStorage:storage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
+ for(const file of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])
+  vm.runInContext(fs.readFileSync(path.join(dir,file),'utf8'),ctx,{filename:file});
+ async function request(action,data){
+  const r=await win.fetch('/api/command',{method:'POST',body:JSON.stringify({action,data})});
+  return {status:r.status,result:await r.json()};
+ }
+ const date=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'});
+ for(const supplier of ['OLD_VENDOR','NEW_VENDOR']){
+  const r=await request('price.record',{location_id:'l1',ingredient_id:'i1',unit:'公斤',unit_price_twd:'75',price_date:date,supplier});
+  assert.equal(r.status,200);
+ }
+ const suppliers=(await (await win.fetch('/api/data?entity=purchase_supplier_suggestions')).json()).rows;
+ assert.equal(suppliers.find(x=>x.location_id==='l1'&&x.ingredient_id==='i1').supplier,'NEW_VENDOR');
+ const created=await request('order.batch-create',{location_id:'l1',items:[{ingredient_id:'i1',qty:2}]});
+ assert.equal(created.status,200);
+ assert.equal(created.result.result.groups[0].supplier,'NEW_VENDOR');
+});
+test('group receipt previews include optional per-line prices in both formal and demo UI',()=>{
+ for(const dir of ['public','vercel-demo']){
+  const src=fs.readFileSync(path.join(__dirname,'..',dir,'order-batch-ui.js'),'utf8');
+  assert.match(src,/data-batch-price/);
+  assert.match(src,/data-batch-unit/);
+  assert.match(src,/data-batch-date/);
+  assert.match(src,/payload\.prices=prices/);
+  assert.match(src,/action==='order\.batch-receive'/);
+  assert.match(src,/input\.value\.trim\(\)===''/,'blank price must not create a price record');
+  new vm.Script(src,{filename:dir+'/order-batch-ui.js'});
+ }
+});

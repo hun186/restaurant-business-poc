@@ -7,7 +7,7 @@ function suppliers(db){
  const out=[];
  for(const l of db.locations)for(const i of db.ingredients.filter(i=>i.active!==0)){
   const last=db.ingredient_prices.filter(p=>p.location_id===l.id&&p.ingredient_id===i.id&&p.supplier?.trim()&&p.price_date<=day())
-    .sort((a,b)=>b.price_date.localeCompare(a.price_date))[0];
+    .sort((a,b)=>b.price_date.localeCompare(a.price_date)||db.ingredient_prices.indexOf(b)-db.ingredient_prices.indexOf(a))[0];
   if(last)out.push({location_id:l.id,ingredient_id:i.id,supplier:last.supplier,ingredient_name:i.name,unit:i.unit});
  }
  return out;

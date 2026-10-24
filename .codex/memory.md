@@ -132,3 +132,6 @@
 - 新 `src/order-batches.js`、`public/order-batch-ui.js`、`/api/order-batch` 及虛構 Vercel Mock。此為 PoC 功能，需實際 Hosted CI、Codex Review 與 Windows／LINE 操作驗收；未授權不可合併。
 
 - PR #10 Codex 最新 HEAD 8d5ac3 3 個 P2：廠商預覽回應晚於登出可能重開敏感 modal，已於 start/preview/submit/action 檢查 authEpoch+userId；補貨建議等待 API 時若門市由 A 改 B，改成丟棄舊結果；Vercel Mock 新版整張驗收支援各行有效價格先完整驗證才變更庫存，失敗則還原虛構資料 snapshot，不會部分入庫。正式與 Demo UI 同步；補回歸後依最新 SHA 重新送 Review。
+
+- 2026-10-24 PR #10 最新 Codex Review P2：整張批次驗收 UI 缺失逐項進價欄，導致不能如舊 `order.receive` 保留此次進價與庫存關聯；已在正式版和 Vercel Demo 共用 `order-batch-ui.js` 主管驗收視窗加入各行選填進價（元）、進價單位、生效日，送出 `prices[orderLineId]`；空白價不建進價，資料完整性由正式 backend 與 Demo 全張原子交易強制檢查。
+- 同輪 P2：Vercel Demo 同日更換供應商的建議選錯舊廠商；供應商排序加入原始 `ingredient_prices` 陣列 index 的同日最新記錄 tie breaker，比照既有 `pricing-demo.js`。需針對最新 HEAD 重新驗證 Hosted CI 與正式 Codex Review，不可沿用舊結果。未授權不得 Merge。

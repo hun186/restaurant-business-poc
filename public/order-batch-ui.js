@@ -104,8 +104,11 @@ window.OrderBatchUI=(()=>{
   const approved=state==='approved',manager=can('manager');
   const node=show('<div class="modal order-batch-modal" role="dialog" aria-modal="true" aria-label="廠商叫貨單">'+
    '<h2>廠商叫貨單預覽</h2><p><strong>'+safe(data.number)+'</strong> · '+safe(status)+' · '+safe(data.supplier)+'</p>'+
-   '<table><thead><tr><th>食材</th><th>數量</th><th>單位</th><th>狀態</th></tr></thead><tbody>'+
-   data.rows.map(r=>'<tr><td>'+safe(r.ingredient_name)+'</td><td>'+safe(r.qty)+'</td><td>'+safe(r.unit)+'</td><td>'+safe(r.status)+'</td></tr>').join('')+'</tbody></table>'+
+   '<table><thead><tr><th>食材</th><th>數量</th><th>單位</th><th>狀態</th>'+((manager&&approved)?'<th>此次進價（選填）</th>':'')+'</tr></thead><tbody>'+
+   data.rows.map(r=>'<tr><td>'+safe(r.ingredient_name)+'</td><td>'+safe(r.qty)+'</td><td>'+safe(r.unit)+'</td><td>'+safe(r.status)+'</td>'+
+    ((manager&&approved)?'<td><label>單價（元）<input type="number" min="0.01" step="0.01" inputmode="decimal" data-batch-price="'+safe(r.id)+'" placeholder="不填則不新增歷史進價"></label>'+
+     '<label>進價單位<input type="text" data-batch-unit="'+safe(r.id)+'" maxlength="20" value="'+safe(r.unit)+'" required></label>'+
+     '<label>生效日期<input type="date" data-batch-date="'+safe(r.id)+'" value="'+safe(new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'}))+'"></label></td>':'')+'</tr>').join('')+'</tbody></table>'+
    '<p>LINE 文字草稿（請自行核對廠商與數量）</p><textarea id="batch-share-text" readonly rows="10">'+safe(message)+'</textarea>'+
    '<p class="notice warning">系統不會自動向 LINE 傳訊。人工確認送出僅是操作者的自填紀錄，並非 LINE 平台的送達／已讀回執。</p>'+
    (sent?'<p>人工確認送出：'+safe(sent.at)+' · '+safe(sent.actor_name)+'</p>':'<p>LINE 傳送紀錄：尚未有人確認送出。</p>')+
@@ -131,7 +134,24 @@ window.OrderBatchUI=(()=>{
    if(!window.confirm(action==='order.batch-receive'?'確認所有品項均已實際驗收？這會逐筆入庫，不能重複。':
     action==='order.batch-approve'?'主管確認此廠商叫貨單的所有食材及數量？':
     action==='order.batch-mark-sent'?'你是否已真的在 LINE 選擇正確廠商並按送出？此操作僅記錄人工確認，不代表 LINE 已送達。':'確定取消整張叫貨單？若已透過 LINE 送出，還必須人工聯絡供應商取消。'))return;
-   try{await api('/api/command','POST',{action,data:{number}});if(!active(epoch,userId))return;node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();}
+   try{
+    const payload={number};
+    if(action==='order.batch-receive'){
+     const prices={};
+     for(const r of data.rows){
+      const input=node.querySelectorAll('[data-batch-price]')? [...node.querySelectorAll('[data-batch-price]')].find(e=>e.dataset.batchPrice===r.id):null;
+      if(!input||input.value.trim()==='')continue;
+      const cost=Number(input.value);
+      const unit=[...node.querySelectorAll('[data-batch-unit]')].find(e=>e.dataset.batchUnit===r.id)?.value.trim();
+      const date=[...node.querySelectorAll('[data-batch-date]')].find(e=>e.dataset.batchDate===r.id)?.value;
+      if(!Number.isFinite(cost)||cost<=0||!unit||!/^\d{4}-\d{2}-\d{2}$/.test(date||''))throw Error('請檢查「'+r.ingredient_name+'」的進價、單位和日期');
+      prices[r.id]={unit_price_twd:input.value,unit,price_date:date};
+     }
+     if(Object.keys(prices).length)payload.prices=prices;
+    }
+    await api('/api/command','POST',{action,data:payload});
+    if(!active(epoch,userId))return;node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();
+   }
    catch(err){toast('處理失敗：'+err.message);}
   }));
  }

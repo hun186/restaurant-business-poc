@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);
-const S={me:null,csrf:'',page:'dashboard',cache:{},filter:'',authEpoch:0};
+const S={me:null,csrf:'',page:'dashboard',cache:{},filter:'',authEpoch:0,showArchivedDishes:false};
 let logoutInFlight=null;
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消',pending:'待確認',confirmed:'已確認',reported:'待派工',assigned:'已派工',closed:'已結案',rejected:'已駁回',owner:'業主',manager:'主管',staff:'一般員工',purchase:'進貨',usage:'領用',adjustment:'盤點調整'};
@@ -67,7 +67,11 @@ const colValue=(key,r)=>{
 };
 function rowActions(page,r){const a=[];
  const btn=(act,txt,fields={})=>`<button class="btn small ghost" data-operation="${act}" data-id="${E(r.id)}" data-state="${E(fields.status||'')}">${E(txt)}</button>`;
- if(page==='menu_dishes'&&can('owner'))a.push(btn('dish.price','修改售價'));
+ if(page==='menu_dishes'&&can('owner')){
+   if(r.active===1){a.push(btn('dish.price','修改售價'));a.push(btn('dish.active','封存菜品',{status:'off'}));}
+   else a.push(btn('dish.active','恢復菜品',{status:'on'}));
+  }
+  if(page==='dish_ingredients'&&can('owner'))a.push(btn('recipe.delete','移除食材'));
  if(page==='tasks'&&(can('manager')||r.assigned_to===S.me.id)&&r.status!=='done')a.push(btn('task.status',r.status==='todo'?'開始處理':'標記完成',{status:r.status==='todo'?'doing':'done'}));
  if(page==='purchase_orders'&&can('manager')){if(r.status==='requested')a.push(btn('order.approve','核准'),btn('order.cancel','取消'));if(r.status==='approved')a.push(btn('order.receive','驗收入庫'),btn('order.cancel','取消'));}
  if(page==='stocktakes'&&can('manager')&&r.status==='pending')a.push(btn('stocktake.confirm','確認入帳'));
@@ -79,10 +83,10 @@ function rowActions(page,r){const a=[];
 }
 async function dataPage(page){
  const cfg=pages[page];setActive(page);
- $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
+ $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+(page==='menu_dishes'?`<div class="toolbar"><label><input type="checkbox" data-toggle-archived="1" ${S.showArchivedDishes?'checked':''}> 顯示已封存菜品（可恢復）</label></div>`:'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
  try{const x=await api('/api/data?entity='+encodeURIComponent(page));S.cache[page]=x.rows;drawTable(page);}catch(e){$('#table-wrap').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
-function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
+function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>(page!=='menu_dishes'||S.showArchivedDishes||r.active===1)&&JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
  const cols=cfg.columns;$('#count').textContent=`共 ${filtered.length} 筆`;
  const buttons=filtered.some(r=>rowActions(page,r));
  $('#table-wrap').innerHTML=filtered.length?`<table><thead><tr>${cols.map(c=>`<th>${E(c[1])}</th>`).join('')}${buttons?'<th>操作</th>':''}</tr></thead><tbody>${filtered.map(r=>`<tr>${cols.map(c=>`<td>${colValue(c[0],r)}</td>`).join('')}${buttons?`<td class="actions">${rowActions(page,r)}</td>`:''}</tr>`).join('')}</tbody></table>`:'<div class="empty">目前沒有符合條件的資料</div>';
@@ -144,8 +148,17 @@ async function showForm(action,id){const d=def[action];if(!d){toast('此操作�
 async function operation(action,id,status){try{
  if(['training.score','user.role','user.password','dish.price','order.receive'].includes(action))return showForm(action,id);
  if(['stocktake.confirm','order.cancel','user.active','repair.status','leave.review'].includes(action)&&!window.confirm('確定執行「'+label(status||action)+'」？此操作會留下稽核紀錄。'))return;
- let data={id};if(status)data.status=status;
+ if(action==='dish.active'||action==='recipe.delete'){
+   const prompt=action==='recipe.delete'
+    ?'確定移除此配方食材？菜品成本估算將重新計算；不會刪除食材主檔或歷史價格。'
+    :status==='off'
+     ?'確定封存這道菜品？預設列表與成本試算不再顯示，但配方會保留，可重新恢復。'
+     :'確定恢復這道菜品，重新納入菜單與成本試算？';
+   if(!window.confirm(prompt))return;
+  }
+  let data={id};if(status)data.status=status;
  if(action==='user.active')data={user_id:id,active:status==='on'};
+  if(action==='dish.active')data={id,active:status==='on'?1:0};
  if(action==='repair.status')data={id,status};
  await api('/api/command','POST',{action,data});toast('操作完成');await refresh();
  }catch(e){toast(e.message);}}
@@ -162,6 +175,7 @@ $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
  if(b.dataset.create)showForm(b.dataset.create);
  if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
 });
+$('#main').addEventListener('change',e=>{if(e.target.matches('[data-toggle-archived]')){S.showArchivedDishes=e.target.checked;drawTable('menu_dishes');}});
 $('#main').addEventListener('input',e=>{if(e.target.id==='search'){S.filter=e.target.value;drawTable(S.page);}});
 $('#menu-btn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
 $('#change-password').addEventListener('click',()=>{if(S.me)showForm('user.password',S.me.id);});

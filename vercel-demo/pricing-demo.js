@@ -68,6 +68,21 @@ function handle(db,action,d,id){
   const dish=requireItem(db,'menu_dishes',d.dish_id);
   dish.sale_price_cents=positive(d.sale_price_twd,true);return {id:dish.id};
  }
+ if(action==='dish.active'){
+  if(![0,1].includes(d.active))throw Error('菜品狀態不正確');
+  const dish=byId(db,'menu_dishes',d.id);
+  if(!dish)throw Error('菜品不存在');
+  if(dish.active===d.active)throw Error('菜品狀態未變更');
+  dish.active=d.active;
+  return {id:dish.id,active:d.active};
+ }
+ if(action==='recipe.delete'){
+  const rec=byId(db,'dish_ingredients',d.id);
+  if(!rec)throw Error('配方項目不存在');
+  requireItem(db,'menu_dishes',rec.dish_id);
+  db.dish_ingredients=db.dish_ingredients.filter(x=>x.id!==rec.id);
+  return {id:rec.id,dish_id:rec.dish_id};
+ }
  if(action==='recipe.set'){
   const dish=requireItem(db,'menu_dishes',d.dish_id),ing=requireItem(db,'ingredients',d.ingredient_id);
   const unit=String(d.unit||ing.unit).trim(),amount=qty(d.qty);
@@ -85,7 +100,7 @@ function rows(db,name){
  if(name==='ingredient_prices')return db.ingredient_prices.map(x=>({...x,location_name:locName(x.location_id),ingredient_name:ingName(x.ingredient_id),unit_price_twd:x.price_cents/100}))
   .sort((a,b)=>b.price_date.localeCompare(a.price_date));
  if(name==='menu_dishes')return db.menu_dishes.map(x=>({...x,sale_price_twd:x.sale_price_cents/100,ingredient_count:db.dish_ingredients.filter(r=>r.dish_id===x.id).length}));
- if(name==='dish_ingredients')return db.dish_ingredients.map(x=>({...x,dish_name:dishName(x.dish_id),ingredient_name:ingName(x.ingredient_id)}));
+ if(name==='dish_ingredients')return db.dish_ingredients.filter(x=>byId(db,'menu_dishes',x.dish_id)?.active!==0).map(x=>({...x,dish_name:dishName(x.dish_id),ingredient_name:ingName(x.ingredient_id)}));
  if(name==='inventory_values')return db.stock.map(s=>{
   const p=latest(db,s.ingredient_id,s.location_id),q=p?converted(Number(s.on_hand),s.unit,p.unit):null;
   return {id:s.id,location_id:s.location_id,location_name:s.location_name,ingredient_name:s.name,unit:s.unit,on_hand:s.on_hand,

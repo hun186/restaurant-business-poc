@@ -114,3 +114,52 @@ test('demo UI exposes pricing navigation/actions but never loads live SQLite cod
  assert.equal(ui.includes("'stock.purchase':"),false);
  assert.ok(!html.includes('backup-ui.js'));
 });
+
+
+test('demo archive hides cost and recipe but preserves dish to restore later',async()=>{
+ const d=demo(),dish='dish1';
+ const before=(await d.rows('dish_ingredients')).filter(x=>x.dish_id===dish);
+ assert.ok(before.length>=2);
+ const cost=(await d.rows('dish_costs')).find(x=>x.dish_id===dish&&x.location_id==='l1');
+ assert.ok(cost);
+ let res=await d.request('/api/command','dish.active',{id:dish,active:0});
+ assert.equal(res.status,200);
+ assert.equal((await d.rows('menu_dishes')).find(x=>x.id===dish).active,0);
+ assert.equal((await d.rows('dish_costs')).some(x=>x.dish_id===dish),false);
+ assert.equal((await d.rows('dish_ingredients')).some(x=>x.dish_id===dish),false);
+ assert.equal(d.state().dish_ingredients.filter(x=>x.dish_id===dish).length,before.length);
+ assert.equal((await d.request('/api/command','dish.price',{dish_id:dish,sale_price_twd:'1'})).status,400);
+ assert.equal((await d.request('/api/command','recipe.delete',{id:before[0].id})).status,400);
+ res=await d.request('/api/command','dish.active',{id:dish,active:1});
+ assert.equal(res.status,200);
+ assert.equal((await d.rows('dish_ingredients')).filter(x=>x.dish_id===dish).length,before.length);
+ assert.equal((await d.rows('dish_costs')).find(x=>x.dish_id===dish&&x.location_id==='l1').estimated_cost_twd,cost.estimated_cost_twd);
+ const persisted=demo(d.state());
+ assert.equal((await persisted.rows('menu_dishes')).find(x=>x.id===dish).active,1);
+});
+test('demo deleting one recipe row recalculates material cost without touching prices',async()=>{
+ const d=demo();
+ const before=(await d.rows('dish_costs')).find(x=>x.dish_id==='dish1'&&x.location_id==='l1');
+ const priceCount=(await d.rows('ingredient_prices')).length;
+ const rec=(await d.rows('dish_ingredients')).find(x=>x.dish_id==='dish1'&&x.ingredient_id==='i2');
+ const res=await d.request('/api/command','recipe.delete',{id:rec.id});
+ assert.equal(res.status,200);
+ assert.equal((await d.rows('dish_ingredients')).some(x=>x.id===rec.id),false);
+ const after=(await d.rows('dish_costs')).find(x=>x.dish_id==='dish1'&&x.location_id==='l1');
+ assert.equal(after.estimated_cost_twd,17.3);
+ assert.ok(after.estimated_cost_twd<before.estimated_cost_twd);
+ assert.equal((await d.rows('ingredient_prices')).length,priceCount);
+ assert.equal((await d.request('/api/command','recipe.delete',{id:rec.id})).status,400);
+ assert.ok(d.state().audit_logs.some(x=>x.action==='demo.recipe.delete'));
+});
+test('menu archive and recipe remove buttons exist for both apps with explicit confirmation',()=>{
+ for(const file of ['../public/app.js','app.js']){
+  const s=fs.readFileSync(path.resolve(dir,file),'utf8');
+  assert.ok(s.includes("btn('dish.active','封存菜品'"),file);
+  assert.ok(s.includes("btn('dish.active','恢復菜品'"),file);
+  assert.ok(s.includes("btn('recipe.delete','移除食材'"),file);
+  assert.ok(s.includes('data-toggle-archived'),file);
+  assert.ok(s.includes('if(!window.confirm(prompt))return'),file);
+  assert.ok(s.includes("if(action==='dish.active')data={id,active:status==='on'?1:0}"),file);
+ }
+});

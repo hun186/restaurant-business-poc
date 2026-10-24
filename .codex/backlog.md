@@ -29,3 +29,5 @@
 | RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |
 
 | RB-020-SEC | IN_REVIEW | P2 | PR #8 登出清除報表快取、即刻鎖定列印 CSS、防範非同步舊報表重現（正式版＋Demo）；待 Hosted CI／最新 Codex 重審 |
+
+| RB-021 | IN_REVIEW | P1 | owner-only 菜品封存／恢復與配方食材逐項移除（成本重算、稽核、備份及 Vercel Mock），待 Hosted CI、正式 Review 與 Merge 授權 |

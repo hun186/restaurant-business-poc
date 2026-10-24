@@ -44,3 +44,8 @@
  .report-print-sheet th,.report-print-sheet td{font-size:8pt;padding:5px 6px;overflow-wrap:anywhere}
  .report-print-sheet tr{break-inside:avoid}
 }
+
+/* Never let print-only styling reveal previous-user reports after sign-out. */
+@media print{
+ body.auth-locked main,body.auth-locked #report-print-preview{display:none!important}
+}

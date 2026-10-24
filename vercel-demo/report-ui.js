@@ -104,6 +104,7 @@ function renderReportPreview(sheets){
  sheet.rows.map(row=>'<tr>'+row.map(v=>'<td>'+E(ReportKit.value(v))+'</td>').join('')+'</tr>').join('')+
  '</tbody></table></div></section>').join('');
 }
+function reportSessionValid(epoch){return !!S.me&&S.authEpoch===epoch&&!document.body.classList.contains('auth-locked');}
 async function downloadWorkbook(sheets){
  if(!window.XlsxLite?.buildWorkbook)throw Error('找不到 Excel 匯出模組');
  const bytes=window.XlsxLite.buildWorkbook(sheets);
@@ -114,10 +115,13 @@ async function downloadWorkbook(sheets){
  setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
 async function makeReports(action){
+ const epoch=S.authEpoch;
+ if(!reportSessionValid(epoch))return;
  try{
   const reports=readSelectedReports(),filters=reportFilters();
   if(filters.from&&filters.to&&filters.from>filters.to)throw Error('日期起不得晚於日期迄');
   const sheets=await fetchReports(reports,filters);
+  if(!reportSessionValid(epoch))return;
   if(action==='xlsx'){await downloadWorkbook(sheets);toast('Excel 已產生，請妥善保存匯出資料');}
   else{
    renderReportPreview(sheets);
@@ -127,11 +131,14 @@ async function makeReports(action){
  }catch(e){toast('匯出未完成：'+e.message);}
 }
 async function exportCurrentPage(action){
+ const epoch=S.authEpoch;
+ if(!reportSessionValid(epoch))return;
  try{
   const page=S.page,cfg=pages[page];
   if(!cfg?.columns)throw Error('此頁無法匯出');
   // Re-fetch to check live authorization even if earlier cached rows remain.
   const fresh=await api('/api/data?entity='+encodeURIComponent(page));
+  if(!reportSessionValid(epoch))return;
   const filtered=ReportKit.project(fresh.rows,cfg.columns,{keyword:S.filter,searchAllFields:true,entity:page});
   const sheets=[{name:ReportKit.safeName(cfg.title),headers:cfg.columns.map(c=>c[1]),rows:filtered,sourceCount:fresh.rows.length}];
   if(action==='xlsx'){await downloadWorkbook(sheets);toast('Excel 已下載；僅含目前搜尋結果');}

@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);
-const S={me:null,csrf:'',page:'dashboard',cache:{},filter:''};
+const S={me:null,csrf:'',page:'dashboard',cache:{},filter:'',authEpoch:0};
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消',pending:'待確認',confirmed:'已確認',reported:'待派工',assigned:'已派工',closed:'已結案',rejected:'已駁回',owner:'業主',manager:'主管',staff:'一般員工',purchase:'進貨',usage:'領用',adjustment:'盤點調整'};
 const label=v=>nice[v]||String(v??'—');
@@ -41,7 +41,18 @@ async function api(path,method='GET',payload){
  if(!r.ok){const err=new Error(j.error||'操作失敗');err.status=r.status;throw err;}return j;
 }
 function toast(text){const n=$('#toast');n.textContent=text;n.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>n.classList.remove('show'),4000);}
-function showAuth(flag){$('#auth-overlay').hidden=!flag;$('#sidebar').style.visibility=flag?'hidden':'visible';}
+function showAuth(flag){
+ $('#auth-overlay').hidden=!flag;
+ $('#sidebar').style.visibility=flag?'hidden':'visible';
+ document.body.classList.toggle('auth-locked',flag);
+ if(flag){
+  // A shared workstation must not retain prior users' reports, cached rows or
+  // forms. This also runs when an existing session expires during bootstrap.
+  S.me=null;S.csrf='';S.cache={};S.filter='';S.page='dashboard';S.authEpoch++;
+  $('#main').innerHTML='';
+  const modal=$('#modal-root');modal.hidden=true;modal.innerHTML='';
+ }
+}
 function setActive(page){S.page=page;S.filter='';document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#crumb').textContent=pages[page].title;$('#sidebar').classList.remove('open');}
 function head(title,desc,action,permission){return `<div class="heading"><div><div class="eyebrow">RESTAURANT OPERATIONS</div><h1>${E(title)}</h1><p>${E(desc)}</p></div>${action&&can(permission)?`<button class="btn primary" data-create="${E(action)}">＋ 新增${E(title.replace(/管理|紀錄|主檔|與驗收/g,''))}</button>`:''}</div>`;}
 function pill(v){let a=['done','approved','received','confirmed','closed','active'].includes(v)?'ok':['todo','requested','pending','reported'].includes(v)?'warn':['rejected','cancelled'].includes(v)?'bad':'';return `<span class="badge ${a}">${E(label(v))}</span>`;}
@@ -153,6 +164,12 @@ $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
 $('#main').addEventListener('input',e=>{if(e.target.id==='search'){S.filter=e.target.value;drawTable(S.page);}});
 $('#menu-btn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
 $('#change-password').addEventListener('click',()=>{if(S.me)showForm('user.password',S.me.id);});
-$('#logout').addEventListener('click',async()=>{try{await api('/api/logout','POST',{});}finally{S.me=null;S.csrf='';showAuth(true);$('#sidebar').classList.remove('open');}});
+$('#logout').addEventListener('click',async()=>{
+ // Start the authenticated logout request before wiping the in-memory CSRF,
+ // but lock printing and purge sensitive UI synchronously on click.
+ const pending=api('/api/logout','POST',{});
+ showAuth(true);$('#sidebar').classList.remove('open');
+ try{await pending;}catch{toast('伺服器尚未確認登出，請關閉此分頁並通知管理者。');}
+});
 $('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
 bootstrap();

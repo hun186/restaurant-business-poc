@@ -116,3 +116,5 @@
 - 新增根目錄「重設業主密碼.bat」，檢查 Node.js 版本、原有資料庫與 `.installed`、工作目錄，以 UTF-8 顯示中文步驟，呼叫 CLI `--guided`，改成輸入數字 1 確認；無論成功失敗都 pause 留下畫面。僅針對 ExperimentalWarning 停用警告，其他錯誤照常顯示。
 - CLI 原本互動式 `RESET owner` 保留，`--guided` 只改確認方式，不繞過 TTY、schema / owner 驗證、完整備份、CAS 並行保護、Session 撤銷與稽核。正式 Windows 實機操作仍需額外驗收。
 - 仍須 Hosted CI 及 Codex Review，未獲 Merge 指示不得合併。
+
+- 2026-10-24 Codex P2：舊 BAT `cd /d "%~dp0"` 在 UNC／切換失敗時可能繼續從舊工作目錄執行錯誤專案。已改以 `pushd` 並檢查失敗立即中止、所有成功／失敗路徑 `popd`；回歸測試驗證順序與配對。需再跑 CI／正式複審。

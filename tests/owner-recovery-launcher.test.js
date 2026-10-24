@@ -19,7 +19,11 @@ test('guided Windows confirmation accepts only numeric 1; old CLI is unchanged',
 });
 test('batch launcher always stays inside its own project directory and keeps failure visible',()=>{
  assert.match(bat,/chcp 65001\s*>nul/);
- assert.match(bat,/cd \/d "%~dp0"/i);
+ assert.match(bat,/pushd "%~dp0" 2>nul/i);
+ assert.match(bat,/if errorlevel 1 \(\s*echo \[E_PATH\]/);
+ assert.ok(bat.indexOf('pushd "%~dp0"')<bat.indexOf('where node'),'must verify project directory before invoking anything');
+ assert.equal((bat.match(/\bpopd\b/gi)||[]).length,2,'normal and failure paths must popd');
+ assert.doesNotMatch(bat,/cd \/d "%~dp0"/i);
  assert.match(bat,/where node\s*>nul/);
  assert.match(bat,/process\.versions\.node\.split/);
  assert.match(bat,/if not defined DATA_DIR/);

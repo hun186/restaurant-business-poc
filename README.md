@@ -103,3 +103,5 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 5. 重新雙擊「啟動餐廳好管家.bat」，用 `owner` 及新密碼登入。登入後可在「變更密碼」改成自己保存的密碼。
 
 BAT 只簡化本機互動操作，實際安全檢查仍由 `tools/reset-owner-password.js` 執行；不產生固定預設密碼、不開放遠端重設、不改動營運資料。BAT 以 Node.js 的 `--disable-warning=ExperimentalWarning` **只隱藏 SQLite 實驗性警告**，不會隱藏一般錯誤或驗證失敗訊息。若不使用 Windows，仍可執行 `node tools/reset-owner-password.js` 並輸入 `RESET owner`。
+
+**路徑安全：** `重設業主密碼.bat` 會先以 Windows `pushd` 切換至 BAT 所在專案資料夾，失敗時立即中止，避免誤讀其他專案的 SQLite；結束後恢復工作目錄。雖然 `pushd` 能處理 UNC 網路路徑，但正式資料庫**仍建議放在本機磁碟**，不要直接放在不穩定的網路共享位置。

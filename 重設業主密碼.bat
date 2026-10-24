@@ -1,7 +1,13 @@
 @echo off
 chcp 65001 >nul
 setlocal
-cd /d "%~dp0"
+pushd "%~dp0" 2>nul
+if errorlevel 1 (
+ echo [E_PATH] 無法進入餐廳好管家專案資料夾，已取消操作。
+ echo 請將完整專案放在本機可讀寫目錄，避免使用網路共享或唯讀資料夾。
+ pause
+ exit /b 1
+)
 title 餐廳好管家 - 業主密碼復原
 echo.
 echo ==========================================================
@@ -57,10 +63,12 @@ if not "%EXITCODE%"=="0" (
  echo 然後重新雙擊「啟動餐廳好管家.bat」登入。
 )
 echo.
+popd
 pause
 exit /b %EXITCODE%
 :failed
 echo.
 echo 未重設密碼，現有營運資料不應受此工具影響。
+popd
 pause
 exit /b 1

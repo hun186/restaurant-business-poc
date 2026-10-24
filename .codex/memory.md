@@ -144,3 +144,10 @@
 - 已在 `public/order-batch-ui.js` 及 `vercel-demo/order-batch-ui.js` 同步：提交事件一開始阻止重入，通過前端驗證後、發出 API 前同步設定 `submitting` 並 disable 按鈕；API 拒絕後才解鎖允許重試；API 已成功時保持鎖定，即使後續刷新列表失敗也不再重送。
 - 新增 `tests/order-batch-double-submit.test.js`，使用 VM 非同步延遲回應重現連點、確認只有單次 API，失敗可重試；成功後刷新失敗亦不可重送。程式＋測試 HEAD `4f8cf235f03f6a731301a7e22927bffd23ff2056`，**不得以其前代 `caebe207` 的 Hosted CI PASS 代表新 HEAD PASS**。
 - 後續：查最新 HEAD Ubuntu／Windows Node22/24 Hosted CI；對新 Finding 回覆與 Resolve；提交最新 HEAD 的正式 Codex 複審，確認是否有新 P1/P2。Vercel Preview 目前每日部署額度失敗，與 GitHub CI 分開看。PR #10 仍 Draft，沒有 Merge 授權，Windows／LINE 真人操作未驗收。
+
+## 2026-10-24｜PR #10 新 P2：舊叫貨請求清空新草稿視窗
+
+- 最新已核實 Codex Review：HEAD `2c31530c818b01c47f54bbfaebf4ae9742c7b8fd` **Completed**，新 P2：送出舊叫貨表單後，若在 API 回應前取消、再開啟新表單，舊 API 成功會誤用共用 `#modal-root` 清空新草稿；Review Thread `PRRT_kwDOVUuF1c6v5B4c`。
+- 已針對 `public/order-batch-ui.js` 與 `vercel-demo/order-batch-ui.js` 在 submit closure 捕獲實際 DOM form；API 成功、失敗或驗證錯誤時要求 `ownsModal()`（帳號／epoch 未變、modal 可見且當前 form identity 相同），只允許原表單被關閉／解鎖／提示。舊請求仍可能在後端建立單據，這項修正只防止舊結果毀損新 UI，**不宣稱網路請求已取消**。
+- 新增 VM 重現：舊表單送出後關閉再建立新草稿，舊成功不得清除新表單；舊失敗不得解鎖或顯示舊錯誤；最新表單仍可提交成功。測試涵蓋正式與 Demo。新 HEAD 的 Hosted CI／正式 Codex Review 待依提交 SHA 核實；前版 PASS 不代表新 HEAD PASS。
+- PR 仍 Draft、未經使用者授權不可 Merge；Windows 與 LINE 真機操作、Vercel Preview 部署仍待另行驗收。

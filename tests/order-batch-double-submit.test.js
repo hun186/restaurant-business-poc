@@ -91,3 +91,111 @@ test('batch create stays single-flight under rapid repeat submissions; failed re
   assert.ok(notices.some(x=>x.includes('叫貨單已建立，但列表更新失敗')));
  }
 });
+
+
+test('older batch create cannot erase or alter a newer modal after cancel/reopen (real + demo)',async()=>{
+ for(const dir of ['public','vercel-demo']){
+  const source=fs.readFileSync(path.join(__dirname,'..',dir,'order-batch-ui.js'),'utf8');
+  const requests=[],notices=[];
+  let current=null,close;
+  const modal={
+   hidden:true,_html:'',
+   set innerHTML(value){
+    this._html=value;
+    current=value?newForm():null;
+   },
+   get innerHTML(){return this._html;},
+   querySelector(key){
+    if(key==='[data-close-batch]')return {addEventListener(_type,cb){close=cb;}};
+    return current?.elements[key]||null;
+   },
+   querySelectorAll(key){return key==='.batch-line'?(current?.lines||[]):[];}
+  };
+  function newForm(){
+   const lines=[],submit={disabled:false,textContent:'依供應商產生叫貨單'};
+   const form={onsubmit:null};
+   const elements={
+    '#batch-form':form,
+    '#batch-submit':submit,
+    '#batch-location':{value:'l1',onchange:null},
+    '#batch-lines':{appendChild:r=>lines.push(r),addEventListener(){}},
+    '#batch-add':{onclick:null},
+    '#batch-suggest':{onclick:null}
+   };
+   return {lines,form,submit,elements};
+  }
+  function row(){
+   const ingredient={value:''},quantity={value:''};
+   const supplier={value:'',title:'',addEventListener(){}};
+   return {
+    innerHTML:'',className:'',remove(){},
+    querySelector:key=>({
+     '.batch-ingredient':ingredient,'.batch-qty':quantity,
+     '.batch-supplier':supplier,'.batch-remove':{onclick:null}
+    })[key],
+    ingredient,quantity,supplier
+   };
+  }
+  const S={me:{id:'employee-1'},authEpoch:9};
+  const api=(url,method,payload)=>{
+   if(url==='/api/command')return new Promise((resolve,reject)=>requests.push({payload,resolve,reject}));
+   return Promise.resolve({rows:
+    url.includes('entity=locations')?[{id:'l1',name:'A',active:1}]:
+    url.includes('entity=ingredients')?[{id:'i1',name:'菜',unit:'公斤',active:1}]:[]});
+  };
+  const document={
+   body:{classList:{contains:()=>false}},
+   querySelector:()=>modal,
+   createElement:row
+  };
+  const ctx=vm.createContext({window:{},document,S,api,console,
+   toast:v=>notices.push(v),refresh:async()=>{}});
+  vm.runInContext(source,ctx,{filename:dir+'/order-batch-ui.js'});
+  const open=async(qty,supplier)=>{
+   await ctx.window.OrderBatchUI.start();
+   const active=current;
+   assert.equal(active.lines.length,1);
+   active.lines[0].ingredient.value='i1';
+   active.lines[0].quantity.value=String(qty);
+   active.lines[0].supplier.value=supplier;
+   return active;
+  };
+  const event={preventDefault(){}};
+  const firstForm=await open(1,'原本供應商');
+  const oldRequest=firstForm.form.onsubmit(event);
+  assert.equal(requests.length,1);
+  close();
+  assert.equal(modal.hidden,true);
+  const nextForm=await open(9,'新供應商');
+  assert.notEqual(nextForm.form,firstForm.form);
+  assert.equal(modal.hidden,false);
+  // An obsolete success must not clear the new draft or make its button usable.
+  requests[0].resolve({result:{groups:[{number:'POB-old'}]}});
+  await oldRequest;
+  assert.equal(modal.hidden,false,dir+': stale success closed the next modal');
+  assert.equal(modal.querySelector('#batch-form'),nextForm.form);
+  assert.equal(current.lines[0].quantity.value,'9');
+  assert.equal(current.lines[0].supplier.value,'新供應商');
+  assert.equal(nextForm.submit.disabled,false);
+
+  // A stale rejection must likewise leave the next form's pending state untouched.
+  const nextRequest=nextForm.form.onsubmit(event);
+  assert.equal(requests.length,2);
+  assert.equal(nextForm.submit.disabled,true);
+  close();
+  const thirdForm=await open(11,'第三供應商');
+  requests[1].reject(Error('old request failed'));
+  await nextRequest;
+  assert.equal(modal.hidden,false);
+  assert.equal(modal.querySelector('#batch-form'),thirdForm.form);
+  assert.equal(current.lines[0].quantity.value,'11');
+  assert.equal(thirdForm.submit.disabled,false);
+  assert.ok(!notices.some(x=>x.includes('old request failed')),
+    dir+': obsolete errors must not intrude into the new draft');
+  const newestRequest=thirdForm.form.onsubmit(event);
+  assert.equal(requests.length,3);
+  requests[2].resolve({result:{groups:[{number:'POB-new'}]}});
+  await newestRequest;
+  assert.equal(modal.hidden,true,dir+': current request should still close its own modal');
+ }
+});

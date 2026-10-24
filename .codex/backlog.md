@@ -33,3 +33,5 @@
 | RB-022 | IN_REVIEW | P1 | PR #10 多品項叫貨、依歷史價供應商分單、整張主管核准／驗收、逐行價格及 LINE 人工分享草稿；前輪 CI PASS 但最新重送防護修正須新 HEAD CI／Codex 複審，不得未授權 Merge |
 
 | RB-022-SEC | IN_REVIEW | P2 | PR #10 `caebe207` Codex 重複提交 Finding：正式與 Demo UI 同步提交鎖、停用按鈕、失敗重試；新 VM 非同步雙擊回歸已提交，待最新 SHA Hosted CI、Review Thread 回覆／Resolve 及正式複審 |
+
+| RB-022-MODAL | IN_REVIEW | P2 | PR #10 Codex 新 Finding：舊請求成功／失敗不得操作已重開的共用 modal；正式版與 Demo 綁定 form identity、VM 延遲回應回歸，等待最新 HEAD Hosted CI 與正式複審 |

@@ -76,9 +76,12 @@ window.OrderBatchUI=(()=>{
   node.querySelector('#batch-location').onchange=()=>node.querySelectorAll('.batch-line').forEach(fillSupplier);
   node.querySelector('#batch-lines').addEventListener('change',e=>{const row=e.target.closest('.batch-line');if(row&&e.target.matches('.batch-ingredient'))fillSupplier(row);});
   add();
-  node.querySelector('#batch-form').onsubmit=async e=>{
+  // #modal-root is reused. An old API reply may not close a newer draft.
+  const form=node.querySelector('#batch-form');
+  const ownsModal=()=>active(epoch,userId)&&!node.hidden&&node.querySelector('#batch-form')===form;
+  form.onsubmit=async e=>{
    e.preventDefault();
-   if(submitting||!active(epoch,userId)||node.hidden)return;
+   if(submitting||!ownsModal())return;
    const submitButton=node.querySelector('#batch-submit');
    try{
     const rows=[...node.querySelectorAll('.batch-line')],selected=rows.filter(r=>r.querySelector('.batch-ingredient').value);
@@ -98,17 +101,17 @@ window.OrderBatchUI=(()=>{
     }catch(error){
      // A failed request can be retried; an accepted request must not be sent again.
      submitting=false;
-     if(active(epoch,userId)&&!node.hidden){
+     if(ownsModal()){
       if(submitButton){submitButton.disabled=false;submitButton.textContent='依供應商產生叫貨單';}
       toast('無法建立叫貨：'+error.message);
      }
      return;
     }
-    if(!active(epoch,userId)||node.hidden)return;
+    if(!ownsModal())return;
     node.hidden=true;node.innerHTML='';
     toast('已按供應商產生 '+answer.result.groups.length+' 張叫貨單，需主管核准後才能發送');
     try{await refresh();}catch(error){toast('叫貨單已建立，但列表更新失敗：'+error.message+'；請重新開啟叫貨列表，勿重複提交。');}
-   }catch(error){if(active(epoch,userId)&&!node.hidden)toast('請檢查叫貨內容：'+error.message);}
+   }catch(error){if(ownsModal())toast('請檢查叫貨內容：'+error.message);}
   };
  }
  async function preview(number){

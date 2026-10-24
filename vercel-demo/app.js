@@ -1,6 +1,7 @@
 'use strict';
 const $=s=>document.querySelector(s);
 const S={me:null,csrf:'',page:'dashboard',cache:{},filter:'',authEpoch:0};
+let logoutInFlight=null;
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消',pending:'待確認',confirmed:'已確認',reported:'待派工',assigned:'已派工',closed:'已結案',rejected:'已駁回',owner:'業主',manager:'主管',staff:'一般員工',purchase:'進貨',usage:'領用',adjustment:'盤點調整'};
 const label=v=>nice[v]||String(v??'—');
@@ -152,7 +153,7 @@ async function refresh(){return S.page==='dashboard'?dashboard():S.page==='backu
 async function bootstrap(){try{const out=await api('/api/me');S.me=out.user;S.csrf=out.csrf;showAuth(false);$('#avatar').textContent=S.me.display_name.slice(0,1)||'餐';
  document.querySelectorAll('[data-owner]').forEach(x=>x.hidden=S.me.role!=='owner');$('#today').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
  dashboard();}catch(e){showAuth(true);}}
-$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;$('#login-error').textContent='';const data=Object.fromEntries(new FormData(form));try{await api('/api/login','POST',data);form.reset();await bootstrap();}catch(err){$('#login-error').textContent=err.message;}});
+$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;$('#login-error').textContent='';const data=Object.fromEntries(new FormData(form));try{if(logoutInFlight)await logoutInFlight.catch(()=>{});await api('/api/login','POST',data);form.reset();await bootstrap();}catch(err){$('#login-error').textContent=err.message;}});
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else if(p==='backup_demo')demoBackupPage();else if(p==='reports')reportPage();else dataPage(p);});
 $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():p==='backup_demo'?demoBackupPage():p==='reports'?reportPage():dataPage(p);return;}
@@ -165,11 +166,15 @@ $('#main').addEventListener('input',e=>{if(e.target.id==='search'){S.filter=e.ta
 $('#menu-btn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
 $('#change-password').addEventListener('click',()=>{if(S.me)showForm('user.password',S.me.id);});
 $('#logout').addEventListener('click',async()=>{
- // Start the authenticated logout request before wiping the in-memory CSRF,
- // but lock printing and purge sensitive UI synchronously on click.
+ if(logoutInFlight)return;
+ // Start the logout request with the original CSRF. Lock the display now,
+ // then wait for the previous response before issuing any new login:
+ // the old logout's Set-Cookie deletion could erase the new login cookie.
  const pending=api('/api/logout','POST',{});
+ logoutInFlight=pending;
  showAuth(true);$('#sidebar').classList.remove('open');
  try{await pending;}catch{toast('伺服器尚未確認登出，請關閉此分頁並通知管理者。');}
+ finally{if(logoutInFlight===pending)logoutInFlight=null;}
 });
 $('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
 bootstrap();

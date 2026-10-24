@@ -122,3 +122,5 @@
 ## 2026-10-24｜PR #8 最新 Codex P2：共用電腦登出後殘留報表可遭 Ctrl+P 列印
 - Hosted 最新 Review HEAD `4408efa` Completed 找出 P2：報表列印 CSS 隱藏登入遮罩但顯示舊 `#report-print-preview`，業主登出後共用電腦仍可印出稽核／人事資料。
 - 修補本機正式版與 Vercel Demo：showAuth(true) 即清空 main、modal、S.cache／filter／身份，更新 authEpoch，對 body 設置 auth-locked；登出按下即開始 API 並同步鎖定畫面，回應失敗提醒伺服器登出未確認；print CSS 在 auth-locked 狀態一律隱藏 main／預覽，對殘留非同步 DOM 也 fail closed；匯出／列印非同步待命若權限階段變化即中止。增加 Node VM 回歸測試模擬共享終端 Ctrl+P 與登出未完成的非同步流程。仍須最新 Hosted CI、Codex Review，未授權不得 Merge。
+
+- 2026-10-24 Codex 新 P2（HEAD 2b7f277）：舊 logout Set-Cookie 清除可能晚於新 login Set-Cookie，導致新登入 Session 被抹除。正式版與 Demo 新增 logoutInFlight Promise，登出按下同步清畫面／鎖定列印不變；新登入 submit 須先等舊登出請求完成才發送 /api/login，登出失敗亦不得永久卡住；加入 VM 延遲登出回應回歸測試。待 Hosted CI／Codex 複審。

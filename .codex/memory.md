@@ -159,3 +159,10 @@
 - 新 `tests/order-batch-modal-lifecycle.test.js` 以 VM 延遲 API 模擬主管核准成功／失敗與舊庫存回應跨表單污染、驗證新視窗保留輸入；`tests/order-batches.test.js` 同步補齊既有進價輸入測試的 modal element 模擬身份，不放寬價格驗證。
 - 初版測試 HEAD `95c16db` CI Ubuntu Node22/24 數字價格既有 fixture 失敗（模擬 modal 無實例），已於 `31f317fb` 調整測試；最終 Hosted CI 及正式 Codex 複審**尚須以最新 HEAD 重新核實**。不得沿用前代 PASS。
 - PR #10 保留 Draft／OPEN，未經使用者授權不可 Merge。LINE 真機與 Vercel Preview 實站仍未驗收。
+
+## 2026-10-24｜PR #10 P2：初始 GET 開窗覆寫較新的叫貨草稿
+
+- 最新 Codex Review（HEAD `91826043f021485f6c028d85560d3597393a7970`）已 **Completed**，新增一個 P2：`PRRT_kwDOVUuF1c6v5QmB`。舊 `preview()` 的初始 GET 等待回應期間，使用者已 `start()` 開啟新草稿，舊 GET 回來仍會 `show()` 覆蓋新表單；既有 `ownsPreview()` 只保護預覽建立後的狀態 API，不能攔截這條路徑。
+- 已修改正式版與 Vercel Demo 的 `order-batch-ui.js`，共用模組內 `openGeneration`，`start()` 與 `preview()` 在登入權限確認後同步取得下一個 generation；所有初始 GET 回應必須確認仍為最新 generation 及原登入主體，才可 `show()`，避免舊預覽／舊建單要求蓋掉新表單。原有表單提交、主管操作、補貨建議 DOM identity guards 保留。
+- 新增 `tests/order-batch-opening-generation.test.js` VM 延遲 API 回應，雙版測試（1）舊預覽 GET 晚於新建單表單、保留數量與供應商；（2）舊建單 GET 晚於新預覽；（3）兩次預覽 GET 逆序回應時只顯示最新預覽。修正程式與測試已提交至 `dd50fea7e03ea12ea63357cad9ee173c8b12aedc`，該 HEAD Hosted CI 仍須完成最後核實。
+- 此修補僅阻止舊回應改動新 UI，不聲稱已取消發出的 HTTP 請求。新 SHA CI 完成後需回覆／Resolve 原 P2 並正式複審。PR 仍 Draft、未授權禁止 Merge；Vercel Preview／LINE 真機操作未驗收。

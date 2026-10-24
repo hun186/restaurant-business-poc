@@ -51,3 +51,8 @@
 - 對既有 v1/v2 資料庫先開唯讀連線執行 quick_check、外鍵、完整表/索引/DDL、owner 與 v2 備份設定預檢；拒絕損壞資料庫時不先切 WAL 或改動正式庫。
 - 備份與快照驗證使用完整 v2 Schema 契約，不只確認資料表存在；新增欄位/索引缺失、字面值變異與拒絕時檔案 hash/journal_mode 不變測試。
 - 本機 Node22 npm run check 41/41 PASS；Hosted CI 與正式 Codex Review 待最新 SHA 驗證。未經授權禁止 Merge。
+
+## 2026-10-24｜正式 Review P1／P2 修正（Session race / POSIX 備份權限）
+- P1：HTTP `/api/command` 和 `/api/backups` POST 在 `await parse(req)` 後重新查 Session、角色與 CSRF，改用新的授權主體執行資料異動／稽核，防止慢速 body 期間被降權仍可異動。
+- P2：`backup-acl.protect()` POSIX 分支在既有備份資料夾由 SQLite VACUUM INTO 寫入前套用並驗證 0700；檔案套用 0600。使用 O_NOFOLLOW + descriptor 防止 chmod 跟隨替換 symlink。migration 同樣在快照產生前執行 protect。
+- 新增 HTTP 暫停 body 後撤銷 Session 的回歸測試，以及一般／升級備份預建 0755 目錄在 VACUUM 前必須變 0700 的測試。CI 與正式 Review 須以新 HEAD 為準，無授權不得 Merge。

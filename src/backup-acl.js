@@ -4,7 +4,26 @@
 const {execFileSync}=require('node:child_process');
 const fs=require('node:fs');
 function protect(target){
- if(process.platform!=='win32')return;
+ if(process.platform!=='win32'){
+  // SQLite VACUUM INTO creates its .partial with the process umask, which
+  // can be 0644. Secure the *existing* backup directory before this write.
+  // Use a no-follow file descriptor so chmod cannot follow a swapped symlink.
+  const st=fs.lstatSync(target);
+  if((!st.isFile()&&!st.isDirectory())||st.isSymbolicLink())
+   throw Object.assign(new Error('E_BACKUP: 不安全的備份路徑'),{code:'E_BACKUP'});
+  const mode=st.isDirectory()?0o700:0o600;
+  const flags=fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(st.isDirectory()?(fs.constants.O_DIRECTORY||0):0);
+  const fd=fs.openSync(target,flags);
+  try{
+   const actual=fs.fstatSync(fd);
+   if((st.isDirectory()&&!actual.isDirectory())||(st.isFile()&&!actual.isFile()))
+    throw Object.assign(new Error('E_BACKUP: 備份路徑類型已變更'),{code:'E_BACKUP'});
+   fs.fchmodSync(fd,mode);
+   if((fs.fstatSync(fd).mode&0o777)!==mode)
+    throw Object.assign(new Error('E_BACKUP: POSIX 備份權限保護失敗'),{code:'E_BACKUP'});
+  }finally{fs.closeSync(fd);}
+  return;
+ }
  const st=fs.lstatSync(target);
  if((!st.isFile()&&!st.isDirectory())||st.isSymbolicLink())throw new Error('E_BACKUP: 不安全的備份路徑');
  try{

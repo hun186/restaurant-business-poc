@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#102f43">
+<title>餐廳好管家｜餐飲營運管理</title>
+<link rel="stylesheet" href="/styles.css">
+<script src="/app.js" defer></script>
+<script src="/backup-ui.js" defer></script>
+</head>
+<body>
+<div class="shell">
+ <aside id="sidebar" class="sidebar">
+  <div class="brand"><span class="brand-mark">♜</span><span><strong>餐廳好管家</strong><small>餐飲營運管理系統</small></span></div>
+  <div class="nav-label">營運工作空間</div>
+  <nav id="nav" aria-label="主要功能">
+   <button data-page="dashboard" class="active">▦ <span>今日營運總覽</span></button>
+   <details open><summary>☷ 日常營運 <span>⌄</span></summary><div class="nav-children">
+    <button data-page="tasks">☑ 今日工作</button><button data-page="repairs">⚒ 設備維修</button></div></details>
+   <details open><summary>⬡ 採購與庫存 <span>⌄</span></summary><div class="nav-children">
+    <button data-page="ingredients">♧ 食材主檔</button><button data-page="stock">▣ 庫存管理</button><button data-page="purchase_orders">▤ 叫貨管理</button><button data-page="stocktakes">☷ 食材盤點</button><button data-page="stock_moves">↔ 庫存流水</button></div></details>
+   <details><summary>♙ 人事與訓練 <span>⌄</span></summary><div class="nav-children">
+    <button data-page="shifts">▦ 人事排班</button><button data-page="leave_requests">◷ 請假申請</button><button data-page="training_courses">▥ 教育訓練</button><button data-page="training_records">✓ 訓練紀錄</button><button data-page="evaluations">★ 員工考核</button></div></details>
+   <details><summary>⚙ 系統管理 <span>⌄</span></summary><div class="nav-children">
+    <button data-page="users" data-owner>♙ 帳號與權限</button><button data-page="locations">⌂ 門市管理</button><button data-page="audit_logs" data-owner>◉ 安全稽核</button><button data-page="backups" data-owner>◷ 備份管理</button></div></details>
+  </nav>
+  <div class="side-bottom"><div class="mode-label">◉ 本機 SQLite 持久化</div><p>角色權限 × 門市範圍 × 操作留痕</p><button class="link-button" id="change-password">⚿ 變更我的密碼</button><div style="height:8px"></div><button class="link-button" id="logout">↪ 安全登出</button></div>
+ </aside>
+ <div class="workarea">
+  <header class="topbar"><button id="menu-btn" aria-label="開啟導覽">☰</button><div class="crumb">餐飲管理 / <strong id="crumb">今日營運總覽</strong></div><div class="top-right"><span id="today"></span><span class="avatar" id="avatar">餐</span></div></header>
+  <main id="main"><div class="loading">正在讀取營運資訊…</div></main>
+  <footer>餐廳好管家 · PoC v0.1 · 僅供受控環境使用</footer>
+ </div>
+</div>
+<div id="auth-overlay" class="auth-overlay" hidden><div class="auth-card"><div class="brand-mark large">♜</div><h1>餐廳好管家</h1><p>營運管理系統 · 個人帳號登入</p><form id="login-form"><label>帳號<input name="username" autocomplete="username" required placeholder="輸入帳號"></label><label>密碼<input name="password" type="password" autocomplete="current-password" required placeholder="輸入密碼"></label><button class="btn primary wide" type="submit">安全登入</button><p class="form-error" id="login-error" role="alert"></p></form><small>初次啟動的業主帳密於伺服器終端顯示，請勿共用帳號。</small></div></div>
+<div class="modal-root" id="modal-root" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+</body>
+</html>

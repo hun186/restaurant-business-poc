@@ -61,21 +61,45 @@ function recoverOwner({folder=process.env.DATA_DIR||path.join(__dirname,'..','da
  }finally{db.close();}
  return {password,backupPath:path.join(dirs.backupDir,backup.name)};
 }
+// The Windows launcher uses an easier one-key confirmation but still requires
+// an actual interactive TTY. No flag can bypass this explicit consent.
+function cliMode(argv){
+ if(argv.length===0)return 'advanced';
+ if(argv.length===1&&argv[0]==='--guided')return 'guided';
+ error('使用方式：Windows 請雙擊 重設業主密碼.bat，其他系統執行 node tools/reset-owner-password.js');
+}
+function confirmed(mode,answer){
+ return mode==='guided'?String(answer).trim()==='1':answer==='RESET owner';
+}
 async function main(){
- if(process.argv.length!==2)error('用法：node tools/reset-owner-password.js（自訂資料目錄請使用 DATA_DIR）');
- if(!process.stdin.isTTY||!process.stdout.isTTY)error('為安全起見，請在本機互動式終端機操作，不支援腳本／遠端管線輸入');
- console.log('餐廳好管家：owner 離線密碼復原');
- console.log('必須先停止 npm start / Windows 啟動視窗；操作會先驗證並備份既有 SQLite，不會重建資料庫。');
+ const mode=cliMode(process.argv.slice(2));
+ if(!process.stdin.isTTY||!process.stdout.isTTY)error('為安全起見，請在本機互動式終端機操作，不接受管線或遠端自動輸入');
+ console.log('\n========================================');
+ console.log(' 餐廳好管家｜忘記 owner 密碼安全復原');
+ console.log('========================================');
+ console.log('【步驟 1】請先關閉「啟動餐廳好管家.bat」或 npm start 視窗。');
+ console.log('【步驟 2】將先檢查現有資料庫並製作完整、經驗證的備份。');
+ console.log('【步驟 3】重設完成後會顯示一次新密碼，請立即記錄。');
+ console.log('不會刪除原有資料；如備份驗證失敗，將取消重設。');
  const rl=readline.createInterface({input:process.stdin,output:process.stdout});
  let answer;
- try{answer=await rl.question('確認已停止網站後，輸入 RESET owner 才會執行：');}
- finally{rl.close();}
- if(answer!=='RESET owner'){console.log('已取消，不修改資料');return;}
+ try{
+  answer=await rl.question(mode==='guided'
+   ?'\n確認網站已完全停止後，輸入數字 1 並按 Enter 繼續；輸入其他內容取消：'
+   :'\n確認網站已完全停止後，輸入 RESET owner 並按 Enter 繼續；其他內容取消：');
+ }finally{rl.close();}
+ if(!confirmed(mode,answer)){console.log('\n已取消，owner 密碼與資料未修改。');return;}
+ console.log('\n正在檢查資料庫並產生安全備份，請勿關閉此視窗…');
  const result=recoverOwner();
- console.log('\n重設成功。已驗證的重設前備份：'+result.backupPath);
- console.log('帳號：owner');
- console.log('新隨機密碼（僅顯示這一次，請立即存入密碼管理器）：'+result.password);
- console.log('舊的 owner 登入 Session 已撤銷。請重新啟動 npm start，使用新密碼登入後自行變更密碼。');
+ console.log('\n========================================');
+ console.log(' 成功：owner 密碼已安全重設');
+ console.log('========================================');
+ console.log('重設前的有效備份：'+result.backupPath);
+ console.log('登入帳號：owner');
+ console.log('新隨機密碼（僅顯示這一次，請立即保存）：'+result.password);
+ console.log('\n請妥善保存新密碼；勿傳到公開聊天、截圖或貼在 GitHub。');
+ console.log('關閉此視窗後，雙擊「啟動餐廳好管家.bat」重新登入。');
+ console.log('舊的 owner 登入 Session 已撤銷。');
 }
-if(require.main===module)main().catch(e=>{console.error('密碼復原失敗：'+e.message);process.exitCode=1;});
-module.exports={recoverOwner,inspectOwner};
+if(require.main===module)main().catch(e=>{console.error('\n密碼復原失敗：'+e.message);console.error('資料庫未因此自動重建；請保留 data 與 backups，必要時聯繫管理者。');process.exitCode=1;});
+module.exports={recoverOwner,inspectOwner,cliMode,confirmed};

@@ -2,11 +2,11 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc`；GitHub `hun186/restaurant-business-poc` **Public**；PR #1 Draft（工作分支 `feat/restaurant-poc-v0.1`）。
+- 專案：餐廳好管家 / `restaurant-business-poc`；GitHub `hun186/restaurant-business-poc` **Public**；目前工作 PR #10 Draft／OPEN（`feat/multi-item-supplier-line-orders`），另有 PR #7、#9 Draft／OPEN；PR #8 已合併至 main。正式審查與 CI 必須按最新 PR HEAD 獨立核對。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。
-- 資料：本機／固定主機 `data/restaurant.sqlite`（Schema user_version=2，backup_settings 持久保存備份設定）；不允許把 Vercel 一般檔案系統當持久 DB；正式遠端多人架構待定。
+- 資料：本機／固定主機 `data/restaurant.sqlite`（Schema user_version=3，包含備份設定、歷史進價與菜品配方）；不允許把 Vercel 一般檔案系統當持久 DB；正式遠端多人架構待定。
 - Auth：Owner / Manager / Staff、門市授權、Cookie Session、CSRF、scrypt、稽核。
 - 模組：工作、食材、庫存／叫貨／盤點、設備維修、人事排班／請假、教育訓練與考核。
 - 指令：`npm start`、`npm run check`、`node tools/backup.js`。
@@ -23,3 +23,9 @@
 - `server.js` 的 `/api/backups`（業主 Session + CSRF）；`public/backup-ui.js` 僅於本機真正 SQLite 模式使用。
 - `db/backup.sql`／`db/schema.sql`：舊 v1 升到 v2 前建立 migration 快照。下載備份不是站內即時還原。
 - `vercel-demo/` 仍完全獨立，**不能聲稱它有正式備份功能**。
+
+## 2026-10-24｜Current PR Focus
+
+- PR #10：一張多品項叫貨單按供應商分組，主管整張核准／驗收並可逐行填寫進價，LINE 僅產生人工分享草稿；不代表送達。
+- 最新 Codex Review `caebe207` Completed，發現 P2：重複快速提交會產生雙份叫貨；`4f8cf235` 已修正式與 Demo 共用 UI，同步提交鎖與失敗重試回歸。最新 SHA CI／複審必須再次驗證；未經使用者授權不 Merge。
+- Vercel Preview 遇每日部署限額，公開站不能視為新功能部署成功；正式 Windows 及 LINE 真機流程仍待驗收。

@@ -137,3 +137,10 @@
 - 同輪 P2：Vercel Demo 同日更換供應商的建議選錯舊廠商；供應商排序加入原始 `ingredient_prices` 陣列 index 的同日最新記錄 tie breaker，比照既有 `pricing-demo.js`。需針對最新 HEAD 重新驗證 Hosted CI 與正式 Codex Review，不可沿用舊結果。未授權不得 Merge。
 
 - 2026-10-24 PR #10 Codex P2 (HEAD 98c869c)：`<input type=number>` 在使用者輸入未完成（如 `1e` 或 `-`）時可能 DOM value='' 而 validity.badInput=true，舊判斷誤當自願留空，造成庫存驗收成功但想填的進價未建立。正式與 Demo 先檢查 validity.badInput／checkValidity，再判斷真正空白才跳過，且驗價時再檢查單位／日期有效性；加入模擬瀏覽器 invalid field 及實際按驗收按鈕回歸，確保整張不送出 API。需重跑最新 Hosted CI 與 Codex Review，不得未授權 Merge。
+
+## 2026-10-24｜PR #10 最新 Codex P2：重複快速提交多品項叫貨
+
+- GitHub HEAD `caebe207` 的正式 Codex Review **Completed**，7 個 thread 中 1 個新 P2 未解：`public/order-batch-ui.js` 尚未阻止使用者在首次 `order.batch-create` 回應前連按兩次送出，導致後端建立兩張不同 UUID 的採購申請。
+- 已在 `public/order-batch-ui.js` 及 `vercel-demo/order-batch-ui.js` 同步：提交事件一開始阻止重入，通過前端驗證後、發出 API 前同步設定 `submitting` 並 disable 按鈕；API 拒絕後才解鎖允許重試；API 已成功時保持鎖定，即使後續刷新列表失敗也不再重送。
+- 新增 `tests/order-batch-double-submit.test.js`，使用 VM 非同步延遲回應重現連點、確認只有單次 API，失敗可重試；成功後刷新失敗亦不可重送。程式＋測試 HEAD `4f8cf235f03f6a731301a7e22927bffd23ff2056`，**不得以其前代 `caebe207` 的 Hosted CI PASS 代表新 HEAD PASS**。
+- 後續：查最新 HEAD Ubuntu／Windows Node22/24 Hosted CI；對新 Finding 回覆與 Resolve；提交最新 HEAD 的正式 Codex 複審，確認是否有新 P1/P2。Vercel Preview 目前每日部署額度失敗，與 GitHub CI 分開看。PR #10 仍 Draft，沒有 Merge 授權，Windows／LINE 真人操作未驗收。

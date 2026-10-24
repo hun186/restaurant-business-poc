@@ -51,7 +51,7 @@ function showAuth(flag){
   // forms. This also runs when an existing session expires during bootstrap.
   S.me=null;S.csrf='';S.cache={};S.filter='';S.page='dashboard';S.authEpoch++;
   $('#main').innerHTML='';
-  const modal=$('#modal-root');modal.hidden=true;modal.innerHTML='';
+  const modal=$('#modal-root');invalidateModalOpens(modal);modal.hidden=true;modal.innerHTML='';
  }
 }
 function setActive(page){S.page=page;S.filter='';document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#crumb').textContent=pages[page].title;$('#sidebar').classList.remove('open');}
@@ -135,10 +135,16 @@ function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(
  const step=f.type==='number'?'step="any" min="0"':'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
 }
-async function showForm(action,id){const d=def[action];if(!d){toast('此操作目前未提供表單');return;}await getLists();
- const root=$('#modal-root');root.hidden=false;
+function invalidateModalOpens(root){return (root.__openTicket=(root.__openTicket||0)+1);}
+async function showForm(action,id){
+ const d=def[action];if(!d){toast('此操作目前未提供表單');return;}
+ // Invalidate pending batch preview/create GETs *before* await getLists().
+ const root=$('#modal-root'),ticket=invalidateModalOpens(root),epoch=S.authEpoch,userId=S.me?.id;
+ await getLists();
+ if(root.__openTicket!==ticket||S.authEpoch!==epoch||S.me?.id!==userId)return;
+ root.hidden=false;
  root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>僅修改本次瀏覽器中的虛構示範資料，不產生正式紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
- const close=()=>{root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
+ const close=()=>{invalidateModalOpens(root);root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
  try{await api('/api/command','POST',{action,data:raw});close();toast(action==='user.password'?'密碼已變更，請重新登入':'已成功儲存');if(action==='user.password'){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
 }
@@ -179,5 +185,5 @@ $('#logout').addEventListener('click',async()=>{
  try{await pending;}catch{toast('伺服器尚未確認登出，請關閉此分頁並通知管理者。');}
  finally{if(logoutInFlight===pending)logoutInFlight=null;}
 });
-$('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
+$('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){invalidateModalOpens(e.currentTarget);e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
 bootstrap();

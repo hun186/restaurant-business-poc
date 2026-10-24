@@ -110,3 +110,38 @@ test('tiny stock and recipe quantities use high precision in restaurant workbook
  assert.match(extract(wb,'xl/worksheets/sheet1.xml'),/r="B2" s="4"><v>0\.00001<\/v>/);
  assert.match(extract(wb,'xl/styles.xml'),/formatCode="#,##0\.########"/);
 });
+
+test('legacy zh-TW slash timestamps normalize to input date filters',()=>{
+ for(const dir of ['public','vercel-demo']){
+  const s=fs.readFileSync(path.join(__dirname,'..',dir,'report-ui.js'),'utf8');
+  const proj=vm.runInContext(s+'\nReportKit.project;',vm.createContext({console}));
+  const rows=[{at:'2026/10/24 上午9:00:00',action:'demo.order'},{at:'2026-10-23T22:00:00Z',action:'older'}];
+  const got=proj(rows,[['action','事件']],{entity:'audit_logs',from:'2026-10-24',to:'2026-10-24'});
+  assert.equal(got.length,1,dir);assert.equal(got[0][0],'demo.order');
+ }
+});
+test('report categories reflect read permissions, not create permissions',()=>{
+ const pages={stock:{title:'庫存',columns:[['name','食材']],permission:'owner'},
+  shifts:{title:'班表',columns:[['shift_date','日期']],permission:'manager'},
+  tasks:{title:'工作',columns:[['title','工作']],permission:'manager'},
+  training_records:{title:'訓練',columns:[['score','分數']],permission:'manager'},
+  evaluations:{title:'考核',columns:[['score','分數']],permission:'manager'},
+  dish_costs:{title:'成本',columns:[['sale_price_twd','售價']],permission:'manager'},
+  audit_logs:{title:'稽核',columns:[['at','時間']]},
+  users:{title:'帳號',columns:[['username','帳號']]}};
+ const roles={staff:1,manager:2,owner:3};
+ for(const dir of ['public','vercel-demo']){
+  const source=fs.readFileSync(path.join(__dirname,'..',dir,'report-ui.js'),'utf8');
+  const S={me:{role:'staff'}},can=role=>roles[S.me.role]>=roles[role];
+  const available=vm.runInContext(source+'\nreportConfigs;',vm.createContext({pages,S,can}));
+  const staff=available().map(([key])=>key);
+  for(const entity of ['stock','shifts','tasks','training_records','evaluations'])assert.ok(staff.includes(entity),dir+': '+entity);
+  assert.ok(!staff.includes('audit_logs')&&!staff.includes('users')&&!staff.includes('dish_costs'));
+  S.me.role='manager';
+  const manager=available().map(([key])=>key);
+  assert.ok(manager.includes('dish_costs'));assert.ok(manager.includes('stock'));
+  assert.ok(!manager.includes('users'));
+  S.me.role='owner';
+  assert.ok(available().some(([key])=>key==='audit_logs'));
+ }
+});

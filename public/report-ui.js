@@ -3,6 +3,13 @@
 // /api/data; never embed SQLite in downloadable files or bypass server-side RBAC.
 const ReportKit=(function(){
  const dateKeys=['at','created_at','price_date','shift_date','due_date','start_date','period','completed_on','received_at'];
+ function normalizeDate(raw){
+  if(typeof raw!=='string')return '';
+  // Handles ISO timestamps and legacy zh-TW mock dates like
+  // "2026/10/24 上午9:00:00", without locale-dependent Date.parse().
+  const found=raw.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  return found?found[1]+'-'+found[2].padStart(2,'0')+'-'+found[3].padStart(2,'0'):'';
+ }
  const datesByEntity={audit_logs:'at',tasks:'due_date',ingredient_prices:'price_date',stock_moves:'created_at',
   purchase_orders:'created_at',stocktakes:'created_at',repairs:'created_at',shifts:'shift_date',
   leave_requests:'start_date',training_records:'completed_on',evaluations:'period'};
@@ -12,15 +19,16 @@ const ReportKit=(function(){
   if(!key||typeof row[key]!=='string'||!row[key])return false;
   if(entity==='leave_requests'){
    // Leave is an interval; include periods that overlap the selected date range.
-   return (!from||String(row.end_date||row.start_date).slice(0,10)>=from)&&(!to||row.start_date.slice(0,10)<=to);
+   const start=normalizeDate(row.start_date),end=normalizeDate(String(row.end_date||row.start_date));
+   return !!start&&!!end&&(!from||end>=from)&&(!to||start<=to);
   }
   if(entity==='evaluations'){
    // Evaluations use YYYY-MM periods; compare whole calendar months.
    const month=row.period.slice(0,7);
    return (!from||month>=from.slice(0,7))&&(!to||month<=to.slice(0,7));
   }
-  const date=row[key].slice(0,10);
-  return (!from||date>=from)&&(!to||date<=to);
+  const date=normalizeDate(row[key]);
+  return !!date&&(!from||date>=from)&&(!to||date<=to);
  }
  function value(v){if(v===null||v===undefined)return '';return typeof v==='object'?JSON.stringify(v):String(v);}
  function project(rows,columns,{keyword='',from='',to='',entity=null,searchAllFields=false}={}){
@@ -37,9 +45,9 @@ const ReportKit=(function(){
  return {project,value,safeName,sanitizeDate};
 })();
 function reportConfigs(){
+ const managerOnly=new Set(['ingredient_prices','inventory_values','menu_dishes','dish_ingredients','dish_costs','dish_cost_lines']);
  return Object.entries(pages).filter(([key,cfg])=>Array.isArray(cfg.columns)&&key!=='staff_directory'&&
-  (!['audit_logs','users'].includes(key)||S.me?.role==='owner')&&
-  can(cfg.permission||'staff'));
+  can(['audit_logs','users'].includes(key)?'owner':managerOnly.has(key)?'manager':'staff'));
 }
 function reportFilters(){
  return {keyword:$('#report-keyword')?.value||'',

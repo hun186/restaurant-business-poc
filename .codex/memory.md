@@ -101,3 +101,7 @@
 - 依使用者要求，對 Vercel Demo 新增「系統管理 → 智慧備份示範」。`vercel-demo/backup-demo.js` 只保存模擬設定和版本 metadata 至 sessionStorage，`backup-demo-ui.js` 支援快轉下次到期、跳過未變更資料、手動版本、版本輪替及刪除；所有操作均明確標示無實際 SQLite、無下載還原、無背景排程。
 - 新增 `/api/demo-backups` mock only，正式 `/api/backups` 與 SQLite 未更動。示範指紋以虛構營運資料序列化內容比較，不聲稱具備正式 SHA-256 快照完整性驗證。
 - CI/Review/合併與 Vercel 實際部署需個別確認；未經授權不得 Merge。
+
+## 2026-10-24｜本機版登入畫面 currentTarget null 修正（新 PR）
+- 使用者提供本機 owner 登入截圖，錯誤 `Cannot read properties of null (reading 'reset')`。根因是 `public/app.js` 登入 submit handler `await api('/api/login')` 後才讀 `e.currentTarget.reset()`，瀏覽器事件 dispatch 結束後 currentTarget 已為 null，成功登入卻在前端拋錯。
+- 在 await 前保存 `const form=e.currentTarget`，成功後 `form.reset()`；同步修正 Vercel Demo 共用程式碼。新增模擬真實 event.currentTarget 非同步失效的回歸測試；不更動登入憑證、Session、資料庫 Schema 或備份。Hosted CI／最新 Codex Review 需另驗收；無授權不得 Merge。

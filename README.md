@@ -76,3 +76,7 @@
 ## Vercel 虛構智慧備份操作教學
 
 Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份設定、快轉模擬到期檢查、無異動跳過、虛構工作變更後建立自動版本、手動版本及自動輪替。**全程只是 sessionStorage 中的示範紀錄，不產生 SQLite 檔案、不執行真正排程，也不可下載／還原**。實際備份及完整性驗證僅存在於本機 Node.js 正式模式。
+
+## 本機登入異常排除（2026-10-24）
+
+若舊版登入後出現 `Cannot read properties of null (reading 'reset')`，是前端在 `await /api/login` 之後使用已結束事件的 `e.currentTarget`，**不是提示 SQLite 損毀或密碼錯誤**。先按 `Ctrl + F5` 重新整理（登入成功的 Session 可能已建立），不要刪除 `data/restaurant.sqlite`、`data/.installed` 或備份。更新本修補版本後再登入；如仍無法登入，查詢 Network `/api/login` HTTP 狀態及 Node 終端機錯誤，不要在公開 Issue 貼登入憑證／Cookie。

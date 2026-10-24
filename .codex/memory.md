@@ -166,3 +166,10 @@
 - 已修改正式版與 Vercel Demo 的 `order-batch-ui.js`，共用模組內 `openGeneration`，`start()` 與 `preview()` 在登入權限確認後同步取得下一個 generation；所有初始 GET 回應必須確認仍為最新 generation 及原登入主體，才可 `show()`，避免舊預覽／舊建單要求蓋掉新表單。原有表單提交、主管操作、補貨建議 DOM identity guards 保留。
 - 新增 `tests/order-batch-opening-generation.test.js` VM 延遲 API 回應，雙版測試（1）舊預覽 GET 晚於新建單表單、保留數量與供應商；（2）舊建單 GET 晚於新預覽；（3）兩次預覽 GET 逆序回應時只顯示最新預覽。修正程式與測試已提交至 `dd50fea7e03ea12ea63357cad9ee173c8b12aedc`，該 HEAD Hosted CI 仍須完成最後核實。
 - 此修補僅阻止舊回應改動新 UI，不聲稱已取消發出的 HTTP 請求。新 SHA CI 完成後需回覆／Resolve 原 P2 並正式複審。PR 仍 Draft、未授權禁止 Merge；Vercel Preview／LINE 真機操作未驗收。
+
+## 2026-10-24｜PR #10 最新 Codex P2：舊廠商預覽覆蓋既有單品項表單
+
+- Review HEAD `01e93916cf665f00f135552f49317e5a5b16c98e` 正式 **Completed**，新增 P2 `PRRT_kwDOVUuF1c6v5U8r`：舊 `OrderBatchUI.preview()` 初始 GET 尚在等待時，使用者開啟原有 `app.js showForm('order.create')` 單品項叫貨表單並填寫，因該入口未增加批次模組的 `openGeneration`，舊回應仍覆蓋共用 `#modal-root`，導致資料遺失；正式／Demo 皆可重現。
+- 已在正式及 Demo 共四個 UI 檔改用 DOM 根節點共用 `__openTicket`：`order-batch-ui.js` 的 start/preview 在 await 初始 GET 前 claim ticket，回應後比對；`app.js showForm` 在 await getLists 前先 invalidate ticket，回應後比對 ticket/登入 epoch/帳號才開窗；原兩版 modal Close／背景關閉、auth overlay 清空視窗時同步 invalidate，防止已關閉後舊 GET 再開啟。保留既有 DOM identity guard，沒有變更交易或權限。
+- 新增 `tests/order-batch-shared-modal.test.js`，使用兩版真實 `showForm()` 函數與真實 OrderBatchUI VM：舊批次預覽 GET 延遲→原有單品項表單開啟且其輸入保留；舊單品項 getLists 延遲→新批次預覽成功且不被舊表單覆蓋。代碼 Commit `0d9e5b65`，測試補至 `9fbda867`。需用**最後 HEAD** 核對 Hosted Ubuntu/Windows Node22/24 CI，再正式回覆/Resolve P2 並重送 Codex Review，不能沿用先前 Completed。
+- PR #10 繼續 Draft，未取得使用者明確同意不得 Merge；Windows 真機及 LINE 人工流程仍待驗收，Vercel Preview 部署限額需另查。

@@ -151,3 +151,11 @@
 - 已針對 `public/order-batch-ui.js` 與 `vercel-demo/order-batch-ui.js` 在 submit closure 捕獲實際 DOM form；API 成功、失敗或驗證錯誤時要求 `ownsModal()`（帳號／epoch 未變、modal 可見且當前 form identity 相同），只允許原表單被關閉／解鎖／提示。舊請求仍可能在後端建立單據，這項修正只防止舊結果毀損新 UI，**不宣稱網路請求已取消**。
 - 新增 VM 重現：舊表單送出後關閉再建立新草稿，舊成功不得清除新表單；舊失敗不得解鎖或顯示舊錯誤；最新表單仍可提交成功。測試涵蓋正式與 Demo。新 HEAD 的 Hosted CI／正式 Codex Review 待依提交 SHA 核實；前版 PASS 不代表新 HEAD PASS。
 - PR 仍 Draft、未經使用者授權不可 Merge；Windows 與 LINE 真機操作、Vercel Preview 部署仍待另行驗收。
+
+## 2026-10-24｜PR #10 新 Codex P2：整張狀態操作與補貨建議須綁定原 modal
+
+- Review HEAD `3bd2bb8d0f13ca156eff7232c6d427ef00770256` **Completed**，新兩項 P2：`PRRT_kwDOVUuF1c6v5Hm4` 舊「主管核准／整張狀態操作」回應可能清空後開的新叫貨草稿；`PRRT_kwDOVUuF1c6v5Hm5` 舊補貨建議在同門市重新開表單後可能填入新草稿。兩者皆在正式版與 Demo 可重現。
+- 已在兩份 `order-batch-ui.js` 新增來源 modal instance 檢查：補貨回應先比原 `#batch-form` 實例，再比門市；整張狀態操作回應須比原 `.order-batch-modal` 實例，登入 epoch／帳號亦不變，才可清除畫面及更新 UI。舊失敗亦不能覆蓋新視窗提示。
+- 新 `tests/order-batch-modal-lifecycle.test.js` 以 VM 延遲 API 模擬主管核准成功／失敗與舊庫存回應跨表單污染、驗證新視窗保留輸入；`tests/order-batches.test.js` 同步補齊既有進價輸入測試的 modal element 模擬身份，不放寬價格驗證。
+- 初版測試 HEAD `95c16db` CI Ubuntu Node22/24 數字價格既有 fixture 失敗（模擬 modal 無實例），已於 `31f317fb` 調整測試；最終 Hosted CI 及正式 Codex 複審**尚須以最新 HEAD 重新核實**。不得沿用前代 PASS。
+- PR #10 保留 Draft／OPEN，未經使用者授權不可 Merge。LINE 真機與 Vercel Preview 實站仍未驗收。

@@ -28,6 +28,9 @@ window.OrderBatchUI=(()=>{
    '<div id="batch-lines"></div><button type="button" class="btn ghost" id="batch-add">＋ 加入食材</button> '+
    '<button type="button" class="btn ghost" id="batch-suggest">依安全庫存填入補貨建議</button>'+
    '<div class="form-actions"><button type="button" class="btn" data-close-batch>取消</button><button type="submit" class="btn primary" id="batch-submit">依供應商產生叫貨單</button></div></form></div>');
+  // Guard all asynchronous work on this form against the reused #modal-root.
+  const form=node.querySelector('#batch-form');
+  const ownsModal=()=>active(epoch,userId)&&!node.hidden&&node.querySelector('#batch-form')===form;
   const options=ingredients.map(i=>'<option value="'+safe(i.id)+'">'+safe(i.name)+'（'+safe(i.unit)+'）</option>').join('');
   let supplierEdited=new WeakSet();
   // Guard against double clicks, keyboard submits and concurrent submit events.
@@ -57,7 +60,8 @@ window.OrderBatchUI=(()=>{
    try{
     const location=node.querySelector('#batch-location').value;
     const data=await api('/api/data?entity=stock');
-    if(!active(epoch,userId)||node.hidden||node.querySelector('#batch-location')?.value!==location){toast('門市或登入狀態已變更，已丟棄舊的補貨建議');return;}
+    if(!ownsModal())return;
+    if(node.querySelector('#batch-location')?.value!==location){toast('門市或登入狀態已變更，已丟棄舊的補貨建議');return;}
     const stock=data.rows.filter(r=>r.location_id===location);
     const shortages=stock.filter(r=>Number(r.min_stock)>Number(r.on_hand));
     if(!shortages.length){toast('目前沒有低於安全庫存的食材；仍可手動輸入叫貨。');return;}
@@ -71,14 +75,11 @@ window.OrderBatchUI=(()=>{
      fillSupplier(target);added++;
     }
     toast('已填入 '+added+' 項安全庫存缺口；不含預估營業用量，送單前請人工確認。');
-   }catch(e){toast('補貨建議失敗：'+e.message);}
+   }catch(e){if(ownsModal())toast('補貨建議失敗：'+e.message);}
   };
   node.querySelector('#batch-location').onchange=()=>node.querySelectorAll('.batch-line').forEach(fillSupplier);
   node.querySelector('#batch-lines').addEventListener('change',e=>{const row=e.target.closest('.batch-line');if(row&&e.target.matches('.batch-ingredient'))fillSupplier(row);});
   add();
-  // #modal-root is reused. An old API reply may not close a newer draft.
-  const form=node.querySelector('#batch-form');
-  const ownsModal=()=>active(epoch,userId)&&!node.hidden&&node.querySelector('#batch-form')===form;
   form.onsubmit=async e=>{
    e.preventDefault();
    if(submitting||!ownsModal())return;
@@ -142,6 +143,9 @@ window.OrderBatchUI=(()=>{
    (manager&&approved?'<button type="button" class="btn" data-batch-action="order.batch-receive">整張驗收入庫</button>':'')+
    (manager&&['requested','approved'].includes(state)?'<button type="button" class="btn ghost" data-batch-action="order.batch-cancel">取消整張單</button>':'')+
    '<button type="button" class="btn" data-close-batch>關閉</button></div></div>');
+  // Preview state updates must never touch a newer form opened in this same modal root.
+  const previewPanel=node.querySelector('.order-batch-modal');
+  const ownsPreview=()=>active(epoch,userId)&&!node.hidden&&!!previewPanel&&node.querySelector('.order-batch-modal')===previewPanel;
   if(approved){
    node.querySelector('#batch-share').href='https://line.me/R/share?text='+encodeURIComponent(message);
    node.querySelector('#batch-copy').onclick=async()=>{
@@ -184,9 +188,10 @@ window.OrderBatchUI=(()=>{
      if(Object.keys(prices).length)payload.prices=prices;
     }
     await api('/api/command','POST',{action,data:payload});
-    if(!active(epoch,userId))return;node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();
+    if(!ownsPreview())return;
+    node.hidden=true;node.innerHTML='';toast('叫貨單狀態已更新');await refresh();
    }
-   catch(err){toast('處理失敗：'+err.message);}
+   catch(err){if(ownsPreview())toast('處理失敗：'+err.message);}
   }));
  }
  return {start,preview,lineText};

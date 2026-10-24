@@ -353,10 +353,14 @@ test('invalid browser numeric value is rejected BEFORE an empty price is treated
   const date={dataset:{batchDate:'po-line-1'},value:'2026-10-24',checkValidity:()=>true};
   const receive={dataset:{batchAction:'order.batch-receive'},addEventListener(type,callback){actions.push(callback);}};
   const share={href:''},copy={onclick:null};
+  // The simulated modal must expose a stable real-preview DOM identity,
+  // so pending-action guards behave like a browser during price validation.
+  const previewElement={};
   const dialog={
    hidden:true,innerHTML:'',
    querySelector(selector){
     if(selector==='[data-close-batch]')return {addEventListener(){}};
+    if(selector==='.order-batch-modal')return previewElement;
     if(selector==='#batch-share')return share;
     if(selector==='#batch-copy')return copy;
     return null;

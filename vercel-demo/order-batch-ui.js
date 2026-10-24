@@ -27,9 +27,12 @@ window.OrderBatchUI=(()=>{
    '<form id="batch-form"><label>門市<select id="batch-location" required>'+locations.map(l=>'<option value="'+safe(l.id)+'">'+safe(l.name)+'</option>').join('')+'</select></label>'+
    '<div id="batch-lines"></div><button type="button" class="btn ghost" id="batch-add">＋ 加入食材</button> '+
    '<button type="button" class="btn ghost" id="batch-suggest">依安全庫存填入補貨建議</button>'+
-   '<div class="form-actions"><button type="button" class="btn" data-close-batch>取消</button><button type="submit" class="btn primary">依供應商產生叫貨單</button></div></form></div>');
+   '<div class="form-actions"><button type="button" class="btn" data-close-batch>取消</button><button type="submit" class="btn primary" id="batch-submit">依供應商產生叫貨單</button></div></form></div>');
   const options=ingredients.map(i=>'<option value="'+safe(i.id)+'">'+safe(i.name)+'（'+safe(i.unit)+'）</option>').join('');
   let supplierEdited=new WeakSet();
+  // Guard against double clicks, keyboard submits and concurrent submit events.
+  // A successful request stays locked even if a subsequent refresh fails.
+  let submitting=false;
   const add=()=>{
    if(node.querySelectorAll('.batch-line').length>=60){toast('每次最多 60 種食材');return;}
    const row=document.createElement('div');row.className='batch-line';
@@ -75,6 +78,8 @@ window.OrderBatchUI=(()=>{
   add();
   node.querySelector('#batch-form').onsubmit=async e=>{
    e.preventDefault();
+   if(submitting||!active(epoch,userId)||node.hidden)return;
+   const submitButton=node.querySelector('#batch-submit');
    try{
     const rows=[...node.querySelectorAll('.batch-line')],selected=rows.filter(r=>r.querySelector('.batch-ingredient').value);
     if(!selected.length)throw Error('請至少選擇一項食材');
@@ -83,13 +88,27 @@ window.OrderBatchUI=(()=>{
     if(new Set(items.map(x=>x.ingredient_id)).size!==items.length)throw Error('同一食材不可重複；請合併數量');
     if(items.some(x=>!(x.qty>0)||!Number.isFinite(x.qty)||!x.supplier))throw Error('數量和供應商必須完整');
     const locationId=node.querySelector('#batch-location').value;
-    const answer=await api('/api/command','POST',{action:'order.batch-create',data:{
-     location_id:locationId,items}});
+    // Set the lock synchronously, BEFORE the first asynchronous operation.
+    submitting=true;
+    if(submitButton){submitButton.disabled=true;submitButton.textContent='叫貨單建立中…';}
+    let answer;
+    try{
+     answer=await api('/api/command','POST',{action:'order.batch-create',data:{
+      location_id:locationId,items}});
+    }catch(error){
+     // A failed request can be retried; an accepted request must not be sent again.
+     submitting=false;
+     if(active(epoch,userId)&&!node.hidden){
+      if(submitButton){submitButton.disabled=false;submitButton.textContent='依供應商產生叫貨單';}
+      toast('無法建立叫貨：'+error.message);
+     }
+     return;
+    }
     if(!active(epoch,userId)||node.hidden)return;
     node.hidden=true;node.innerHTML='';
     toast('已按供應商產生 '+answer.result.groups.length+' 張叫貨單，需主管核准後才能發送');
-    await refresh();
-   }catch(error){toast('無法建立叫貨：'+error.message);}
+    try{await refresh();}catch(error){toast('叫貨單已建立，但列表更新失敗：'+error.message+'；請重新開啟叫貨列表，勿重複提交。');}
+   }catch(error){if(active(epoch,userId)&&!node.hidden)toast('請檢查叫貨內容：'+error.message);}
   };
  }
  async function preview(number){

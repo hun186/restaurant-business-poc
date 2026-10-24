@@ -3,3 +3,14 @@
 .demo-banner{position:sticky;top:0;z-index:110;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;background:#fef3db;color:#78521a;border-bottom:1px solid #e8c885;padding:9px 16px;font-size:12px}
 .demo-banner strong{font-weight:800}.demo-banner span{max-width:700px}.demo-banner button{border:1px solid #b8944b;background:#fff8e9;color:#6d4b19;border-radius:7px;padding:4px 11px;font-weight:700}
 #logout,#change-password{display:none!important}.sidebar{height:calc(100vh - 40px);top:40px}
+
+
+/* Browser-only fake backup walkthrough; never suggests a downloadable file. */
+.demo-backup-banner{padding:18px 20px;border:1px solid #acd9d5;border-radius:12px;background:#e8f6f3;color:#17463d;margin-bottom:20px}
+.demo-backup-banner p{margin:8px 0 0;line-height:1.6}
+.demo-backup-settings{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:12px 0}
+.demo-backup-settings label{display:flex;flex-direction:column;gap:6px;min-width:165px}
+.demo-backup-settings input{width:100%;padding:10px;border-radius:8px;border:1px solid #b5c9d0}
+.demo-backup-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin:14px 0}
+.demo-backup-stats span{display:flex;flex-direction:column;gap:8px;padding:14px;background:#f3f7f8;border-radius:10px}
+.demo-backup-actions{display:flex;flex-wrap:wrap;gap:8px}

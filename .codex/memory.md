@@ -96,3 +96,8 @@
 - Demo 加入「菜單與成本」與「食材歷史價格／庫存估值」選單，允許新增價格、菜品、改售價、調整配方；核准叫貨後可驗收入庫並選填進價。
 - 禁止過時 Demo `stock.purchase` 直接入庫操作；可對未有庫存的食材建立單次期初庫存，保留虛構資料警語和重設入口。
 - 新 PR 須通過 Hosted CI、正式 Codex Review 及使用者 Merge 授權；Vercel Connector 此前對該 Team 回 403，正式部署仍須核對，不能提前聲稱已上線。
+
+## 2026-10-24｜RB-015 Vercel 虛構智慧備份教學（新 PR）
+- 依使用者要求，對 Vercel Demo 新增「系統管理 → 智慧備份示範」。`vercel-demo/backup-demo.js` 只保存模擬設定和版本 metadata 至 sessionStorage，`backup-demo-ui.js` 支援快轉下次到期、跳過未變更資料、手動版本、版本輪替及刪除；所有操作均明確標示無實際 SQLite、無下載還原、無背景排程。
+- 新增 `/api/demo-backups` mock only，正式 `/api/backups` 與 SQLite 未更動。示範指紋以虛構營運資料序列化內容比較，不聲稱具備正式 SHA-256 快照完整性驗證。
+- CI/Review/合併與 Vercel 實際部署需個別確認；未經授權不得 Merge。

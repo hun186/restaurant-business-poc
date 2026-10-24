@@ -48,6 +48,9 @@
  const pricing=window.RestaurantDemoPricing;
  if(!pricing)throw Error('公開示範價格模組載入失敗');
  pricing.seed(db);
+ const backups=window.RestaurantDemoBackup;
+ if(!backups)throw Error('缺少公開示範備份模組');
+ backups.seed(db);
  const save=()=>{try{sessionStorage.setItem(key,JSON.stringify(db));}catch{}};
  const makeId=()=>('demo-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
  const lookup=(group,id)=>db[group].find(x=>String(x.id)===String(id));
@@ -149,7 +152,12 @@
   const method=(options&&options.method||'GET').toUpperCase();
   let result,status=200;
   try{
-   if(url.pathname==='/api/me')result={user:{id:'u1',username:'demo-owner',display_name:'展示業主',role:'owner',locations:['l1','l2']},csrf:'demo-only'};
+   if(url.pathname==='/api/demo-backups'){
+     if(method==='GET')result=backups.status(db);
+     else if(method==='POST'){const b=JSON.parse(options?.body||'{}');result=backups.command(db,b.action,b);save();}
+     else result={error:'不支援的展示方法'},status=405;
+    }
+    else if(url.pathname==='/api/me')result={user:{id:'u1',username:'demo-owner',display_name:'展示業主',role:'owner',locations:['l1','l2']},csrf:'demo-only'};
    else if(url.pathname==='/api/overview')result={overview:overview()};
    else if(url.pathname==='/api/data'){const entity=url.searchParams.get('entity');result={rows:copy(enrich(entity,entity==='staff_directory'?[]:(db[entity]||[])))};}
    else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:command(body.action,body.data||{})};}

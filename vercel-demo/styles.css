@@ -14,3 +14,33 @@
 .demo-backup-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin:14px 0}
 .demo-backup-stats span{display:flex;flex-direction:column;gap:8px;padding:14px;background:#f3f7f8;border-radius:10px}
 .demo-backup-actions{display:flex;flex-wrap:wrap;gap:8px}
+
+/* Report selection and print-friendly output */
+.report-filters{display:flex;flex-wrap:wrap;gap:12px;margin:15px 0}
+.report-filters label{display:grid;gap:6px;flex:1;min-width:170px;font-size:13px}
+.report-filters input{width:100%}
+.report-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:15px 0 22px}
+.report-source{border:1px solid #e0e9eb;border-radius:11px;padding:12px}
+.report-source>label{display:flex;gap:8px;align-items:center}
+.report-source details{margin:8px 0 0}
+.report-source summary{cursor:pointer;color:#246778;font-size:12px}
+.report-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;padding:12px 0 0}
+.report-cols label{font-size:12px;display:flex;gap:6px;align-items:center}
+#report-print-preview{margin:15px 0}
+.report-print-meta{font-size:12px;color:#617d88;padding-bottom:12px}
+.report-print-sheet{background:white;border:1px solid #e2eaec;border-radius:12px;margin:12px 0 22px;padding:18px}
+.report-print-sheet h2{margin:0 0 6px;font-size:18px}
+.report-print-sheet p{color:#667b83;font-size:12px;margin:0 0 12px}
+@media print{
+ @page{size:A4 landscape;margin:12mm}
+ .demo-banner,.sidebar,.topbar,footer,#auth-overlay,#report-config,.heading,.toast{display:none!important}
+ .shell,.workarea,main{display:block!important;margin:0!important;padding:0!important;width:auto!important;max-width:none!important;overflow:visible!important}
+ main>*:not(#report-print-preview){display:none!important}
+ #report-print-preview{display:block!important;margin:0!important}
+ .report-print-sheet{page-break-before:always;break-before:page;border:none!important;border-radius:0;padding:0!important;margin:0!important}
+ .report-print-sheet:first-of-type{page-break-before:auto;break-before:auto}
+ .report-print-sheet .table-wrap{overflow:visible!important;border:0!important}
+ .report-print-sheet table{width:100%!important;min-width:0!important;font-size:9pt}
+ .report-print-sheet th,.report-print-sheet td{font-size:8pt;padding:5px 6px;overflow-wrap:anywhere}
+ .report-print-sheet tr{break-inside:avoid}
+}

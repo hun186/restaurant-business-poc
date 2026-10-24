@@ -39,7 +39,7 @@
  {id:'tr2',title:'新進員工服務禮儀',description:'點餐與顧客服務流程',required_score:85}],
  training_records:[{id:'trr1',course_id:'tr1',course_title:'食品衛生安全 SOP',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',score:null,completed_on:null}],
  evaluations:[{id:'ev1',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',period:'2026-10',score:88,feedback:'虛構考核範例'}],
- audit_logs:[{id:'a1',at:day(0)+' 09:00',actor_name:'展示業主',action:'demo.login_sample',entity:'demo',entity_id:'—',detail:'{"sample":true}'}]
+ audit_logs:[{id:'a1',at:day(0)+' 09:00',actor_name:'展示業主',action:'demo.login_sample',entity:'demo',entity_id:'—',ip_address:'192.0.2.20',detail:'{"sample":true,"source_ip":"192.0.2.20"}'}]
  };
  const copy=x=>JSON.parse(JSON.stringify(x));
  let db;
@@ -57,7 +57,7 @@
  const lName=id=>lookup('locations',id)?.name||'示範門市';
  const iName=id=>lookup('ingredients',id)?.name||'示範食材';
  const uName=id=>lookup('users',id)?.display_name||'示範員工';
- const log=(action,entity,id)=>{db.audit_logs.unshift({id:makeId(),at:new Date().toLocaleString('zh-TW'),actor_name:'展示業主',action:'demo.'+action,entity,entity_id:id,detail:'{"demo":true}'});};
+ const log=(action,entity,id)=>{db.audit_logs.unshift({id:makeId(),at:new Date().toLocaleString('zh-TW'),actor_name:'展示業主',action:'demo.'+action,entity,entity_id:id,ip_address:'192.0.2.20',detail:'{"demo":true,"source_ip":"192.0.2.20"}'});};
  const stockFor=(location_id,ingredient_id)=>db.stock.find(x=>x.location_id===location_id&&x.ingredient_id===ingredient_id);
  function changeStock(location_id,ingredient_id,delta,type,note){
   const ing=lookup('ingredients',ingredient_id);

@@ -61,3 +61,21 @@ test('report and workbook scripts are served and print view uses CSS print-only 
  assert.ok(server.includes("'/report-ui.js'"));
  assert.ok(server.includes("'/xlsx-lite.js'"));
 });
+
+test('Vercel interactive export uses only fictional sample data and shows a fictional IP',()=>{
+ const demo=path.join(__dirname,'..','vercel-demo');
+ const html=fs.readFileSync(path.join(demo,'index.html'),'utf8'),
+  app=fs.readFileSync(path.join(demo,'app.js'),'utf8'),
+  mock=fs.readFileSync(path.join(demo,'mock.js'),'utf8'),
+  report=fs.readFileSync(path.join(demo,'report-ui.js'),'utf8'),
+  xlsx=fs.readFileSync(path.join(demo,'xlsx-lite.js'),'utf8');
+ assert.match(html,/全部為虛構資料/);
+ assert.match(html,/data-page="reports"/);
+ assert.ok(html.indexOf('/xlsx-lite.js')<html.indexOf('/report-ui.js'));
+ assert.match(app,/reports:\{title:'虛構 Excel/);
+ assert.match(app,/S.page==='reports'\?reportPage\(\)/);
+ assert.match(mock,/192\.0\.2\.20/);
+ assert.match(report,/並非訪客真實 IP/);
+ assert.doesNotMatch(report,/fetch\('http/);
+ new vm.Script(report);new vm.Script(xlsx);
+});

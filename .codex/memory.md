@@ -116,3 +116,5 @@
 - `src/request-ip.js` AsyncLocalStorage request context，來源一律 socket.remoteAddress，絕不信任任意 XFF／X-Real-IP；預設 local loopback 127.0.0.1 而非外網 IP。audit detail 新增 source_ip，查詢投影 ip_address，登入失敗也留下；不變更 Schema，舊資料無法補 IP。
 - `public/xlsx-lite.js` 沿用水電系統無套件 OOXML writer；`public/report-ui.js` 報表頁採既有角色與門市保護的 API 取得資料，支援單頁／多工作表、欄位與關鍵字／日期篩選及列印預覽；不等於全量歷史。
 - 新增來源 IP／不可信標頭、RBAC、Excel ZIP/XML／欄位過濾回歸測試。CI／Codex Review／Merge 授權狀態依 Hosted HEAD。
+
+- Vercel Demo 同步新增虛構 Excel／列印操作及測試用稽核 IP `192.0.2.20`，只用 sessionStorage 假資料，無真實帳號授權、SQLite／真實來源 IP；需確認 Vercel Preview／Production 獨立部署狀態。

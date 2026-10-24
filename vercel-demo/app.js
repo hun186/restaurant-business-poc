@@ -14,6 +14,7 @@ const pages={
  dish_costs:{title:'菜品成本／毛利估算',desc:'依門市有效價格估算；缺價不能算成零成本',permission:'manager',columns:[['dish_name','菜品'],['location_name','門市'],['sale_price_twd','售價（元）'],['estimated_cost_twd','食材成本'],['gross_profit_twd','材料毛利'],['gross_margin_pct','毛利率 %'],['cost_status','核算狀態']]},
  dish_cost_lines:{title:'成本逐項明細',desc:'追蹤各項食材用量與缺價情況',permission:'manager',columns:[['dish_name','菜品'],['location_name','門市'],['ingredient_name','食材'],['qty','用量'],['unit','單位'],['unit_price_twd','單價（元）'],['price_unit','計價單位'],['line_cost_twd','單項成本'],['cost_status','狀態']]},
  dashboard:{title:'今日營運總覽',desc:'工作、叫貨、庫存、人事與設備的即時概覽'},
+ reports:{title:'虛構 Excel 匯出與列印',desc:'僅使用本瀏覽器的模擬資料'},
  backup_demo:{title:'智慧備份示範',desc:'僅供瀏覽器互動教學，不會執行真正資料庫備份'},
  tasks:{title:'今日工作',desc:'工作指派、完成紀錄與逾期追蹤',action:'task.create',permission:'manager',columns:[['title','工作內容'],['location_name','門市'],['assigned_name','負責人'],['due_date','期限'],['status','狀態']]},
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
@@ -29,7 +30,7 @@ const pages={
  evaluations:{title:'員工績效考核',desc:'主管記錄評分與回饋，員工只可查看自己的紀錄',action:'evaluation.create',permission:'manager',columns:[['staff_name','員工'],['location_name','門市'],['period','考核期別'],['score','分數'],['feedback','回饋']]},
  users:{title:'帳號與權限',desc:'示範角色及門市權限模型；不提供真實帳號管理',action:null,permission:'owner',columns:[['username','登入帳號'],['display_name','姓名'],['role','角色'],['locations','授權門市'],['active','啟用']]},
  locations:{title:'門市管理',desc:'門市資料及資料隔離邊界',action:'location.create',permission:'owner',columns:[['name','門市'],['active','啟用']]},
- audit_logs:{title:'系統安全稽核',desc:'登入、登入失敗、登出及重要資料變更事件',columns:[['at','時間'],['actor_name','操作者'],['action','事件'],['entity','資料類別'],['entity_id','資料識別碼'],['detail','摘要']]}
+ audit_logs:{title:'系統安全稽核（虛構資料）',desc:'以下 IP 均為保留的文件範例位址，並非訪客真實 IP',columns:[['at','時間'],['actor_name','操作者'],['ip_address','示意來源 IP'],['action','事件'],['entity','資料類別'],['entity_id','資料識別碼'],['detail','摘要']]}
 };
 const roleLevel={owner:3,manager:2,staff:1};
 const can=p=>S.me && roleLevel[S.me.role]>=roleLevel[p||'staff'];
@@ -66,7 +67,7 @@ function rowActions(page,r){const a=[];
 }
 async function dataPage(page){
  const cfg=pages[page];setActive(page);
- $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
+ $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
  try{const x=await api('/api/data?entity='+encodeURIComponent(page));S.cache[page]=x.rows;drawTable(page);}catch(e){$('#table-wrap').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
 function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
@@ -136,14 +137,16 @@ async function operation(action,id,status){try{
  if(action==='repair.status')data={id,status};
  await api('/api/command','POST',{action,data});toast('操作完成');await refresh();
  }catch(e){toast(e.message);}}
-async function refresh(){return S.page==='dashboard'?dashboard():S.page==='backup_demo'?demoBackupPage():dataPage(S.page);}
+async function refresh(){return S.page==='dashboard'?dashboard():S.page==='backup_demo'?demoBackupPage():S.page==='reports'?reportPage():dataPage(S.page);}
 async function bootstrap(){try{const out=await api('/api/me');S.me=out.user;S.csrf=out.csrf;showAuth(false);$('#avatar').textContent=S.me.display_name.slice(0,1)||'餐';
  document.querySelectorAll('[data-owner]').forEach(x=>x.hidden=S.me.role!=='owner');$('#today').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
  dashboard();}catch(e){showAuth(true);}}
 $('#login-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;$('#login-error').textContent='';const data=Object.fromEntries(new FormData(form));try{await api('/api/login','POST',data);form.reset();await bootstrap();}catch(err){$('#login-error').textContent=err.message;}});
-$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else if(p==='backup_demo')demoBackupPage();else dataPage(p);});
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else if(p==='backup_demo')demoBackupPage();else if(p==='reports')reportPage();else dataPage(p);});
 $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():p==='backup_demo'?demoBackupPage():dataPage(p);return;}
+ if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():p==='backup_demo'?demoBackupPage():p==='reports'?reportPage():dataPage(p);return;}
+ if(b.dataset.exportCurrent)exportCurrentPage('xlsx');
+ if(b.dataset.printCurrent)exportCurrentPage('print');
  if(b.dataset.create)showForm(b.dataset.create);
  if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
 });

@@ -145,3 +145,44 @@ test('report categories reflect read permissions, not create permissions',()=>{
   assert.ok(available().some(([key])=>key==='audit_logs'));
  }
 });
+
+test('real Vercel mock newly created orders, stocktakes and repairs pass todays date filter',async()=>{
+ const demo=path.join(__dirname,'..','vercel-demo'),storage=new Map();
+ const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ const window={fetch:async()=>{throw Error('unexpected network request')},confirm:()=>true};
+ const context=vm.createContext({window,sessionStorage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
+ for(const filename of ['pricing-demo.js','backup-demo.js','mock.js']){
+  vm.runInContext(fs.readFileSync(path.join(demo,filename),'utf8'),context,{filename});
+ }
+ const project=vm.runInContext(fs.readFileSync(path.join(demo,'report-ui.js'),'utf8')+'\nReportKit.project;',context);
+ const created={
+  purchase_orders:{action:'order.create',data:{location_id:'l1',ingredient_id:'i1',qty:4,supplier:'今天叫貨'}},
+  stocktakes:{action:'stocktake.create',data:{location_id:'l1',ingredient_id:'i2',counted_qty:19}},
+  repairs:{action:'repair.create',data:{location_id:'l1',equipment:'今天冷藏櫃',description:'溫度異常'}}
+ };
+ const today=new Date().toLocaleDateString('sv-SE');
+ for(const [group,input] of Object.entries(created)){
+  const write=await window.fetch('/api/command',{method:'POST',body:JSON.stringify(input)});
+  assert.equal(write.status,200,group);
+  const output=await (await window.fetch('/api/data?entity='+group)).json();
+  const current=project(output.rows,[['created_at','建立時間']],{entity:group,from:today,to:today});
+  assert.ok(current.length>=1,group+' todays rows must not vanish');
+  assert.ok(output.rows.some(r=>r.created_at?.startsWith(today)),group+' new row has created_at');
+ }
+});
+test('legacy Vercel sessionStorage upgrade fills missing sample dates without discarding rows',async()=>{
+ const demo=path.join(__dirname,'..','vercel-demo');
+ const saved={tasks:[{id:'old-task',title:'已保存的工作'}],stock:[],
+  purchase_orders:[{id:'old-po',number:'PO-OLD'}],stocktakes:[{id:'old-count'}],repairs:[{id:'old-repair'}]};
+ const storage=new Map([['restaurant-public-demo-v1',JSON.stringify(saved)]]);
+ const sessionStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ const window={fetch:async()=>{throw Error('unexpected network')},confirm:()=>true};
+ const ctx=vm.createContext({window,sessionStorage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
+ for(const filename of ['pricing-demo.js','backup-demo.js','mock.js'])
+  vm.runInContext(fs.readFileSync(path.join(demo,filename),'utf8'),ctx,{filename});
+ const existing=await (await window.fetch('/api/data?entity=purchase_orders')).json();
+ assert.equal(existing.rows.length,1);assert.equal(existing.rows[0].number,'PO-OLD');
+ assert.match(existing.rows[0].created_at,/^\d{4}-\d{2}-\d{2}/);
+ assert.equal((await (await window.fetch('/api/data?entity=stocktakes')).json()).rows[0].id,'old-count');
+ assert.equal((await (await window.fetch('/api/data?entity=repairs')).json()).rows[0].id,'old-repair');
+});

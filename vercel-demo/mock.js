@@ -4,6 +4,7 @@
  const key='restaurant-public-demo-v1';
  const now=new Date();
  const day=(offset)=>{const d=new Date(now);d.setDate(d.getDate()+offset);return d.toLocaleDateString('sv-SE');};
+  const createdAt=()=>new Date().toLocaleDateString('sv-SE')+' '+new Date().toLocaleTimeString('en-GB',{hour12:false});
  const locs=[{id:'l1',name:'台北示範店',active:1},{id:'l2',name:'新北示範店',active:1}];
  const users=[{id:'u1',username:'demo-owner',display_name:'展示業主',role:'owner',locations:'全部門市',active:1},
  {id:'u2',username:'demo-manager',display_name:'示範主管',role:'manager',locations:'台北示範店',active:1},
@@ -26,12 +27,12 @@
  {id:'t2',title:'確認晚班清潔檢核表',location_id:'l1',location_name:'台北示範店',assigned_to:'u2',assigned_name:'示範主管',due_date:day(-1),status:'doing'},
  {id:'t3',title:'檢查設備保養紀錄',location_id:'l2',location_name:'新北示範店',assigned_to:'u4',assigned_name:'示範員工乙',due_date:day(1),status:'done'}],
  purchase_orders:[
- {id:'o1',number:'PO-DEMO-001',location_id:'l1',location_name:'台北示範店',ingredient_id:'i1',ingredient_name:'牛番茄',supplier:'示範蔬果商',qty:18,status:'requested'},
- {id:'o2',number:'PO-DEMO-002',location_id:'l1',location_name:'台北示範店',ingredient_id:'i3',ingredient_name:'生菜',supplier:'示範生鮮商',qty:10,status:'approved'}],
- stocktakes:[{id:'c1',location_id:'l1',location_name:'台北示範店',ingredient_id:'i2',ingredient_name:'雞胸肉',expected_qty:20,counted_qty:19,status:'pending'}],
+ {id:'o1',number:'PO-DEMO-001',location_id:'l1',location_name:'台北示範店',ingredient_id:'i1',ingredient_name:'牛番茄',supplier:'示範蔬果商',qty:18,status:'requested',created_at:day(-2)+' 09:00'},
+ {id:'o2',number:'PO-DEMO-002',location_id:'l1',location_name:'台北示範店',ingredient_id:'i3',ingredient_name:'生菜',supplier:'示範生鮮商',qty:10,status:'approved',created_at:day(-1)+' 11:00'}],
+ stocktakes:[{id:'c1',location_id:'l1',location_name:'台北示範店',ingredient_id:'i2',ingredient_name:'雞胸肉',expected_qty:20,counted_qty:19,status:'pending',created_at:day(-1)+' 15:00'}],
  stock_moves:[{id:'m1',created_at:day(0)+' 08:30',location_name:'台北示範店',ingredient_name:'牛番茄',move_type:'purchase',qty_delta:6,note:'展示資料'}],
- repairs:[{id:'r1',location_id:'l1',location_name:'台北示範店',equipment:'冷藏展示櫃',description:'溫度顯示異常',assigned_name:'示範主管',status:'reported'},
- {id:'r2',location_id:'l2',location_name:'新北示範店',equipment:'洗碗機',description:'排水異音',status:'assigned'}],
+ repairs:[{id:'r1',location_id:'l1',location_name:'台北示範店',equipment:'冷藏展示櫃',description:'溫度顯示異常',assigned_name:'示範主管',status:'reported',created_at:day(-2)+' 12:00'},
+ {id:'r2',location_id:'l2',location_name:'新北示範店',equipment:'洗碗機',description:'排水異音',status:'assigned',created_at:day(-1)+' 10:00'}],
  shifts:[{id:'sh1',shift_date:day(0),start_time:'09:00',end_time:'17:00',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',note:'早班'},
  {id:'sh2',shift_date:day(0),start_time:'12:00',end_time:'20:00',user_id:'u4',staff_name:'示範員工乙',location_id:'l2',location_name:'新北示範店',note:'晚班'}],
  leave_requests:[{id:'leave1',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',start_date:day(5),end_date:day(5),reason:'個人事務（虛構）',status:'pending'}],
@@ -45,6 +46,13 @@
  let db;
  try{const saved=sessionStorage.getItem(key);db=saved?JSON.parse(saved):copy(initial);}catch{db=copy(initial);}
  if(!db||!Array.isArray(db.tasks)||!Array.isArray(db.stock))db=copy(initial);
+  // Old sessionStorage examples predate report dates. Add synthetic metadata
+  // without discarding existing mock business edits or overwriting timestamps.
+  for(const group of ['purchase_orders','stocktakes','repairs']){
+   if(Array.isArray(db[group]))for(const record of db[group]){
+    if(!record.created_at)record.created_at=createdAt();
+   }
+  }
  const pricing=window.RestaurantDemoPricing;
  if(!pricing)throw Error('公開示範價格模組載入失敗');
  pricing.seed(db);
@@ -103,7 +111,7 @@
    'course.create':'training_courses','training.assign':'training_records','evaluation.create':'evaluations'
   };
   if(defs[action]){
-   const group=defs[action],r={...d,id:makeId()};
+   const group=defs[action],r={...d,id:makeId(),created_at:createdAt()};
    if(r.location_id)r.location_name=lName(r.location_id);
    if(r.ingredient_id){r.ingredient_name=iName(r.ingredient_id);if(group==='stocktakes'){r.expected_qty=stockFor(r.location_id,r.ingredient_id)?.on_hand||0;r.status='pending';}}
    if(r.user_id){r.staff_name=uName(r.user_id);}

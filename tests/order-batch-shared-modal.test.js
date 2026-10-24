@@ -10,6 +10,7 @@ test('legacy single-item form invalidates pending batch preview (real and demo)'
   assert.ok(beginning!==-1&&ending>beginning);
   const root={hidden:true,innerHTML:'',querySelector:()=>null,querySelectorAll:()=>[]};
   const pending=[];
+  let pauseLists=null;
   const S={me:{id:'owner'},authEpoch:3};
   const elements={
    '#modal-root':root,
@@ -20,7 +21,8 @@ test('legacy single-item form invalidates pending batch preview (real and demo)'
    S,window:{},document:{querySelector:()=>root,body:{classList:{contains:()=>false}}},
    $:k=>elements[k],
    api:url=>new Promise((resolve,reject)=>pending.push({url,resolve,reject})),
-   getLists:async()=>{},def:{'order.create':{title:'建立叫貨申請',fields:[]}},
+   getLists:()=>pauseLists||Promise.resolve(),can:()=>false,
+   def:{'order.create':{title:'建立叫貨申請',fields:[]}},
    E:s=>String(s),inputHtml:()=>'',toast:()=>{},console
   });
   vm.runInContext(batch+'\n'+native.slice(beginning,ending),ctx);
@@ -33,5 +35,20 @@ test('legacy single-item form invalidates pending batch preview (real and demo)'
   await old;
   assert.equal(root.innerHTML,draft,dir+' must preserve new legacy order draft');
   assert.equal(root.hidden,false);
+  // The inverse ordering also matters: a legacy form waiting for list data
+  // must not overwrite a newer batch preview.
+  let finishLists;
+  pauseLists=new Promise(resolve=>{finishLists=resolve;});
+  const oldLegacy=vm.runInContext("showForm('order.create')",ctx);
+  const newerPreview=ctx.window.OrderBatchUI.preview('new-order');
+  assert.equal(pending.length,2);
+  pending[1].resolve({number:'new-order',states:['requested'],rows:[],
+   supplier:'new',location_name:'L',line_manual_confirmation:null});
+  await newerPreview;
+  const shown=root.innerHTML;
+  assert.match(shown,/new-order/);
+  finishLists();
+  await oldLegacy;
+  assert.equal(root.innerHTML,shown,dir+' must preserve newer batch preview');
  }
 });

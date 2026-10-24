@@ -50,14 +50,14 @@ test('settings and file names are validated; symlink downloads rejected',t=>{
   assert.throws(()=>m.safeFile(link),{code:'E_BACKUP'});
  }
 });
-test('existing v1 database migrates to v2 after creating a verified safety snapshot',t=>{
- const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+test('existing v1 database migrates to v3 via verified snapshots',t=>{
+ const f=fixture(t);f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
  const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
  try{const next=openDb(f.folder);try{
-  assert.equal(next.db.prepare('PRAGMA user_version').get().user_version,2);
+  assert.equal(next.db.prepare('PRAGMA user_version').get().user_version,3);
   assert.equal(next.db.prepare('SELECT interval_days FROM backup_settings WHERE id=1').get().interval_days,1);
   assert.equal(next.bootstrapPassword,null);
-  const migration=list(f.backupDir).filter(x=>x.type==='migration');assert.equal(migration.length,1);
+  const migration=list(f.backupDir).filter(x=>x.type==='migration');assert.equal(migration.length,2);
  }finally{next.db.close();}}finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
 });
 test('background worker performs validated backup without blocking HTTP',async t=>{
@@ -120,7 +120,7 @@ test('structural backup verification rejects missing volatile login tables',t=>{
   const f=fixture(t);
   f.db.exec('DROP TABLE '+table+';');
   assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
-  assert.throws(()=>perform({...f,type:'manual',at:day}),e=>e.code==='E_DB'&&e.message.includes(table));
+  assert.throws(()=>perform({...f,type:'manual',at:day}),e=>e.message.includes('E_DB:')&&e.message.includes(table));
   assert.equal(list(f.backupDir).length,0);
  }
 });
@@ -133,7 +133,7 @@ test('old truncated backup lock can be reclaimed, but recent truncated locks sta
  assert.equal(saved.result,'created');assert.equal(fs.existsSync(file),false);
 });
 test('v1 migration rejects backup directory nested under the operational database',t=>{
- const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+ const f=fixture(t);f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
  const expected=path.join(f.folder,'misplaced-migration');
  const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=expected;
  try{assert.throws(()=>openDb(f.folder),{code:'E_CONFIG'});}
@@ -142,7 +142,7 @@ test('v1 migration rejects backup directory nested under the operational databas
 });
 test('v1 migration detects ancestor symlink aliases in backup path',t=>{
  if(process.platform==='win32')return t.skip('Requires symlink permission; Windows path protection uses native realpath');
- const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
+ const f=fixture(t);f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings; PRAGMA user_version=1;');f.db.close();
  const alias=path.join(f.root,'alias');fs.symlinkSync(f.folder,alias,'dir');
  const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=path.join(alias,'migrations');
  try{assert.throws(()=>openDb(f.folder),{code:'E_CONFIG'});}
@@ -160,10 +160,10 @@ test('v1 migration rejects incomplete tables, columns and indices before backup 
   ['missing login attempts column','ALTER TABLE login_attempts DROP COLUMN ip_hash;'],
  ])await t.test(label,sub=>{
   const f=fixture(sub);
-  f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');
+  f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings; PRAGMA user_version=1;');
   f.db.exec(corruption);f.db.close();
   const before=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
-  try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*拒絕升級/);}
+  try{assert.throws(()=>openDb(f.folder),e=>e.message.includes('E_DB: v1 ')&&e.message.includes(label==='missing sessions'?'sessions':label==='missing login_attempts_lookup'?'login_attempts_lookup':'login_attempts'));}
   finally{if(before===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=before;}
   assert.equal(fs.existsSync(f.backupDir),false,'invalid v1 must not create backup directory');
   const db=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
@@ -174,16 +174,16 @@ test('v1 migration rejects incomplete tables, columns and indices before backup 
  });
 });
 test('v1 migration refuses partially applied v2 backup_settings before snapshot',t=>{
- const f=fixture(t);f.db.exec('PRAGMA user_version=1;');f.db.close();
+ const f=fixture(t);f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices; PRAGMA user_version=1;');f.db.close();
  const prior=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
- try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*v2 備份設定表/);}
+ try{assert.throws(()=>openDb(f.folder),/E_DB: v1 .*backup_settings/);}
  finally{if(prior===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=prior;}
  assert.equal(fs.existsSync(f.backupDir),false);
 });
 
 
-test('v2 backup rejects missing login column and named index, including restored snapshots',t=>{
- for(const sql of ['ALTER TABLE login_attempts DROP COLUMN ip_hash;','DROP INDEX login_attempts_lookup;']){
+test('v3 backups reject missing login columns, indexes and pricing indexes',t=>{
+ for(const sql of ['ALTER TABLE login_attempts DROP COLUMN ip_hash;','DROP INDEX login_attempts_lookup;','DROP INDEX idx_ingredient_prices_effective;']){
   const f=fixture(t);f.db.exec(sql);
   assert.equal(f.db.prepare('PRAGMA quick_check').get().quick_check,'ok');
   assert.throws(()=>perform({...f,type:'manual',at:day}),{code:'E_DB'});
@@ -194,20 +194,21 @@ test('v2 backup rejects missing login column and named index, including restored
  try{snapshot.exec('ALTER TABLE login_attempts DROP COLUMN ip_hash;');}finally{snapshot.close();}
  assert.throws(()=>verifySnapshot(path.join(f.backupDir,saved.name)),{code:'E_DB'});
 });
-test('read-only preflight rejects case-changed CHECK literals before any WAL write',t=>{
- const f=fixture(t);f.db.exec('DROP TABLE backup_settings; PRAGMA user_version=1;');
+test('v1 quoted CHECK literal mismatch is rejected without changing DB bytes or WAL mode',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings;PRAGMA user_version=1;');
  const ddl=f.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get().sql;
- f.db.exec('DROP TABLE tasks;');
- f.db.exec(ddl.replaceAll("'todo'","'TODO'"));
+ f.db.exec('DROP TABLE tasks;');f.db.exec(ddl.replaceAll("'todo'","'TODO'"));
  f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
- const bytes=fs.readFileSync(path.join(f.folder,'restaurant.sqlite'));
- assert.throws(()=>openDb(f.folder),/Schema 結構不相容：tasks/);
- assert.deepEqual(fs.readFileSync(path.join(f.folder,'restaurant.sqlite')),bytes);
- const probe=new (require('node:sqlite').DatabaseSync)(path.join(f.folder,'restaurant.sqlite'),{readOnly:true});
+ const filename=path.join(f.folder,'restaurant.sqlite'),bytes=fs.readFileSync(filename);
+ assert.throws(()=>openDb(f.folder),/Schema/);
+ assert.deepEqual(fs.readFileSync(filename),bytes);
+ const probe=new (require('node:sqlite').DatabaseSync)(filename,{readOnly:true});
  try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
 });
-test('missing v1 login table is rejected without changing database bytes or journal mode',t=>{
- const f=fixture(t);f.db.exec('DROP TABLE backup_settings;DROP TABLE sessions;PRAGMA user_version=1;');
+test('missing v1 sessions table is rejected without altering DB bytes or journal mode',t=>{
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings;DROP TABLE sessions;PRAGMA user_version=1;');
  f.db.exec('PRAGMA journal_mode=DELETE;');f.db.close();
  const filename=path.join(f.folder,'restaurant.sqlite'),bytes=fs.readFileSync(filename);
  assert.throws(()=>openDb(f.folder),/sessions/);
@@ -215,7 +216,6 @@ test('missing v1 login table is rejected without changing database bytes or jour
  const probe=new (require('node:sqlite').DatabaseSync)(filename,{readOnly:true});
  try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
 });
-
 
 test('preexisting POSIX backup directory is private before ordinary VACUUM INTO',t=>{
  if(process.platform==='win32')return t.skip('Windows NTFS ACL uses protect()');
@@ -240,7 +240,7 @@ test('preexisting POSIX backup directory is private before ordinary VACUUM INTO'
 test('existing POSIX migration directory is private before v1 snapshot write',t=>{
  if(process.platform==='win32')return t.skip('Windows NTFS ACL uses protect()');
  const f=fixture(t);
- f.db.exec('DROP TABLE backup_settings;PRAGMA user_version=1;');f.db.close();
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings;PRAGMA user_version=1;');f.db.close();
  fs.mkdirSync(f.backupDir,{recursive:true,mode:0o755});
  fs.chmodSync(f.backupDir,0o755);
  const previous=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;

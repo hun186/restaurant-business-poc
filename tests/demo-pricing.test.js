@@ -8,7 +8,7 @@ function demo(existing){
  const loc={href:'https://restaurant-business-poc.vercel.app/',reload:()=>{}};
  const window={fetch:async()=>{throw Error('Unexpected network call')},confirm:()=>true};
  const context=vm.createContext({window,sessionStorage:storage,location:loc,URL,Response,Date,console});
- for(const name of ['pricing-demo.js','backup-demo.js','mock.js'])vm.runInContext(fs.readFileSync(path.join(dir,name),'utf8'),context,{filename:name});
+ for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])vm.runInContext(fs.readFileSync(path.join(dir,name),'utf8'),context,{filename:name});
  const request=async (path,action,data)=>{
   const res=await window.fetch(path,{method:'POST',body:JSON.stringify({action,data})});
   return {status:res.status,body:await res.json()};

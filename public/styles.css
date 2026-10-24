@@ -36,3 +36,14 @@
 @media print{
  body.auth-locked main,body.auth-locked #report-print-preview{display:none!important}
 }
+
+/* Grouped vendor requisitions: responsive and printable */
+.batch-line{display:grid;grid-template-columns:minmax(160px,2fr) minmax(105px,1fr) minmax(150px,2fr) auto;gap:9px;align-items:end;padding:12px 0;border-bottom:1px solid #e6edef}
+.batch-line label{display:grid;gap:5px;font-size:12px}
+.batch-line input,.batch-line select{width:100%}
+.order-batch-modal{max-width:min(96vw,820px);max-height:85vh;overflow:auto}
+.order-batch-modal table{width:100%;margin:15px 0;border-collapse:collapse}
+.order-batch-modal td,.order-batch-modal th{padding:9px;border-bottom:1px solid #e5ebee}
+.order-batch-modal textarea{width:100%;min-height:160px;font-size:14px}
+.order-batch-modal .form-actions{flex-wrap:wrap}
+@media(max-width:700px){.batch-line{grid-template-columns:1fr 1fr}.batch-line label:first-child{grid-column:1/-1}}

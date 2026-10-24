@@ -183,3 +183,80 @@ test('v2 rejects stray v3-named price index prior to migration snapshot',t=>{
  finally{if(previous===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=previous;}
  assert.equal(fs.existsSync(backupDir),false);
 });
+
+
+test('owner can archive and restore a dish without erasing its recipe, prices or inventory',t=>{
+ const f=fixture(t);
+ const history=act(f,'price.record',{location_id:f.loc,ingredient_id:f.ing,unit_price_twd:'90',price_date:'2026-10-23'});
+ const originalRecipe=rows(f.db,f.owner,'dish_ingredients').find(x=>x.dish_id===f.dish);
+ const priced=rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish);
+ assert.ok(priced);assert.equal(priced.estimated_cost_twd,22.5);
+ const first=fingerprint(f.db);
+ assert.deepEqual(act(f,'dish.active',{id:f.dish,active:0}),{id:f.dish,active:0});
+ assert.notEqual(fingerprint(f.db),first);
+ assert.equal(rows(f.db,f.owner,'menu_dishes').find(x=>x.id===f.dish).active,0,'archived menu row persists');
+ assert.equal(rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish),undefined);
+ assert.equal(rows(f.db,f.owner,'dish_cost_lines').find(x=>x.dish_id===f.dish),undefined);
+ assert.equal(rows(f.db,f.owner,'dish_ingredients').find(x=>x.dish_id===f.dish),undefined);
+ assert.equal(f.db.prepare('SELECT count(*) AS n FROM dish_ingredients WHERE dish_id=?').get(f.dish).n,1,'recipe still stored');
+ assert.throws(()=>act(f,'dish.price',{dish_id:f.dish,sale_price_twd:'110'}),{status:404});
+ assert.throws(()=>act(f,'recipe.set',{dish_id:f.dish,ingredient_id:f.ing,qty:100,unit:'公克'}),{status:404});
+ assert.throws(()=>act(f,'recipe.delete',{id:originalRecipe.id}),{status:409});
+ assert.equal(rows(f.db,f.owner,'ingredient_prices').find(x=>x.id===history.id).unit_price_twd,90);
+ assert.deepEqual(act(f,'dish.active',{id:f.dish,active:1}),{id:f.dish,active:1});
+ assert.equal(rows(f.db,f.owner,'dish_ingredients').find(x=>x.id===originalRecipe.id).qty,250);
+ assert.equal(rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish).estimated_cost_twd,22.5);
+ const logs=f.db.prepare("SELECT detail FROM audit_logs WHERE action='dish.active' ORDER BY rowid").all().map(x=>JSON.parse(x.detail));
+ assert.equal(logs.length,2);
+ assert.deepEqual(logs.map(x=>[x.from,x.to]),[[1,0],[0,1]]);
+});
+test('deleting exactly one recipe ingredient recomputes costs but retains price, ingredient and audit evidence',t=>{
+ const f=fixture(t);
+ act(f,'price.record',{location_id:f.loc,ingredient_id:f.ing,unit_price_twd:'80',price_date:'2026-10-23'});
+ const extra=act(f,'ingredient.create',{sku:'EXTRA',name:'示範雞蛋',unit:'顆',min_stock:1}).id;
+ act(f,'price.record',{location_id:f.loc,ingredient_id:extra,unit_price_twd:'10',price_date:'2026-10-23'});
+ act(f,'recipe.set',{dish_id:f.dish,ingredient_id:extra,qty:2,unit:'顆'});
+ const before=rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish);
+ assert.equal(before.estimated_cost_twd,40);
+ const rec=rows(f.db,f.owner,'dish_ingredients').find(x=>x.dish_id===f.dish&&x.ingredient_id===f.ing);
+ const oldDigest=fingerprint(f.db);
+ assert.deepEqual(act(f,'recipe.delete',{id:rec.id}),{id:rec.id,dish_id:f.dish});
+ assert.notEqual(fingerprint(f.db),oldDigest);
+ assert.equal(rows(f.db,f.owner,'dish_ingredients').some(x=>x.id===rec.id),false);
+ assert.equal(rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish).estimated_cost_twd,20);
+ assert.equal(rows(f.db,f.owner,'ingredient_prices').length,2);
+ assert.ok(rows(f.db,f.owner,'ingredients').some(x=>x.id===f.ing));
+ assert.throws(()=>act(f,'recipe.delete',{id:rec.id}),{status:404});
+ const log=f.db.prepare("SELECT detail,entity,entity_id FROM audit_logs WHERE action='recipe.delete'").get();
+ assert.equal(log.entity,'dish_ingredients');assert.equal(log.entity_id,rec.id);
+ assert.deepEqual(Object.assign({},JSON.parse(log.detail)),{
+  pricing:true,dish_id:f.dish,dish_name:'示範飯',ingredient_id:f.ing,qty:250,unit:'公克'
+ });
+ assert.equal(rows(f.db,f.owner,'dish_cost_lines').filter(x=>x.dish_id===f.dish).length,1);
+ const other=rows(f.db,f.owner,'dish_ingredients').find(x=>x.dish_id===f.dish);
+ act(f,'recipe.delete',{id:other.id});
+ assert.equal(rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish).cost_status,'尚無配方');
+ assert.equal(rows(f.db,f.owner,'dish_costs').find(x=>x.dish_id===f.dish).estimated_cost_twd,null);
+});
+test('archive and recipe removal enforce owner-only role and validate targets atomically',t=>{
+ const f=fixture(t);
+ const staff=act(f,'user.create',{username:'staffdish',display_name:'一般員工',password:'password-is-long-12',role:'staff',location_id:f.loc}).id;
+ const manager=act(f,'user.create',{username:'managerdish',display_name:'主管人員',password:'password-is-long-12',role:'manager',location_id:f.loc}).id;
+ const rec=rows(f.db,f.owner,'dish_ingredients').find(x=>x.dish_id===f.dish);
+ for(const user of [{id:staff,role:'staff'},{id:manager,role:'manager'}]){
+  assert.throws(()=>act(f,'dish.active',{id:f.dish,active:0},user),{status:403});
+  assert.throws(()=>act(f,'recipe.delete',{id:rec.id},user),{status:403});
+ }
+ for(const active of ['0',true,-1,2,null]){
+  assert.throws(()=>act(f,'dish.active',{id:f.dish,active}),{status:400});
+ }
+ assert.throws(()=>act(f,'dish.active',{id:'missing',active:0}),{status:404});
+ assert.throws(()=>act(f,'recipe.delete',{id:'missing'}),{status:404});
+ assert.throws(()=>act(f,'recipe.delete',{}),{status:400});
+ assert.equal(rows(f.db,f.owner,'dish_ingredients').length,1);
+ assert.equal(rows(f.db,f.owner,'menu_dishes')[0].active,1);
+ const archived=act(f,'dish.active',{id:f.dish,active:0});
+ assert.equal(archived.active,0);
+ assert.throws(()=>act(f,'dish.active',{id:f.dish,active:0}),{status:409});
+ assert.equal(f.db.prepare("SELECT count(*) AS n FROM audit_logs WHERE action='dish.active'").get().n,1);
+});

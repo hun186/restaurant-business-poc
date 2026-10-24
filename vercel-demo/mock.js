@@ -92,7 +92,7 @@
  };
  function command(action,d){
   if(action.startsWith('user.'))throw Error('展示版不提供真實帳號、角色及密碼操作');
-  if(['price.record','dish.create','dish.price','recipe.set'].includes(action)){
+  if(['price.record','dish.create','dish.price','dish.active','recipe.set','recipe.delete'].includes(action)){
    const out=pricing.handle(db,action,d,makeId());
    log(action,'pricing',out.id);save();return out;
   }

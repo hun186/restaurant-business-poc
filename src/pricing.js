@@ -101,7 +101,7 @@ function pricingRows(db,u,name){
  }
  if(name==='dish_ingredients'){
   requiredRole(u,'manager');
-  return db.prepare('SELECT r.id,r.dish_id,d.name AS dish_name,r.ingredient_id,i.name AS ingredient_name,r.qty,r.unit FROM dish_ingredients r JOIN menu_dishes d ON d.id=r.dish_id JOIN ingredients i ON i.id=r.ingredient_id ORDER BY d.name,i.name').all();
+  return db.prepare('SELECT r.id,r.dish_id,d.name AS dish_name,r.ingredient_id,i.name AS ingredient_name,r.qty,r.unit FROM dish_ingredients r JOIN menu_dishes d ON d.id=r.dish_id JOIN ingredients i ON i.id=r.ingredient_id WHERE d.active=1 ORDER BY d.name,i.name').all();
  }
  if(name==='ingredient_prices'){
   requiredRole(u,'manager');
@@ -112,7 +112,7 @@ function pricingRows(db,u,name){
  return null;
 }
 function pricingCommand(db,u,action,x,log){
- if(!['price.record','dish.create','dish.price','recipe.set'].includes(action))return null;
+ if(!['price.record','dish.create','dish.price','dish.active','recipe.set','recipe.delete'].includes(action))return null;
  return inTransaction(db,()=>{
   let id,shop=null,entity='menu_dishes';
   if(action==='price.record'){
@@ -122,10 +122,29 @@ function pricingCommand(db,u,action,x,log){
    db.prepare('INSERT INTO menu_dishes(id,name,sale_price_cents) VALUES(?,?,?)').run(id,cleanText(x.name,120,true),money(x.sale_price_twd,true));
   }else if(action==='dish.price'){
    requiredRole(u,'owner');id=x.dish_id;
-   if(!db.prepare('UPDATE menu_dishes SET sale_price_cents=? WHERE id=?').run(money(x.sale_price_twd,true),id).changes)bad('菜品不存在',404);
-  }else if(action==='recipe.set'){
-   requiredRole(u,'owner');const dish=db.prepare('SELECT id FROM menu_dishes WHERE id=?').get(x.dish_id);
+   if(!db.prepare('UPDATE menu_dishes SET sale_price_cents=? WHERE id=? AND active=1').run(money(x.sale_price_twd,true),id).changes)bad('找不到啟用中的菜品',404);
+  }else if(action==='dish.active'){
+   requiredRole(u,'owner');id=x.id;
+   if(typeof id!=='string'||![0,1].includes(x.active))bad('菜品狀態不正確');
+   const dish=db.prepare('SELECT id,name,active FROM menu_dishes WHERE id=?').get(id);
    if(!dish)bad('菜品不存在',404);
+   if(dish.active===x.active)bad('菜品狀態未變更',409);
+   db.prepare('UPDATE menu_dishes SET active=? WHERE id=?').run(x.active,id);
+   log(db,u,action,entity,id,null,{pricing:true,name:dish.name,from:dish.active,to:x.active,ingredient_count:db.prepare('SELECT count(*) AS n FROM dish_ingredients WHERE dish_id=?').get(id).n});
+   return {id,active:x.active};
+  }else if(action==='recipe.delete'){
+   requiredRole(u,'owner');id=x.id;
+   if(typeof id!=='string'||!id.trim())bad('配方項目識別碼不正確');
+   const rec=db.prepare('SELECT r.id,r.dish_id,r.ingredient_id,r.qty,r.unit,d.active,d.name AS dish_name FROM dish_ingredients r JOIN menu_dishes d ON d.id=r.dish_id WHERE r.id=?').get(id);
+   if(!rec)bad('配方項目不存在',404);
+   if(!rec.active)bad('請先恢復菜品，才能修改其配方',409);
+   db.prepare('DELETE FROM dish_ingredients WHERE id=?').run(id);
+   entity='dish_ingredients';
+   log(db,u,action,entity,id,null,{pricing:true,dish_id:rec.dish_id,dish_name:rec.dish_name,ingredient_id:rec.ingredient_id,qty:rec.qty,unit:rec.unit});
+   return {id,dish_id:rec.dish_id};
+  }else if(action==='recipe.set'){
+   requiredRole(u,'owner');const dish=db.prepare('SELECT id FROM menu_dishes WHERE id=? AND active=1').get(x.dish_id);
+   if(!dish)bad('找不到啟用中的菜品',404);
    const ing=ingredient(db,x.ingredient_id),qty=Number(x.qty),unit=cleanText(x.unit||ing.unit,20,true);
    if(!Number.isFinite(qty)||qty<=0||qty>1e9)bad('用量不正確');
    if(conversion(1,unit,ing.unit)===null)bad('配方與庫存單位不相容');

@@ -124,3 +124,7 @@
 - 修補本機正式版與 Vercel Demo：showAuth(true) 即清空 main、modal、S.cache／filter／身份，更新 authEpoch，對 body 設置 auth-locked；登出按下即開始 API 並同步鎖定畫面，回應失敗提醒伺服器登出未確認；print CSS 在 auth-locked 狀態一律隱藏 main／預覽，對殘留非同步 DOM 也 fail closed；匯出／列印非同步待命若權限階段變化即中止。增加 Node VM 回歸測試模擬共享終端 Ctrl+P 與登出未完成的非同步流程。仍須最新 Hosted CI、Codex Review，未授權不得 Merge。
 
 - 2026-10-24 Codex 新 P2（HEAD 2b7f277）：舊 logout Set-Cookie 清除可能晚於新 login Set-Cookie，導致新登入 Session 被抹除。正式版與 Demo 新增 logoutInFlight Promise，登出按下同步清畫面／鎖定列印不變；新登入 submit 須先等舊登出請求完成才發送 /api/login，登出失敗亦不得永久卡住；加入 VM 延遲登出回應回歸測試。待 Hosted CI／Codex 複審。
+
+## 2026-10-24｜菜品封存／配方食材移除（新 PR）
+- 使用者回報「菜品與售價、食材配方只能新增修改，無法刪過時品項」。採 owner-only `dish.active`（0 封存／1 恢復）與 owner-only `recipe.delete`（只刪 dish_ingredients 連結），避免硬刪菜品造成配方連鎖消失及價值歷史混淆。
+- 封存菜品不列入 costs/recipe 選單與預設菜品列表，仍可檢視封存項與恢復；不影響庫存或歷史價格。配方移除立刻影響成本試算，稽核 detail 記錄刪除前數量／食材。驗證重複／無效操作、非 owner 拒絕、交易與備份 fingerprint；Vercel Mock 同步模擬，正式環境不改 DB Schema。最新 CI／Codex Review 與 Merge 狀態須個別驗證。

@@ -139,7 +139,8 @@ async function exportCurrentPage(action){
   // Re-fetch to check live authorization even if earlier cached rows remain.
   const fresh=await api('/api/data?entity='+encodeURIComponent(page));
   if(!reportSessionValid(epoch))return;
-  const filtered=ReportKit.project(fresh.rows,cfg.columns,{keyword:S.filter,searchAllFields:true,entity:page});
+  const visible=page==='menu_dishes'&&!S.showArchivedDishes?fresh.rows.filter(r=>r.active===1):fresh.rows;
+  const filtered=ReportKit.project(visible,cfg.columns,{keyword:S.filter,searchAllFields:true,entity:page});
   const sheets=[{name:ReportKit.safeName(cfg.title),headers:cfg.columns.map(c=>c[1]),rows:filtered,sourceCount:fresh.rows.length}];
   if(action==='xlsx'){await downloadWorkbook(sheets);toast('Excel 已下載；僅含目前搜尋結果');}
   else{

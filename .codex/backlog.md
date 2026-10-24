@@ -18,3 +18,5 @@
 | RB-013 | PLANNED | P2 | 與 AI menu-planner 的可控、版本化資料交換與食材識別碼映射，目前未做 |
 
 | RB-014 | IN_REVIEW | P1 | Vercel Public Demo 增加虛構菜單、歷史價、配方、成本毛利試算與進貨驗收單價；待 Hosted CI、Codex Review、Merge 及 Vercel 部署驗收 |
+
+| RB-015 | IN_REVIEW | P1 | Vercel Demo 虛構智慧備份教學頁：自動檢查、無異動跳過、虛構手動版本、保留份數與刪除。待最新 CI、Codex Review、Merge 授權及實站確認 |

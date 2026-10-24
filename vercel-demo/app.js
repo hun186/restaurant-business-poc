@@ -14,6 +14,7 @@ const pages={
  dish_costs:{title:'菜品成本／毛利估算',desc:'依門市有效價格估算；缺價不能算成零成本',permission:'manager',columns:[['dish_name','菜品'],['location_name','門市'],['sale_price_twd','售價（元）'],['estimated_cost_twd','食材成本'],['gross_profit_twd','材料毛利'],['gross_margin_pct','毛利率 %'],['cost_status','核算狀態']]},
  dish_cost_lines:{title:'成本逐項明細',desc:'追蹤各項食材用量與缺價情況',permission:'manager',columns:[['dish_name','菜品'],['location_name','門市'],['ingredient_name','食材'],['qty','用量'],['unit','單位'],['unit_price_twd','單價（元）'],['price_unit','計價單位'],['line_cost_twd','單項成本'],['cost_status','狀態']]},
  dashboard:{title:'今日營運總覽',desc:'工作、叫貨、庫存、人事與設備的即時概覽'},
+ backup_demo:{title:'智慧備份示範',desc:'僅供瀏覽器互動教學，不會執行真正資料庫備份'},
  tasks:{title:'今日工作',desc:'工作指派、完成紀錄與逾期追蹤',action:'task.create',permission:'manager',columns:[['title','工作內容'],['location_name','門市'],['assigned_name','負責人'],['due_date','期限'],['status','狀態']]},
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
  stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；新增期初庫存僅供未有庫存的食材',action:'stock.opening',permission:'owner',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
@@ -135,14 +136,14 @@ async function operation(action,id,status){try{
  if(action==='repair.status')data={id,status};
  await api('/api/command','POST',{action,data});toast('操作完成');await refresh();
  }catch(e){toast(e.message);}}
-async function refresh(){return S.page==='dashboard'?dashboard():dataPage(S.page);}
+async function refresh(){return S.page==='dashboard'?dashboard():S.page==='backup_demo'?demoBackupPage():dataPage(S.page);}
 async function bootstrap(){try{const out=await api('/api/me');S.me=out.user;S.csrf=out.csrf;showAuth(false);$('#avatar').textContent=S.me.display_name.slice(0,1)||'餐';
  document.querySelectorAll('[data-owner]').forEach(x=>x.hidden=S.me.role!=='owner');$('#today').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
  dashboard();}catch(e){showAuth(true);}}
 $('#login-form').addEventListener('submit',async e=>{e.preventDefault();$('#login-error').textContent='';const data=Object.fromEntries(new FormData(e.currentTarget));try{await api('/api/login','POST',data);e.currentTarget.reset();await bootstrap();}catch(err){$('#login-error').textContent=err.message;}});
-$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else dataPage(p);});
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else if(p==='backup_demo')demoBackupPage();else dataPage(p);});
 $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():dataPage(p);return;}
+ if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():p==='backup_demo'?demoBackupPage():dataPage(p);return;}
  if(b.dataset.create)showForm(b.dataset.create);
  if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
 });

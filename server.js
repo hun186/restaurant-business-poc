@@ -69,19 +69,25 @@ function makeHandler(db,backups=null){
       originCheck(req);
       if(req.headers['x-csrf-token']!==u.csrf_token)return safeJson(res,403,{error:'CSRF 驗證失敗'});
       const x=await parse(req);
+      // An owner may be downgraded/disabled or their session revoked while
+      // a client is still streaming the JSON request body.
+      const fresh=current(req);
+      if(!fresh)return safeJson(res,401,{error:'Session 已失效，請重新登入'});
+      if(fresh.role!=='owner')return safeJson(res,403,{error:'僅業主可管理資料庫備份'});
+      if(req.headers['x-csrf-token']!==fresh.csrf_token)return safeJson(res,403,{error:'CSRF 驗證失敗'});
       if(x.action==='save'){
        const next=backups.save({intervalDays:x.intervalDays,retentionCount:x.retentionCount});
-       audit(db,u,'backup.settings','backup_settings','1',null,{intervalDays:x.intervalDays,retentionCount:x.retentionCount});
+       audit(db,fresh,'backup.settings','backup_settings','1',null,{intervalDays:x.intervalDays,retentionCount:x.retentionCount});
        return safeJson(res,200,next);
       }
       if(x.action==='create'){
        const result=await backups.run('manual');
-       audit(db,u,'backup.create','backups',result.name,null,{});
+       audit(db,fresh,'backup.create','backups',result.name,null,{});
        return safeJson(res,200,{...backups.status(),result});
       }
       if(x.action==='delete'){
        const next=backups.remove(x.name);
-       audit(db,u,'backup.delete','backups',x.name,null,{});
+       audit(db,fresh,'backup.delete','backups',x.name,null,{});
        return safeJson(res,200,next);
       }
       return safeJson(res,400,{error:'不支援的備份操作'});
@@ -103,8 +109,13 @@ function makeHandler(db,backups=null){
      }
      if(route==='/api/command'){
       const x=await parse(req);
+      // Never perform a mutation using a role/session snapshot captured
+      // before asynchronous body parsing.
+      const fresh=current(req);
+      if(!fresh)return safeJson(res,401,{error:'Session 已失效，請重新登入'});
+      if(req.headers['x-csrf-token']!==fresh.csrf_token)return safeJson(res,403,{error:'CSRF 驗證失敗'});
       if(typeof x.action!=='string')return safeJson(res,400,{error:'缺少操作類型'});
-      const out=command(db,u,x.action,x.data||{});return safeJson(res,200,{ok:true,result:out});
+      const out=command(db,fresh,x.action,x.data||{});return safeJson(res,200,{ok:true,result:out});
      }
     }
     return safeJson(res,404,{error:'API 不存在'});

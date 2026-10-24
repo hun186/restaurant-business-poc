@@ -79,3 +79,14 @@
 - 將 PR #1 最新唯讀 preflight（v1/v2/v3）、保留 SQL quoted literals 大小寫的完整 DDL 比對及備份 Schema 驗證整合至 v3；完整檢查 price/recipe 及登入欄位、具名索引。
 - 新增 v3 備份破損欄位/索引、v1 quoted CHECK 與 WAL 無副作用回歸。仍禁止 stock.purchase 直接入庫，只有核准單 order.receive 原子寫入價格/庫存。
 - PR #2 只同步相依分支 commit，未變更 PR base 或合併 PR；正式 Hosted CI/Review 需重新驗證最新 HEAD。
+
+## 2026-10-24｜正式 Review P1／P2 修正（Session race / POSIX 備份權限）
+- P1：HTTP `/api/command` 和 `/api/backups` POST 在 `await parse(req)` 後重新查 Session、角色與 CSRF，改用新的授權主體執行資料異動／稽核，防止慢速 body 期間被降權仍可異動。
+- P2：`backup-acl.protect()` POSIX 分支在既有備份資料夾由 SQLite VACUUM INTO 寫入前套用並驗證 0700；檔案套用 0600。使用 O_NOFOLLOW + descriptor 防止 chmod 跟隨替換 symlink。migration 同樣在快照產生前執行 protect。
+- 新增 HTTP 暫停 body 後撤銷 Session 的回歸測試，以及一般／升級備份預建 0755 目錄在 VACUUM 前必須變 0700 的測試。CI 與正式 Review 須以新 HEAD 為準，無授權不得 Merge。
+
+## 2026-10-24｜PR #2 與 PR #1 HEAD 1551fb5 相容同步
+- PR #1 最新 Head 正式 Codex Review 無重大 Findings，Hosted Ubuntu/Windows × Node22/24 4/4 PASS。
+- PR #2 由於 PR #1 後續 auth race 與 POSIX 備份權限修正，已在本分支同步最新 server、backup ACL、HTTP regression；v3 備份測試沿用 PR #1 兩個 VACUUM INTO 前 0700 權限測試，並調整 v1 fixture 移除 v3 價格／配方表。
+- 保留 v3 價格、配方、已核准單 order.receive 原子入庫/進價及 stock.purchase 禁止直接入庫；不變更 PR base，不合併至 main。
+- 需以本次同步的新 HEAD CI 及正式 Codex Review 重新驗收，未經使用者授權不可合併。

@@ -216,3 +216,48 @@ test('missing v1 sessions table is rejected without altering DB bytes or journal
  const probe=new (require('node:sqlite').DatabaseSync)(filename,{readOnly:true});
  try{assert.equal(probe.prepare('PRAGMA journal_mode').get().journal_mode,'delete');}finally{probe.close();}
 });
+
+test('preexisting POSIX backup directory is private before ordinary VACUUM INTO',t=>{
+ if(process.platform==='win32')return t.skip('Windows NTFS ACL uses protect()');
+ const f=fixture(t);
+ fs.mkdirSync(f.backupDir,{recursive:true,mode:0o755});
+ fs.chmodSync(f.backupDir,0o755);
+ assert.equal(fs.statSync(f.backupDir).mode&0o777,0o755);
+ const original=require('node:sqlite').DatabaseSync.prototype.exec;
+ let checked=false;
+ require('node:sqlite').DatabaseSync.prototype.exec=function(sql){
+  if(String(sql).includes('VACUUM INTO')){
+   assert.equal(fs.statSync(f.backupDir).mode&0o777,0o700,'secure directory before backup write');
+   checked=true;
+  }
+  return original.call(this,sql);
+ };
+ try{assert.equal(perform({...f,type:'manual',at:day}).result,'created');}
+ finally{require('node:sqlite').DatabaseSync.prototype.exec=original;}
+ assert.ok(checked,'VACUUM INTO was reached');
+ assert.equal(fs.statSync(f.backupDir).mode&0o777,0o700);
+});
+test('existing POSIX migration directory is private before v1 snapshot write',t=>{
+ if(process.platform==='win32')return t.skip('Windows NTFS ACL uses protect()');
+ const f=fixture(t);
+ f.db.exec('DROP TABLE dish_ingredients;DROP TABLE menu_dishes;DROP TABLE ingredient_prices;DROP TABLE backup_settings;PRAGMA user_version=1;');f.db.close();
+ fs.mkdirSync(f.backupDir,{recursive:true,mode:0o755});
+ fs.chmodSync(f.backupDir,0o755);
+ const previous=process.env.BACKUP_DIR;process.env.BACKUP_DIR=f.backupDir;
+ const original=require('node:sqlite').DatabaseSync.prototype.exec;
+ let checked=false;
+ require('node:sqlite').DatabaseSync.prototype.exec=function(sql){
+  if(String(sql).includes('VACUUM INTO')){
+   assert.equal(fs.statSync(f.backupDir).mode&0o777,0o700,'secure directory before migration snapshot');
+   checked=true;
+  }
+  return original.call(this,sql);
+ };
+ try{const migrated=openDb(f.folder);migrated.db.close();}
+ finally{
+  require('node:sqlite').DatabaseSync.prototype.exec=original;
+  if(previous===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=previous;
+ }
+ assert.ok(checked,'migration VACUUM INTO was reached');
+ assert.equal(fs.statSync(f.backupDir).mode&0o777,0o700);
+});

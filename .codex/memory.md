@@ -135,3 +135,5 @@
 
 - 2026-10-24 PR #10 最新 Codex Review P2：整張批次驗收 UI 缺失逐項進價欄，導致不能如舊 `order.receive` 保留此次進價與庫存關聯；已在正式版和 Vercel Demo 共用 `order-batch-ui.js` 主管驗收視窗加入各行選填進價（元）、進價單位、生效日，送出 `prices[orderLineId]`；空白價不建進價，資料完整性由正式 backend 與 Demo 全張原子交易強制檢查。
 - 同輪 P2：Vercel Demo 同日更換供應商的建議選錯舊廠商；供應商排序加入原始 `ingredient_prices` 陣列 index 的同日最新記錄 tie breaker，比照既有 `pricing-demo.js`。需針對最新 HEAD 重新驗證 Hosted CI 與正式 Codex Review，不可沿用舊結果。未授權不得 Merge。
+
+- 2026-10-24 PR #10 Codex P2 (HEAD 98c869c)：`<input type=number>` 在使用者輸入未完成（如 `1e` 或 `-`）時可能 DOM value='' 而 validity.badInput=true，舊判斷誤當自願留空，造成庫存驗收成功但想填的進價未建立。正式與 Demo 先檢查 validity.badInput／checkValidity，再判斷真正空白才跳過，且驗價時再檢查單位／日期有效性；加入模擬瀏覽器 invalid field 及實際按驗收按鈕回歸，確保整張不送出 API。需重跑最新 Hosted CI 與 Codex Review，不得未授權 Merge。

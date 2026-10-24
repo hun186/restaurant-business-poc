@@ -343,3 +343,62 @@ test('group receipt previews include optional per-line prices in both formal and
   new vm.Script(src,{filename:dir+'/order-batch-ui.js'});
  }
 });
+
+test('invalid browser numeric value is rejected BEFORE an empty price is treated as intentional omission',async()=>{
+ for(const dir of ['public','vercel-demo']){
+  const source=fs.readFileSync(path.join(__dirname,'..',dir,'order-batch-ui.js'),'utf8');
+  const requests=[],notices=[],actions=[];
+  const price={dataset:{batchPrice:'po-line-1'},value:'',validity:{badInput:true},checkValidity(){return !this.validity.badInput;}};
+  const unit={dataset:{batchUnit:'po-line-1'},value:'公斤',checkValidity:()=>true};
+  const date={dataset:{batchDate:'po-line-1'},value:'2026-10-24',checkValidity:()=>true};
+  const receive={dataset:{batchAction:'order.batch-receive'},addEventListener(type,callback){actions.push(callback);}};
+  const share={href:''},copy={onclick:null};
+  const dialog={
+   hidden:true,innerHTML:'',
+   querySelector(selector){
+    if(selector==='[data-close-batch]')return {addEventListener(){}};
+    if(selector==='#batch-share')return share;
+    if(selector==='#batch-copy')return copy;
+    return null;
+   },
+   querySelectorAll(selector){
+    if(selector==='[data-batch-action]')return [receive];
+    if(selector==='[data-batch-price]')return [price];
+    if(selector==='[data-batch-unit]')return [unit];
+    if(selector==='[data-batch-date]')return [date];
+    return [];
+   }
+  };
+  const document={querySelector:()=>dialog,body:{classList:{contains:()=>false}}};
+  const S={me:{id:'manager1',role:'manager'},authEpoch:0};
+  const window={confirm:()=>true},ctx=vm.createContext({
+   window,document,S,Date,console,can:()=>true,refresh:async()=>{},
+   toast:msg=>notices.push(msg),navigator:{clipboard:{writeText:async()=>{}}},
+   api:async(path,method,body)=>{
+    if(path.startsWith('/api/order-batch?'))return {number:'POB-'+'A'.repeat(32),supplier:'測試肉商',
+     location_name:'測試店',rows:[{id:'po-line-1',ingredient_name:'豬肉',qty:5,unit:'公斤',status:'approved'}],
+     states:['approved'],line_manual_confirmation:null};
+    requests.push({path,method,body});return {ok:true};
+   }});
+  vm.runInContext(source,ctx,{filename:dir+'/order-batch-ui.js'});
+  await window.OrderBatchUI.preview('POB-'+'A'.repeat(32));
+  assert.equal(actions.length,1);
+  assert.match(dialog.innerHTML,/data-batch-price/);
+  await actions[0]();
+  assert.equal(requests.length,0,dir+' must not receive with browser badInput even when value=""');
+  assert.ok(notices.some(x=>x.includes('進價輸入無效')));
+  // A genuine blank field is allowed and does NOT create any price record.
+  price.validity.badInput=false;price.value='';
+  await actions[0]();
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].body.action,'order.batch-receive');
+  assert.ok(!('prices' in requests[0].body.data));
+  // A real value is passed with the correct purchase-order line ID.
+  price.value='95.50';
+  await actions[0]();
+  assert.equal(requests.length,2);
+  assert.equal(requests[1].body.data.prices['po-line-1'].unit_price_twd,'95.50');
+  assert.equal(requests[1].body.data.prices['po-line-1'].unit,'公斤');
+  assert.equal(requests[1].body.data.prices['po-line-1'].price_date,'2026-10-24');
+ }
+});

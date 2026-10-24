@@ -140,11 +140,23 @@ window.OrderBatchUI=(()=>{
      const prices={};
      for(const r of data.rows){
       const input=node.querySelectorAll('[data-batch-price]')? [...node.querySelectorAll('[data-batch-price]')].find(e=>e.dataset.batchPrice===r.id):null;
-      if(!input||input.value.trim()==='')continue;
+      if(!input)throw Error('找不到「'+r.ingredient_name+'」的驗收進價欄');
+      // For type=number a partially entered value (e.g. "1e" or "-") can
+      // report value="" while validity.badInput=true. Reject BEFORE deciding
+      // that price was intentionally left blank; otherwise receiving would
+      // commit stock without the intended historical price.
+      if(input.validity?.badInput||(typeof input.checkValidity==='function'&&!input.checkValidity()))
+       throw Error('「'+r.ingredient_name+'」的進價輸入無效，請修正後重新驗收');
+      if(input.value.trim()==='')continue;
+      const unitInput=[...node.querySelectorAll('[data-batch-unit]')].find(e=>e.dataset.batchUnit===r.id);
+      const dateInput=[...node.querySelectorAll('[data-batch-date]')].find(e=>e.dataset.batchDate===r.id);
       const cost=Number(input.value);
-      const unit=[...node.querySelectorAll('[data-batch-unit]')].find(e=>e.dataset.batchUnit===r.id)?.value.trim();
-      const date=[...node.querySelectorAll('[data-batch-date]')].find(e=>e.dataset.batchDate===r.id)?.value;
-      if(!Number.isFinite(cost)||cost<=0||!unit||!/^\d{4}-\d{2}-\d{2}$/.test(date||''))throw Error('請檢查「'+r.ingredient_name+'」的進價、單位和日期');
+      const unit=unitInput?.value.trim(),date=dateInput?.value;
+      if(!Number.isFinite(cost)||cost<=0||!unit||!/^\d{4}-\d{2}-\d{2}$/.test(date||'')||
+       unitInput?.validity?.badInput||dateInput?.validity?.badInput||
+       (typeof unitInput?.checkValidity==='function'&&!unitInput.checkValidity())||
+       (typeof dateInput?.checkValidity==='function'&&!dateInput.checkValidity()))
+       throw Error('請檢查「'+r.ingredient_name+'」的進價、單位和日期');
       prices[r.id]={unit_price_twd:input.value,unit,price_date:date};
      }
      if(Object.keys(prices).length)payload.prices=prices;

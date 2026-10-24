@@ -3,18 +3,32 @@
 // /api/data; never embed SQLite in downloadable files or bypass server-side RBAC.
 const ReportKit=(function(){
  const dateKeys=['at','created_at','price_date','shift_date','due_date','start_date','period','completed_on','received_at'];
+ const datesByEntity={audit_logs:'at',tasks:'due_date',ingredient_prices:'price_date',stock_moves:'created_at',
+  purchase_orders:'created_at',stocktakes:'created_at',repairs:'created_at',shifts:'shift_date',
+  leave_requests:'start_date',training_records:'completed_on',evaluations:'period'};
+ function matchesDate(row,entity,from,to){
+  if(!from&&!to)return true;
+  const key=datesByEntity[entity]||dateKeys.find(k=>row[k]&&typeof row[k]==='string');
+  if(!key||typeof row[key]!=='string'||!row[key])return false;
+  if(entity==='leave_requests'){
+   // Leave is an interval; include periods that overlap the selected date range.
+   return (!from||String(row.end_date||row.start_date).slice(0,10)>=from)&&(!to||row.start_date.slice(0,10)<=to);
+  }
+  if(entity==='evaluations'){
+   // Evaluations use YYYY-MM periods; compare whole calendar months.
+   const month=row.period.slice(0,7);
+   return (!from||month>=from.slice(0,7))&&(!to||month<=to.slice(0,7));
+  }
+  const date=row[key].slice(0,10);
+  return (!from||date>=from)&&(!to||date<=to);
+ }
  function value(v){if(v===null||v===undefined)return '';return typeof v==='object'?JSON.stringify(v):String(v);}
- function project(rows,columns,{keyword='',from='',to=''}={}){
+ function project(rows,columns,{keyword='',from='',to='',entity=null,searchAllFields=false}={}){
   const term=String(keyword).trim().toLocaleLowerCase('zh-TW');
   return rows.filter(r=>{
-   if(term&&!columns.some(([key])=>value(r[key]).toLocaleLowerCase('zh-TW').includes(term)))return false;
-   if(from||to){
-    const k=dateKeys.find(k=>r[k]&&typeof r[k]==='string');
-    if(!k)return false;
-    const date=r[k].slice(0,10);
-    if(from&&date<from)return false;
-    if(to&&date>to)return false;
-   }
+   if(term&&!(searchAllFields?JSON.stringify(r).toLowerCase().includes(term):
+    columns.some(([key])=>value(r[key]).toLocaleLowerCase('zh-TW').includes(term))))return false;
+   if(!matchesDate(r,entity,from,to))return false;
    return true;
   }).map(r=>columns.map(([key])=>r[key]===null||r[key]===undefined?'':r[key]));
  }
@@ -66,7 +80,7 @@ async function fetchReports(selected,filters){
  for(const x of selected){
   // Authoritative scope checks live on the server, never trust a hidden checkbox.
   const response=await api('/api/data?entity='+encodeURIComponent(x.key));
-  const rows=ReportKit.project(response.rows,x.columns,filters);
+  const rows=ReportKit.project(response.rows,x.columns,{...filters,entity:x.key});
   sheets.push({name:ReportKit.safeName(x.name),
    headers:x.columns.map(c=>c[1]),rows,sourceCount:response.rows.length});
  }
@@ -110,7 +124,7 @@ async function exportCurrentPage(action){
   if(!cfg?.columns)throw Error('此頁無法匯出');
   // Re-fetch to check live authorization even if earlier cached rows remain.
   const fresh=await api('/api/data?entity='+encodeURIComponent(page));
-  const filtered=ReportKit.project(fresh.rows,cfg.columns,{keyword:S.filter});
+  const filtered=ReportKit.project(fresh.rows,cfg.columns,{keyword:S.filter,searchAllFields:true,entity:page});
   const sheets=[{name:ReportKit.safeName(cfg.title),headers:cfg.columns.map(c=>c[1]),rows:filtered,sourceCount:fresh.rows.length}];
   if(action==='xlsx'){await downloadWorkbook(sheets);toast('Excel 已下載；僅含目前搜尋結果');}
   else{

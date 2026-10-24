@@ -79,3 +79,34 @@ test('Vercel interactive export uses only fictional sample data and shows a fict
  assert.doesNotMatch(report,/fetch\('http/);
  new vm.Script(report);new vm.Script(xlsx);
 });
+
+test('leave interval, monthly evaluations and due date use business dates rather than created_at',()=>{
+ const src=fs.readFileSync(path.join(root,'report-ui.js'),'utf8');
+ const ctx=vm.createContext({console}),project=vm.runInContext(src+'\nReportKit.project;',ctx);
+ const leave=[{start_date:'2026-11-10',end_date:'2026-11-12',created_at:'2026-10-11',reason:'病假'},
+  {start_date:'2026-10-03',end_date:'2026-10-08',created_at:'2026-11-01',reason:'特休'},
+  {start_date:'2026-10-31',end_date:'2026-11-02',created_at:'2026-09-30',reason:'跨月假'}];
+ const c=[['reason','假別']];
+ assert.deepEqual(Array.from(project(leave,c,{entity:'leave_requests',from:'2026-11-01',to:'2026-11-30'})).map(r=>r[0]),['病假','跨月假']);
+ const evals=[{period:'2026-11',created_at:'2026-10-01',score:80},{period:'2026-10',created_at:'2026-11-01',score:75}];
+ assert.deepEqual(Array.from(project(evals,[['score','成績']],{entity:'evaluations',from:'2026-11-15',to:'2026-11-30'})).map(r=>r[0]),[80]);
+ const tasks=[{due_date:'2026-11-02',created_at:'2026-10-01',title:'開店'}];
+ assert.equal(project(tasks,[['title','工作']],{entity:'tasks',from:'2026-11-01',to:'2026-11-30'}).length,1);
+});
+test('current-page export uses the SAME full-row search as the visible list',()=>{
+ const src=fs.readFileSync(path.join(root,'report-ui.js'),'utf8');
+ const project=vm.runInContext(src+'\nReportKit.project;',vm.createContext({console}));
+ const records=[{number:'PO1',ingredient_name:'番茄',unit:'公斤',qty:1},{number:'PO2',ingredient_name:'雞蛋',unit:'盒',qty:1}];
+ const columns=[['number','單號'],['ingredient_name','食材']];
+ assert.equal(project(records,columns,{keyword:'公斤',entity:'purchase_orders'}).length,0);
+ const full=project(records,columns,{keyword:'公斤',searchAllFields:true,entity:'purchase_orders'});
+ assert.equal(full.length,1);assert.equal(full[0][0],'PO1');
+});
+test('tiny stock and recipe quantities use high precision in restaurant workbook',()=>{
+ const xml=extract(buildWorkbook([{name:'庫存管理',headers:['食材','現有庫存'],rows:[['香料',0.001]]},
+  {name:'每份菜品配方',headers:['食材','每份用量'],rows:[['香料',0.00001]]}]),'xl/worksheets/sheet1.xml');
+ assert.match(xml,/r="B2" s="4"><v>0\.001<\/v>/);
+ const wb=buildWorkbook([{name:'每份菜品配方',headers:['食材','每份用量'],rows:[['香料',0.00001]]}]);
+ assert.match(extract(wb,'xl/worksheets/sheet1.xml'),/r="B2" s="4"><v>0\.00001<\/v>/);
+ assert.match(extract(wb,'xl/styles.xml'),/formatCode="#,##0\.########"/);
+});

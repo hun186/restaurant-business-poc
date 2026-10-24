@@ -16,7 +16,7 @@ function loginHarness(source,loginOk=true){
   return elements.get(selector);
  }
  const form=element('#login-form');
- const document={querySelector:element,querySelectorAll:()=>[]};
+ const document={querySelector:element,querySelectorAll:()=>[],body:element('body')};
  let authenticated=false,loginCalls=0;
  const reply=(status,json)=>({ok:status>=200&&status<300,status,json:async()=>json});
  const fetch=async (url)=>{

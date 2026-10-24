@@ -110,3 +110,17 @@
 - 使用者反映首次 owner 隨機密碼只於第一次啟動視窗顯示，未抄寫即無法再次取得。密碼以 scrypt 雜湊儲存，不可反查；已有 Session 可在「變更密碼」設定新密碼。
 - 新增僅本機互動式 `node tools/reset-owner-password.js`，使用 `DATA_DIR` 定位現有資料庫。執行前要求停止 Node 服務、鍵入 `RESET owner`。拒絕不存在或不可信 `.installed`／SQLite、非 v3 或 owner 非唯一有效等情形；先驗證備份，再交易更新 owner 密碼、撤銷其 Session／登入限流狀態並記錄不含密碼的稽核。
 - 不新增任何可匿名呼叫的 Web password-reset endpoint、不修改正式 SQLite schema，也不可刪除既有資料。增加成功復原、非破壞性備份失敗／缺 DB／停用 owner 等回歸測試。正式 Hosted CI / Codex 審查與使用者 Merge 授權須以最新 SHA 為準。
+
+## 2026-10-24｜RB-019 / RB-020 安全稽核來源 IP＋Excel 匯出／列印（新 PR）
+- 使用者要求安全稽核 IP 欄，以及比照水電系統提供多工作表 Excel 匯出、特定資料列／欄位列印。
+- `src/request-ip.js` AsyncLocalStorage request context，來源一律 socket.remoteAddress，絕不信任任意 XFF／X-Real-IP；預設 local loopback 127.0.0.1 而非外網 IP。audit detail 新增 source_ip，查詢投影 ip_address，登入失敗也留下；不變更 Schema，舊資料無法補 IP。
+- `public/xlsx-lite.js` 沿用水電系統無套件 OOXML writer；`public/report-ui.js` 報表頁採既有角色與門市保護的 API 取得資料，支援單頁／多工作表、欄位與關鍵字／日期篩選及列印預覽；不等於全量歷史。
+- 新增來源 IP／不可信標頭、RBAC、Excel ZIP/XML／欄位過濾回歸測試。CI／Codex Review／Merge 授權狀態依 Hosted HEAD。
+
+- Vercel Demo 同步新增虛構 Excel／列印操作及測試用稽核 IP `192.0.2.20`，只用 sessionStorage 假資料，無真實帳號授權、SQLite／真實來源 IP；需確認 Vercel Preview／Production 獨立部署狀態。
+
+## 2026-10-24｜PR #8 最新 Codex P2：共用電腦登出後殘留報表可遭 Ctrl+P 列印
+- Hosted 最新 Review HEAD `4408efa` Completed 找出 P2：報表列印 CSS 隱藏登入遮罩但顯示舊 `#report-print-preview`，業主登出後共用電腦仍可印出稽核／人事資料。
+- 修補本機正式版與 Vercel Demo：showAuth(true) 即清空 main、modal、S.cache／filter／身份，更新 authEpoch，對 body 設置 auth-locked；登出按下即開始 API 並同步鎖定畫面，回應失敗提醒伺服器登出未確認；print CSS 在 auth-locked 狀態一律隱藏 main／預覽，對殘留非同步 DOM 也 fail closed；匯出／列印非同步待命若權限階段變化即中止。增加 Node VM 回歸測試模擬共享終端 Ctrl+P 與登出未完成的非同步流程。仍須最新 Hosted CI、Codex Review，未授權不得 Merge。
+
+- 2026-10-24 Codex 新 P2（HEAD 2b7f277）：舊 logout Set-Cookie 清除可能晚於新 login Set-Cookie，導致新登入 Session 被抹除。正式版與 Demo 新增 logoutInFlight Promise，登出按下同步清畫面／鎖定列印不變；新登入 submit 須先等舊登出請求完成才發送 /api/login，登出失敗亦不得永久卡住；加入 VM 延遲登出回應回歸測試。待 Hosted CI／Codex 複審。

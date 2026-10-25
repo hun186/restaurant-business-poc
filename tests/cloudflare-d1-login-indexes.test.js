@@ -93,8 +93,9 @@ test('bounded cleanup uses time index and deletes only rows older than 7 days, w
 });
 
 test('0002 never redefines initial schema nor performs implicit remote migration',()=>{
-  assert.doesNotMatch(migrationV2,/\b(?:DROP|DELETE|INSERT|UPDATE|ALTER)\b/i);
-  assert.doesNotMatch(migrationV2,/password_hash|password_salt|d1_migrations/i);
+  const executable=migrationV2.split('\n').filter(line=>!line.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(executable,/\b(?:DROP|DELETE|INSERT|UPDATE|ALTER)\b/i);
+  assert.doesNotMatch(executable,/password_hash|password_salt|d1_migrations/i);
   const workflow=fs.readFileSync(path.join(root,'.github/workflows/d1-staging-migration.yml'),'utf8');
   assert.match(workflow,/assertEmptyTarget|Read-only check target staging D1 is empty/);
   assert.ok(!workflow.includes('0002_login_attempts_window_indexes'));

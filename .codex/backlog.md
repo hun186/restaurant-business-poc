@@ -38,3 +38,5 @@
 
 | RB-023 | IN_REVIEW | P1 | Cloudflare Workers＋D1 基礎建設：初始 Migration、只讀 Schema Probe、正式/Preview 雙庫隔離範本；使用者已建正式與測試 D1，PR 已加入對應 UUID 設定及隔離測試，但尚未執行遠端 Migration/完成正式 API，待 PR 最新 HEAD CI、Codex Review、使用者 Merge 授權 |
 | RB-024 | PLANNED | P1 | D1 正式/Preview 各建獨立資源與 migration；Worker Auth/RBAC/CSRF/安全初始業主建立；各營運模組 D1 原子性資料存取；加密異地備份與災難復原驗收後才可交付業主 |
+
+| RB-025 | IN_REVIEW | P1 | Cloudflare D1 認證第一階段：WebCrypto password verifier 與 Session／Origin／CSRF／RBAC 專用模組、只在 Preview 開放唯讀 `/api/me`；正式登入/登出仍未實作，後續需限流、密碼初始化、稽核與真機 CPU/安全驗收；待 CI／Codex 最新 HEAD Review／使用者 Merge |

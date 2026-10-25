@@ -11,7 +11,10 @@
         "database_name": "restaurant-business-staging",
         "database_id": "2c355bed-d9c3-449c-aa9b-1018f3bc1177"
       }
-    ]
+    ],
+    "vars": {
+      "CLOUD_AUTH_PHASE": "preview-readonly"
+    }
   },
   "assets": {
     "directory": "./vercel-demo",
@@ -27,5 +30,8 @@
       "database_id": "b882a6e8-0e56-49a6-bd41-1a6cadd726c9",
       "migrations_dir": "cloudflare/migrations"
     }
-  ]
+  ],
+  "vars": {
+    "CLOUD_AUTH_PHASE": "disabled"
+  }
 }

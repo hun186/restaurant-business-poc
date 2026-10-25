@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #14 Cloudflare D1 認證第一階段，只在 Preview 開放唯讀 `/api/me`；以本 PR 最新 HEAD 完成 GitHub Hosted CI、Cloudflare Preview、正式 Codex Review，修正 Findings；禁止未授權合併。PR #13 已合併，staging D1 初始化與健康檢查驗收完成；正式 D1 未遷移。
+- 首要目標：Cloudflare D1 Worker 登入/登出安全服務（RB-028）：新分支 `feat/cloudflare-d1-login-security-20261025` 只實作後端內部 Auth D1 SQL／Session／Audit／限流與回歸；公開 `/api/login`、`/api/logout` 保持 503。PR #14/#15/#16 已合併，staging D1 Run #40188578478 建立一位 active Owner 且驗證 PASS；正式 D1 尚未初始化。任何最新 PR 複審、CI 及合併授權必須重新核對。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -207,3 +207,15 @@
 - 使用者明確要求將 staging Owner 一次性初始化的 `STAGING_OWNER_PASSWORD` 最小長度由 20 改為 12（上限維持 256），不是放寬至 8；原雲端 `cloudflare/auth-core.mjs` 的密碼雜湊函式本來就要求 12～256，不需修改正式 Worker 登入（目前仍停用）。
 - 新分支 `fix/staging-owner-password-min12-20261025` 修改 `tools/cloudflare-staging-owner.mjs` 的輸入下限與錯誤訊息、`tests/cloudflare-staging-owner-bootstrap.test.js` 邊界測試（8/11 拒絕、12 可生成和驗證、257 拒絕），同步更新 `docs/Cloudflare-D1-staging-初始業主建立.md`。不改 schema、Cloudflare prod/staging D1 綁定、Workflow Secrets 或 SQL 空庫防護。
 - PR #14、#15 已取得授權並已合併；staging D1 Schema Run #40172089719 已驗收，但**staging 初始 Owner 尚未被遠端建立，也未執行一次性 Bootstrap Workflow**；任何 PR 待最新 Hosted CI / 正式 Codex Review 與使用者明確 Merge 授權後才可合併。不能將這次程式修改視為密碼已經設定或資料庫已經初始化。
+
+## 2026-10-25｜RB-028 Cloudflare 登入服務內部階段（開發中、不可對外）
+- 已核對 GitHub：PR #14/#15/#16 均 MERGED；staging D1 Owner Bootstrap workflow_dispatch Run #40188578478 經實際日誌證實 `STAGING_OWNER_PREFLIGHT_PASS`、`WRITE_SQL_PASS`、`VERIFY_PASS`，遠端 STAGING_DB 有一位 active Owner、無 Session；Production D1 沒有執行 migration。
+- 分支 `feat/cloudflare-d1-login-security-20261025` 新增 `cloudflare/login-service.mjs`：D1 單語句原子 `INSERT ... SELECT COUNT` 限流（per-user 8/per-source 32、15 分鐘）、PBKDF2 600k dummy KDF 以減少 username 枚舉時差、登入失敗/成功 Audit、成功 Session SHA-256 + CSRF + 8 小時 Secure Host-only Cookie，D1 batch 同時寫 Session/成功 Audit/嘗試標記且 guard 帳號活動/密碼雜湊變動。登出需要 HTTPS Origin + CSRF + 有效 Session，再 batch 撤銷 Session 與 Audit。來源 HMAC digest 只讀 CF-Connecting-IP，拒絕 X-Forwarded-For、缺 Pepper。
+- 新增 `tests/cloudflare-d1-login-security.test.js` 使用 Node SQLite v3 執行實際 SQL 模擬 D1，測正確/錯誤帳密、停權/不存在、SQL 限流、密碼更換的 race、D1 batch rollback、CSRF/跨來源與已停用公開 API；另有部署阻擋文件。
+- **尚未接上 Worker 公開路由**，本 PR 沒有任何遠端 D1 寫入、Cloudflare Secret 變更、Migration 或正式登入上線。Cloudflare Workers Free 的 CPU 10ms 對 PBKDF2 600k 未在真機驗證，Preview 網址公開且共用 staging DB，所以嚴禁公開接收真實 Owner 密碼。下一輪需先實測/隔離，不能把 CI PASS 當成可正式登入。Hosted 最新 HEAD CI、Cloudflare Preview、正式 Codex Review 和未授權不得 Merge 規範繼續適用。
+
+## 2026-10-25｜PR #17 Codex P2：索引/清理修正（最新 HEAD 待 CI 與正式重審）
+- 最新正式 Codex Review 前一版 `fe43a9ad` Completed，有 1 項未解 P2：登入限流 `username COLLATE NOCASE` 與舊 BINARY 索引不匹配，`ip_hash` 缺複合索引，且登入嘗試紀錄沒有過期清理；上一輪 CI PASS 不能當成新 HEAD 驗收。
+- 已新增 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加 `(username COLLATE NOCASE, at)`、`(ip_hash,at)`、`(at,id)` 三組索引；保留已經安裝於 staging 的 v3 `0001` 原樣，**無遠端 D1 Migration 或資料寫入**。D1 ledger 後續須走人工核准的既有庫增量流程，不可重跑只允許空庫的 `d1-staging-migration.yml`。
+- `cloudflare/login-service.mjs` 提取共用 `LOGIN_RESERVATION_SQL`，新 `pruneExpiredLoginAttempts()` 以 7 天保留/每批最多 500 筆之 SQL 清理（不刪 Audit）。**尚未設立 Cron、未對遠端 staging/prod 自動清理**；待 staging 0002 套用、真機驗證與後續安全部署批准。
+- 新 `tests/cloudflare-d1-login-indexes.test.js` 讀 D1 0001+0002，在 Node SQLite 以 `EXPLAIN QUERY PLAN` 驗證兩條 15 分鐘限流子查詢和清理均有對應索引，測既有 Owner 不變、分批刪除舊登入嘗試不影響 Session/Audit、批次上限。須等最新 Head Hosted Ubuntu/Windows Node22/24 CI、Cloudflare Preview、正式 Codex Review，再修 Findings；使用者尚未授權合併。

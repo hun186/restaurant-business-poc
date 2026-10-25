@@ -147,4 +147,4 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 ### Cloudflare Hosted PBKDF2 CPU 驗證工具（僅準備，未部署）
 
 - 已準備**獨立且預設 disabled** 的合成 Hosted Worker：`wrangler.pbkdf2-hosted-disabled.jsonc` 禁用 workers.dev 與預覽 URL，不連接 D1、營運 API、Owner 密碼或 Session。必須另外核對 Cloudflare Worker-level Access 的 `ctx.access` 與 AUD，取得授權後才可能開啟測試。
-- 每個受保護請求只做一個固定虛構向量 PBKDF2；回應只有 wall-clock，真正 Hosted CPU 值必須從 Workers Logs 查詢。沒有自動部署或啟用。詳見 [Hosted PBKDF2 Access/CPU 驗證計畫](docs/Cloudflare-Hosted-PBKDF2-Access-CPU-驗證計畫.md)。
+- 每個受保護請求只做一個固定虛構向量 PBKDF2；回應與自訂 log 均不提供耗時數值（Hosted `performance.now()` 可能凍結），真正 Hosted CPU／Wall time 必須從 Cloudflare invocation logs 查詢。沒有自動部署或啟用。詳見 [Hosted PBKDF2 Access/CPU 驗證計畫](docs/Cloudflare-Hosted-PBKDF2-Access-CPU-驗證計畫.md)。

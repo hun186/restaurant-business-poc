@@ -37,7 +37,9 @@ test('D1 bootstrap has same SQLite v3 tables, columns, foreign keys and indexes'
     const actual = snapshot(d1).filter(x => x.name !== 'cloud_schema_contract');
     assert.deepEqual(actual.map(x => [x.type, x.name, compact(x.sql)]),
       expected.map(x => [x.type, x.name, compact(x.sql)]));
-    assert.equal(d1.prepare('PRAGMA user_version').get().user_version, 3);
+    // D1 uses the Wrangler migration ledger and an explicit application contract,
+    // not PRAGMA user_version (reserved to the existing local Node SQLite runtime).
+    assert.equal(d1.prepare('PRAGMA user_version').get().user_version, 0);
     assert.equal(d1.prepare('SELECT contract_version FROM cloud_schema_contract WHERE id=1').get().contract_version, 3);
     assert.equal(d1.prepare('SELECT interval_days FROM backup_settings WHERE id=1').get().interval_days, 1);
   } finally { legacy.close(); d1.close(); }

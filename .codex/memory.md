@@ -207,3 +207,9 @@
 - 使用者明確要求將 staging Owner 一次性初始化的 `STAGING_OWNER_PASSWORD` 最小長度由 20 改為 12（上限維持 256），不是放寬至 8；原雲端 `cloudflare/auth-core.mjs` 的密碼雜湊函式本來就要求 12～256，不需修改正式 Worker 登入（目前仍停用）。
 - 新分支 `fix/staging-owner-password-min12-20261025` 修改 `tools/cloudflare-staging-owner.mjs` 的輸入下限與錯誤訊息、`tests/cloudflare-staging-owner-bootstrap.test.js` 邊界測試（8/11 拒絕、12 可生成和驗證、257 拒絕），同步更新 `docs/Cloudflare-D1-staging-初始業主建立.md`。不改 schema、Cloudflare prod/staging D1 綁定、Workflow Secrets 或 SQL 空庫防護。
 - PR #14、#15 已取得授權並已合併；staging D1 Schema Run #40172089719 已驗收，但**staging 初始 Owner 尚未被遠端建立，也未執行一次性 Bootstrap Workflow**；任何 PR 待最新 Hosted CI / 正式 Codex Review 與使用者明確 Merge 授權後才可合併。不能將這次程式修改視為密碼已經設定或資料庫已經初始化。
+
+## 2026-10-25｜RB-028 Cloudflare 登入服務內部階段（開發中、不可對外）
+- 已核對 GitHub：PR #14/#15/#16 均 MERGED；staging D1 Owner Bootstrap workflow_dispatch Run #40188578478 經實際日誌證實 `STAGING_OWNER_PREFLIGHT_PASS`、`WRITE_SQL_PASS`、`VERIFY_PASS`，遠端 STAGING_DB 有一位 active Owner、無 Session；Production D1 沒有執行 migration。
+- 分支 `feat/cloudflare-d1-login-security-20261025` 新增 `cloudflare/login-service.mjs`：D1 單語句原子 `INSERT ... SELECT COUNT` 限流（per-user 8/per-source 32、15 分鐘）、PBKDF2 600k dummy KDF 以減少 username 枚舉時差、登入失敗/成功 Audit、成功 Session SHA-256 + CSRF + 8 小時 Secure Host-only Cookie，D1 batch 同時寫 Session/成功 Audit/嘗試標記且 guard 帳號活動/密碼雜湊變動。登出需要 HTTPS Origin + CSRF + 有效 Session，再 batch 撤銷 Session 與 Audit。來源 HMAC digest 只讀 CF-Connecting-IP，拒絕 X-Forwarded-For、缺 Pepper。
+- 新增 `tests/cloudflare-d1-login-security.test.js` 使用 Node SQLite v3 執行實際 SQL 模擬 D1，測正確/錯誤帳密、停權/不存在、SQL 限流、密碼更換的 race、D1 batch rollback、CSRF/跨來源與已停用公開 API；另有部署阻擋文件。
+- **尚未接上 Worker 公開路由**，本 PR 沒有任何遠端 D1 寫入、Cloudflare Secret 變更、Migration 或正式登入上線。Cloudflare Workers Free 的 CPU 10ms 對 PBKDF2 600k 未在真機驗證，Preview 網址公開且共用 staging DB，所以嚴禁公開接收真實 Owner 密碼。下一輪需先實測/隔離，不能把 CI PASS 當成可正式登入。Hosted 最新 HEAD CI、Cloudflare Preview、正式 Codex Review 和未授權不得 Merge 規範繼續適用。

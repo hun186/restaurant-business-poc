@@ -44,7 +44,9 @@
 | RB-026 | DONE_STAGING | P1 | PR #15 已合併、Run #40188578478 實際建立 staging D1 active Owner=1、Session=0、Schema/FK 驗證 PASS；Cloudflare 正式 Login API 仍 503 |
 | RB-027 | PLANNED | P1 | Workers Free CPU 10ms 下之 PBKDF2 600k 真機成本／相容性驗收，與 login 防暴力破解、帳號鎖定稽核、雲端原生 Session 與登出開發；不可在性能／安全證據前啟用實際登入 |
 
-| RB-028 | IN_REVIEW | P1 | D1 雲端登入安全服務（內部程式）：原子嘗試限流、PBKDF2 憑證核對、Session/Audit 原子交易、登出 CSRF/Origin、停用／改密碼 race tests；Worker 公開登入仍 503，待 Hosted CI + 最新正式 Codex Review + 授權 Merge |
+| RB-028 | MERGED_CODE_ONLY | P1 | PR #17 已合併，內部 D1 Login/Session/Audit/限流及 0002 索引程式已入 main；公開 API 仍 503，遠端 staging 0002 尚未套用，Workers CPU／Access 真機驗收未完成 |
 | RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 Cloudflare CF-Connecting-IP 來源可信度 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |
 
 | RB-028-P2 | IN_REVIEW | P2 | PR #17 Codex 問題：限流 NOCASE 與來源索引、7 日過期嘗試分批清理；已新增 D1 0002 Versioned Migration 與 EXPLAIN QUERY PLAN 測試，**尚未套用 staging/prod**、Cron 未設；需最新 CI + 正式 Codex 複審與授權 Merge |
+
+| RB-030 | IN_REVIEW | P1 | PR staging D1 0002 增量索引部署防護：人工 CHECK/APPLY 模式、前置 ledger+Owner+Schema/FK 驗證、postflight 索引/Owner 保全；只提交工作流程與測試，**未對遠端 staging/prod 執行**，待 Hosted CI + 正式 Codex Review + 合併/部署獨立授權 |

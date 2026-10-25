@@ -35,7 +35,7 @@ jobs:
           node --check cloudflare/pbkdf2-local-probe.mjs
           node --check cloudflare/pbkdf2-local-probe-worker.mjs
           node --check tools/run-pbkdf2-local-workerd.mjs
-          node -e "const c=require('./wrangler.pbkdf2-local.jsonc');if(c.workers_dev!==false || c.preview_urls!==false || c.d1_databases || c.routes || c.route || c.services)process.exit(1)"
+          node -e "const c=JSON.parse(require('fs').readFileSync('wrangler.pbkdf2-local.jsonc','utf8'));if(c.workers_dev!==false || c.preview_urls!==false || c.d1_databases || c.routes || c.route || c.services)process.exit(1)"
       - name: Install fixed Wrangler for local workerd only
         run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
       - name: Run three synthetic loopback workerd PBKDF2 samples (WALL only)

@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc`；GitHub `hun186/restaurant-business-poc` **Public**。PR #10、#12、#13 已合併；目前進行 PR #14 Cloudflare 認證第一階段（Draft），PR #7 與 #9 仍 OPEN/Draft；正式審查與 CI 必須以最新 PR HEAD 核對。
+- 專案：餐廳好管家 / `restaurant-business-poc`；GitHub `hun186/restaurant-business-poc` **Public**。PR #10、#12、#13、#14、#15、#16 已合併，Cloudflare staging D1 已初始化並建立測試 Owner（Run #40188578478 PASS）；新分支 `feat/cloudflare-d1-login-security-20261025` 正開發離線認證服務；PR #7、#9 仍各自待處理。CI／正式 Codex Review 均依最新 PR HEAD 核對。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

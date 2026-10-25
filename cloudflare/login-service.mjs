@@ -71,7 +71,7 @@ export async function authenticateD1(db, { username, password, ipHash }) {
     ).bind(username).first();
     // Unknown/inactive users still execute the expensive KDF to avoid existence timing leaks.
     const isModern = !!user && /^[0-9a-f]{32}$/i.test(user.password_salt || '') &&
-      /^pbkdf2-sha256\\$600000\\$[0-9a-f]{64}$/i.test(user.password_hash || '');
+      /^pbkdf2-sha256\$600000\$[0-9a-f]{64}$/i.test(user.password_hash || '');
     const salt = isModern ? user.password_salt : DUMMY_SALT;
     const stored = isModern ? user.password_hash : DUMMY_HASH;
     const matches = await verifyWorkerPassword(password, salt, stored);

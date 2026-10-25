@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17/#18 已 Merge；staging D1 `0002` 索引已由 GitHub CHECK Run #40203410303 和 APPLY Run #40204026605 實際遠端完成，pre/postflight 均 PASS，Owner／Schema 保全。Production D1 仍未初始化。新分支 `feat/cloudflare-pbkdf2-workerd-probe-20261025` 進行 **純虛構 PBKDF2 600k 本機 workerd 合成驗證**，不得把本機 wall-clock 視為 Hosted CPU 限額實測；公開 `/api/login`、`/api/logout` 仍 503，尚需受保護的 Hosted Worker 真機 CPU 證據。任何新 PR CI／Codex Review／Merge 授權必須以 Hosted 最新 HEAD 核對。
+- 首要目標：PR #17/#18/#19 已 Merge；staging D1 0002 Run #40204026605 遠端 PASS；純虛構密碼本機 workerd 600k 三樣本 Run #40208993373 PASS，wall median hash/正確/錯誤=79/79/78 ms，但**不是 Cloudflare Hosted CPU**。Production D1 未初始化。新分支 `feat/cloudflare-access-hosted-pbkdf2-probe-20261026` 正開發 Access 驗證、Audience 檢查、無路由／預設 disabled 的獨立合成 Hosted Worker 及安全部署 SOP，**未獲授權不部署**，公開 `/api/login`、`/api/logout` 仍 503。真實 CPU logs 尚未取得。CI/正式 Codex Reviews 必須依最新 HEAD 查核，未授權不 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -233,3 +233,9 @@
 - 修正 P2：`tools/pbkdf2-workerd-sandbox.mjs` 建立權限限制的私有隨機 tmp 專案，只將 review 過的 `auth-core`、probe、probe Worker 與無遠端 bindings 的 config 複製入；Wrangler 的 cwd/config/HOME/TMPDIR/XDG_CONFIG_HOME 都在暫存目錄；限制環境變數正向白名單且關閉 dotenv。回歸以 `.env`、`.dev.vars` canary 驗證 Secret 不會複製進沙箱。
 - `tools/run-pbkdf2-local-workerd.mjs --smoke` 新增真實 loopback HTTP 傳輸測試（POST 零內容應回 200、帶內容或 Authorization 應回 400），單組合成 KDF。GitHub `.github/workflows/verify.yml` 增加 Ubuntu 24 的 `pbkdf2-workerd-http-smoke`，已在本輪早期 Run #40207616103 看到此專用 Job SUCCESS；**後續仍須以最終 HEAD 重新核對全部 CI**。
 - 以上皆為本機 synthetic workerd wall-clock，**不是 Cloudflare Hosted CPU 毫秒測試**。不讀真實 Owner Secret、不連 D1、不開放 /api/login。需依最新 SHA 正式 Codex 複審、修 Findings、未授權不 Merge。
+
+## PR #20｜2026-10-26 Codex P2 Hosted performance.now 凍結問題修正（待複審）
+- 原 HEAD `e99940821819ea2a6b2be27fa9672894a9ff0383` 的正式 Codex Review Completed，1 項 P2、Review Thread `PRRT_kwDOVUuF1c6wCyy9`：Hosted `performance.now()` 在無 I/O 時可能不前進，舊 `wall_ms` 可能誤報 0；Node 本機時鐘測試無法證明真實 Hosted wall-time。
+- 已更新 `cloudflare/pbkdf2-hosted-synthetic.mjs` 移除 clock 參數／`performance.now` 差值；`cloudflare/pbkdf2-hosted-access-worker.mjs` 的回應和自訂 log 不再含任何 CPU/Wall 計時欄位；保留 `probe_id` 及操作，用於比對 Cloudflare 平台 invocation logs 的 `$workers.cpuTimeMs`、`$workers.wallTimeMs`、`$workers.outcome`。
+- `tests/cloudflare-pbkdf2-hosted-access.test.js` 新增凍結 `performance.now()` 為 0 的回歸，逐一驗證 hash／verify-correct／verify-wrong，應無任何偽計時欄位。
+- 此修正不表示已取得 Hosted CPU 實測，不允許自動部署遠端 Worker、變更 D1 或開啟登入。最新 HEAD Hosted CI、正式 Codex Review 和 Thread Resolve 均待核對；未授權不 Merge。

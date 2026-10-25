@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17 已 Merge，D1 雲端登入內部服務與 0002 三組索引已入 main；但 **staging D1 的 0002 還未遠端套用**。新分支 `feat/d1-staging-0002-incremental-20261025` 建立人工 `CHECK_STAGING_0002` 與 `APPLY_STAGING_0002` 工作流程（預設只讀）、ledger/Owner/schema/FK 前後驗收。既有 staging v3 與 Owner（Run #40188578478）已完成；prod D1 未初始化，兩個公開登入路由仍 503。最新 PR/CI/Review 必須重新核對，未授權不得 Merge 或執行遠端 Migration。
+- 首要目標：PR #17/#18 已 Merge；staging D1 `0002` 索引已由 GitHub CHECK Run #40203410303 和 APPLY Run #40204026605 實際遠端完成，pre/postflight 均 PASS，Owner／Schema 保全。Production D1 仍未初始化。新分支 `feat/cloudflare-pbkdf2-workerd-probe-20261025` 進行 **純虛構 PBKDF2 600k 本機 workerd 合成驗證**，不得把本機 wall-clock 視為 Hosted CPU 限額實測；公開 `/api/login`、`/api/logout` 仍 503，尚需受保護的 Hosted Worker 真機 CPU 證據。任何新 PR CI／Codex Review／Merge 授權必須以 Hosted 最新 HEAD 核對。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -226,3 +226,10 @@
 - GitHub Workflow `.github/workflows/d1-staging-incremental-0002.yml` `workflow_dispatch` only、main + 精確輸入、Environment `d1-staging`、與舊 staging schema migration 共用 concurrency group、Wrangler 4.152.0 固定、機密不傳入 npm install。預設動作 `CHECK_STAGING_0002` 只讀；`APPLY_STAGING_0002` 需獨立授權與人工觸發。
 - 新 `tests/cloudflare-staging-0002-migration.test.js` 以 D1 0001 模擬已建立 Owner／ledger，回歸部分套用、錯庫、owner 缺失、遷移污染、postflight 確認。紀錄於 `docs/Cloudflare-D1-staging-0002-安全增量遷移.md`。
 - 此 PR 不能聲稱已對 D1 做任何操作。正式登入仍關閉，Workers 真機 PBKDF2 600k CPU/受保護 staging 還未完成。須 Hosted CI、Preview、正式 Codex Review 完成，使用者授權才 Merge。
+
+## 2026-10-25｜PR #19 Codex P1/P2 修正與實際 workerd HTTP 回歸（持續審查）
+- Hosted PR #19 原 HEAD `1f1b49d00053ea53e6eb8258d7fc678c404f176f` 正式 Codex Review Completed 有 **P1 1 項、P2 1 項**：P1 workerd 接受零內容 POST 時仍可能有 `request.body` stream，原本會誤回 400；P2 Wrangler `dev --local` 會自動載入 source checkout 的 `.env`/`.dev.vars`，原 ENV allowlist 不足以隔離 Secrets。
+- 修正 P1：`cloudflare/pbkdf2-local-probe-worker.mjs` 將真實零位元組 Content-Length: 0 的可讀串流與非空請求區分，只檢查第一個 stream chunk 是否立即 done；Content-Length 非 0／不明串流／Authorization／傳輸編碼等一律 fail-closed。新增直接 Request 零內容 stream／偽裝非空內容測試。
+- 修正 P2：`tools/pbkdf2-workerd-sandbox.mjs` 建立權限限制的私有隨機 tmp 專案，只將 review 過的 `auth-core`、probe、probe Worker 與無遠端 bindings 的 config 複製入；Wrangler 的 cwd/config/HOME/TMPDIR/XDG_CONFIG_HOME 都在暫存目錄；限制環境變數正向白名單且關閉 dotenv。回歸以 `.env`、`.dev.vars` canary 驗證 Secret 不會複製進沙箱。
+- `tools/run-pbkdf2-local-workerd.mjs --smoke` 新增真實 loopback HTTP 傳輸測試（POST 零內容應回 200、帶內容或 Authorization 應回 400），單組合成 KDF。GitHub `.github/workflows/verify.yml` 增加 Ubuntu 24 的 `pbkdf2-workerd-http-smoke`，已在本輪早期 Run #40207616103 看到此專用 Job SUCCESS；**後續仍須以最終 HEAD 重新核對全部 CI**。
+- 以上皆為本機 synthetic workerd wall-clock，**不是 Cloudflare Hosted CPU 毫秒測試**。不讀真實 Owner Secret、不連 D1、不開放 /api/login。需依最新 SHA 正式 Codex 複審、修 Findings、未授權不 Merge。

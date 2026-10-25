@@ -49,4 +49,7 @@
 
 | RB-028-P2 | IN_REVIEW | P2 | PR #17 Codex 問題：限流 NOCASE 與來源索引、7 日過期嘗試分批清理；已新增 D1 0002 Versioned Migration 與 EXPLAIN QUERY PLAN 測試，**尚未套用 staging/prod**、Cron 未設；需最新 CI + 正式 Codex 複審與授權 Merge |
 
-| RB-030 | IN_REVIEW | P1 | PR staging D1 0002 增量索引部署防護：人工 CHECK/APPLY 模式、前置 ledger+Owner+Schema/FK 驗證、postflight 索引/Owner 保全；只提交工作流程與測試，**未對遠端 staging/prod 執行**，待 Hosted CI + 正式 Codex Review + 合併/部署獨立授權 |
+| RB-030 | DONE_STAGING | P1 | PR #18 已 Merge；CHECK #40203410303 PASS、APPLY #40204026605 PASS，staging D1 `0002` 實際套用並完成 ledger/三索引/Owner/FK 驗收；production 不變 |
+
+| RB-031 | IN_REVIEW | P1 | PBKDF2 600k 虛構密碼隔離工作：本機 workerd 3 組 wall-clock 探針、獨立無 D1/Secrets/外網入口的手動 GitHub Action、回歸及操作文件；待 Hosted CI/正式 Codex Review，不代表已證明 Hosted CPU 配額 |
+| RB-032 | PLANNED | P1 | 在可確認 Cloudflare Access/等效隔離的 staging 環境，用純合成資料驗證 Workers 真正 CPU time、1102/exceededCpu、Free/Paid 適配性；未獲授權不可部署，通過前不得開啟真實登入 |

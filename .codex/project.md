@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc`；GitHub **Public**。PR #10、#12、#13、#14、#15、#16、#17 已合併；staging D1 v3 Schema（Run #40172089719）與一位 Owner（Run #40188578478）驗證完成；新的 `0002` 索引 Migration 僅已合併程式，**尚未對遠端執行**。目前分支 `feat/d1-staging-0002-incremental-20261025` 開發既有 staging D1 手動 CHECK/APPLY 0002 安全部署工具，待 CI/正式複審，不可未授權 Merge/觸發遠端寫入；PR #7/#9 仍開啟。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17、#18 已合併。staging D1 v3（Run #40172089719）、唯一 active Owner（Run #40188578478）及 `0002` 索引已在遠端執行（CHECK #40203410303、APPLY/POSTFLIGHT #40204026605），全部成功；production D1 **未初始化**。目前分支 `feat/cloudflare-pbkdf2-workerd-probe-20261025` 開發虛構密碼／本機 workerd 效能探針；尚未驗證 Cloudflare Hosted CPU。PR #7/#9 尚待處理。此階段不啟用真正登入、不操作遠端 DB，CI／Codex 以最新 PR HEAD 為準，未授權不 Merge。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

@@ -1,0 +1,42 @@
+name: PBKDF2 synthetic local workerd benchmark (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RUN_LOCAL_SYNTHETIC_ONLY (no Cloudflare deploy, D1, users or secrets)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-pbkdf2-local-only
+  cancel-in-progress: false
+
+jobs:
+  pbkdf2-local-only:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'RUN_LOCAL_SYNTHETIC_ONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify no Cloudflare remote targets are configured
+        run: |
+          node --check cloudflare/pbkdf2-local-probe.mjs
+          node --check cloudflare/pbkdf2-local-probe-worker.mjs
+          node --check tools/run-pbkdf2-local-workerd.mjs
+          node -e "const c=JSON.parse(require('fs').readFileSync('wrangler.pbkdf2-local.jsonc','utf8'));if(c.workers_dev!==false || c.preview_urls!==false || c.d1_databases || c.routes || c.route || c.services)process.exit(1)"
+      - name: Install fixed Wrangler for local workerd only
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Run three synthetic loopback workerd PBKDF2 samples (WALL only)
+        run: node tools/run-pbkdf2-local-workerd.mjs

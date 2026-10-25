@@ -64,7 +64,7 @@ test('Access-authenticated Worker rejects unexpected URL, verb, cross-site and p
   const streamed=req('/synthetic/hash',{headers:{'content-length':'0','x-synthetic-probe-intent':'pbkdf2-only'},body:'notempty'});
   assert.equal((await w.fetch(streamed,enabled,ctx)).status,400);
 });
-test('all three synthetic operations execute one validated 600k KDF and report wall not CPU',async()=>{
+test('all three synthetic operations execute one validated 600k KDF, without inline CPU or wall time',async()=>{
   const w=(await workerPromise).default;
   const {HOSTED_OPERATIONS,runHostedSyntheticOperation}=await synthPromise;
   assert.deepEqual(HOSTED_OPERATIONS,['hash','verify-correct','verify-wrong']);
@@ -74,14 +74,52 @@ test('all three synthetic operations execute one validated 600k KDF and report w
     assert.equal(res.status,200,op);
     assert.equal(res.headers.get('cache-control'),'no-store');
     const body=await res.json();
-    assert.equal(body.kind,'hosted_synthetic_wall_time_not_cpu');
+    assert.equal(body.kind,'hosted_synthetic_result_no_inline_timings');
     assert.equal(body.operation,op);
     assert.equal(body.iterations,600000);
     assert.equal(body.valid,true);
     assert.equal(body.cpu_verified,false);
-    assert.ok(Number.isFinite(body.wall_ms)&&body.wall_ms>=0);
+    for(const key of ['wall_ms','cpu_ms','wallTimeMs','cpuTimeMs']) {
+      assert.equal(Object.hasOwn(body,key),false,key);
+    }
     assert.match(body.probe_id,/^[0-9a-f-]{36}$/);
     assert.doesNotMatch(JSON.stringify(body),/synthetic-benchmark|salt|password|token|session|email|ip_hash/i);
+  }
+});
+test('regression: frozen Cloudflare performance.now clock cannot create false wall/CPU measurements',async()=>{
+  const {mock}=require('node:test');
+  const worker=(await workerPromise).default;
+  const {runHostedSyntheticOperation,HOSTED_OPERATIONS}=await synthPromise;
+  const emitted=[];
+  const clock=mock.method(performance,'now',()=>0);
+  const info=mock.method(console,'info',msg=>emitted.push(JSON.parse(msg)));
+  try{
+    for(const op of HOSTED_OPERATIONS){
+      const result=await runHostedSyntheticOperation(op);
+      assert.deepEqual(result,{operation:op,iterations:600000,valid:true});
+      const res=await worker.fetch(req('/synthetic/'+op),enabled,ctx);
+      assert.equal(res.status,200,op);
+      const body=await res.json();
+      assert.equal(body.kind,'hosted_synthetic_result_no_inline_timings');
+      assert.equal(body.valid,true);
+      assert.equal(body.cpu_verified,false);
+      for(const key of ['wall_ms','cpu_ms','wallTimeMs','cpuTimeMs']){
+        assert.equal(Object.hasOwn(body,key),false,key+' must not be exposed');
+      }
+    }
+    assert.equal(emitted.length,HOSTED_OPERATIONS.length);
+    for(const item of emitted){
+      assert.equal(item.event,'pbkdf2_synthetic_only');
+      assert.equal(item.iterations,600000);
+      assert.match(item.probe_id,/^[0-9a-f-]{36}$/);
+      for(const key of ['wall_ms','cpu_ms','wallTimeMs','cpuTimeMs']){
+        assert.equal(Object.hasOwn(item,key),false,key+' must not be logged');
+      }
+    }
+    assert.ok(clock.mock.callCount()===0,'Hosted operation must not consult frozen performance.now');
+  }finally{
+    info.mock.restore();
+    clock.mock.restore();
   }
 });
 test('Content-Length 0 with non-null readable empty stream is accepted; nonempty stream denied',async()=>{

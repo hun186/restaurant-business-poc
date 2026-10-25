@@ -126,3 +126,9 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 - 已有 Demo-only Cloudflare Worker；`/api/health` 回報 `production_ready: false`，不代表已能安全保存營運資料。
 - D1 逐步移植工作見 [Cloudflare D1 資料庫基礎 SOP](docs/Cloudflare-D1-正式版資料庫基礎.md)：提供 v3 空白 Migration、Schema 驗證及正式／Preview 雙庫範本，已提供正式／Preview 不同 D1 UUID 的綁定設定，但尚未執行遠端 Migration、也尚未初始化業主帳號。
 - 暫時**不要將真實帳密、人事、營運資料輸入 Cloudflare 展示站**；本機原有 SQLite 正式功能不因 D1 工作改變。後續實作仍須 Hosted CI、正式 Codex Review 與獨立的生產驗收。
+
+### Cloudflare D1 認證第一階段（開發中）
+
+- staging D1 已透過 GitHub Actions Run [#40172089719](https://github.com/hun186/restaurant-business-poc/actions/runs/40172089719) 完成 v3 空白 Schema 安裝及 FK 驗證；**production D1 仍未初始化**。
+- Worker 新增 WebCrypto／Session／CSRF／RBAC 基礎及僅限 Preview 的唯讀 `GET /api/me`，Production 認證功能仍關閉；`/api/login` 與正式營運 API 仍為 `503 E_NOT_READY`。
+- 詳細安全邊界見 [Cloudflare D1 登入與權限第一階段](docs/Cloudflare-D1-登入與權限第一階段.md)。不要輸入真實員工帳密或營運資料，也不要把本機 scrypt 密碼視為可直接移轉到雲端。

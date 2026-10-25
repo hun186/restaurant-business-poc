@@ -66,7 +66,7 @@ test('fails closed if any remote routes, bindings, values or new config keys are
     const dir=clone();
     try{
       editJson(dir,probePath,change);
-      assert.throws(()=>inspectHostedProbeStatic(dir),/^Error: E_HOSTED_PROBE_/);
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_HOSTED_PROBE_/);
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });

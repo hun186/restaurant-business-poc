@@ -5,15 +5,24 @@
 ## 本輪新增
 
 - `cloudflare/login-service.mjs`：新增 **僅內部呼叫** 的 `authenticateD1()`、`reserveLoginAttempt()`、`revokeD1Session()`、`sourceIpDigest()`。
-- 不修改 `cloudflare/worker.mjs`、`wrangler.jsonc` 或 D1 Schema；Production 的 `CLOUD_AUTH_PHASE=disabled`，Preview 的 `preview-readonly`，`POST /api/login`、`POST /api/logout` 依然回 `503 E_NOT_READY`；沒有正式使用者資料導入或實際 D1 寫入。
+- 不修改 `cloudflare/worker.mjs`、`wrangler.jsonc` 或 D1 v3 基礎 Schema；本 PR 另提供尚未部署的 **0002 後續索引 Migration**；Production 的 `CLOUD_AUTH_PHASE=disabled`，Preview 的 `preview-readonly`，`POST /api/login`、`POST /api/logout` 依然回 `503 E_NOT_READY`；沒有正式使用者資料導入或實際 D1 寫入。
 - 單一 D1 SQL `INSERT ... SELECT WHERE COUNT < threshold`：以資料庫語句的原子性保留登入嘗試，15 分鐘內每帳號最多 8 次、每來源識別碼最多 32 次（含成功嘗試），拒絕時返回 429。登入成功把嘗試標為 success；失敗維持 success=0 並在 `audit_logs` 記錄 `auth.login_failed`。
 - `verifyWorkerPassword()` 使用 PBKDF2-SHA256／600,000 次；不存在、停用或不支援雜湊格式的使用者仍執行相同昂貴 KDF（dummy salt/hash），降低帳號存在時間差。成功後產生 32-byte 隨機 Session Token（DB **僅儲存 SHA-256**）、隨機 CSRF token 和 8 小時到期時間；使用 D1 `batch`（原子交易）一次寫入 Session、登入成功 Audit、成功嘗試標記。交易前再次檢查帳號啟用、密碼 salt 與 hash 未變更；失敗不回傳 token。
 - `revokeD1Session()` 必須重新取得有效 Session、核對 HTTPS + Origin + CSRF，才會以 D1 batch 寫登出稽核與刪除 Session，回傳清空 `__Host-` Secure／HttpOnly／SameSite=Strict Cookie。
 - `sourceIpDigest()` 使用長度至少 32 的秘密 Pepper，HMAC-SHA256 雜湊 `CF-Connecting-IP`，拒絕只有 `X-Forwarded-For`、來源不明或 Pepper 缺少的輸入；不記錄原始來源 IP 或 Pepper。注意 **在任何實際路由啟用前**，仍要針對 Worker 網域／同區 Worker 呼叫情境，驗證 Cloudflare 提供的 IP 標頭可信來源與防偽造策略。
 
+## Codex P2：登入限流索引與歷史清理（已提交待驗證）
+
+- 原正式 Codex Review (HEAD `fe43a9a`) 指出：原有 `login_attempts_lookup(username,at)` 為 BINARY collation，與 `username=? COLLATE NOCASE` 不符；`ip_hash` 也沒有對應索引，會掃描大量歷史資料。
+- **保留已套用的 `0001_initial_v3.sql`，不重建 staging D1**。新增版控檔 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加三組索引：`(username COLLATE NOCASE,at)`、`(ip_hash,at)`、`(at)`；Owner、Sessions、Contract v3 均不修改。未操作遠端 D1；`d1_migrations` 應在後續人工部署流程記錄此增量。
+- 將真正的限流 `INSERT ... SELECT` 語句提取為單一 `LOGIN_RESERVATION_SQL`，回歸測試直接對它執行 `EXPLAIN QUERY PLAN`，確保兩種 15 分鐘視窗使用對應複合索引，不只看測試資料少時的執行結果。
+- 新增 **`pruneExpiredLoginAttempts(db, batchSize)`**：只刪除 7 天以前的 `login_attempts`，每次最多 500 筆並使用 `(at)` 索引；**不刪除 audit_logs**。內部清理程式已具備，但目前未設定 Cron 或啟用正式登錄，**不會自動在遠端執行**。未來需先部署 0002，完成受保護的 staging 維護排程與真機驗收，才可允許定期清理。
+- 舊版 `d1-staging-migration.yml` 只能在**空白 staging DB** 執行 `0001`，已有 Owner 時會依防護正確拒絕。**不可重跑該初始化 Workflow，也不可自行對 prod 執行 Migration**。0002 需另走批准的「既有 staging DB 增量 Migration」專用工作流程或人工審核操作，先驗證 ledger 與備份／復原點，再由使用者授權執行。
+
 ## 測試
 
 - 新增 `tests/cloudflare-d1-login-security.test.js`：Node 內建 SQLite v3 真正執行同款 SQL，測驗證成功、Session Hash、Cookie、稽核、錯誤帳密／不存在／停權、帳號/IP 視窗限流、CSRF / Origin、帳號停用／密碼被改動後拒絕 Session、D1 batch 失敗回滾、Production/Preview 公開登入路由仍關閉。
+- 新增 `tests/cloudflare-d1-login-indexes.test.js`：從實際 D1 0001 + 0002 Migration 建立 SQLite、保留模擬既有 Owner、查詢計畫必須 `SEARCH ... USING COVERING INDEX`、1,500 筆歷史資料時限流正常、分批清理只刪過期嘗試／保留 Audit、拒絕超出批次上限。
 - 無第三方依賴；GitHub CI 仍使用專案原來的 Ubuntu/Windows × Node 22/24 `npm run check`。
 - **這些測試只證明 Node SQLite 模擬 D1 的業務 SQL 行為，不能替代遠端 Cloudflare D1 或 Workers 真機驗收**。
 

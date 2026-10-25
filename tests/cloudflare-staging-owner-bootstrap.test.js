@@ -6,12 +6,12 @@ const path = require('node:path');
 const os = require('node:os');
 const { DatabaseSync } = require('node:sqlite');
 const { execFileSync } = require('node:child_process');
-const { createRequire } = require('node:module');
 
 const root = path.join(__dirname, '..');
 const mod = import('../tools/cloudflare-staging-owner.mjs');
-const { ACCOUNT_ID, STAGING_ID, PROD_ID } = awaitableNotNeeded();
-function awaitableNotNeeded(){return{ACCOUNT_ID:'31b409b04896d260ba0fadf6cc2bb305',STAGING_ID:'2c355bed-d9c3-449c-aa9b-1018f3bc1177',PROD_ID:'b882a6e8-0e56-49a6-bd41-1a6cadd726c9'}}
+const ACCOUNT_ID='31b409b04896d260ba0fadf6cc2bb305';
+const STAGING_ID='2c355bed-d9c3-449c-aa9b-1018f3bc1177';
+const PROD_ID='b882a6e8-0e56-49a6-bd41-1a6cadd726c9';
 const wrap = rows => [{ success: true, results: rows }];
 const clean = () => ({contract_version:3,users:0,sessions:0,login_attempts:0,audit_logs:0,locations:0,stock_moves:0,purchase_orders:0});
 
@@ -99,6 +99,14 @@ test('Workflow manual approval scope, staging-only D1 use and no credential logg
   assert.match(file,/actions\/checkout@v5/);
   assert.match(file,/actions\/setup-node@v5/);
   assert.match(file,/package-manager-cache: false/);
+  // Secrets cannot be exposed to npm install or setup actions via job-level env.
+  const installStep=file.slice(file.indexOf('- name: Install fixed Wrangler version'),
+                               file.indexOf('- name: Read-only check pristine staging D1'));
+  assert.doesNotMatch(installStep,/secrets\.|STAGING_OWNER_PASSWORD|CLOUDFLARE_API_TOKEN/);
+  const jobEnv=file.slice(file.indexOf('    env:'),file.indexOf('    steps:'));
+  assert.doesNotMatch(jobEnv,/secrets\.|STAGING_OWNER_PASSWORD/);
+  assert.equal((file.match(/STAGING_OWNER_PASSWORD: \$\{\{ secrets.STAGING_OWNER_PASSWORD \}\}/g)||[]).length,2);
+
   assert.match(file,/--file "\$sql"/);
   assert.match(file,/trap 'rm -f "\$sql"' EXIT/);
   assert.equal((file.match(/wrangler d1 execute STAGING_DB --remote/g)||[]).length,4);

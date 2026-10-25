@@ -120,3 +120,9 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 - 「多品項叫貨」表單另提供**依安全庫存填入補貨建議**：採該門市 `max(0,安全庫存-現有庫存)` 計算，填入後仍可人工調整，不會捏造預估銷量或需求預測，且不覆蓋已手動選擇的項目。舊的逐行 `order.approve/receive/cancel` API 對新群組行會拒絕，避免繞過整張單交易造成部分驗收。
 
 - 人員在 LINE **實際按下送出後**，可再按「我已在 LINE 手動送出」留下操作人與時間的稽核紀錄，系統不會因點擊複製或分享連結就擅自改成已送出。此狀態是**人工申報**，不是 LINE 平台提供的送達／已讀回執。未核准不得登記，同張單重複登記會被拒絕；單據若在 LINE 上已送出，再於系統取消也必須另行通知廠商。
+
+## Cloudflare D1 資料庫基礎（開發中，尚非正式雲端版）
+
+- 已有 Demo-only Cloudflare Worker；`/api/health` 回報 `production_ready: false`，不代表已能安全保存營運資料。
+- D1 逐步移植工作見 [Cloudflare D1 資料庫基礎 SOP](docs/Cloudflare-D1-正式版資料庫基礎.md)：提供 v3 空白 Migration、Schema 驗證及正式／Preview 雙庫範本，尚未建立遠端資料庫或初始化業主帳號。
+- 暫時**不要將真實帳密、人事、營運資料輸入 Cloudflare 展示站**；本機原有 SQLite 正式功能不因 D1 工作改變。後續實作仍須 Hosted CI、正式 Codex Review 與獨立的生產驗收。

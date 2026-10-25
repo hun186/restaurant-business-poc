@@ -8,9 +8,8 @@ const SALT_HEX='0123456789abcdef1032547698badcfe';
 const SALT=Uint8Array.from(SALT_HEX.match(/../g), h=>Number.parseInt(h,16));
 const HASH='pbkdf2-sha256$600000$b23b9c54fc3759972294fb04e48f49a9e4e8ad6f04e4df2734fb7566567031ac';
 export const HOSTED_OPERATIONS=Object.freeze(['hash','verify-correct','verify-wrong']);
-export async function runHostedSyntheticOperation(operation, clock=()=>performance.now()){
+export async function runHostedSyntheticOperation(operation){
   if(!HOSTED_OPERATIONS.includes(operation))throw new Error('E_SYNTHETIC_OPERATION');
-  const started=clock();
   let valid;
   if(operation==='hash'){
     const result=await hashWorkerPassword(PASSWORD,SALT);
@@ -21,7 +20,9 @@ export async function runHostedSyntheticOperation(operation, clock=()=>performan
     );
     valid=actual===(operation==='verify-correct');
   }
-  const wall=Math.round((clock()-started)*100)/100;
-  if(!valid || !Number.isFinite(wall) || wall<0)throw new Error('E_SYNTHETIC_RESULT');
-  return {operation,iterations:PBKDF2_ITERATIONS,valid:true,wall_ms:wall};
+  // Cloudflare Hosted Workers can freeze performance.now() between I/O.
+  // Do not publish derived wall/CPU timings from JavaScript. The *only*
+  // authoritative wallTimeMs/cpuTimeMs values come from invocation logs.
+  if(!valid)throw new Error('E_SYNTHETIC_RESULT');
+  return {operation,iterations:PBKDF2_ITERATIONS,valid:true};
 }

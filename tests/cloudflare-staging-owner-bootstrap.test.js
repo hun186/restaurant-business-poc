@@ -13,7 +13,8 @@ const ACCOUNT_ID='31b409b04896d260ba0fadf6cc2bb305';
 const STAGING_ID='2c355bed-d9c3-449c-aa9b-1018f3bc1177';
 const PROD_ID='b882a6e8-0e56-49a6-bd41-1a6cadd726c9';
 const wrap = rows => [{ success: true, results: rows }];
-const clean = () => ({contract_version:3,users:0,sessions:0,login_attempts:0,audit_logs:0,locations:0,stock_moves:0,purchase_orders:0});
+const emptyTables=['locations','users','user_locations','sessions','login_attempts','audit_logs','tasks','ingredients','stock_moves','purchase_orders','stocktakes','repairs','shifts','leave_requests','training_courses','training_records','evaluations','ingredient_prices','menu_dishes','dish_ingredients'];
+const clean = () => Object.fromEntries([['contract_version',3],...emptyTables.map(name=>[name,0])]);
 
 test('Only configured staging D1 accepted; wrong target/account rejected',async()=>{
   const m=await mod;
@@ -30,7 +31,11 @@ test('Only configured staging D1 accepted; wrong target/account rejected',async(
 test('Owner preflight rejects any nonempty user/session/audit or business table',async()=>{
   const m=await mod;
   assert.equal(m.assertOwnerPreflight(wrap([clean()])),true);
-  for(const col of ['users','sessions','login_attempts','audit_logs','locations','stock_moves','purchase_orders']){
+  assert.deepEqual(m.INITIAL_EMPTY_TABLES,emptyTables);
+  for(const col of emptyTables){
+    assert.match(m.ownerPreflightQuery(),new RegExp('AS '+col+'(?:,|;)'));
+  }
+  for(const col of emptyTables){
     assert.throws(()=>m.assertOwnerPreflight(wrap([{...clean(),[col]:1}])),/existing/);
   }
   assert.throws(()=>m.assertOwnerPreflight(wrap([{...clean(),contract_version:2}])),/schema/);

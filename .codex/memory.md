@@ -173,3 +173,20 @@
 - 已在正式及 Demo 共四個 UI 檔改用 DOM 根節點共用 `__openTicket`：`order-batch-ui.js` 的 start/preview 在 await 初始 GET 前 claim ticket，回應後比對；`app.js showForm` 在 await getLists 前先 invalidate ticket，回應後比對 ticket/登入 epoch/帳號才開窗；原兩版 modal Close／背景關閉、auth overlay 清空視窗時同步 invalidate，防止已關閉後舊 GET 再開啟。保留既有 DOM identity guard，沒有變更交易或權限。
 - 新增 `tests/order-batch-shared-modal.test.js`，使用兩版真實 `showForm()` 函數與真實 OrderBatchUI VM：舊批次預覽 GET 延遲→原有單品項表單開啟且其輸入保留；舊單品項 getLists 延遲→新批次預覽成功且不被舊表單覆蓋。代碼 Commit `0d9e5b65`，測試補至 `9fbda867`。需用**最後 HEAD** 核對 Hosted Ubuntu/Windows Node22/24 CI，再正式回覆/Resolve P2 並重送 Codex Review，不能沿用先前 Completed。
 - PR #10 繼續 Draft，未取得使用者明確同意不得 Merge；Windows 真機及 LINE 人工流程仍待驗收，Vercel Preview 部署限額需另查。
+
+## 2026-10-25｜D1 首輪基礎建設（RB-023，等待 CI／Review）
+- 已核對 PR #12 合併後的 `main`；Cloudflare Preview 基礎路由可用，正式 API 仍 Demo-only，未綁定 D1。
+- 新分支 `feat/cloudflare-d1-foundation-20261025`：以現有 SQLite v3 Schema 轉換 D1 初始 Migration，禁止 `IF NOT EXISTS` 掩蓋非空資料庫，保留 FK/CHECK/index、建立 `cloud_schema_contract`。不匯入真實資料、不建立預設 owner、不改本機 SQLite。
+- 增加 D1 只讀結構探測，只有 DB 綁定時檢查 Schema，仍一律 `production_ready:false`；提供正式／Preview 分離綁定設定範本、Migration 操作 SOP、Node SQLite parity/FK/拒絕重複初始化測試。
+- 使用者已建立正式 `restaurant-business-prod`（ID `b882a6e8-0e56-49a6-bd41-1a6cadd726c9`）與測試 `restaurant-business-staging`（ID `2c355bed-d9c3-449c-aa9b-1018f3bc1177`）D1。PR #13 已提交根目錄 `wrangler.jsonc` 正式/Preview 分離綁定、`wrangler.preview-migrations.jsonc` 僅 staging 的遷移設定、綁定隔離回歸和安全 SOP。**沒有遠端執行 Migration 的 Cloudflare 帳戶操作權限**，也尚未完成真實營運 API、Google Drive 備份或業主登入。新 HEAD Hosted CI／Codex Review 尚需確認、不得未授權 Merge。
+
+## 2026-10-25｜GitHub Actions staging-only D1 Migration 工作流
+- 在 PR #13 新增 `.github/workflows/d1-staging-migration.yml`（workflow_dispatch ONLY，限制 main、必填 `APPLY_STAGING_ONLY`、Environment `d1-staging`），並新增 `tools/check-cloudflare-staging.mjs` 只讀 preflight 及 migration 後完整性校驗。
+- 使用者正在設定 Cloudflare Token / GitHub Secrets；**不能宣稱已確認 Token 存入 GitHub，亦不能宣稱 workflow 或遠端 D1 migration 已執行**。
+- Workflow 確認 Cloudflare 帳號 ID 和兩個不同 D1 UUID；preflight 拒絕 staging 既有任何使用者 table/d1_migrations；僅對 STAGING_DB 執行 migration，後測 v3 contract、表集合、FK 及無 owner。環境審查規則需 GitHub Settings 額外設定才會生效。
+- 本次 Commit 後需以最新 PR HEAD 驗證 Hosted CI／Cloudflare Preview 與正式 Codex Review；PR #13 尚未經使用者授權 Merge。正式 D1 不可自動 Migration。
+
+## 2026-10-25｜PR #13 最新正式 Codex P1 `_cf_KV`
+- 使用者已在 GitHub 建立 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 兩筆 Secrets（值不讀取、不能聲稱 API 存取已驗證）。
+- 正式 Codex Review HEAD `4e914e7` Completed 發現 P1：新建立 D1 預設包含系統保留表 `_cf_KV`；staging Migration preflight/postflight 僅排除 `sqlite_%` 會誤判空庫／Schema 不符。
+- 已在 `.github/workflows/d1-staging-migration.yml` 的前後兩個只讀 SQL 查詢排除 `_cf_KV`，`tools/check-cloudflare-staging.mjs` 統一只過濾此精確系統表（不過度排除未知表、保留 d1_migrations 非空拒絕），測試增 `_cf_KV` 單獨存在、與業務表/ledger 並存及未知表。後續必須檢查最新 HEAD CI、Cloudflare Preview、正式 Codex 複審，處理 Findings 並確認後才可請求使用者 Merge；**目前未執行遠端 Migration**。

@@ -1,3 +1,4 @@
+import { inspectD1Contract } from './d1-readiness.mjs';
 // Cloudflare staging bootstrap: the D1-backed business API has NOT been ported.
 // Keep the public endpoint an explicitly labelled demo; never accept real login
 // credentials or pretend that browser-only mock data is persisted by a server.
@@ -21,7 +22,7 @@ export default {
       const response = json({
         status: 'demo_only',
         api: 'not_implemented',
-        database: 'not_configured',
+        database: await inspectD1Contract(env.DB),
         production_ready: false,
       });
       return request.method === 'HEAD'

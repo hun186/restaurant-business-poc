@@ -91,3 +91,11 @@ npx wrangler d1 migrations apply DB --remote --config wrangler.jsonc
 - [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/)
 - [Workers Previews 及資料隔離](https://developers.cloudflare.com/workers/previews/resources/)
 - [D1 Foreign Keys](https://developers.cloudflare.com/d1/sql-api/foreign-keys/)
+
+## 2026-10-25｜Codex P1：D1 保留表 `_cf_KV` 防誤判
+
+正式 Codex Review 在先前 HEAD `4e914e7` 發現：新建 D1 就可能存在 Cloudflare 內部的 `_cf_KV` 表。若直接把 `sqlite_master` 所有非 `sqlite_%` 表視為應用資料，空庫會被誤判成非空、Migration 無法啟動；Migration 後也會因多出一張系統表而錯誤拒絕驗證。
+
+目前在 GitHub 工作分支修正：Preflight 與 Postflight 的 SQL 列表查詢一致排除精確名稱 `_cf_KV`；Node 防護程式也僅忽略這個 Cloudflare 官方確認的系統表，仍拒絕其他未知表或既有 `d1_migrations`。測試涵蓋 `_cf_KV` 單獨存在、與既有業務表／migration ledger 並存及遷移後有未知表等案例。**不對所有 `_cf_%` 表進行籠統豁免，避免掩蓋意外資料。**
+
+依據：[Cloudflare D1 匯入匯出文件](https://developers.cloudflare.com/d1/best-practices/import-export-data/)（明示 `_cf_KV` 是保留表）。以這次修改的最新 HEAD Hosted CI 和正式 Codex Review 為驗收依據；尚未執行遠端 Migration。

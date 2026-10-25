@@ -46,15 +46,16 @@ test('Owner preflight rejects any nonempty user/session/audit or business table'
 
 test('Generated owner insert has only a derived hash and is one-time even if run twice',async()=>{
   const m=await mod;
-  const password='staging-demo-password-ONLY-2026!';
+  const password='test-pass-12'; // exactly 12 characters: new accepted minimum
   const sql=await m.buildOwnerSql(password);
-  assert.doesNotMatch(sql,/staging-demo-password|STAGING_OWNER_PASSWORD|BEGIN TRANSACTION/);
+  assert.doesNotMatch(sql,/test-pass-12|STAGING_OWNER_PASSWORD|BEGIN TRANSACTION/);
   assert.match(sql,/INSERT INTO users\(/);
   assert.match(sql,/NOT EXISTS \(SELECT 1 FROM users\)/);
   assert.match(sql,/pbkdf2-sha256\$600000\$/);
   assert.match(sql,/contract_version/);
-  await assert.rejects(()=>m.buildOwnerSql('too-short'),/20 to 256/);
-  await assert.rejects(()=>m.buildOwnerSql('a'.repeat(257)),/20 to 256/);
+  await assert.rejects(()=>m.buildOwnerSql('a'.repeat(8)),/12 to 256/);
+  await assert.rejects(()=>m.buildOwnerSql('a'.repeat(11)),/12 to 256/);
+  await assert.rejects(()=>m.buildOwnerSql('a'.repeat(257)),/12 to 256/);
   await assert.rejects(()=>m.buildOwnerSql('a'.repeat(25)+'\n'),/newlines/);
   const db=new DatabaseSync(':memory:');
   try{

@@ -202,3 +202,8 @@
 - 僅在已初始化 v3、無使用者與營運紀錄之 `restaurant-business-staging` 才可產生第一位 Owner，驗證唯一 active owner / FK，絕不操作 production D1 或把明文／密碼 hash 放入 GitHub logs；此工作流程目前未執行。
 - 修正 `tools/check-cloudflare-staging.mjs` 被其它工具 import 會意外執行 CLI 的副作用，改 direct-script guard。
 - Cloudflare Workers Free HTTP CPU 10ms；PBKDF2 600k 是否適合 Worker 需另行真機測試，不能把 Github Runner 生成成功當成正式 Login ready。PR #15 必須以最新 Hosted CI、Preview、正式 Codex Review 驗證，待使用者分別授權 Merge #14 與 #15，再由使用者手動觸發 Owner 初始化。
+
+## 2026-10-25｜staging Owner 初始密碼下限改為 12 字元（獨立 PR，未合併）
+- 使用者明確要求將 staging Owner 一次性初始化的 `STAGING_OWNER_PASSWORD` 最小長度由 20 改為 12（上限維持 256），不是放寬至 8；原雲端 `cloudflare/auth-core.mjs` 的密碼雜湊函式本來就要求 12～256，不需修改正式 Worker 登入（目前仍停用）。
+- 新分支 `fix/staging-owner-password-min12-20261025` 修改 `tools/cloudflare-staging-owner.mjs` 的輸入下限與錯誤訊息、`tests/cloudflare-staging-owner-bootstrap.test.js` 邊界測試（8/11 拒絕、12 可生成和驗證、257 拒絕），同步更新 `docs/Cloudflare-D1-staging-初始業主建立.md`。不改 schema、Cloudflare prod/staging D1 綁定、Workflow Secrets 或 SQL 空庫防護。
+- PR #14、#15 已取得授權並已合併；staging D1 Schema Run #40172089719 已驗收，但**staging 初始 Owner 尚未被遠端建立，也未執行一次性 Bootstrap Workflow**；任何 PR 待最新 Hosted CI / 正式 Codex Review 與使用者明確 Merge 授權後才可合併。不能將這次程式修改視為密碼已經設定或資料庫已經初始化。

@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17 已 Merge，D1 雲端登入內部服務與 0002 三組索引已入 main；但 **staging D1 的 0002 還未遠端套用**。新分支 `feat/d1-staging-0002-incremental-20261025` 建立人工 `CHECK_STAGING_0002` 與 `APPLY_STAGING_0002` 工作流程（預設只讀）、ledger/Owner/schema/FK 前後驗收。既有 staging v3 與 Owner（Run #40188578478）已完成；prod D1 未初始化，兩個公開登入路由仍 503。最新 PR/CI/Review 必須重新核對，未授權不得 Merge 或執行遠端 Migration。
+- 首要目標：PR #17/#18 已 Merge；staging D1 `0002` 索引已由 GitHub CHECK Run #40203410303 和 APPLY Run #40204026605 實際遠端完成，pre/postflight 均 PASS，Owner／Schema 保全。Production D1 仍未初始化。新分支 `feat/cloudflare-pbkdf2-workerd-probe-20261025` 進行 **純虛構 PBKDF2 600k 本機 workerd 合成驗證**，不得把本機 wall-clock 視為 Hosted CPU 限額實測；公開 `/api/login`、`/api/logout` 仍 503，尚需受保護的 Hosted Worker 真機 CPU 證據。任何新 PR CI／Codex Review／Merge 授權必須以 Hosted 最新 HEAD 核對。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 

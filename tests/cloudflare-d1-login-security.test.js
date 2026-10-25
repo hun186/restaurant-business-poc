@@ -127,7 +127,7 @@ test('invalid credentials/source fail before any SQL; source digest never trusts
     await assert.rejects(()=>svc.sourceIpDigest(req('/api/login',{headers:{'CF-Connecting-IP':'198.51.100.11'}}),'weak'),/E_AUTH_SOURCE_UNAVAILABLE/);
   }finally{f.db.close();}
 });
-test('session is not created if account deactivated or password rotated between KDF and transaction',async()=>{
+test('session/audit transaction rolls back if D1 batch fails halfway',async()=>{
   const svc=await servicePromise,f=await setup();
   try{
     const failD1=wrapDb(f.db,{failIndex:1});
@@ -137,6 +137,27 @@ test('session is not created if account deactivated or password rotated between 
     assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM login_attempts WHERE success=0').get().n,1);
   }finally{f.db.close();}
 });
+test('concurrent account deactivation or password rotation before session write fails closed',async()=>{
+  const svc=await servicePromise;
+  for(const change of ['disable','rotate']){
+    const f=await setup();
+    try{
+      const d1={
+        ...f.d1,
+        async batch(statements){
+          if(change==='disable') f.db.prepare('UPDATE users SET active=0 WHERE id=?').run('owner-1');
+          else f.db.prepare('UPDATE users SET password_hash=? WHERE id=?').run('rotated-hash','owner-1');
+          return f.d1.batch(statements);
+        }
+      };
+      await assert.rejects(()=>svc.authenticateD1(d1,{username:'owner',password:f.password,ipHash:f.ip}),/E_AUTH_ATOMIC/);
+      assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,0);
+      assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='auth.login'").get().n,0);
+      assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM login_attempts WHERE success=0').get().n,1);
+    }finally{f.db.close();}
+  }
+});
+
 test('logout refuses missing origin, invalid CSRF, and disabled account (no session data leaked)',async()=>{
   const svc=await servicePromise,f=await setup();
   try{

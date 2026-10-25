@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm run check
+      - name: Verify dormant Hosted CPU probe static safety (not Cloudflare Access)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
 
   pbkdf2-workerd-http-smoke:
     # This is a single synthetic localhost HTTP regression, NOT a Cloudflare

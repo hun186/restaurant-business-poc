@@ -36,14 +36,13 @@
 
 | RB-022-MODAL | IN_REVIEW | P2 | PR #10 共用 modal 生命週期：正式／Demo 批次與單品項表單共享 root.__openTicket，防止舊 GET／關閉後遲到回應覆蓋新視窗；保留 DOM instance guards、新 VM 雙向回歸。待最新 HEAD CI、Codex 複審及真人驗收 |
 
-| RB-023 | IN_REVIEW | P1 | Cloudflare Workers＋D1 基礎建設：初始 Migration、只讀 Schema Probe、正式/Preview 雙庫隔離範本；使用者已建正式與測試 D1，PR 已加入對應 UUID 設定及隔離測試，但尚未執行遠端 Migration/完成正式 API，待 PR 最新 HEAD CI、Codex Review、使用者 Merge 授權 |
+| RB-023 | DONE_STAGING | P1 | Cloudflare Workers＋D1 staging v3 Schema 已經 Run #40172089719 遠端驗證 PASS；prod D1 仍未 migration，正式 API 未上線 |
 | RB-024 | PLANNED | P1 | D1 正式/Preview 各建獨立資源與 migration；Worker Auth/RBAC/CSRF/安全初始業主建立；各營運模組 D1 原子性資料存取；加密異地備份與災難復原驗收後才可交付業主 |
 
-| RB-025 | IN_REVIEW | P1 | Cloudflare D1 認證第一階段：WebCrypto password verifier 與 Session／Origin／CSRF／RBAC 專用模組、只在 Preview 開放唯讀 `/api/me`；正式登入/登出仍未實作，後續需限流、密碼初始化、稽核與真機 CPU/安全驗收；待 CI／Codex 最新 HEAD Review／使用者 Merge |
+| RB-025 | MERGED_CODE_ONLY | P1 | PR #14 的 WebCrypto Password、Session／Origin／CSRF／RBAC 基礎已合併；Preview /api/me 唯讀，Production Auth disabled，雲端登入仍未對外啟用 |
 
-| RB-026 | IN_REVIEW | P1 | Stacked PR #15：人工核准一次性初始化 staging D1 owner，防重複、空庫/Schema/帳戶ID保護，機密環境 Secret 不入庫，尚未建立任何遠端 Owner；待 Hosted CI／Codex，PR #14 先合併後方可併入 main，未授權不可 Merge |
+| RB-026 | DONE_STAGING | P1 | PR #15 已合併、Run #40188578478 實際建立 staging D1 active Owner=1、Session=0、Schema/FK 驗證 PASS；Cloudflare 正式 Login API 仍 503 |
 | RB-027 | PLANNED | P1 | Workers Free CPU 10ms 下之 PBKDF2 600k 真機成本／相容性驗收，與 login 防暴力破解、帳號鎖定稽核、雲端原生 Session 與登出開發；不可在性能／安全證據前啟用實際登入 |
 
-| RB-026 | MERGED_NOT_EXECUTED? | P1 | PR #15 已合併，2026-10-25 staging Owner bootstrap Run #40188578478 實際成功：staging D1 一位 active Owner、零 Session、postflight PASS；不代表登入 API 已上線 |
 | RB-028 | IN_REVIEW | P1 | D1 雲端登入安全服務（內部程式）：原子嘗試限流、PBKDF2 憑證核對、Session/Audit 原子交易、登出 CSRF/Origin、停用／改密碼 race tests；Worker 公開登入仍 503，待 Hosted CI + 最新正式 Codex Review + 授權 Merge |
-| RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 OpenIP provenance 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |
+| RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 Cloudflare CF-Connecting-IP 來源可信度 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |

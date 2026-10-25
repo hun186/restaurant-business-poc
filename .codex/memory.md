@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：Cloudflare D1 Worker 登入/登出安全服務（RB-028）：新分支 `feat/cloudflare-d1-login-security-20261025` 只實作後端內部 Auth D1 SQL／Session／Audit／限流與回歸；公開 `/api/login`、`/api/logout` 保持 503。PR #14/#15/#16 已合併，staging D1 Run #40188578478 建立一位 active Owner 且驗證 PASS；正式 D1 尚未初始化。任何最新 PR 複審、CI 及合併授權必須重新核對。
+- 首要目標：PR #17 已 Merge，D1 雲端登入內部服務與 0002 三組索引已入 main；但 **staging D1 的 0002 還未遠端套用**。新分支 `feat/d1-staging-0002-incremental-20261025` 建立人工 `CHECK_STAGING_0002` 與 `APPLY_STAGING_0002` 工作流程（預設只讀）、ledger/Owner/schema/FK 前後驗收。既有 staging v3 與 Owner（Run #40188578478）已完成；prod D1 未初始化，兩個公開登入路由仍 503。最新 PR/CI/Review 必須重新核對，未授權不得 Merge 或執行遠端 Migration。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -219,3 +219,10 @@
 - 已新增 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加 `(username COLLATE NOCASE, at)`、`(ip_hash,at)`、`(at,id)` 三組索引；保留已經安裝於 staging 的 v3 `0001` 原樣，**無遠端 D1 Migration 或資料寫入**。D1 ledger 後續須走人工核准的既有庫增量流程，不可重跑只允許空庫的 `d1-staging-migration.yml`。
 - `cloudflare/login-service.mjs` 提取共用 `LOGIN_RESERVATION_SQL`，新 `pruneExpiredLoginAttempts()` 以 7 天保留/每批最多 500 筆之 SQL 清理（不刪 Audit）。**尚未設立 Cron、未對遠端 staging/prod 自動清理**；待 staging 0002 套用、真機驗證與後續安全部署批准。
 - 新 `tests/cloudflare-d1-login-indexes.test.js` 讀 D1 0001+0002，在 Node SQLite 以 `EXPLAIN QUERY PLAN` 驗證兩條 15 分鐘限流子查詢和清理均有對應索引，測既有 Owner 不變、分批刪除舊登入嘗試不影響 Session/Audit、批次上限。須等最新 Head Hosted Ubuntu/Windows Node22/24 CI、Cloudflare Preview、正式 Codex Review，再修 Findings；使用者尚未授權合併。
+
+## 2026-10-25｜D1 staging 0002 安全增量部署（PR 開發中）
+- 最新 Hosted GitHub PR #17 已 merged，僅 `cloudflare/migrations/0002_login_attempts_window_indexes.sql` 合併，**沒有套用 remote staging/prod**。Run #40188578478 建立一位 active staging Owner 且驗收 PASS，切勿重跑原先空庫專用 `d1-staging-migration.yml`。
+- 新分支 `feat/d1-staging-0002-incremental-20261025`：新增 `tools/cloudflare-staging-0002.mjs`，對帳戶/正式與 staging D1 ID、兩檔 Migration 清單、0002 只含三項 CREATE INDEX、遠端 ledger 必須只有 0001、staging v3 完整表集合、恰一 active Owner、零 FK 錯、0002 未套用作嚴格 preflight；若 Apply，postflight 檢查 ledger 正確新增 0002、索引 DDL 一致及 Owner/Schema 前後未改動。
+- GitHub Workflow `.github/workflows/d1-staging-incremental-0002.yml` `workflow_dispatch` only、main + 精確輸入、Environment `d1-staging`、與舊 staging schema migration 共用 concurrency group、Wrangler 4.152.0 固定、機密不傳入 npm install。預設動作 `CHECK_STAGING_0002` 只讀；`APPLY_STAGING_0002` 需獨立授權與人工觸發。
+- 新 `tests/cloudflare-staging-0002-migration.test.js` 以 D1 0001 模擬已建立 Owner／ledger，回歸部分套用、錯庫、owner 缺失、遷移污染、postflight 確認。紀錄於 `docs/Cloudflare-D1-staging-0002-安全增量遷移.md`。
+- 此 PR 不能聲稱已對 D1 做任何操作。正式登入仍關閉，Workers 真機 PBKDF2 600k CPU/受保護 staging 還未完成。須 Hosted CI、Preview、正式 Codex Review 完成，使用者授權才 Merge。

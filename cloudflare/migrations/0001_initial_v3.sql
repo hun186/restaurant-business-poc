@@ -138,7 +138,7 @@ CREATE TABLE dish_ingredients (
 );
 CREATE INDEX idx_dish_ingredients_dish ON dish_ingredients(dish_id);
 
-PRAGMA user_version=3;
+-- D1 versioning relies on d1_migrations + cloud_schema_contract, not user_version.
 
 -- The D1 migration ledger (d1_migrations) tracks the applied scripts.
 -- This additional application marker is verified before implementing real APIs.

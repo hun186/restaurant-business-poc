@@ -50,7 +50,7 @@ export function snapshot(json) {
   if (contract.length !== 1 || contract[0].contract_version !== 3) fail('expected v3 contract');
   if (fk.length) fail('foreign-key violations');
   const expected = [...fs.readFileSync(path.join(MIGRATIONS_DIR,INITIAL),'utf8')
-    .matchAll(/CREATE TABLE\\s+([A-Za-z_][A-Za-z_0-9]*)\\s*\\(/g)].map(x=>x[1]);
+    .matchAll(/CREATE TABLE\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(/g)].map(x=>x[1]);
   expected.push('d1_migrations');
   expected.sort();
   if (expected.length !== 23 || new Set(expected).size !== 23 ||

@@ -1,6 +1,8 @@
 // Manually-triggered staging-only D1 schema guard. No API keys are logged.
 // Fail closed on unexpected/missing Wrangler --json shape or target identifiers.
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const PROD_ID = 'b882a6e8-0e56-49a6-bd41-1a6cadd726c9';
 export const STAGING_ID = '2c355bed-d9c3-449c-aa9b-1018f3bc1177';
@@ -74,8 +76,9 @@ export function assertInstalledSchema(tablesData, contractData, fkData, ownerDat
 }
 
 // Command line used by the GitHub workflow. All queries are read-only.
+// Reuse guard functions from later staging workflows without importing CLI effects.
 const mode = process.argv[2];
-if (mode) {
+if (mode && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (mode === 'config') {
       verifyStagingConfig();

@@ -195,3 +195,10 @@
 - 2026-10-25 staging D1 Run #40172089719 遠端 Migration `0001_initial_v3.sql` 成功，30 SQL commands + `STAGING_ONLY_VERIFY_PASS`；使用者實測 Preview `schema_only`，正式 D1 未移轉。
 - 新分支 `feat/cloudflare-auth-foundation-20261025`：`cloudflare/auth-core.mjs` WebCrypto PBKDF2(600k SHA-256, 16-byte salt) 測試用密碼介面、Host-only Session Cookie 與 SHA256 token、Session expiration/user.active、Origin/CSRF 檢查、Owner/Manager/Staff + active locations 範圍；`cloudflare/identity.mjs` 唯讀 `GET /api/me`，僅 Worker Preview `CLOUD_AUTH_PHASE=preview-readonly` 可用，Production `disabled`。其他 login/logout/command API 仍 503，沒有啟動真實密碼 API 或任何 schema 變更。
 - 既有 Node `scryptSync` 密碼不可直接當 PBKDF2 使用；Workes Free CPU 10ms 限制及未來密碼初始化、登入限流／稽核要另驗測。下一步為 PR Hosted CI、正式 Codex Review、修 Findings，使用者明確授權才 Merge。
+
+## 2026-10-25｜PR #15 staging D1 單次 Owner 建立（STAGED，未執行）
+- PR #14 `afd5ac01` Codex Code Review Completed / 無 Findings，CI 4/4 PASS、Preview Build/Deployment PASS；仍 OPEN Draft，使用者只說「繼續」，未授權 Merge。
+- 為避免阻塞後續業主登入，另開 Stacked PR #15 分支 `feat/cloudflare-staging-owner-bootstrap-20261025`，基於 PR #14：人工核准 GitHub workflow `d1-staging-owner-bootstrap.yml`，新 `tools/cloudflare-staging-owner.mjs` 及獨立回歸測試；命名 `STAGING_OWNER_PASSWORD` 的環境 Secret 尚未要求使用者設定，切勿貼入聊天或 repo。
+- 僅在已初始化 v3、無使用者與營運紀錄之 `restaurant-business-staging` 才可產生第一位 Owner，驗證唯一 active owner / FK，絕不操作 production D1 或把明文／密碼 hash 放入 GitHub logs；此工作流程目前未執行。
+- 修正 `tools/check-cloudflare-staging.mjs` 被其它工具 import 會意外執行 CLI 的副作用，改 direct-script guard。
+- Cloudflare Workers Free HTTP CPU 10ms；PBKDF2 600k 是否適合 Worker 需另行真機測試，不能把 Github Runner 生成成功當成正式 Login ready。PR #15 必須以最新 Hosted CI、Preview、正式 Codex Review 驗證，待使用者分別授權 Merge #14 與 #15，再由使用者手動觸發 Owner 初始化。

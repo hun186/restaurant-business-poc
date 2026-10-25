@@ -40,3 +40,6 @@
 | RB-024 | PLANNED | P1 | D1 正式/Preview 各建獨立資源與 migration；Worker Auth/RBAC/CSRF/安全初始業主建立；各營運模組 D1 原子性資料存取；加密異地備份與災難復原驗收後才可交付業主 |
 
 | RB-025 | IN_REVIEW | P1 | Cloudflare D1 認證第一階段：WebCrypto password verifier 與 Session／Origin／CSRF／RBAC 專用模組、只在 Preview 開放唯讀 `/api/me`；正式登入/登出仍未實作，後續需限流、密碼初始化、稽核與真機 CPU/安全驗收；待 CI／Codex 最新 HEAD Review／使用者 Merge |
+
+| RB-026 | IN_REVIEW | P1 | Stacked PR #15：人工核准一次性初始化 staging D1 owner，防重複、空庫/Schema/帳戶ID保護，機密環境 Secret 不入庫，尚未建立任何遠端 Owner；待 Hosted CI／Codex，PR #14 先合併後方可併入 main，未授權不可 Merge |
+| RB-027 | PLANNED | P1 | Workers Free CPU 10ms 下之 PBKDF2 600k 真機成本／相容性驗收，與 login 防暴力破解、帳號鎖定稽核、雲端原生 Session 與登出開發；不可在性能／安全證據前啟用實際登入 |

@@ -52,4 +52,4 @@
 | RB-030 | DONE_STAGING | P1 | PR #18 已 Merge；CHECK #40203410303 PASS、APPLY #40204026605 PASS，staging D1 `0002` 實際套用並完成 ledger/三索引/Owner/FK 驗收；production 不變 |
 
 | RB-031 | DONE_LOCAL | P1 | PR #19 已 Merge，手動 synthetic local workerd 三樣本 Run #40208993373 PASS；wall median hash/正確/錯誤 79/79/78 ms，**非 Hosted CPU** |
-| RB-032 | PLANNED | P1 | 在可確認 Cloudflare Access/等效隔離的 staging 環境，用純合成資料驗證 Workers 真正 CPU time、1102/exceededCpu、Free/Paid 適配性；未獲授權不可部署，通過前不得開啟真實登入 |
+| RB-032 | IN_REVIEW | P1 | PR 開發中的獨立 Hosted PBKDF2 合成 CPU 探針（Worker-level Access ctx.access + AUD、預設 disabled、workers.dev/preview URLs 無路由、無 D1/Secrets）；待 Hosted CI/正式 Codex Review，**未部署、無 Hosted CPU 讀值**，未獲單獨授權不得部署或開放登入 |

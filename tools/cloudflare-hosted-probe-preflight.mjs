@@ -41,10 +41,10 @@ export function inspectHostedProbeStatic(root){
     /typeof ctx\.access\.getIdentity!=='function'/.test(worker) &&
     /probe_id/.test(worker) && /cpu_verified:false/.test(worker),
     'E_ACCESS_RUNTIME_GUARD_MISSING');
-  const codeOnly=source=>source.split('\\n').filter(line=>
-    !line.trimStart().startsWith('//')).join('\\n');
-  assert(!/performance\\.now\\(|wall_ms|cpu_ms/.test(codeOnly(synthetic)) &&
-    !/performance\\.now\\(|wall_ms|cpu_ms/.test(codeOnly(worker)),
+  const codeOnly=source=>source.split(String.fromCharCode(10)).filter(line=>
+    !line.trimStart().startsWith('//')).join(String.fromCharCode(10));
+  assert(!/performance\.now\(|wall_ms|cpu_ms/.test(codeOnly(synthetic)) &&
+    !/performance\.now\(|wall_ms|cpu_ms/.test(codeOnly(worker)),
     'E_HOSTED_CLOCK_VALUE_UNTRUSTED');
   assert(/PBKDF2_ITERATIONS/.test(synthetic) &&
     /hashWorkerPassword/.test(synthetic) && /verifyWorkerPassword/.test(synthetic),

@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" || -z "${STAGING_OWNER_PASSWORD}" ]]; then
-            echo "::error::Missing D1 staging credentials or STAGING_OWNER_PASSWORD environment secret"
+            echo "::error::Missing required staging bootstrap secrets"
             exit 1
           fi
           node tools/check-cloudflare-staging.mjs config

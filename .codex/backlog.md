@@ -43,3 +43,7 @@
 
 | RB-026 | IN_REVIEW | P1 | Stacked PR #15：人工核准一次性初始化 staging D1 owner，防重複、空庫/Schema/帳戶ID保護，機密環境 Secret 不入庫，尚未建立任何遠端 Owner；待 Hosted CI／Codex，PR #14 先合併後方可併入 main，未授權不可 Merge |
 | RB-027 | PLANNED | P1 | Workers Free CPU 10ms 下之 PBKDF2 600k 真機成本／相容性驗收，與 login 防暴力破解、帳號鎖定稽核、雲端原生 Session 與登出開發；不可在性能／安全證據前啟用實際登入 |
+
+| RB-026 | MERGED_NOT_EXECUTED? | P1 | PR #15 已合併，2026-10-25 staging Owner bootstrap Run #40188578478 實際成功：staging D1 一位 active Owner、零 Session、postflight PASS；不代表登入 API 已上線 |
+| RB-028 | IN_REVIEW | P1 | D1 雲端登入安全服務（內部程式）：原子嘗試限流、PBKDF2 憑證核對、Session/Audit 原子交易、登出 CSRF/Origin、停用／改密碼 race tests；Worker 公開登入仍 503，待 Hosted CI + 最新正式 Codex Review + 授權 Merge |
+| RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 OpenIP provenance 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |

@@ -10,7 +10,7 @@
 
 ## 提交的安全設計
 
-1. 新增 `.github/workflows/d1-staging-owner-bootstrap.yml`，**僅 `workflow_dispatch` + `main` + 精確輸入 `CREATE_STAGING_OWNER_ONCE` + GitHub Environment `d1-staging` 人工審批**；使用現有 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`，另外需要 **Environment Secret** `STAGING_OWNER_PASSWORD`（只能在手動執行前由業主自行設定，20–256 字元，不可貼到 ChatGPT／Issue／程式碼／Run 記錄）。
+1. 新增 `.github/workflows/d1-staging-owner-bootstrap.yml`，**僅 `workflow_dispatch` + `main` + 精確輸入 `CREATE_STAGING_OWNER_ONCE` + GitHub Environment `d1-staging` 人工審批**；使用現有 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`，另外需要 **Environment Secret** `STAGING_OWNER_PASSWORD`（只能在手動執行前由業主自行設定，12–256 字元，不可貼到 ChatGPT／Issue／程式碼／Run 記錄）。
 2. `tools/cloudflare-staging-owner.mjs`：檢查 Cloudflare account ID / 固定的 staging DB UUID 與正式 DB 不同；只讀檢查 Schema v3 及使用者／Session／登入嘗試／稽核／門市／庫存／採購皆空。任一有既存資料就拒絕執行。
 3. 新 Owner 使用固定帳號 `owner`（display_name `雲端測試業主`），密碼轉換為 PBKDF2-SHA256 / 600,000 次的獨立雲端格式，16-byte 隨機 salt；**不回傳明文密碼或 derived hash**。產生一次性的 SQL 只存在 GitHub Hosted Runner 私有 temp 目錄（`0600` 且拒絕覆寫），指令結束以 trap 刪除；不作 artifacts。
 4. 檢查及 SQL 寫入只對 `STAGING_DB` 執行 `--remote --config wrangler.preview-migrations.jsonc`；SQL 的 `NOT EXISTS (SELECT 1 FROM users)` 再次防範重複建立；不執行任何 `d1 migrations apply`。
@@ -20,7 +20,7 @@
 ## 維運風險和阻擋條件
 
 - GitHub Actions 服務與 Cloudflare Token 持有 staging D1 寫入權限；操作前須由授權管理員核准；建議於完成初次 staging 設置後撤銷臨時 Cloudflare Token 或換成最小必要權限。此 Token 的帳號層 D1 權限本身**不會**被 Workflow 寫死的 staging DB ID 物理限縮。
-- `STAGING_OWNER_PASSWORD` 只用來初始化 **測試帳號**，不與正式生產帳號共用，也不應與使用者實際登入網站、郵件或其它服務的密碼相同。
+- `STAGING_OWNER_PASSWORD` 最低 12 字元、最多 256 字元，並且只用來初始化 **測試帳號**，不與正式生產帳號共用，也不應與使用者實際登入網站、郵件或其它服務的密碼相同。
 - 與原本 `scryptSync` Node 本機帳號沒有自動遷移；若未來要匯入本機使用者，應另外訂定安全流程。
 - 本次 **程式提交與 CI PASS 不等於遠端 Owner 已建立**；建立必須在 PR Merge 後手動通過 Environment 審批，再查 GitHub Actions Run 成功及遠端唯讀驗證。
 - 為防止 D1 用量或環境配置問題，不能在正式 D1 嘗試 staging 初始化，也不允許利用 API 註冊第一位 owner。

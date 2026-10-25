@@ -10,6 +10,32 @@ const utf8 = new TextEncoder();
 const DUMMY_SALT = '00'.repeat(16);
 const DUMMY_HASH = 'pbkdf2-sha256$600000$' + '00'.repeat(32);
 export const LOGIN_LIMITS = Object.freeze({ perUser: 8, perSource: 32, windowMinutes: 15, sessionHours: 8 });
+export const LOGIN_ATTEMPTS_RETENTION_DAYS = 7;
+export const LOGIN_CLEANUP_BATCH_SIZE = 500;
+
+// These predicates MUST match the versioned D1 migration 0002 indexes.
+export const LOGIN_RESERVATION_SQL =
+  'INSERT INTO login_attempts(id,username,ip_hash,success) ' +
+  'SELECT ?,?,?,0 WHERE ' +
+  '(SELECT COUNT(*) FROM login_attempts WHERE username=? COLLATE NOCASE ' +
+  "AND at>=datetime('now','-15 minutes')) < ? AND " +
+  '(SELECT COUNT(*) FROM login_attempts WHERE ip_hash=? ' +
+  "AND at>=datetime('now','-15 minutes')) < ?";
+
+// Bounded maintenance for a future protected staging scheduled Worker invocation.
+// This is internal-only; it is NOT automatically deployed, scheduled or executed.
+export const LOGIN_CLEANUP_SQL =
+  'DELETE FROM login_attempts WHERE id IN (' +
+  'SELECT id FROM login_attempts ' +
+  "WHERE at < datetime('now','-7 days') ORDER BY at ASC LIMIT ?)";
+
+export async function pruneExpiredLoginAttempts(db, batchSize = LOGIN_CLEANUP_BATCH_SIZE) {
+  if (!db || typeof db.prepare !== 'function') throw new Error('E_AUTH_CONFIG');
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > LOGIN_CLEANUP_BATCH_SIZE)
+    throw new Error('E_AUTH_CLEANUP_BATCH');
+  const res = await db.prepare(LOGIN_CLEANUP_SQL).bind(batchSize).run();
+  return resultChanges(res);
+}
 const okUsername = u => typeof u === 'string' && /^[A-Za-z0-9_.-]{1,40}$/.test(u);
 const hex = bytes => Array.from(bytes, x => x.toString(16).padStart(2, '0')).join('');
 const newId = () => crypto.randomUUID();
@@ -36,14 +62,8 @@ export async function reserveLoginAttempt(db, username, ipHash) {
   const id = newId();
   // This is one SQLite statement; concurrent reservations are serialized by D1.
   // Every accepted attempt (including correct credentials) consumes the window quota.
-  const stmt = db.prepare(
-    'INSERT INTO login_attempts(id,username,ip_hash,success) ' +
-    'SELECT ?,?,?,0 WHERE ' +
-    '(SELECT COUNT(*) FROM login_attempts WHERE username=? COLLATE NOCASE ' +
-    "AND at>=datetime('now','-15 minutes')) < ? AND " +
-    '(SELECT COUNT(*) FROM login_attempts WHERE ip_hash=? ' +
-    "AND at>=datetime('now','-15 minutes')) < ?"
-  ).bind(id, username, ipHash, username, LOGIN_LIMITS.perUser, ipHash, LOGIN_LIMITS.perSource);
+  const stmt = db.prepare(LOGIN_RESERVATION_SQL)
+    .bind(id, username, ipHash, username, LOGIN_LIMITS.perUser, ipHash, LOGIN_LIMITS.perSource);
   const res = await stmt.run();
   return resultChanges(res) === 1 ? id : null;
 }

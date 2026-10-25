@@ -15,15 +15,18 @@ export default {
     const url=new URL(request.url);
     // Abort before doing expensive KDF work in any non-loopback context.
     // Cloudflare edge requests carry CF-Connecting-IP: refuse even if host is spoofed.
+    const ip=request.headers.get('cf-connecting-ip');
+    const forwarded=request.headers.get('x-forwarded-for');
     if(url.protocol!=='http:' || url.hostname!=='127.0.0.1' ||
-       request.headers.has('cf-connecting-ip') || request.headers.has('x-forwarded-for'))
+       (ip && ip!=='127.0.0.1') || (forwarded && forwarded!=='127.0.0.1'))
       return json({code:'E_NOT_AVAILABLE'},404);
     if(url.pathname==='/health' && request.method==='GET' && !url.search)
       return json({status:'local_synthetic_only',cpu_verified:false});
     if(url.pathname!=='/run' || request.method!=='POST' || url.search)
       return json({code:'E_NOT_AVAILABLE'},404);
     // Do not accept any request payload, including possible credentials.
-    if(request.body || request.headers.has('content-length') || request.headers.has('authorization'))
+    const length=request.headers.get('content-length');
+    if(request.body || (length!==null && length!=='0') || request.headers.has('authorization'))
       return json({code:'E_NO_INPUT_ALLOWED'},400);
     if(running) return json({code:'E_PROBE_BUSY'},429);
     running=true;

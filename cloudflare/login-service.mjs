@@ -47,7 +47,7 @@ export async function reserveLoginAttempt(db, username, ipHash) {
   const res = await stmt.run();
   return resultChanges(res) === 1 ? id : null;
 }
-async function recordAuthFailure(db, username, ipHash, attemptId) {
+async function recordAuthFailure(db, username, ipHash) {
   // No password, token, IP address or hash material is logged in detail.
   const result = await db.prepare(
     'INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)'
@@ -70,10 +70,12 @@ export async function authenticateD1(db, { username, password, ipHash }) {
       "SELECT id,username,password_salt,password_hash FROM users WHERE username=? COLLATE NOCASE AND active=1 LIMIT 1"
     ).bind(username).first();
     // Unknown/inactive users still execute the expensive KDF to avoid existence timing leaks.
-    const salt = user?.password_salt || DUMMY_SALT;
-    const stored = user?.password_hash || DUMMY_HASH;
+    const isModern = !!user && /^[0-9a-f]{32}$/i.test(user.password_salt || '') &&
+      /^pbkdf2-sha256\\$600000\\$[0-9a-f]{64}$/i.test(user.password_hash || '');
+    const salt = isModern ? user.password_salt : DUMMY_SALT;
+    const stored = isModern ? user.password_hash : DUMMY_HASH;
     const matches = await verifyWorkerPassword(password, salt, stored);
-    if (!user || !matches) return await recordAuthFailure(db, username, ipHash, id);
+    if (!user || !matches) return await recordAuthFailure(db, username, ipHash);
 
     const token = freshSessionToken(), csrf = freshSessionToken();
     const tokenHash = await tokenSha256(token);
@@ -81,8 +83,8 @@ export async function authenticateD1(db, { username, password, ipHash }) {
     const statements = [
       db.prepare(
         'INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) ' +
-        'SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM users WHERE id=? AND active=1 AND password_hash=?)'
-      ).bind(tokenHash,csrf,user.id,expiry,user.id,user.password_hash),
+        'SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM users WHERE id=? AND active=1 AND password_hash=? AND password_salt=?)'
+      ).bind(tokenHash,csrf,user.id,expiry,user.id,user.password_hash,user.password_salt),
       db.prepare(
         'INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,ip_hash,detail) ' +
         "SELECT ?,u.id,u.username,'auth.login','sessions',?,'{}' FROM users u " +
@@ -114,9 +116,14 @@ export async function revokeD1Session(db, request) {
   if (!p) return { status: 401, code: 'E_UNAUTHENTICATED' };
   if (!authorizedMutation(request,p,'staff')) return { status: 403, code: 'E_CSRF_ORIGIN' };
   const result = await db.batch([
-    db.prepare('DELETE FROM sessions WHERE token_hash=?').bind(p.token_hash),
-    db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,detail) VALUES(?,?,?,?,?,?)')
-      .bind(newId(),p.id,p.username,'auth.logout','sessions','{}')
+    // Guard audit and deletion against a revoked session between read and batch.
+    db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,detail) '+
+      "SELECT ?,u.id,u.username,'auth.logout','sessions','{}' FROM sessions s "+
+      'JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1')
+      .bind(newId(),p.token_hash),
+    db.prepare('DELETE FROM sessions WHERE token_hash=? AND EXISTS '+
+      '(SELECT 1 FROM users WHERE id=? AND active=1)')
+      .bind(p.token_hash,p.id)
   ]);
   if (!Array.isArray(result) || result.length!==2 || result.some(x=>resultChanges(x)!==1))
     throw new Error('E_AUTH_ATOMIC');

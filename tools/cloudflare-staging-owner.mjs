@@ -2,6 +2,7 @@
 // No password, session token or owner hash is printed to the GitHub Actions log.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { hashWorkerPassword } from '../cloudflare/auth-core.mjs';
 import { verifyStagingConfig, rowsFromWranglerJson, ACCOUNT_ID, PROD_ID, STAGING_ID } from './check-cloudflare-staging.mjs';
@@ -99,7 +100,7 @@ async function main(args) {
   } else fail('invalid subcommand');
   process.stdout.write('STAGING_OWNER_' + mode.toUpperCase().replace('-', '_') + '_PASS\n');
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main(process.argv.slice(2)).catch(e => {
     // Only fail-closed category; secrets must not appear in an exception trace.
     process.stderr.write('E_STAGING_OWNER: staging setup refused; check preflight/target/secret availability\n');

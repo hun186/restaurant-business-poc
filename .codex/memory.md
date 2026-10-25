@@ -179,3 +179,9 @@
 - 新分支 `feat/cloudflare-d1-foundation-20261025`：以現有 SQLite v3 Schema 轉換 D1 初始 Migration，禁止 `IF NOT EXISTS` 掩蓋非空資料庫，保留 FK/CHECK/index、建立 `cloud_schema_contract`。不匯入真實資料、不建立預設 owner、不改本機 SQLite。
 - 增加 D1 只讀結構探測，只有 DB 綁定時檢查 Schema，仍一律 `production_ready:false`；提供正式／Preview 分離綁定設定範本、Migration 操作 SOP、Node SQLite parity/FK/拒絕重複初始化測試。
 - 使用者已建立正式 `restaurant-business-prod`（ID `b882a6e8-0e56-49a6-bd41-1a6cadd726c9`）與測試 `restaurant-business-staging`（ID `2c355bed-d9c3-449c-aa9b-1018f3bc1177`）D1。PR #13 已提交根目錄 `wrangler.jsonc` 正式/Preview 分離綁定、`wrangler.preview-migrations.jsonc` 僅 staging 的遷移設定、綁定隔離回歸和安全 SOP。**沒有遠端執行 Migration 的 Cloudflare 帳戶操作權限**，也尚未完成真實營運 API、Google Drive 備份或業主登入。新 HEAD Hosted CI／Codex Review 尚需確認、不得未授權 Merge。
+
+## 2026-10-25｜GitHub Actions staging-only D1 Migration 工作流
+- 在 PR #13 新增 `.github/workflows/d1-staging-migration.yml`（workflow_dispatch ONLY，限制 main、必填 `APPLY_STAGING_ONLY`、Environment `d1-staging`），並新增 `tools/check-cloudflare-staging.mjs` 只讀 preflight 及 migration 後完整性校驗。
+- 使用者正在設定 Cloudflare Token / GitHub Secrets；**不能宣稱已確認 Token 存入 GitHub，亦不能宣稱 workflow 或遠端 D1 migration 已執行**。
+- Workflow 確認 Cloudflare 帳號 ID 和兩個不同 D1 UUID；preflight 拒絕 staging 既有任何使用者 table/d1_migrations；僅對 STAGING_DB 執行 migration，後測 v3 contract、表集合、FK 及無 owner。環境審查規則需 GitHub Settings 額外設定才會生效。
+- 本次 Commit 後需以最新 PR HEAD 驗證 Hosted CI／Cloudflare Preview 與正式 Codex Review；PR #13 尚未經使用者授權 Merge。正式 D1 不可自動 Migration。

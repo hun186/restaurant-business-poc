@@ -11,38 +11,47 @@
 - `cloudflare/d1-readiness.mjs` 只執行 SELECT／讀取 sqlite_master；`GET /api/health` 保持 `status: demo_only`、`api: not_implemented`、`production_ready: false`。即使資料庫結構存在，也**不得**回覆 production_ready=true。
 - 不做本機 SQLite → D1 的自動資料匯入，也不會修改既有業主 SQLite 或其備份。
 
-## 為何暫時不在正式 wrangler.jsonc 綁定資料庫
+## 2026-10-25｜已取得資料庫 ID，正式／Preview 綁定已提交 PR #13
 
-尚未授權或建立 Cloudflare D1 資源。正式 `wrangler.jsonc` 繼續使用空的 `previews: {}`，確保 GitHub PR Preview 與正式部署不會使用亂填 UUID 或意外共用業主資料。
+使用者已在自己的 Cloudflare 帳號內建立兩個不同的 D1 資源。**本 PR 僅提交 Worker 綁定設定，不代表遠端 Schema 已安裝或系統可用。**
 
-已提供**不會被自動載入**的綁定範本：
+| 用途 | D1 Database | UUID |
+| --- | --- | --- |
+| 正式版 | `restaurant-business-prod` | `b882a6e8-0e56-49a6-bd41-1a6cadd726c9` |
+| GitHub PR Preview | `restaurant-business-staging` | `2c355bed-d9c3-449c-aa9b-1018f3bc1177` |
 
-- `cloudflare/wrangler.d1.example.jsonc`：正式 D1 與 Preview D1 各自的 `database_id`。
-- `cloudflare/wrangler.preview-migrations.example.jsonc`：僅供測試 D1 遷移的 Wrangler CLI 專用設定。
+- 根目錄 `wrangler.jsonc` 的**頂層** `d1_databases[0]` 綁定 `DB` → **prod**，`previews.d1_databases[0]` 綁定 `DB` → **staging**。部署命令保持 Cloudflare Builds 的 `npx wrangler deploy` 和 PR Preview 的 `npx wrangler preview`。
+- 根目錄 `wrangler.preview-migrations.jsonc` 只綁定 `STAGING_DB` → **staging**，供人工執行測試庫 Migration。此檔案不作為 `wrangler deploy` 的設定，也不會被 GitHub CI 自動執行。
+- `cloudflare/wrangler.*.example.jsonc` 仍保留為不會自動生效的泛用範本，**實際使用的是根目錄的兩份設定**。
+- UUID 是 D1 資源識別碼，不是授權密碼；不得把 Cloudflare API Token、OAuth Token、服務金鑰、業主帳密、員工資料或任何 SQLite 備份提交到公開 GitHub。
+- **兩個 ID 不能相同**。Cloudflare 官方提醒：共用相同 D1 ID 的不同 Previews 會共用資料列，因此各 PR Preview 目前會共用上述 staging，切勿用於真實資料；日後如需 PR 間完全隔離，還要各建不同測試 D1。
+- Cloudflare Workers Preview 本身**不會自動執行資料庫 Migration**，即使 Build/Deployment Success 也不代表 D1 已初始化。
 
-注意：**Cloudflare Worker Previews 不會繼承 Production 的 D1 綁定，但如兩者或不同 PR 指向同一 D1 UUID，就會共用資料**。因此必須分配至少兩個不同資料庫；正式庫不可提供給 PR Preview。
+## 尚待執行：測試 D1 遠端 Migration
 
-## 一次性設定步驟（操作者有 Cloudflare 權限後）
+以下指令需在具備該 Cloudflare 帳戶權限的終端機、GitHub 專案根目錄執行；目前 GitHub Connector 並未取得 Cloudflare D1 遠端執行權限，**尚未執行**：
 
-1. 在 Cloudflare 帳號建立**兩個全新、空白** D1：
-   `npx wrangler d1 create restaurant-business-staging`
-   `npx wrangler d1 create restaurant-business-prod`
-   記錄 Cloudflare 回傳的兩個不同 UUID。**請勿在公開 Issue 或 PR 提交 API token、OAuth token、密碼或正式資料**；D1 ID 不是授權秘密，但必須確認 ID 指向正確資源。
-2. 把 `cloudflare/wrangler.d1.example.jsonc` 內容複製到專案根目錄的 `wrangler.jsonc`，替換兩個 UUID，提交前確認 Preview ID **不等於**正式 ID；保留 `previews` 區塊。
-3. 另外把 `cloudflare/wrangler.preview-migrations.example.jsonc` 複製成根目錄 `wrangler.preview-migrations.jsonc`，其 `STAGING_DB` UUID 必須與 `wrangler.jsonc` 的 `previews.d1_databases` 完全一致。
-4. **先在測試 D1 執行遷移**，明確檢查目標資料庫名稱與 UUID 後再執行：
-   ```sh
-   npx wrangler d1 migrations list STAGING_DB --remote --config wrangler.preview-migrations.jsonc
-   npx wrangler d1 migrations apply STAGING_DB --remote --config wrangler.preview-migrations.jsonc
-   ```
-   之後用測試資料庫驗證 `cloud_schema_contract`、`PRAGMA foreign_key_check`，並確認 Preview URL 的 `/api/health` 僅標示 `database: schema_only`。
-5. 正式 D1 遷移須**另外人工確認**全新目標與備份／回復策略後才能執行：
-   ```sh
-   npx wrangler d1 migrations list DB --remote --config wrangler.jsonc
-   npx wrangler d1 migrations apply DB --remote --config wrangler.jsonc
-   ```
-   生產資料庫絕不在一般 `git push` / Cloudflare Builds 自動執行 migration。未經審核不得對已有營運資料的庫套用初始版本。
-6. 完成後重新部署並分別驗證正式網站及 Preview；Cloudflare Builds 的 `npx wrangler preview` 仍須維持預覽環境。正式 `/api/health` 的 `schema_only` **僅代表結構可讀**；正式 API 仍未實作。
+```sh
+# 先核對 staging 目標綁定是否正確（不是正式庫）
+npx wrangler d1 migrations list STAGING_DB --remote --config wrangler.preview-migrations.jsonc
+# 確認是全新空庫後才執行，會建立既有 SQLite v3 的空白表格結構
+npx wrangler d1 migrations apply STAGING_DB --remote --config wrangler.preview-migrations.jsonc
+# 唯讀確認 Schema contract
+npx wrangler d1 execute STAGING_DB --remote --config wrangler.preview-migrations.jsonc --command "SELECT contract_version FROM cloud_schema_contract WHERE id=1"
+```
+
+完成 staging Migration 後，再重新部署 PR Preview；`/api/health` 預期資料庫欄位為 `schema_only`，**但仍必須保持 `api:not_implemented` 與 `production_ready:false`**。
+
+## 正式 D1 Migration 的額外安全限制
+
+絕不可只因 staging PASS 就自動對 prod 執行 migration。須先人工確認正式 D1 ID／名稱無誤、尚無營運資料、回復計畫及後續版本升級策略，並取得正式操作授權後，才可考慮：
+
+```sh
+npx wrangler d1 migrations list DB --remote --config wrangler.jsonc
+npx wrangler d1 migrations apply DB --remote --config wrangler.jsonc
+```
+
+**不要把這兩行放入 Cloudflare Build command、GitHub push、Pull Request CI 或任一無需人工確認的自動部署流程。** Cloudflare 的自動部署只應發布 Worker 程式與靜態資源，不能自行變更業主的正式資料庫 Schema。
 
 ## 下一批必須完成的工作
 

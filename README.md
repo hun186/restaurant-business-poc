@@ -124,5 +124,5 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 ## Cloudflare D1 資料庫基礎（開發中，尚非正式雲端版）
 
 - 已有 Demo-only Cloudflare Worker；`/api/health` 回報 `production_ready: false`，不代表已能安全保存營運資料。
-- D1 逐步移植工作見 [Cloudflare D1 資料庫基礎 SOP](docs/Cloudflare-D1-正式版資料庫基礎.md)：提供 v3 空白 Migration、Schema 驗證及正式／Preview 雙庫範本，尚未建立遠端資料庫或初始化業主帳號。
+- D1 逐步移植工作見 [Cloudflare D1 資料庫基礎 SOP](docs/Cloudflare-D1-正式版資料庫基礎.md)：提供 v3 空白 Migration、Schema 驗證及正式／Preview 雙庫範本，已提供正式／Preview 不同 D1 UUID 的綁定設定，但尚未執行遠端 Migration、也尚未初始化業主帳號。
 - 暫時**不要將真實帳密、人事、營運資料輸入 Cloudflare 展示站**；本機原有 SQLite 正式功能不因 D1 工作改變。後續實作仍須 Hosted CI、正式 Codex Review 與獨立的生產驗收。

@@ -138,3 +138,8 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 - Staging D1 已建立第一位測試 Owner（[GitHub Run #40188578478](https://github.com/hun186/restaurant-business-poc/actions/runs/40188578478) 遠端 postflight 成功），但無法直接使用公開網站登入。
 - 新增 `cloudflare/login-service.mjs`（僅**內部、未接路由**）：原子 D1 登入嘗試限流、PBKDF2 密碼驗證、Session／登入稽核交易、登出 CSRF／Origin 撤銷；前端及正式／Preview 的 `/api/login`、`/api/logout` 仍 **503 E_NOT_READY**。
 - Workers Free 每個 HTTP 請求 10ms CPU 限額、Preview 存取保護、IP 來源信任與 D1 實機併發尚未驗收；在完成之前不能將本程式視為可正式登入的功能。詳情：[Cloudflare D1 登入安全服務內部階段](docs/Cloudflare-D1-登入安全服務內部階段.md)。
+
+### Cloudflare Workers PBKDF2 虛構密碼效能探針（尚未上線）
+
+- 新增完全**獨立的本機 workerd** 合成密碼 Hash／Verify 效能探針和手動 GitHub Actions。它不連 staging／production D1、沒有 Cloudflare Secret，也不會開放公開登入路由。
+- 本機探針測的是 **wall-clock elapsed time，不是 Cloudflare Hosted CPU time**；Free 10ms CPU 上限與實際 Password Hash 可行性仍須另外在受保護測試環境驗證，否則不能開啟登入。詳見 [PBKDF2 Workerd 合成效能驗證](docs/Cloudflare-PBKDF2-Workerd-合成效能驗證.md)。

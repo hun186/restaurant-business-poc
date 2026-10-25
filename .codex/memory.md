@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：確認 PR #1 最新 HEAD 的 Hosted CI、正式 Codex Review 與安全／相容性修正；禁止未授權合併。
+- 首要目標：PR #14 Cloudflare D1 認證第一階段，只在 Preview 開放唯讀 `/api/me`；以本 PR 最新 HEAD 完成 GitHub Hosted CI、Cloudflare Preview、正式 Codex Review，修正 Findings；禁止未授權合併。PR #13 已合併，staging D1 初始化與健康檢查驗收完成；正式 D1 未遷移。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 

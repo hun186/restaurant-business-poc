@@ -24,3 +24,16 @@ Cloudflare Workers Builds 顯示 `npx wrangler deploy` Success，且上傳 `publ
 4. 正式 D1、資料遷移、業主身分驗證、營運 API、備份／還原與生產驗收仍須獨立完成。
 
 **請勿將現有 Cloudflare 網址交付業主作為正式營運服務。** 正式版必須獨立完成安全審核，並避免 Preview 指向正式 D1。
+
+## Cloudflare Workers Builds Preview 失敗修正（2026-10-25）
+
+PR #12 的 Preview Build 曾因執行 `npx wrangler preview` 而失敗。Cloudflare 日誌明確指出 `Your Wrangler configuration is missing a previews block`。這與 GitHub CI 成功、Workers 正式版靜態資源已部署是不同的驗證層次。
+
+已在 `wrangler.jsonc` 頂層加入 `"previews": {}`，這是 Cloudflare Workers Preview 所要求的必要區塊；`preview_urls: true` 並不能取代它。`assets`、`compatibility_date` 仍應保持頂層設定。新增測試在 CI 中防止此設定意外遺失。
+
+- Cloudflare Workers Builds：正式分支執行 `npx wrangler deploy`；PR Preview 執行 `npx wrangler preview`。
+- 此階段只有靜態虛構 Demo 及不接受寫入的 `/api/health`，**沒有任何正式 D1 綁定或秘密資訊**，因此可使用空的 `previews`。
+- **日後導入 D1 時，不可直接沿用空 Preview 資料綁定**：應分別配置正式 D1 與獨立測試 D1，禁止 Preview 存取業主資料。
+- 是否修復 Cloudflare Preview，必須看新 commit 對應的 Hosted Cloudflare Build 狀態／Preview URL；單靠 JSON 格式正確不能聲稱部署通過。
+
+官方依據：https://developers.cloudflare.com/workers/previews/configuration/

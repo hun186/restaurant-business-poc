@@ -46,3 +46,5 @@
 
 | RB-028 | IN_REVIEW | P1 | D1 雲端登入安全服務（內部程式）：原子嘗試限流、PBKDF2 憑證核對、Session/Audit 原子交易、登出 CSRF/Origin、停用／改密碼 race tests；Worker 公開登入仍 503，待 Hosted CI + 最新正式 Codex Review + 授權 Merge |
 | RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 Cloudflare CF-Connecting-IP 來源可信度 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |
+
+| RB-028-P2 | IN_REVIEW | P2 | PR #17 Codex 問題：限流 NOCASE 與來源索引、7 日過期嘗試分批清理；已新增 D1 0002 Versioned Migration 與 EXPLAIN QUERY PLAN 測試，**尚未套用 staging/prod**、Cron 未設；需最新 CI + 正式 Codex 複審與授權 Merge |

@@ -132,3 +132,9 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 - staging D1 已透過 GitHub Actions Run [#40172089719](https://github.com/hun186/restaurant-business-poc/actions/runs/40172089719) 完成 v3 空白 Schema 安裝及 FK 驗證；**production D1 仍未初始化**。
 - Worker 新增 WebCrypto／Session／CSRF／RBAC 基礎及僅限 Preview 的唯讀 `GET /api/me`，Production 認證功能仍關閉；`/api/login` 與正式營運 API 仍為 `503 E_NOT_READY`。
 - 詳細安全邊界見 [Cloudflare D1 登入與權限第一階段](docs/Cloudflare-D1-登入與權限第一階段.md)。不要輸入真實員工帳密或營運資料，也不要把本機 scrypt 密碼視為可直接移轉到雲端。
+
+### Cloudflare D1 登入安全內部階段（尚未開放帳密登入）
+
+- Staging D1 已建立第一位測試 Owner（[GitHub Run #40188578478](https://github.com/hun186/restaurant-business-poc/actions/runs/40188578478) 遠端 postflight 成功），但無法直接使用公開網站登入。
+- 新增 `cloudflare/login-service.mjs`（僅**內部、未接路由**）：原子 D1 登入嘗試限流、PBKDF2 密碼驗證、Session／登入稽核交易、登出 CSRF／Origin 撤銷；前端及正式／Preview 的 `/api/login`、`/api/logout` 仍 **503 E_NOT_READY**。
+- Workers Free 每個 HTTP 請求 10ms CPU 限額、Preview 存取保護、IP 來源信任與 D1 實機併發尚未驗收；在完成之前不能將本程式視為可正式登入的功能。詳情：[Cloudflare D1 登入安全服務內部階段](docs/Cloudflare-D1-登入安全服務內部階段.md)。

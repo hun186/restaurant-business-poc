@@ -51,16 +51,18 @@ export default {
     const probe_id=crypto.randomUUID();
     try{
       const result=await runHostedSyntheticOperation(operation);
-      // Correlate with invocation logs (which carry CPU time and outcome).
-      // Do NOT log identity, origin IP, password, salts, hashes or tokens.
+      // Correlate probe_id and operation with platform invocation logs;
+      // only Cloudflare's $workers.wallTimeMs / $workers.cpuTimeMs and
+      // $workers.outcome are authoritative timings/status.
+      // Never log fabricated JavaScript elapsed time, identity or secrets.
       console.info(JSON.stringify({
         event:'pbkdf2_synthetic_only',probe_id,operation,
-        iterations:result.iterations,wall_ms:result.wall_ms
+        iterations:result.iterations
       }));
       return respond({
-        kind:'hosted_synthetic_wall_time_not_cpu',
+        kind:'hosted_synthetic_result_no_inline_timings',
         probe_id,operation,iterations:result.iterations,
-        valid:result.valid,wall_ms:result.wall_ms,cpu_verified:false
+        valid:result.valid,cpu_verified:false
       });
     }catch{
       console.error(JSON.stringify({event:'pbkdf2_synthetic_failed',probe_id,operation}));

@@ -49,9 +49,12 @@ export function snapshot(json) {
   const tables = namedRows(json.tables,'name','schema tables').map(x => x.name);
   if (contract.length !== 1 || contract[0].contract_version !== 3) fail('expected v3 contract');
   if (fk.length) fail('foreign-key violations');
-  if (tables.length !== 23 || new Set(tables).size !== 23 ||
-      !tables.includes('d1_migrations') || !tables.includes('users') ||
-      !tables.includes('login_attempts') || !tables.includes('cloud_schema_contract'))
+  const expected = [...fs.readFileSync(path.join(MIGRATIONS_DIR,INITIAL),'utf8')
+    .matchAll(/CREATE TABLE\\s+([A-Za-z_][A-Za-z_0-9]*)\\s*\\(/g)].map(x=>x[1]);
+  expected.push('d1_migrations');
+  expected.sort();
+  if (expected.length !== 23 || new Set(expected).size !== 23 ||
+      JSON.stringify(tables) !== JSON.stringify(expected))
     fail('unexpected existing D1 schema inventory');
   // The owner bootstrap was successful; do not run this migration on a fresh
   // database, or on an environment with extra users.

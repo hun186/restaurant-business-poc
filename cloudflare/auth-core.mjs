@@ -103,6 +103,7 @@ export function hasAccess(principal, minRole = 'staff', locationId = undefined) 
   return principal.role === 'owner' || principal.locations.includes(locationId);
 }
 export function authorizedMutation(request, principal, minRole = 'staff', locationId = undefined) {
-  return sameOrigin(request) && csrfMatches(request.headers.get('x-csrf-token'), principal?.csrf) &&
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) && sameOrigin(request) &&
+    csrfMatches(request.headers.get('x-csrf-token'), principal?.csrf) &&
     hasAccess(principal, minRole, locationId);
 }

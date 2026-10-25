@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;" > "$RUNNER_TEMP/d1-preflight.json"
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;" > "$RUNNER_TEMP/d1-preflight.json"
           node tools/check-cloudflare-staging.mjs preflight "$RUNNER_TEMP/d1-preflight.json"
       - name: Review migrations pending on staging
         run: npx --no-install wrangler d1 migrations list STAGING_DB --remote --config wrangler.preview-migrations.jsonc
@@ -66,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;" > "$RUNNER_TEMP/d1-tables.json"
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;" > "$RUNNER_TEMP/d1-tables.json"
           npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT contract_version FROM cloud_schema_contract WHERE id=1;" > "$RUNNER_TEMP/d1-contract.json"
           npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "PRAGMA foreign_key_check;" > "$RUNNER_TEMP/d1-foreign-keys.json"
           npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT COUNT(*) AS count FROM users;" > "$RUNNER_TEMP/d1-users.json"

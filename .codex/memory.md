@@ -185,3 +185,8 @@
 - 使用者正在設定 Cloudflare Token / GitHub Secrets；**不能宣稱已確認 Token 存入 GitHub，亦不能宣稱 workflow 或遠端 D1 migration 已執行**。
 - Workflow 確認 Cloudflare 帳號 ID 和兩個不同 D1 UUID；preflight 拒絕 staging 既有任何使用者 table/d1_migrations；僅對 STAGING_DB 執行 migration，後測 v3 contract、表集合、FK 及無 owner。環境審查規則需 GitHub Settings 額外設定才會生效。
 - 本次 Commit 後需以最新 PR HEAD 驗證 Hosted CI／Cloudflare Preview 與正式 Codex Review；PR #13 尚未經使用者授權 Merge。正式 D1 不可自動 Migration。
+
+## 2026-10-25｜PR #13 最新正式 Codex P1 `_cf_KV`
+- 使用者已在 GitHub 建立 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 兩筆 Secrets（值不讀取、不能聲稱 API 存取已驗證）。
+- 正式 Codex Review HEAD `4e914e7` Completed 發現 P1：新建立 D1 預設包含系統保留表 `_cf_KV`；staging Migration preflight/postflight 僅排除 `sqlite_%` 會誤判空庫／Schema 不符。
+- 已在 `.github/workflows/d1-staging-migration.yml` 的前後兩個只讀 SQL 查詢排除 `_cf_KV`，`tools/check-cloudflare-staging.mjs` 統一只過濾此精確系統表（不過度排除未知表、保留 d1_migrations 非空拒絕），測試增 `_cf_KV` 單獨存在、與業務表/ledger 並存及未知表。後續必須檢查最新 HEAD CI、Cloudflare Preview、正式 Codex 複審，處理 Findings 並確認後才可請求使用者 Merge；**目前未執行遠端 Migration**。

@@ -10,6 +10,6 @@ CREATE INDEX idx_login_attempts_username_nocase_at
   ON login_attempts(username COLLATE NOCASE, at);
 CREATE INDEX idx_login_attempts_ip_hash_at
   ON login_attempts(ip_hash, at);
--- Maintenance scans by time only, independent of username or source.
+-- Maintenance scans by time only; (at,id) makes the bounded ID subquery\n-- index-only and ordered without an additional table lookup.
 CREATE INDEX idx_login_attempts_at
-  ON login_attempts(at);
+  ON login_attempts(at, id);

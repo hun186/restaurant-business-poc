@@ -37,8 +37,19 @@ export function rowsFromWranglerJson(data) {
       objects[0]?.success === false) fail('unexpected Wrangler JSON output');
   return objects[0].results;
 }
-export function assertEmptyTarget(data) {
+// D1 owns _cf_KV even in a fresh database. It is not an application table.
+// Ignore ONLY this confirmed reserved name, never a generic "_cf_%" prefix
+// that could hide unexpected objects and bypass our empty-target safeguard.
+export function applicationTables(data) {
   const rows = rowsFromWranglerJson(data);
+  for (const row of rows) {
+    if (!row || typeof row.name !== 'string' || !row.name)
+      fail('invalid table metadata from D1');
+  }
+  return rows.filter(row => row.name !== '_cf_KV');
+}
+export function assertEmptyTarget(data) {
+  const rows = applicationTables(data);
   // "d1_migrations" is intentionally *not* ignored: never reinitialize a used DB.
   if (rows.length !== 0) fail('staging D1 already contains tables; do not run initial migration');
 }
@@ -47,7 +58,7 @@ export function assertInstalledSchema(tablesData, contractData, fkData, ownerDat
     .matchAll(/CREATE TABLE\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(/g);
   const names = new Set([...expected].map(x => x[1]));
   if (names.size !== 22) fail('unexpected local migration contract');
-  const actual = new Set(rowsFromWranglerJson(tablesData).map(x => x.name));
+  const actual = new Set(applicationTables(tablesData).map(x => x.name));
   // D1 adds d1_migrations after running its migration.
   if (!actual.has('d1_migrations')) fail('Wrangler migration ledger not found');
   for (const name of names) if (!actual.has(name)) fail('missing migrated table: ' + name);

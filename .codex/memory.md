@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17/#18/#19 已 Merge；staging D1 0002 Run #40204026605 遠端 PASS；純虛構密碼本機 workerd 600k 三樣本 Run #40208993373 PASS，wall median hash/正確/錯誤=79/79/78 ms，但**不是 Cloudflare Hosted CPU**。Production D1 未初始化。新分支 `feat/cloudflare-access-hosted-pbkdf2-probe-20261026` 正開發 Access 驗證、Audience 檢查、無路由／預設 disabled 的獨立合成 Hosted Worker 及安全部署 SOP，**未獲授權不部署**，公開 `/api/login`、`/api/logout` 仍 503。真實 CPU logs 尚未取得。CI/正式 Codex Reviews 必須依最新 HEAD 查核，未授權不 Merge。
+- 首要目標：PR #17/#18/#19/#20 已 Merge；PR #20 Merge SHA `add71c83b96e31d9428b22e4e8971770eed88d71`，Access 保護合成 PBKDF2 Hosted 探針**僅程式碼存在、遠端未部署**。staging D1 0002 Run #40204026605 遠端 PASS；本機 workerd 三樣本 Run #40208993373 wall median 79/79/78 ms，不是 Hosted CPU。Production D1 未初始化、公開 Login 仍 503。當前分支 `feat/hosted-cpu-access-preflight-20261026` 開發**只讀取 Repo 的離線**靜態 preflight 與 Access hostname hierarchy／Version URL 實站驗收 SOP；靜態 PASS 不代表 Cloudflare 遠端 Access 真正通過。本輪無遠端寫入/部署，需以最新 HEAD 驗 CI/Codex，未授權不 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 

@@ -190,3 +190,8 @@
 - 使用者已在 GitHub 建立 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 兩筆 Secrets（值不讀取、不能聲稱 API 存取已驗證）。
 - 正式 Codex Review HEAD `4e914e7` Completed 發現 P1：新建立 D1 預設包含系統保留表 `_cf_KV`；staging Migration preflight/postflight 僅排除 `sqlite_%` 會誤判空庫／Schema 不符。
 - 已在 `.github/workflows/d1-staging-migration.yml` 的前後兩個只讀 SQL 查詢排除 `_cf_KV`，`tools/check-cloudflare-staging.mjs` 統一只過濾此精確系統表（不過度排除未知表、保留 d1_migrations 非空拒絕），測試增 `_cf_KV` 單獨存在、與業務表/ledger 並存及未知表。後續必須檢查最新 HEAD CI、Cloudflare Preview、正式 Codex 複審，處理 Findings 並確認後才可請求使用者 Merge；**目前未執行遠端 Migration**。
+
+## 2026-10-25｜RB-025 Cloudflare 認證基礎（尚未合併）
+- 2026-10-25 staging D1 Run #40172089719 遠端 Migration `0001_initial_v3.sql` 成功，30 SQL commands + `STAGING_ONLY_VERIFY_PASS`；使用者實測 Preview `schema_only`，正式 D1 未移轉。
+- 新分支 `feat/cloudflare-auth-foundation-20261025`：`cloudflare/auth-core.mjs` WebCrypto PBKDF2(600k SHA-256, 16-byte salt) 測試用密碼介面、Host-only Session Cookie 與 SHA256 token、Session expiration/user.active、Origin/CSRF 檢查、Owner/Manager/Staff + active locations 範圍；`cloudflare/identity.mjs` 唯讀 `GET /api/me`，僅 Worker Preview `CLOUD_AUTH_PHASE=preview-readonly` 可用，Production `disabled`。其他 login/logout/command API 仍 503，沒有啟動真實密碼 API 或任何 schema 變更。
+- 既有 Node `scryptSync` 密碼不可直接當 PBKDF2 使用；Workes Free CPU 10ms 限制及未來密碼初始化、登入限流／稽核要另驗測。下一步為 PR Hosted CI、正式 Codex Review、修 Findings，使用者明確授權才 Merge。

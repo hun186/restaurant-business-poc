@@ -24,10 +24,26 @@ export default {
       return json({status:'local_synthetic_only',cpu_verified:false});
     if(url.pathname!=='/run' || request.method!=='POST' || url.search)
       return json({code:'E_NOT_AVAILABLE'},404);
-    // Do not accept any request payload, including possible credentials.
+    // The workerd HTTP transport creates a non-null body stream even for
+    // Content-Length: 0. Inspect at most the *first* chunk: the only accepted
+    // stream is one that ends immediately with exactly zero bytes.
+    // Refuse streamed/unknown lengths rather than buffering caller data.
     const length=request.headers.get('content-length');
-    if(request.body || (length!==null && length!=='0') || request.headers.has('authorization'))
+    if(request.headers.has('authorization') || request.headers.has('transfer-encoding') ||
+       (length!==null && length!=='0') || (request.body && length!=='0'))
       return json({code:'E_NO_INPUT_ALLOWED'},400);
+    if(request.body) {
+      const reader=request.body.getReader();
+      try {
+        const first=await reader.read();
+        if(!first.done) return json({code:'E_NO_INPUT_ALLOWED'},400);
+      }catch{
+        return json({code:'E_NO_INPUT_ALLOWED'},400);
+      }finally{
+        await reader.cancel().catch(()=>{});
+        reader.releaseLock();
+      }
+    }
     if(running) return json({code:'E_PROBE_BUSY'},429);
     running=true;
     try{

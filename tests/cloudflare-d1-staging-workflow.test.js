@@ -28,6 +28,10 @@ test('staging guard allows only expected D1 and rejects prod-ID substitution',as
 test('staging preflight rejects any prior business table, migration ledger or bad JSON',async()=>{
   const mod=await import(pathToFileURL(path.join(root,'tools/check-cloudflare-staging.mjs')).href);
   assert.doesNotThrow(()=>mod.assertEmptyTarget(wrapped([])));
+  // A newly created Cloudflare D1 may already contain the reserved _cf_KV table.
+  assert.doesNotThrow(()=>mod.assertEmptyTarget(wrapped([{name:'_cf_KV'}])));
+  assert.throws(()=>mod.assertEmptyTarget(wrapped([{name:'_cf_KV'},{name:'users'}])),/already contains tables/);
+  assert.throws(()=>mod.assertEmptyTarget(wrapped([{name:'_cf_KV'},{name:'d1_migrations'}])),/already contains tables/);
   for(const tableName of ['users','d1_migrations','stock_moves']){
     assert.throws(()=>mod.assertEmptyTarget(wrapped([{name:tableName}])),/already contains tables/);
   }
@@ -39,11 +43,13 @@ test('staging post-migration verification requires complete schema, ledger, zero
   const mod=await import(pathToFileURL(path.join(root,'tools/check-cloudflare-staging.mjs')).href);
   const ddl=fs.readFileSync(path.join(root,'cloudflare/migrations/0001_initial_v3.sql'),'utf8');
   const names=[...ddl.matchAll(/CREATE TABLE\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(/g)].map(x=>x[1]);
-  const all=wrapped([...names,'d1_migrations'].map(name=>({name})));
+  const all=wrapped([...names,'d1_migrations','_cf_KV'].map(name=>({name})));
+  const withUnknown=wrapped([...names,'d1_migrations','_cf_KV','surprise_business_table'].map(name=>({name})));
   const contract=wrapped([{contract_version:3}]);
   const fk=wrapped([]);
   const owner=wrapped([{count:0}]);
   assert.equal(mod.assertInstalledSchema(all,contract,fk,owner),true);
+  assert.throws(()=>mod.assertInstalledSchema(withUnknown,contract,fk,owner),/unexpected tables/);
   assert.throws(()=>mod.assertInstalledSchema(wrapped([{name:'d1_migrations'}]),contract,fk,owner),/missing migrated table/);
   assert.throws(()=>mod.assertInstalledSchema(all,contract,wrapped([{table:'users'}]),owner),/foreign key/);
   assert.throws(()=>mod.assertInstalledSchema(all,wrapped([{contract_version:2}]),fk,owner),/contract mismatch/);
@@ -58,6 +64,8 @@ test('manual GitHub staging workflow has no PR/push trigger and never invokes PR
   assert.match(yml,/inputs\.confirm == 'APPLY_STAGING_ONLY'/);
   assert.match(yml,/environment: d1-staging/);
   assert.match(yml,/node tools\/check-cloudflare-staging\.mjs preflight/);
+  assert.equal((yml.match(/name <> '_cf_KV'/g)||[]).length,2,
+    'both D1 table queries must exclude the reserved system table');
   assert.match(yml,/migrations apply STAGING_DB --remote --config wrangler\.preview-migrations\.jsonc/);
   assert.doesNotMatch(yml,/migrations apply DB\s/);
   assert.doesNotMatch(yml,/--config wrangler\.jsonc/);

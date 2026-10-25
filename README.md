@@ -143,3 +143,8 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 
 - 新增完全**獨立的本機 workerd** 合成密碼 Hash／Verify 效能探針和手動 GitHub Actions。它不連 staging／production D1、沒有 Cloudflare Secret，也不會開放公開登入路由。
 - 本機探針測的是 **wall-clock elapsed time，不是 Cloudflare Hosted CPU time**；Free 10ms CPU 上限與實際 Password Hash 可行性仍須另外在受保護測試環境驗證，否則不能開啟登入。詳見 [PBKDF2 Workerd 合成效能驗證](docs/Cloudflare-PBKDF2-Workerd-合成效能驗證.md)。
+
+### Cloudflare Hosted PBKDF2 CPU 驗證工具（僅準備，未部署）
+
+- 已準備**獨立且預設 disabled** 的合成 Hosted Worker：`wrangler.pbkdf2-hosted-disabled.jsonc` 禁用 workers.dev 與預覽 URL，不連接 D1、營運 API、Owner 密碼或 Session。必須另外核對 Cloudflare Worker-level Access 的 `ctx.access` 與 AUD，取得授權後才可能開啟測試。
+- 每個受保護請求只做一個固定虛構向量 PBKDF2；回應只有 wall-clock，真正 Hosted CPU 值必須從 Workers Logs 查詢。沒有自動部署或啟用。詳見 [Hosted PBKDF2 Access/CPU 驗證計畫](docs/Cloudflare-Hosted-PBKDF2-Access-CPU-驗證計畫.md)。

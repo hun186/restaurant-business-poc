@@ -216,6 +216,6 @@
 
 ## 2026-10-25｜PR #17 Codex P2：索引/清理修正（最新 HEAD 待 CI 與正式重審）
 - 最新正式 Codex Review 前一版 `fe43a9ad` Completed，有 1 項未解 P2：登入限流 `username COLLATE NOCASE` 與舊 BINARY 索引不匹配，`ip_hash` 缺複合索引，且登入嘗試紀錄沒有過期清理；上一輪 CI PASS 不能當成新 HEAD 驗收。
-- 已新增 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加 `(username COLLATE NOCASE, at)`、`(ip_hash,at)`、`(at)` 三組索引；保留已經安裝於 staging 的 v3 `0001` 原樣，**無遠端 D1 Migration 或資料寫入**。D1 ledger 後續須走人工核准的既有庫增量流程，不可重跑只允許空庫的 `d1-staging-migration.yml`。
+- 已新增 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加 `(username COLLATE NOCASE, at)`、`(ip_hash,at)`、`(at,id)` 三組索引；保留已經安裝於 staging 的 v3 `0001` 原樣，**無遠端 D1 Migration 或資料寫入**。D1 ledger 後續須走人工核准的既有庫增量流程，不可重跑只允許空庫的 `d1-staging-migration.yml`。
 - `cloudflare/login-service.mjs` 提取共用 `LOGIN_RESERVATION_SQL`，新 `pruneExpiredLoginAttempts()` 以 7 天保留/每批最多 500 筆之 SQL 清理（不刪 Audit）。**尚未設立 Cron、未對遠端 staging/prod 自動清理**；待 staging 0002 套用、真機驗證與後續安全部署批准。
 - 新 `tests/cloudflare-d1-login-indexes.test.js` 讀 D1 0001+0002，在 Node SQLite 以 `EXPLAIN QUERY PLAN` 驗證兩條 15 分鐘限流子查詢和清理均有對應索引，測既有 Owner 不變、分批刪除舊登入嘗試不影響 Session/Audit、批次上限。須等最新 Head Hosted Ubuntu/Windows Node22/24 CI、Cloudflare Preview、正式 Codex Review，再修 Findings；使用者尚未授權合併。

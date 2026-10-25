@@ -14,9 +14,9 @@
 ## Codex P2：登入限流索引與歷史清理（已提交待驗證）
 
 - 原正式 Codex Review (HEAD `fe43a9a`) 指出：原有 `login_attempts_lookup(username,at)` 為 BINARY collation，與 `username=? COLLATE NOCASE` 不符；`ip_hash` 也沒有對應索引，會掃描大量歷史資料。
-- **保留已套用的 `0001_initial_v3.sql`，不重建 staging D1**。新增版控檔 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加三組索引：`(username COLLATE NOCASE,at)`、`(ip_hash,at)`、`(at)`；Owner、Sessions、Contract v3 均不修改。未操作遠端 D1；`d1_migrations` 應在後續人工部署流程記錄此增量。
+- **保留已套用的 `0001_initial_v3.sql`，不重建 staging D1**。新增版控檔 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加三組索引：`(username COLLATE NOCASE,at)`、`(ip_hash,at)`、`(at,id)`；Owner、Sessions、Contract v3 均不修改。未操作遠端 D1；`d1_migrations` 應在後續人工部署流程記錄此增量。
 - 將真正的限流 `INSERT ... SELECT` 語句提取為單一 `LOGIN_RESERVATION_SQL`，回歸測試直接對它執行 `EXPLAIN QUERY PLAN`，確保兩種 15 分鐘視窗使用對應複合索引，不只看測試資料少時的執行結果。
-- 新增 **`pruneExpiredLoginAttempts(db, batchSize)`**：只刪除 7 天以前的 `login_attempts`，每次最多 500 筆並使用 `(at)` 索引；**不刪除 audit_logs**。內部清理程式已具備，但目前未設定 Cron 或啟用正式登錄，**不會自動在遠端執行**。未來需先部署 0002，完成受保護的 staging 維護排程與真機驗收，才可允許定期清理。
+- 新增 **`pruneExpiredLoginAttempts(db, batchSize)`**：只刪除 7 天以前的 `login_attempts`，每次最多 500 筆並使用 `(at,id)` 索引；**不刪除 audit_logs**。內部清理程式已具備，但目前未設定 Cron 或啟用正式登錄，**不會自動在遠端執行**。未來需先部署 0002，完成受保護的 staging 維護排程與真機驗收，才可允許定期清理。
 - 舊版 `d1-staging-migration.yml` 只能在**空白 staging DB** 執行 `0001`，已有 Owner 時會依防護正確拒絕。**不可重跑該初始化 Workflow，也不可自行對 prod 執行 Migration**。0002 需另走批准的「既有 staging DB 增量 Migration」專用工作流程或人工審核操作，先驗證 ledger 與備份／復原點，再由使用者授權執行。
 
 ## 測試

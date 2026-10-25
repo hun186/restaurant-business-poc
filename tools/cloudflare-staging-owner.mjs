@@ -42,9 +42,9 @@ export function verifyOwnerTarget(worker, migration, accountId) {
 export async function buildOwnerSql(password) {
   // Kept only in an ephemeral GH environment secret. The initial password is
   // NEVER created in a public Worker and NEVER logged to workflow output.
-  if (typeof password !== 'string' || password.length < 20 ||
+  if (typeof password !== 'string' || password.length < 12 ||
       password.length > 256 || /[\r\n\0]/.test(password))
-    fail('STAGING_OWNER_PASSWORD must be 20 to 256 characters, without newlines');
+    fail('STAGING_OWNER_PASSWORD must be 12 to 256 characters, without newlines');
   const record = await hashWorkerPassword(password);
   const id = randomUUID();
   if (!/^[0-9a-f-]{36}$/.test(id) || !/^[a-f0-9]{32}$/.test(record.password_salt) ||

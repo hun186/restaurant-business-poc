@@ -233,3 +233,9 @@
 - 修正 P2：`tools/pbkdf2-workerd-sandbox.mjs` 建立權限限制的私有隨機 tmp 專案，只將 review 過的 `auth-core`、probe、probe Worker 與無遠端 bindings 的 config 複製入；Wrangler 的 cwd/config/HOME/TMPDIR/XDG_CONFIG_HOME 都在暫存目錄；限制環境變數正向白名單且關閉 dotenv。回歸以 `.env`、`.dev.vars` canary 驗證 Secret 不會複製進沙箱。
 - `tools/run-pbkdf2-local-workerd.mjs --smoke` 新增真實 loopback HTTP 傳輸測試（POST 零內容應回 200、帶內容或 Authorization 應回 400），單組合成 KDF。GitHub `.github/workflows/verify.yml` 增加 Ubuntu 24 的 `pbkdf2-workerd-http-smoke`，已在本輪早期 Run #40207616103 看到此專用 Job SUCCESS；**後續仍須以最終 HEAD 重新核對全部 CI**。
 - 以上皆為本機 synthetic workerd wall-clock，**不是 Cloudflare Hosted CPU 毫秒測試**。不讀真實 Owner Secret、不連 D1、不開放 /api/login。需依最新 SHA 正式 Codex 複審、修 Findings、未授權不 Merge。
+
+## PR #20｜2026-10-26 Codex P2 Hosted performance.now 凍結問題修正（待複審）
+- 原 HEAD `e99940821819ea2a6b2be27fa9672894a9ff0383` 的正式 Codex Review Completed，1 項 P2、Review Thread `PRRT_kwDOVUuF1c6wCyy9`：Hosted `performance.now()` 在無 I/O 時可能不前進，舊 `wall_ms` 可能誤報 0；Node 本機時鐘測試無法證明真實 Hosted wall-time。
+- 已更新 `cloudflare/pbkdf2-hosted-synthetic.mjs` 移除 clock 參數／`performance.now` 差值；`cloudflare/pbkdf2-hosted-access-worker.mjs` 的回應和自訂 log 不再含任何 CPU/Wall 計時欄位；保留 `probe_id` 及操作，用於比對 Cloudflare 平台 invocation logs 的 `$workers.cpuTimeMs`、`$workers.wallTimeMs`、`$workers.outcome`。
+- `tests/cloudflare-pbkdf2-hosted-access.test.js` 新增凍結 `performance.now()` 為 0 的回歸，逐一驗證 hash／verify-correct／verify-wrong，應無任何偽計時欄位。
+- 此修正不表示已取得 Hosted CPU 實測，不允許自動部署遠端 Worker、變更 D1 或開啟登入。最新 HEAD Hosted CI、正式 Codex Review 和 Thread Resolve 均待核對；未授權不 Merge。

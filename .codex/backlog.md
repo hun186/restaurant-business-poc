@@ -35,3 +35,6 @@
 | RB-022-SEC | IN_REVIEW | P2 | PR #10 `caebe207` Codex 重複提交 Finding：正式與 Demo UI 同步提交鎖、停用按鈕、失敗重試；新 VM 非同步雙擊回歸已提交，待最新 SHA Hosted CI、Review Thread 回覆／Resolve 及正式複審 |
 
 | RB-022-MODAL | IN_REVIEW | P2 | PR #10 共用 modal 生命週期：正式／Demo 批次與單品項表單共享 root.__openTicket，防止舊 GET／關閉後遲到回應覆蓋新視窗；保留 DOM instance guards、新 VM 雙向回歸。待最新 HEAD CI、Codex 複審及真人驗收 |
+
+| RB-023 | IN_REVIEW | P1 | Cloudflare Workers＋D1 基礎建設：依 SQLite v3 產生空白 D1 初始 Migration、只讀 Schema Probe、正式/Preview 雙庫隔離範本與 CI 回歸；尚無遠端資源/真實 API，待 PR 最新 HEAD CI、Codex Review、使用者 Merge 授權 |
+| RB-024 | PLANNED | P1 | D1 正式/Preview 各建獨立資源與 migration；Worker Auth/RBAC/CSRF/安全初始業主建立；各營運模組 D1 原子性資料存取；加密異地備份與災難復原驗收後才可交付業主 |

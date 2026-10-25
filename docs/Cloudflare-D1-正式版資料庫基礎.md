@@ -53,6 +53,30 @@ npx wrangler d1 migrations apply DB --remote --config wrangler.jsonc
 
 **不要把這兩行放入 Cloudflare Build command、GitHub push、Pull Request CI 或任一無需人工確認的自動部署流程。** Cloudflare 的自動部署只應發布 Worker 程式與靜態資源，不能自行變更業主的正式資料庫 Schema。
 
+
+## GitHub Actions：只初始化 staging 的人工操作流程
+
+本 PR 新增 `.github/workflows/d1-staging-migration.yml`，只在 GitHub `main` 可手動啟動（`workflow_dispatch`）；一般 Commit、PR 或 Cloudflare Builds 都不會執行。**新流程尚未合併 main 以前，在 Actions 頁面可能不會出現 Run workflow**。
+
+建立並存入 GitHub Repository → Settings → Secrets and variables → Actions：
+- `CLOUDFLARE_API_TOKEN`：Cloudflare 自訂 Token，僅授與此帳號的 D1 Read 和 D1 Write。請勿張貼到 Issue、PR、聊天或程式碼。
+- `CLOUDFLARE_ACCOUNT_ID`：`31b409b04896d260ba0fadf6cc2bb305`。
+
+**注意：Cloudflare 帳號層級 D1 Write 可能有能力修改正式 D1；只執行 staging 的限制來自受保護的 GitHub 工作流程，不是 Token 本身對正式庫的硬性隔離。** 正式營運前應考慮將測試庫移至另一 Cloudflare 帳號，或在初始化結束後撤銷這個短期 Token。
+
+工作流程同時使用 GitHub Environment `d1-staging`。建議到 Settings → Environments 建立環境並設定 Required reviewers / Protected branches，增加人工核准與防止其他分支使用高權限憑證的保護。是否可設定審查人依 GitHub 計畫與可用功能為準。沒有額外的 Environment 規則時，不能聲稱已有第二層人工審批。
+
+完成 PR 正式審查與使用者明確合併授權後：
+
+1. 到 GitHub → Actions → `D1 staging schema initialization (manual only)`。
+2. 選 `Run workflow`、分支 `main`，輸入 **`APPLY_STAGING_ONLY`**。
+3. 工作會先檢查 GitHub Secrets、正確 Cloudflare Account ID、正式/測試 D1 UUID 差異、測試庫必須尚無任何業務表或 migration ledger。
+4. 僅在全數通過後，使用 `STAGING_DB` 的獨立 Wrangler 設定執行 `migrations apply --remote`。
+5. 工作結束前讀取測試 D1，確認完整 22 張表、D1 migration ledger、cloud_schema_contract v3、沒有外鍵錯誤、沒有建立 owner/員工。
+6. 如果上一步失敗，**不要直接重新點 Run**，先查看 GitHub Actions 日誌與 staging D1 狀態；重新執行時前置空庫檢查可能因已寫入結構而拒絕，這是刻意保護。
+
+這套流程不包括正式資料庫 Migration，也不會建立可登入的業主帳號；Schema 安裝成功仍然只是後端移植的其中一步。
+
 ## 下一批必須完成的工作
 
 1. D1 專用 Worker Auth（安全密碼雜湊策略、登入防爆破、HttpOnly Secure Cookie、CSRF、帳號停權撤銷 Session），**先經正式威脅檢視**。原本 `scryptSync` 不可不經測試直接搬到 Worker。

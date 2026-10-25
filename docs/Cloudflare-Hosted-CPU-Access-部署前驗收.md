@@ -1,0 +1,56 @@
+# Hosted PBKDF2 探針：Cloudflare Access 部署前驗收關卡
+
+> 狀態：**僅完成離線安全檢查程式與測試；尚未部署、沒有正式 Cloudflare Access 設定證據，也未測得 Hosted CPU。** 即使本文件的 GitHub CI 全部 PASS，也**不構成遠端部署授權**。不得以任何備援路由繞過此關卡。
+
+## 本輪靜態安全檢查（可以在 PR/CI 執行）
+
+指令：`node tools/cloudflare-hosted-probe-preflight.mjs`；工作流程 `.github/workflows/verify.yml` 在 Node 22/24 與 Ubuntu/Windows 執行。
+
+靜態程式執行時**不使用 Cloudflare Token**，沒有網路呼叫、不連 D1、不讀 Owner/Session、沒有 Wrangler `deploy`、不讀取 Cloudflare Account 設定。它只檢查目前 checkout 的程式檔和 JSON 變數、GitHub Actions workflow。
+
+- `wrangler.pbkdf2-hosted-disabled.jsonc`：只允許固定的 7 個安全鍵；專用 Worker 名稱與正式 Worker 不同；`workers_dev:false`、`preview_urls:false`、`PROBE_ENABLED=disabled`；無 routes、D1、assets、services、secrets、Triggers 等任何未知設定。
+- `wrangler.jsonc`：正式 Worker 入口維持 `cloudflare/worker.mjs`，Production Login 仍 disabled、Preview 為 preview-readonly。
+- 專用 Worker Source：預設 `PROBE_ENABLED` 與 `ctx.access`/AUD 守衛文字尚在；沒有重新出現 PBKDF2 `performance.now()`、`wall_ms`／`cpu_ms` 自行計時。
+- GitHub Actions：沒有任何 Workflow 引用這支專用探針的 disabled config 或 Worker 名稱執行部署。
+- `tests/cloudflare-hosted-probe-preflight.test.js` 以多個惡意配置及錯誤接線作負向測試：例如開放 workers.dev、Preview、D1、Routes、意外變數、新版本部署 Workflow、意外啟用登入，必須 fail-closed。
+
+輸出固定包含：
+
+```json
+{
+  "result": "HOSTED_PROBE_STATIC_PREFLIGHT_PASS",
+  "live_cloudflare_access_verified": false,
+  "version_and_deployment_url_exposure_verified": false,
+  "remote_cpu_verified": false,
+  "deployment_authorized": false,
+  "next": "MANUAL_ACCESS_EVIDENCE_REQUIRED"
+}
+```
+
+上列布林值是**不能通過靜態檢查的關卡**。即使靜態檢查 PASS，仍保留為 false，不能藉由人工修改本地 JSON 當作正式安全放行證據。這個工具不能證明 GitHub 主線之外的 Cloudflare 遠端 Worker 目前是否已有其他設定。
+
+## Cloudflare 實站驗收（目前全部待驗，未被本 PR 執行）
+
+依據 [Cloudflare Workers Access 官方文件](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)（2026-10-12 更新），Worker-level Access 需選**Production and preview / All traffic**，API `destinations.type=worker`、`worker_id` 對應**正確的獨立 Probe Worker**；`preview_worker` **只**保護 Preview，不符合本工項。需由具授權的 Cloudflare 管理員依下表留存**私人**截圖／查核紀錄：
+
+| 關卡 | 必須查核的遠端事實 | 不符合時 |
+|---|---|---|
+| A | 目前 Cloudflare 帳戶/Zone 正確；probe Worker ID、名稱、預定綁定入口無誤，不能誤指向正式 `restaurant-business-poc` | 停止 |
+| B | 該獨立 Worker 的 Access Policy Scope 明確為 **All traffic**，不是 Preview only；Access Destination 指向正確 Worker ID | 停止 |
+| C | Access Policy 僅明確核准受信任測試管理員或專用 Service Token；**沒有 Bypass / Everyone / 過寬條件** | 停止 |
+| D | 檢查每個**可能的** hostname/path 規則、Custom Domain、`workers.dev`、Version URL、Preview URL、Deployment URL，確認無更高優先序的較寬鬆 Access 規則；不得只因 `workers_dev:false` 假定全面隱藏 | 停止 |
+| E | 由管理員確認 `PROBE_ENABLED=disabled`，無 route、Custom Domain、Preview exposure，且無既存遠端版本或 URL 帶來未檢核的暴露 | 停止 |
+| F | 人工查核保存的證據只留在非公開的受控環境；不把 AUD、Cookie、Access Token、真實帳密、截圖的敏感資訊放在 Public Repo、PR、CI logs | 停止 |
+| G | 先取得**另外明確授權**，才能執行「部署 disabled、不可路由的獨立探針」；第二次啟用 Route + `access-only` 也要另開 PR／安全複審及授權 | 停止 |
+
+特別注意：Cloudflare 官方明確表示 hostname/path Access 優先於 Worker-level，其次才是帳戶層級；Worker 級 Access 的設定如果選擇 Bypass 也可能放寬全帳戶級保護。參考 [Access hierarchy](https://developers.cloudflare.com/workers/configuration/cloudflare-access/#understand-access-hierarchy)。
+
+而 [workers.dev 官方文件](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/) 說明關閉 workers.dev **不表示所有 Version、Preview、Deployment URL 都被關閉**。`preview_urls:false` 仍須在 Cloudflare 實站確認已生效，不能用一個 JSON 檔推論遠端所有網址都不可存取。
+
+## 後續三個獨立階段（均不得自動執行）
+
+1. **目前**：只維護/審核靜態安全驗證 PR，Ubuntu/Windows CI 與 Codex Review；不得對 Cloudflare API 執行任何修改或讀取 Secrets。
+2. **另行許可**：以**專用**配置在正確 Cloudflare 帳戶建立 dormant Worker；預設不可路由、disabled。建立後才能取得精確 Worker ID，再設定/驗收 Worker-level Access，確認沒有任何外部暴露後才可進入下一階段。若遠端已存在相同 Worker，必須先辨識和確認其配置，不能覆寫。
+3. **再授權**：另開啟用 PR，走 Code Review、Hosted CI、遠端 Access 事實證據、顯式允許測試入口與人工小批量測；從 [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) 取得真正 invocation CPU/Wall/Outcome/error。**不得用 Worker 自訂回應的計時推論 CPU quota。**
+
+**Cloudflare Preview Build 成功只代表原專案 Preview 工作流程成功，不代表新的 Hosted 探針已部署或 Access 已通過。**

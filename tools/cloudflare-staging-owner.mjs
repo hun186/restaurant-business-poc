@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { hashWorkerPassword } from '../cloudflare/auth-core.mjs';
 import { verifyStagingConfig, rowsFromWranglerJson, ACCOUNT_ID, PROD_ID, STAGING_ID } from './check-cloudflare-staging.mjs';
 
+export const INITIAL_EMPTY_TABLES = Object.freeze(["locations","users","user_locations","sessions","login_attempts","audit_logs","tasks","ingredients","stock_moves","purchase_orders","stocktakes","repairs","shifts","leave_requests","training_courses","training_records","evaluations","ingredient_prices","menu_dishes","dish_ingredients"]);
 function fail(reason) { throw new Error('E_STAGING_OWNER: ' + reason); }
 function oneRow(value) {
   const rows = rowsFromWranglerJson(value);
@@ -19,8 +20,7 @@ function integerCount(value) {
 export function assertOwnerPreflight(data) {
   const x = oneRow(data);
   if (integerCount(x.contract_version) !== 3) fail('staging v3 schema not present');
-  const fields = ['users', 'sessions', 'login_attempts', 'audit_logs', 'locations', 'stock_moves', 'purchase_orders'];
-  for (const field of fields) {
+  for (const field of INITIAL_EMPTY_TABLES) {
     if (integerCount(x[field]) !== 0) fail('existing ' + field + ' rows; owner bootstrap refuses modified database');
   }
   return true;
@@ -66,15 +66,10 @@ export function savePrivateSql(file, sql, tmpDir) {
   return true;
 }
 export function ownerPreflightQuery() {
-  return `SELECT
-  (SELECT contract_version FROM cloud_schema_contract WHERE id=1) AS contract_version,
-  (SELECT COUNT(*) FROM users) AS users,
-  (SELECT COUNT(*) FROM sessions) AS sessions,
-  (SELECT COUNT(*) FROM login_attempts) AS login_attempts,
-  (SELECT COUNT(*) FROM audit_logs) AS audit_logs,
-  (SELECT COUNT(*) FROM locations) AS locations,
-  (SELECT COUNT(*) FROM stock_moves) AS stock_moves,
-  (SELECT COUNT(*) FROM purchase_orders) AS purchase_orders;`;
+  const fields = INITIAL_EMPTY_TABLES.map(table =>
+    '(SELECT COUNT(*) FROM ' + table + ') AS ' + table);
+  return 'SELECT (SELECT contract_version FROM cloud_schema_contract WHERE id=1) AS contract_version, ' +
+    fields.join(', ') + ';';
 }
 export function ownerVerifyQuery() {
   return `SELECT
@@ -89,6 +84,10 @@ async function main(args) {
   const worker = JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
   const migration = JSON.parse(fs.readFileSync('wrangler.preview-migrations.jsonc','utf8'));
   verifyOwnerTarget(worker, migration, process.env.CLOUDFLARE_ACCOUNT_ID);
+  if (mode === 'query-preflight' && rest.length === 0) {
+    process.stdout.write(ownerPreflightQuery() + '\n');
+    return;
+  }
   if (mode === 'preflight' && rest.length === 1) {
     assertOwnerPreflight(JSON.parse(fs.readFileSync(rest[0], 'utf8')));
   } else if (mode === 'write-sql' && rest.length === 1) {

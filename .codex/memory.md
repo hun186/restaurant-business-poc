@@ -271,3 +271,9 @@
 - 本輪將離線安全 preflight 移到 Verify Node22/24 Windows/Ubuntu test 的 `npm run check` 之前，也在 Verify 的 local workerd smoke Job 與四個 `workflow_dispatch` 專用 Workflows（D1 staging migration、staging owner bootstrap、incremental 0002、PBKDF2 local workerd）的 Node setup 之後、任何 npm/npx 或委派工具之前加入獨立 `node tools/cloudflare-hosted-probe-preflight.mjs` 步驟。
 - 擴充測試，逐 Job 驗證實際 workflow 步驟順序與獨立 Node preflight（共六個 npm/npx Jobs），另有交換 npm/preflight 順序後必須失敗的負向 fixture；未執行注入 payload，也不執行任何遠端 API。人工同步更新五個 Workflow 與單一測試檔 SHA-256 allowlist，其他指紋不變。
 - 需於新 HEAD 核對 Hosted CI、正式 Codex 複審並回覆 Finding；仍禁止未獲用戶授權的 Merge、Cloudflare 部署、Access/D1 更動或 Hosted CPU 開啟。此靜態保護並不等於遠端 Access 驗證。
+
+## 2026-10-26｜PR #21 Codex 補充：具名 run 與 Windows CRLF
+
+- 上輪正式 Codex Review 對過程 HEAD `1a000f677f4241c371882a2c8d7a841c905d8ac6` 完成，新增兩個 P2 Findings `437986...`（依新 Threads 的實際 ID）指出 Workflow 順序測試：`run: npm ...` 解析遺漏，以及 Windows CRLF 與測試內固定 LF 不一致。
+- 已在後續 Commit 將 `run: npm/npx` 具名步驟也納入掃描，使 5 個 Workflow 共 6 個 Jobs 確實統計；本輪於 `assertOrder` 入口與 verify fixture 均正規化 CRLF→LF，增加每支 Workflow CRLF 模擬與顛倒步驟後仍拒絕的 CRLF 負向回歸。同步手工更新新增測試的 SHA-256，其餘 approved workflow hashes 不變。
+- 尚需核對最終 HEAD Hosted CI 與正式 Codex Review。未 Merge，不啟動遠端 Cloudflare、Access 或 D1。

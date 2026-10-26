@@ -312,6 +312,8 @@ test('P2: every Workflow job gates npm/npx behind a separate direct-node preflig
   // Split actual YAML jobs, not just matching a preflight string anywhere.
   // npm/npx commands may be at a single-line run or in a multi-line run block.
   const assertOrder=(source)=>{
+    // Match the SHA verification's CRLF->LF canonicalization on Windows runners.
+    source=source.replace(/\r\n/g,'\n');
     const jobs=source.slice(source.indexOf('\njobs:\n')+1);
     const jobHeaders=[...jobs.matchAll(/^  ([a-z][\w-]*):\s*$/gm)];
     assert.ok(jobHeaders.length>0,'E_MISSING_WORKFLOW_JOBS');
@@ -335,6 +337,8 @@ test('P2: every Workflow job gates npm/npx behind a separate direct-node preflig
   for(const file of workflowFiles){
     const source=fs.readFileSync(path.join(root,file),'utf8');
     totalJobs+=assertOrder(source);
+    // Windows checkout may convert LF to CRLF; the ordering guard is equivalent.
+    assert.equal(assertOrder(source.replace(/\r?\n/g,'\r\n')),assertOrder(source));
     const dir=await clone();
     try{
       // An unapproved config must be rejected by the very first node guard,
@@ -344,7 +348,7 @@ test('P2: every Workflow job gates npm/npx behind a separate direct-node preflig
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
   assert.equal(totalJobs,6,'expected all six npm/npx jobs to be covered');
-  const verify=fs.readFileSync(path.join(root,workflowFiles[0]),'utf8');
+  const verify=fs.readFileSync(path.join(root,workflowFiles[0]),'utf8').replace(/\r\n/g,'\n');
   const firstGuard=verify.indexOf(preflightStep);
   const firstNpm=verify.indexOf('      - run: npm run check');
   assert.ok(firstGuard>=0 && firstNpm>firstGuard);
@@ -354,6 +358,7 @@ test('P2: every Workflow job gates npm/npx behind a separate direct-node preflig
   );
   assert.notEqual(reversed,verify,'fixture must actually reverse the steps');
   assert.throws(()=>assertOrder(reversed),/E_NPM_PREFLIGHT_ORDER/);
+  assert.throws(()=>assertOrder(reversed.replace(/\n/g,'\r\n')),/E_NPM_PREFLIGHT_ORDER/);
 });
 
 test('the preflight never accesses Cloudflare API or pretends static equals live Access approval',async()=>{

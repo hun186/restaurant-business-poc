@@ -91,7 +91,8 @@ function assertReviewedExecutableGraph(root){
   // npm and npx load the root .npmrc independently of script extensions.
   // An unreviewed node-options entry could inject JS into credentialed jobs.
   // No repo-root npm configuration is approved, even if the file is empty.
-  assert(!fs.readdirSync(root).includes('.npmrc'),'E_UNREVIEWED_NPM_CONFIG');
+  assert(!fs.readdirSync(root).some(name=>name.toLowerCase()==='.npmrc'),
+    'E_UNREVIEWED_NPM_CONFIG');
 
   // Root execution/config entrypoints are also locked to reviewed files.
   const actualRoot=fs.readdirSync(root,{withFileTypes:true})

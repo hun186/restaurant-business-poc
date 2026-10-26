@@ -278,16 +278,21 @@ test('pinned manifest closes all transitive and test paths, including imported a
 test('P2: unreviewed root .npmrc must fail closed before npm/npx can read it',async()=>{
   const {inspectHostedProbeStatic}=await preflightPromise;
   const cases=[
-    "node-options=--import=data:text/javascript,console.error('UNREVIEWED_NPMRC_CODE_EXECUTED')\\n",
-    'script-shell=/bin/sh\\n',
-    ''
+    ['.npmrc',"node-options=--import=data:text/javascript,console.error('UNREVIEWED_NPMRC_CODE_EXECUTED')\\n"],
+    ['.npmrc','script-shell=/bin/sh\\n'],
+    ['.npmrc',''],
+    // Windows npm reads these case variants as the same config path.
+    // The Linux fixture catches a case-sensitive scanner that misses them.
+    ['.NPMRC',"node-options=--import=data:text/javascript,console.error('UNREVIEWED_NPMRC_CODE_EXECUTED')\\n"],
+    ['.npmRc',"node-options=--import=data:text/javascript,console.error('UNREVIEWED_NPMRC_CODE_EXECUTED')\\n"],
+    ['.nPmRc','']
   ];
-  for(const source of cases){
+  for(const [name,source] of cases){
     const dir=await clone();
     try{
       assert.equal(inspectHostedProbeStatic(dir).result,'HOSTED_PROBE_STATIC_PREFLIGHT_PASS');
-      fs.writeFileSync(path.join(dir,'.npmrc'),source);
-      assert.throws(()=>inspectHostedProbeStatic(dir),/E_UNREVIEWED_NPM_CONFIG/);
+      fs.writeFileSync(path.join(dir,name),source);
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_UNREVIEWED_NPM_CONFIG/,name);
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });

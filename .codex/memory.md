@@ -258,3 +258,9 @@
 - 正式 Codex Review 已對舊 HEAD `a6e00bff0f47572ab1835577d8838637606473e1` Completed；新 P2 Finding `4373339968`、Thread `PRRT_kwDOVUuF1c6wHNCT`：未審核的根目錄 `.npmrc` 會被 npm/npx 讀取，`node-options=--import=...` 可注入額外執行程式，但原本僅按副檔名篩選的 root 閉包會漏過。
 - 本輪在 `tools/cloudflare-hosted-probe-preflight.mjs` 對根目錄任何 `.npmrc`（含空檔案）明確 fail-closed（`E_UNREVIEWED_NPM_CONFIG`）；`tests/cloudflare-hosted-probe-preflight.test.js` 加入只建立該檔的 `node-options`、`script-shell` 與空檔負向 fixture，沒有執行 payload；更新人工審核的該測試檔 SHA-256 指紋，其餘 approved digest 不變。
 - 此修正只能驗證 PR checkout 的靜態檔案，**不會認證 runner 主機/npm 全域設定或遠端 Access**；必須依最新 HEAD 確認五個 Hosted CI Jobs 與正式 Codex 複審，並處理 Review Thread。未經使用者授權不得 Merge、Cloudflare 部署、Access 變更、D1 寫入或公開登入。
+
+## 2026-10-26｜PR #21 第四輪 Codex P2：Windows .npmrc 大小寫變體
+
+- 最新正式 Codex Review 已對 HEAD `032eee62d3f241a6c2a4525766f80a5e85887e8f` Completed；新增 P2 Finding `4376481803`、Thread `PRRT_kwDOVUuF1c6wOxWz`：根目錄 `.NPMRC`／`.npmRc` 在 Windows 不區分大小寫檔案系統中可被 npm 當作 `.npmrc` 讀取，但原本 `includes('.npmrc')` 會忽略，導致離線 preflight PASS。
+- 已改為 `fs.readdirSync(root).some(name=>name.toLowerCase()==='.npmrc')`，所有大小寫變體與空白變體均 fail-closed；在原本 `.npmrc` 的三項 regression 外另加入 `.NPMRC`、`.npmRc`、`.nPmRc` 測試，僅建立 fixture，不執行可能注入的設定內容。更新唯一有變更的測試檔 SHA-256 白名單，不自動重新信任其他原始碼。
+- 此為靜態程式與回歸測試，不是 Cloudflare Access 遠端驗證、Hosted CPU 測試或部署授權；須依新 HEAD 驗證 Hosted CI 五項與正式 Codex 複審、在 Thread 回覆。仍不允許未經使用者授權 Merge、部署 Cloudflare 或操作 D1。

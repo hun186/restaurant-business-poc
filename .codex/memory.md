@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17–#21 已 Merge，最新 PR #21 main Squash Commit `85f055e745931b280818b9fdad0c1cb9b4ea1833`，合併後 Hosted CI #40375126939 **5/5 PASS**，正式 Codex Review 對 `7da292aa56` 無新重大問題，8/8 歷史 Review Threads 已 Resolve。Access 合成 PBKDF2 Hosted 探針**程式碼存在但遠端未部署**，Production Login 仍不公開。下一工項 RB-034 僅針對管理員私下的 Access/版本 URL 查核紀錄提供**離線格式完整性檢查**，仍不等於 Cloudflare 真實遠端 Access 驗證，也非部署許可；正式 Hosted CPU time 未測。新 PR 需以 HEAD CI/Codex 再確認，不得自行 Merge。
+- 首要目標：PR #17–#22 已 Merge；PR #22 最新 main Squash Commit `324677783fc1fedb90023c4f0529c36236fb55c0`，合併後 Hosted CI #40380907839 **5/5 PASS**，最終正式 Codex Review 無重大問題，1/1 P2 已 Resolve。獨立 PBKDF2 Hosted 探針**程式存在但遠端未部署**，真實 Access/Version URLs 尚未驗證，Hosted CPU time 未測。RB-034 已完成『私人證據紀錄格式檢查』但此非 Remote verification；目前 RB-035 是『人工去識別化 Workers invocation Logs 的離線 CPU/Wall/outcome 統計』，只做來源未驗證的本地摘要／上限風險警示，嚴禁將自填數字視為真實 Hosted CPU 證據。新 PR 必須最新 CI/Codex，未授權不得 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -290,3 +290,11 @@
 - 初版 PR #22 HEAD `2e100e8875f40d808ab67b70b96097d83962d2df` Ubuntu22/24、workerd smoke PASS，但 Windows Node24 Run #40376870321 在 CLI 私有暫存檔測試中失敗，因 Runner checkout 在 D:，`os.tmpdir()` 可能位於 C:。Windows `path.relative(D:, C:)` 返回絕對目標路徑，不是以 `..` 開頭，原程式誤把非 Repo 檔案當成 Repo 內部。
 - 對字串路徑與 realpath 雙重查核都改由 `isOutsideRepository()` 統一判斷；跨磁碟時 `path.isAbsolute(relative)` 視為外部，子路徑仍拒絕。新增 win32 跨磁碟、Repo 內、相鄰目錄、同前綴目錄及 Repo 根路徑的負向/正向回歸。同步人工更新**僅兩個變更檔**的 SHA-256 白名單。
 - 必須按新 HEAD 核對 Windows/Ubuntu Node22/24 Hosted CI 與正式 Codex Review；仍無遠端部署或 Access/D1 操作。
+
+## 2026-10-27｜PR #22 主線合併與 RB-035 離線 CPU 平台日誌摘要
+
+- PR #22 已成功 Squash Merge 至 main：`324677783fc1fedb90023c4f0529c36236fb55c0`，main push CI #40380907839 completed/success 5/5。原 PR Codex Review 對 `2b65112288` 無新重大問題、Windows 跨磁碟 P2 Thread 1/1 Resolved。RB-034 **MERGED_CODE_ONLY**，不等於 live Access 已查核。
+- Cloudflare 官方 2026-10-12 文檔：Workers Logs 的 invocation 事件提供平台 `$workers.cpuTimeMs`、`$workers.wallTimeMs` 與 `outcome`；Workers Free HTTP CPU 10 ms，Wall time 不應取代 CPU time，Worker 自行使用 `performance.now()` 也不是 Cloudflare 平台 CPU。真正驗收需取得管理員私下保存、去識別化後的**平台觀測來源**並完成來源覆核。
+- RB-035 擬新增 `tools/hosted-cpu-log-offline-audit.mjs`：輸入 Git Repo 外的 JSON、只允許目標專用 Worker／固定 Workers invocation logs manually redacted source／三種操作 (hash, verify_correct, verify_wrong) 的 `cpuTimeMs`、`wallTimeMs`、`outcome`。逐操作輸出樣本數、CPU median/p95/max、Wall max、非 ok 數、Free 10ms 參考線到達數。任何樣本不足、異常或接近上限都不得視為風險已清除；就算全部樣本低於 10 ms 也不能宣稱性能驗收、Access 保護或遠端部署可行。
+- 不連 Cloudflare、不讀 Token、不讀取 request URLs/IP/headers/IDs，未知資料鍵直接拒絕以避免私人資料誤入；輸出永遠固定 `platform_log_provenance_verified:false`、`remote_cpu_independently_verified:false`、`live_cloudflare_access_verified:false` 與 `deployment_authorized:false`。
+- 應同步人工將新工具／測試檔的 SHA-256 加入封閉白名單，新增 CLI / schema / timestamp / 失敗 outcome / Free 10 ms / wall-vs-CPU 反例回歸。後續 Hosted CI 與正式 Codex Review 以最新 HEAD 為準。沒有進行真實 Cloudflare 部署、Access/D1 修改或 Hosted CPU 測試。

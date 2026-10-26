@@ -161,3 +161,5 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 **PR #21 安全檢查加強：** SHA-256 白名單也涵蓋所有目前的 Cloudflare 傳遞 import、`src/`、`tests/*.test.js`、資料庫 SQL、前端模組與 Wrangler 設定，使用遞迴封閉檔案清單避免新檔案繞過。僅更改 `cloudflare/auth-core.mjs` 或測試入口，就會讓 Preflight 失敗。這依然只是原始碼／CI 完整性證據，**不表示遠端 Cloudflare Access 已驗證或允許部署**。
 
 **私人 Access 證據離線稽核（RB-034，開發中）：** [填寫規範與判定邊界](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md) 與 [無敏感值 JSON 樣板](docs/hosted-access-private-evidence.template.json)。將樣板複製到 Git Repo **外**的私有目錄後才可執行 `node tools/hosted-access-evidence-audit.mjs <private-file.json>`；完成表單**不代表**真的驗證了 Cloudflare Access，也不授權部署。
+
+**Hosted CPU 平台觀測離線分析（RB-035，開發中）：** `node tools/hosted-cpu-log-offline-audit.mjs <repo外私有去識別化JSON>`，依 Cloudflare Workers invocation logs 的 `cpuTimeMs`、`wallTimeMs`、`outcome` 做只讀統計與 Free 10ms 風險提示；[填寫與安全 SOP](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md)。範例為**虛構數值**；工具不能證明平台資料真偽、Cloudflare Access 安全或部署授權。

@@ -30,6 +30,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "部署檢查.bat":"879861ecf25c36aaf9879d5c0970ead4275e227f6bee50ee7cf65ad951a719f4",
   "vercel-demo/README.md":"18ffdff6ea0d1ea025ecc334f032b1b957ee329678f5edada1d8837881bfc300",
   "vercel-demo/index.html":"0752239d4291ac4bc93d9314a321e55684e532950b8913b97c510094683f9769",
   "vercel-demo/mock.js":"fbaa4a287804c6af5b20ca96e226a0590b4787c738673b71515cd900e02211d5",

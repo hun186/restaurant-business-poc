@@ -54,3 +54,11 @@
 3. **再授權**：另開啟用 PR，走 Code Review、Hosted CI、遠端 Access 事實證據、顯式允許測試入口與人工小批量測；從 [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) 取得真正 invocation CPU/Wall/Outcome/error。**不得用 Worker 自訂回應的計時推論 CPU quota。**
 
 **Cloudflare Preview Build 成功只代表原專案 Preview 工作流程成功，不代表新的 Hosted 探針已部署或 Access 已通過。**
+
+## 2026-10-26｜Codex 初審兩項 P2 修正
+
+- **P2-1，安全守衛內容指紋**：原先僅用正規表示式搜尋 \`PROBE_ENABLED\` 和 \`ctx.access\` 字串，無法辨識 \`if(false && ...)\` 的守衛停用。現在新增 \`tools/cloudflare-hosted-probe-approved-sha256.mjs\`，將兩支已審核的 Hosted Worker Source **原始位元組 SHA-256** 固定在白名單；任何 guard 程式改動會直接失敗。測試重現將 disabled 與 Audience 判斷包在 \`false &&\` 的繞過案例。
+- **P2-2，委派腳本與 Actions**：封閉五個既有 Workflow 名單與 SHA-256；所有已審核的 \`tools/\` 本機執行檔及 \`package.json\` 也固定 SHA-256。新增／修改 Workflow、委派腳本（例如 \`run: bash tools/deploy-probe.sh\`）、新增本機 Composite Actions、隱藏部署在既有腳本中，都不會只因 YAML 未直接提到專用 config 而被放行。新增惡意委派腳本、改寫既有工具、增加本機 Action 的負向 fixture。
+- **使用限制**：這是**封閉版本**白名單。今後正常修改 Worker、Workflow、工具或 \`package.json\` 前，需人工複審差異後才更新批准雜湊。**不得自動掃描檔案再自動更新白名單**。Preflight CLI 本身與雜湊白名單仍需 Code Review，不是不可篡改的簽章，不能取代 branch protection。
+- 靜態輸出維持 \`live_cloudflare_access_verified:false\`、\`version_and_deployment_url_exposure_verified:false\`、\`remote_cpu_verified:false\`、\`deployment_authorized:false\`。CI PASS **不能**證明 Cloudflare 遠端實際受 Access 保護，也不是部署授權。
+

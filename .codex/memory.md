@@ -252,3 +252,9 @@
 - 已於 PR #21 原分支擴大 `APPROVED_TRANSITIVE_DEPENDENCIES_SHA256`，鎖定 `cloudflare/`、`db/`、`public/`、`src/`、`tests/`、`vercel-demo/` 全部當前原始碼/資產與根目錄執行／Wrangler 設定；原 Worker Source、五個 Workflow、`tools/` 和 package.json 繼續釘選。資料夾與根目錄執行檔均封閉清單；不只 regex、也非只鎖最上層入口。
 - `tests/cloudflare-hosted-probe-preflight.test.js` 新增篡改 `auth-core.mjs`、其他傳遞載入模組、現存測試檔／SQL／前端程式、以及新增來源檔與新測試入口的 fail-closed fixture。檢查器先發現 digest 變更時可回傳 `E_UNREVIEWED_TRANSITIVE_DEPENDENCY`，故同步調整舊測試對拒絕錯誤碼的預期，惡意內容仍須被拒。
 - 以上屬**程式碼與靜態 CI**，並非 Cloudflare 遠端 Hosted CPU 實測。最新 HEAD Hosted CI／Codex 複審和 P2 Thread Resolve 均要再次核實。未經使用者明確授權不得 Merge、Cloudflare 部署、Access 變更或操作 D1。
+
+## 2026-10-26｜PR #21 第三輪 Codex P2：根目錄 .npmrc 注入缺口
+
+- 正式 Codex Review 已對舊 HEAD `a6e00bff0f47572ab1835577d8838637606473e1` Completed；新 P2 Finding `4373339968`、Thread `PRRT_kwDOVUuF1c6wHNCT`：未審核的根目錄 `.npmrc` 會被 npm/npx 讀取，`node-options=--import=...` 可注入額外執行程式，但原本僅按副檔名篩選的 root 閉包會漏過。
+- 本輪在 `tools/cloudflare-hosted-probe-preflight.mjs` 對根目錄任何 `.npmrc`（含空檔案）明確 fail-closed（`E_UNREVIEWED_NPM_CONFIG`）；`tests/cloudflare-hosted-probe-preflight.test.js` 加入只建立該檔的 `node-options`、`script-shell` 與空檔負向 fixture，沒有執行 payload；更新人工審核的該測試檔 SHA-256 指紋，其餘 approved digest 不變。
+- 此修正只能驗證 PR checkout 的靜態檔案，**不會認證 runner 主機/npm 全域設定或遠端 Access**；必須依最新 HEAD 確認五個 Hosted CI Jobs 與正式 Codex 複審，並處理 Review Thread。未經使用者授權不得 Merge、Cloudflare 部署、Access 變更、D1 寫入或公開登入。

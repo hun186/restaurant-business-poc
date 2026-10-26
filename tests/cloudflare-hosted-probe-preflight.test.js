@@ -275,6 +275,23 @@ test('pinned manifest closes all transitive and test paths, including imported a
   assert.ok(approved.APPROVED_TRANSITIVE_DEPENDENCIES_SHA256['cloudflare/auth-core.mjs']);
   assert.ok(approved.APPROVED_TRANSITIVE_DEPENDENCIES_SHA256['tests/core.test.js']);
 });
+test('P2: unreviewed root .npmrc must fail closed before npm/npx can read it',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const cases=[
+    "node-options=--import=data:text/javascript,console.error('UNREVIEWED_NPMRC_CODE_EXECUTED')\\n",
+    'script-shell=/bin/sh\\n',
+    ''
+  ];
+  for(const source of cases){
+    const dir=await clone();
+    try{
+      assert.equal(inspectHostedProbeStatic(dir).result,'HOSTED_PROBE_STATIC_PREFLIGHT_PASS');
+      fs.writeFileSync(path.join(dir,'.npmrc'),source);
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_UNREVIEWED_NPM_CONFIG/);
+    }finally{fs.rmSync(dir,{recursive:true,force:true});}
+  }
+});
+
 test('the preflight never accesses Cloudflare API or pretends static equals live Access approval',async()=>{
   const src=fs.readFileSync(path.join(root,'tools/cloudflare-hosted-probe-preflight.mjs'),'utf8');
   assert.doesNotMatch(src,/\bfetch\s*\(|https?:\/\/api\.cloudflare\.com|CLOUDFLARE_API_TOKEN|execSync|spawn\s*\(/);

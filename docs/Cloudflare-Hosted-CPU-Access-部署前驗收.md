@@ -77,3 +77,30 @@
 - Windows Git checkout 使用 CRLF 時僅將換行正規化為 LF 再計算 SHA-256，其餘程式文字不放寬。SHA 白名單不是自動產生通行證：後續任何合法改動都須人工比對差異、審核後手動更新，並重新跑 CI 與正式 Codex Review。
 
 此檢查只證明所審核 checkout 的程式/設定完整性，**不是** Cloudflare 遠端 Access、Worker Version URLs、D1 或 Hosted CPU 實站驗收證據。絕不自動部署或給予遠端修改授權。
+
+## 2026-10-27｜私人遠端證據紀錄的一致性稽核（RB-034）
+
+PR #21 已合併，`main` Commit `85f055e745931b280818b9fdad0c1cb9b4ea1833` 的 push CI Run #40375126939 **completed/success 5/5**；原始碼的離線靜態安全檢查已納入 main。下一步仍是 **Cloudflare 實站 Access 與所有 URL 曝露查核**，不是自動部署或開啟探針。
+
+在工作站複製 [不含真實資料的 JSON 樣板](hosted-access-private-evidence.template.json) 至 **Git Repository 外**的受控私有路徑，再由具實際 Cloudflare 存取權的管理員逐項查核。請勿在 GitHub、PR、CI、Issue、聊天截圖或公開文件填寫真實 Account ID、Worker ID、AUD、Token、Cookie、密碼、URL 或員工個資。
+
+```bash
+# 請自行先把範本複製到 Git 工作樹外的私有目錄，並填寫查核狀態
+node tools/hosted-access-evidence-audit.mjs "/private/location/access-record.json"
+```
+
+此腳本 **只有本機檔案讀取及結構檢查**，不讀取 Cloudflare Secrets、不連網、不讀 D1，也不呼叫 Wrangler。輸入欄位固定為 `schema_version=1`、獨立專用 Worker 名稱、UTC 檢查時間與十二項逐條確認布林值，未知欄位直接拒絕，防止把秘密或自由文字放入 CLI；最多接受 16 KiB 的非 symlink JSON，並拒絕從 Repo 目錄內讀取私人紀錄。CLI 不回顯檔案內容／帳號識別。
+
+檢核包含：正確帳戶與 Worker ID、Destination `worker`（非 `preview_worker`）、All traffic、沒有 Bypass/Everyone 或過寬規則、hostname/path 優先權及 account fallback、所有 Routes/Custom Domains、`workers.dev`、Version/Preview/Deployment URL、disabled 狀態、私下保存憑證及獨立人員覆核。時間需為 UTC，超過 48 小時或超過未來 5 分鐘皆視為資料不完整。
+
+- **Exit 0：`EVIDENCE_RECORD_COMPLETE_NOT_VERIFIED`**：只代表**人工勾選紀錄格式完整、時間未逾期**，絕不表示遠端事實已被程式驗證。
+- **Exit 2：`EVIDENCE_RECORD_INCOMPLETE`**：有未確認關卡；輸出只列不完整的公開欄位名稱，不列任何填入的實際值。
+- **Exit 1：`HOSTED_ACCESS_PRIVATE_RECORD_FAIL`**：檔案位置、型別、欄位結構或 JSON 不合規；只輸出固定錯誤碼。
+
+**無論 Exit 0 或勾選全部 true**，輸出永遠保持 `live_cloudflare_access_verified:false`、`version_and_deployment_url_exposure_verified:false`、`remote_cpu_verified:false`、`deployment_authorized:false`。後續仍須由具有 Cloudflare 後台權限的獨立審查者，透過真正 Cloudflare 設定與拒絕未授權存取的實站證據核對；完成後還須取得使用者另行明確授權，才可啟動**獨立 disabled Worker** 部署。**此工具不能作為部署授權開關**。
+
+依據 Cloudflare 官方文件：
+- [Access / Worker protection and rule hierarchy](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)
+- [workers.dev 及其他 Version/Preview/Deployment URL 的差異](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
+- [Version URLs](https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/)
+- [Previews and Deployment URLs](https://developers.cloudflare.com/workers/previews/)

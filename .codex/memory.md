@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17/#18/#19/#20 已 Merge；PR #20 Merge SHA `add71c83b96e31d9428b22e4e8971770eed88d71`，Access 保護合成 PBKDF2 Hosted 探針**僅程式碼存在、遠端未部署**。staging D1 0002 Run #40204026605 遠端 PASS；本機 workerd 三樣本 Run #40208993373 wall median 79/79/78 ms，不是 Hosted CPU。Production D1 未初始化、公開 Login 仍 503。當前分支 `feat/hosted-cpu-access-preflight-20261026` 開發**只讀取 Repo 的離線**靜態 preflight 與 Access hostname hierarchy／Version URL 實站驗收 SOP；靜態 PASS 不代表 Cloudflare 遠端 Access 真正通過。本輪無遠端寫入/部署，需以最新 HEAD 驗 CI/Codex，未授權不 Merge。
+- 首要目標：PR #17–#21 已 Merge，最新 PR #21 main Squash Commit `85f055e745931b280818b9fdad0c1cb9b4ea1833`，合併後 Hosted CI #40375126939 **5/5 PASS**，正式 Codex Review 對 `7da292aa56` 無新重大問題，8/8 歷史 Review Threads 已 Resolve。Access 合成 PBKDF2 Hosted 探針**程式碼存在但遠端未部署**，Production Login 仍不公開。下一工項 RB-034 僅針對管理員私下的 Access/版本 URL 查核紀錄提供**離線格式完整性檢查**，仍不等於 Cloudflare 真實遠端 Access 驗證，也非部署許可；正式 Hosted CPU time 未測。新 PR 需以 HEAD CI/Codex 再確認，不得自行 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -277,3 +277,10 @@
 - 上輪正式 Codex Review 對過程 HEAD `1a000f677f4241c371882a2c8d7a841c905d8ac6` 完成，新增兩個 P2 Findings `437986...`（依新 Threads 的實際 ID）指出 Workflow 順序測試：`run: npm ...` 解析遺漏，以及 Windows CRLF 與測試內固定 LF 不一致。
 - 已在後續 Commit 將 `run: npm/npx` 具名步驟也納入掃描，使 5 個 Workflow 共 6 個 Jobs 確實統計；本輪於 `assertOrder` 入口與 verify fixture 均正規化 CRLF→LF，增加每支 Workflow CRLF 模擬與顛倒步驟後仍拒絕的 CRLF 負向回歸。同步手工更新新增測試的 SHA-256，其餘 approved workflow hashes 不變。
 - 尚需核對最終 HEAD Hosted CI 與正式 Codex Review。未 Merge，不啟動遠端 Cloudflare、Access 或 D1。
+
+## 2026-10-27｜PR #21 已合併、RB-034 私人證據表單離線稽核
+
+- **主線已驗證**：PR #21 Squash Merge `85f055e745931b280818b9fdad0c1cb9b4ea1833`，合併後 push CI Run #40375126939 completed/success 5/5。安全 Workflow 首次 npm/npx 前執行固定 Node preflight；正式 Codex Review（最後 PR HEAD `7da292aa56`）無新重大問題、八個歷史 Threads 已 Resolve。
+- **本輪 RB-034 開發內容**：`tools/hosted-access-evidence-audit.mjs` 離線查核私人 JSON 結構／指定獨立 Worker／十二條 Access/URL/Policy 人工勾選條件、48h 時效；新增無真實資訊的樣板與負向回歸測試。工具不連 Cloudflare、不讀 Token、不部署、不印私有值，完成表單時仍固定 `live_cloudflare_access_verified:false` 和 `deployment_authorized:false`。證據應放 Git Repo 外，不能寫入 Public Repo。
+- **SHA-256 管控**：新 tools 程式與新 tests 檔案須由人核對並加入既有固定 SHA-256 清單；其他已審核 digest 不變。PR 最新 CI/正式 Codex Review 未完成前不可報為已驗收或 Merge。
+- **後續**：具權限管理員須獨立在 Cloudflare 後台查核 Worker-level Access All traffic、host/path 優先級、Bypass、Version/Preview/Deployment URLs，將證據保留私下；使用者另行授權前不部署 dedicated Worker、也不操作遠端 Access/D1/Hosted CPU。

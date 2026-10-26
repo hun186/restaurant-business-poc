@@ -6,7 +6,8 @@ import { createHash } from 'node:crypto';
 import {
   APPROVED_PROBE_SHA256,
   APPROVED_WORKFLOW_SHA256,
-  APPROVED_LOCAL_EXEC_SHA256
+  APPROVED_LOCAL_EXEC_SHA256,
+  APPROVED_TRANSITIVE_DEPENDENCIES_SHA256
 } from './cloudflare-hosted-probe-approved-sha256.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -60,6 +61,43 @@ function assertReviewedExecutableGraph(root){
   assertClosedInventory(root,'tools',toolsAllowed,'E_UNREVIEWED_LOCAL_EXECUTABLE');
   for(const [relative,digest] of Object.entries(APPROVED_LOCAL_EXEC_SHA256))
     assertReviewedSHA256(root,relative,digest,'E_UNREVIEWED_LOCAL_EXECUTABLE');
+
+  // Conservative, reviewed superset of all transitive imports, requires,
+  // test entry points, executable browser assets, migrations and config files.
+  // Unlike workflow/entrypoint-only pinning, editing cloudflare/auth-core.mjs
+  // or any tests/*.test.js fails even when all top-level tools remain unchanged.
+  const AUDITED_DIRS=['cloudflare','db','public','src','tests','vercel-demo'];
+  const closedFiles=(directory)=>{
+    const found=[];
+    const visit=(relative)=>{
+      for(const entry of fs.readdirSync(path.join(root,relative),{withFileTypes:true})){
+        const child=relative+'/'+entry.name;
+        if(entry.isDirectory())visit(child);
+        else if(entry.isFile())found.push(child);
+        else throw new Error('E_UNREVIEWED_TRANSITIVE_DEPENDENCY');
+      }
+    };
+    visit(directory);
+    return found.sort();
+  };
+  const audited={...APPROVED_TRANSITIVE_DEPENDENCIES_SHA256,
+    ...APPROVED_PROBE_SHA256};
+  for(const folder of AUDITED_DIRS){
+    const actual=closedFiles(folder);
+    const expected=Object.keys(audited).filter(x=>x.startsWith(folder+'/')).sort();
+    assert(JSON.stringify(actual)===JSON.stringify(expected),
+      'E_UNREVIEWED_TRANSITIVE_DEPENDENCY');
+  }
+  // Root execution/config entrypoints are also locked to reviewed files.
+  const actualRoot=fs.readdirSync(root,{withFileTypes:true})
+    .filter(x=>x.isFile() && /\.(?:js|cjs|mjs|jsonc?|bat|cmd|ps1|sh)$/.test(x.name))
+    .map(x=>x.name).sort();
+  const approvedRoot=Object.keys({...APPROVED_TRANSITIVE_DEPENDENCIES_SHA256,
+    ...APPROVED_LOCAL_EXEC_SHA256}).filter(x=>!x.includes('/')).sort();
+  assert(JSON.stringify(actualRoot)===JSON.stringify(approvedRoot),
+    'E_UNREVIEWED_TRANSITIVE_DEPENDENCY');
+  for(const [relative,digest] of Object.entries(APPROVED_TRANSITIVE_DEPENDENCIES_SHA256))
+    assertReviewedSHA256(root,relative,digest,'E_UNREVIEWED_TRANSITIVE_DEPENDENCY');
 
   const actions=path.join(root,'.github/actions');
   assert(!fs.existsSync(actions) || fs.readdirSync(actions).length===0,
@@ -122,6 +160,7 @@ export function inspectHostedProbeStatic(root){
     access_runtime_guard_present:true,
     reviewed_guard_sha256_verified:true,
     reviewed_workflow_and_executables_sha256_verified:true,
+    reviewed_transitive_dependencies_sha256_verified:true,
     live_cloudflare_access_verified:false,
     version_and_deployment_url_exposure_verified:false,
     remote_cpu_verified:false,

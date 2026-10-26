@@ -14,15 +14,28 @@ const modules=[
   'cloudflare/worker.mjs'
 ];
 const preflightPromise=import('../tools/cloudflare-hosted-probe-preflight.mjs');
-function clone(){
+const approvalPromise=import('../tools/cloudflare-hosted-probe-approved-sha256.mjs');
+async function clone(){
+  const approved=await approvalPromise;
+  const files=[
+    probePath,prodPath,...modules,
+    ...Object.keys(approved.APPROVED_PROBE_SHA256),
+    ...Object.keys(approved.APPROVED_WORKFLOW_SHA256),
+    ...Object.keys(approved.APPROVED_LOCAL_EXEC_SHA256),
+    'tools/cloudflare-hosted-probe-preflight.mjs',
+    'tools/cloudflare-hosted-probe-approved-sha256.mjs'
+  ];
   const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'rb-probe-preflight-'));
-  for(const f of [probePath,prodPath,...modules]){
-    const dst=path.join(tmp,f);fs.mkdirSync(path.dirname(dst),{recursive:true});
-    fs.copyFileSync(path.join(root,f),dst);
+  try{
+    for(const file of new Set(files)){
+      const dst=path.join(tmp,file);fs.mkdirSync(path.dirname(dst),{recursive:true});
+      fs.copyFileSync(path.join(root,file),dst);
+    }
+    return tmp;
+  }catch(err){
+    fs.rmSync(tmp,{recursive:true,force:true});
+    throw err;
   }
-  fs.mkdirSync(path.join(tmp,'.github/workflows'),{recursive:true});
-  fs.copyFileSync(path.join(root,'.github/workflows/verify.yml'),path.join(tmp,'.github/workflows/verify.yml'));
-  return tmp;
 }
 function editJson(dir,file,mutate){
   const p=path.join(dir,file);
@@ -63,7 +76,7 @@ test('fails closed if any remote routes, bindings, values or new config keys are
     x=>x.name='restaurant-business-poc'
   ];
   for(const change of mutations){
-    const dir=clone();
+    const dir=await clone();
     try{
       editJson(dir,probePath,change);
       assert.throws(()=>inspectHostedProbeStatic(dir),/E_HOSTED_PROBE_/);
@@ -77,7 +90,7 @@ test('fails closed if production routing or auth phase changes',async()=>{
     x=>x.previews.vars.CLOUD_AUTH_PHASE='enabled',
     x=>x.main='./cloudflare/pbkdf2-hosted-access-worker.mjs'
   ]){
-    const dir=clone();
+    const dir=await clone();
     try{
       editJson(dir,prodPath,change);
       assert.throws(()=>inspectHostedProbeStatic(dir),/E_PROD_WORKER_ISOLATION/);
@@ -97,16 +110,96 @@ test('fails closed on missing Access guard, fabricated wall timings or automatic
       'name: deploy\nrun: wrangler.pbkdf2-hosted-disabled.jsonc\n')
   ];
   const expected=[
-    'E_ACCESS_RUNTIME_GUARD_MISSING','E_HOSTED_CLOCK_VALUE_UNTRUSTED',
-    'E_PROD_WORKER_PROBE_IMPORT','E_HOSTED_PROBE_DEPLOY_WORKFLOW_FORBIDDEN'
+    'E_ACCESS_GUARD_SHA256_CHANGED','E_ACCESS_GUARD_SHA256_CHANGED',
+    'E_PROD_WORKER_PROBE_IMPORT','E_UNREVIEWED_WORKFLOW'
   ];
   for(let i=0;i<cases.length;i++){
-    const dir=clone();
+    const dir=await clone();
     try{
       cases[i](dir);
       assert.throws(()=>inspectHostedProbeStatic(dir),new RegExp(expected[i]));
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
+});
+test('P2: retaining guard text inside false branches must FAIL via SHA-256',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const cases=[
+    source=>source.replace(
+      "if(env?.PROBE_ENABLED!=='access-only')",
+      "if(false && env?.PROBE_ENABLED!=='access-only')"
+    ),
+    source=>source.replace(
+      "if(!accessAudienceIsValid(env.PROBE_ACCESS_AUD) ||",
+      "if(false && (!accessAudienceIsValid(env.PROBE_ACCESS_AUD) ||"
+    ).replace(
+      "ctx.access.aud!==env.PROBE_ACCESS_AUD)",
+      "ctx.access.aud!==env.PROBE_ACCESS_AUD))"
+    )
+  ];
+  for(const mutate of cases){
+    const dir=await clone();
+    try{
+      editText(dir,'cloudflare/pbkdf2-hosted-access-worker.mjs',mutate);
+      // The changed file retains original regex strings, but is unsafe.
+      const src=fs.readFileSync(path.join(dir,'cloudflare/pbkdf2-hosted-access-worker.mjs'),'utf8');
+      assert.match(src,/PROBE_ENABLED!=='access-only'/);
+      assert.match(src,/ctx\.access\.aud!==env\.PROBE_ACCESS_AUD/);
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_ACCESS_GUARD_SHA256_CHANGED/);
+    }finally{
+      fs.rmSync(dir,{recursive:true,force:true});
+    }
+  }
+});
+test('P2: delegated deploy in new workflow and changed delegated script fail closed',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const cases=[
+    dir=>{
+      fs.writeFileSync(path.join(dir,'.github/workflows/deploy-probe.yml'),
+        'name: deploy-probe\non: workflow_dispatch\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash tools/deploy-probe.sh\n');
+      fs.writeFileSync(path.join(dir,'tools/deploy-probe.sh'),
+        'npx wrangler deploy --config wrangler.pbkdf2-hosted-disabled.jsonc\n');
+    },
+    dir=>editText(dir,'.github/workflows/verify.yml',text=>
+      text+'\n# innocent-looking script delegation\n# run: bash tools/deploy-probe.sh\n'),
+    dir=>editText(dir,'tools/cloudflare-staging-owner.mjs',text=>
+      text+'\n// Delegated code changed to include remote deployment.\n'),
+    dir=>{
+      fs.mkdirSync(path.join(dir,'.github/actions/probe'),{recursive:true});
+      fs.writeFileSync(path.join(dir,'.github/actions/probe/action.yml'),
+        'name: probe\nruns:\n  using: composite\n  steps:\n    - run: echo demo\n      shell: bash\n');
+    }
+  ];
+  const errors=[
+    /E_UNREVIEWED_WORKFLOW/,
+    /E_UNREVIEWED_WORKFLOW/,
+    /E_UNREVIEWED_LOCAL_EXECUTABLE/,
+    /E_UNREVIEWED_LOCAL_ACTION/
+  ];
+  for(let n=0;n<cases.length;n++){
+    const dir=await clone();
+    try{
+      cases[n](dir);
+      assert.throws(()=>inspectHostedProbeStatic(dir),errors[n]);
+    }finally{
+      fs.rmSync(dir,{recursive:true,force:true});
+    }
+  }
+});
+test('pinned SHA-256 manifest exactly covers present workflows and delegated tools',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const approved=await approvalPromise;
+  const result=inspectHostedProbeStatic(root);
+  assert.equal(result.reviewed_guard_sha256_verified,true);
+  assert.equal(result.reviewed_workflow_and_executables_sha256_verified,true);
+  const workflows=fs.readdirSync(path.join(root,'.github/workflows')).sort();
+  assert.deepEqual(workflows,Object.keys(approved.APPROVED_WORKFLOW_SHA256)
+    .map(x=>path.basename(x)).sort());
+  const scripts=fs.readdirSync(path.join(root,'tools')).sort();
+  assert.deepEqual(scripts,[
+    ...Object.keys(approved.APPROVED_LOCAL_EXEC_SHA256).filter(x=>x.startsWith('tools/')).map(x=>path.basename(x)),
+    'cloudflare-hosted-probe-preflight.mjs',
+    'cloudflare-hosted-probe-approved-sha256.mjs'
+  ].sort());
 });
 test('the preflight never accesses Cloudflare API or pretends static equals live Access approval',async()=>{
   const src=fs.readFileSync(path.join(root,'tools/cloudflare-hosted-probe-preflight.mjs'),'utf8');

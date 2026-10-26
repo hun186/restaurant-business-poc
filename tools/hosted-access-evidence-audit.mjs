@@ -60,14 +60,21 @@ export function auditPrivateAccessEvidence(record,nowMs=Date.now()){
   });
 }
 
+// On Windows, path.relative() returns an absolute path for another drive.
+// That is outside the repo, NOT an inside-repo path.
+export function isOutsideRepository(repo,target,platformPath=path){
+  const relative=platformPath.relative(repo,target);
+  return platformPath.isAbsolute(relative) || relative==='..' ||
+    relative.startsWith('..'+platformPath.sep);
+}
+
 const script=fileURLToPath(import.meta.url);
 if(process.argv[1] && path.resolve(process.argv[1])===script){
   try{
     if(process.argv.length!==3)throw new Error('E_EVIDENCE_FILE_ARGUMENT_REQUIRED');
     const target=path.resolve(process.argv[2]);
     const repo=path.resolve(path.dirname(script),'..');
-    const rel=path.relative(repo,target);
-    if(!rel.startsWith('..'+path.sep) && rel!=='..')
+    if(!isOutsideRepository(repo,target))
       throw new Error('E_PRIVATE_EVIDENCE_MUST_BE_OUTSIDE_REPO');
     if(path.extname(target).toLowerCase()!=='.json')
       throw new Error('E_EVIDENCE_JSON_EXTENSION_REQUIRED');
@@ -76,8 +83,7 @@ if(process.argv[1] && path.resolve(process.argv[1])===script){
       throw new Error('E_EVIDENCE_FILE_TYPE_OR_SIZE');
     // Do not allow indirection back into the public repository.
     const real=fs.realpathSync(target);
-    const realRel=path.relative(repo,real);
-    if(!realRel.startsWith('..'+path.sep) && realRel!=='..')
+    if(!isOutsideRepository(repo,real))
       throw new Error('E_PRIVATE_EVIDENCE_MUST_BE_OUTSIDE_REPO');
     let record;
     try{record=JSON.parse(fs.readFileSync(target,'utf8'));}

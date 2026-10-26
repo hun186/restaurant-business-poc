@@ -90,6 +90,16 @@ test('CLI rejects repository-local evidence before opening and missing arguments
   assert.equal(inRepo.status,1);
   assert.match(inRepo.stderr,/E_PRIVATE_EVIDENCE_MUST_BE_OUTSIDE_REPO/);
 });
+test('Windows distinct drives are outside the repository; sibling and prefix paths are handled',async()=>{
+  const {isOutsideRepository}=await promise;
+  const w=path.win32;
+  const repo='D:\\a\\restaurant-business-poc\\restaurant-business-poc';
+  assert.equal(isOutsideRepository(repo,'C:\\Users\\runneradmin\\AppData\\Local\\Temp\\evidence.json',w),true);
+  assert.equal(isOutsideRepository(repo,'D:\\a\\restaurant-business-poc\\restaurant-business-poc\\tests\\evidence.json',w),false);
+  assert.equal(isOutsideRepository(repo,'D:\\a\\restaurant-business-poc\\other\\evidence.json',w),true);
+  assert.equal(isOutsideRepository(repo,'D:\\a\\restaurant-business-poc\\restaurant-business-poc-copy\\evidence.json',w),true);
+  assert.equal(isOutsideRepository(repo,repo,w),false);
+});
 test('no Cloudflare API, token, network or subprocess execution in audit CLI',()=>{
   const src=fs.readFileSync(cli,'utf8');
   assert.doesNotMatch(src,/api\.cloudflare\.com|fetch\s*\(|https\.request|execSync|spawnSync|CLOUDFLARE_API_TOKEN/);

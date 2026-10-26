@@ -284,3 +284,9 @@
 - **本輪 RB-034 開發內容**：`tools/hosted-access-evidence-audit.mjs` 離線查核私人 JSON 結構／指定獨立 Worker／十二條 Access/URL/Policy 人工勾選條件、48h 時效；新增無真實資訊的樣板與負向回歸測試。工具不連 Cloudflare、不讀 Token、不部署、不印私有值，完成表單時仍固定 `live_cloudflare_access_verified:false` 和 `deployment_authorized:false`。證據應放 Git Repo 外，不能寫入 Public Repo。
 - **SHA-256 管控**：新 tools 程式與新 tests 檔案須由人核對並加入既有固定 SHA-256 清單；其他已審核 digest 不變。PR 最新 CI/正式 Codex Review 未完成前不可報為已驗收或 Merge。
 - **後續**：具權限管理員須獨立在 Cloudflare 後台查核 Worker-level Access All traffic、host/path 優先級、Bypass、Version/Preview/Deployment URLs，將證據保留私下；使用者另行授權前不部署 dedicated Worker、也不操作遠端 Access/D1/Hosted CPU。
+
+## 2026-10-27｜RB-034 Windows CI 跨磁碟來源路徑誤拒
+
+- 初版 PR #22 HEAD `2e100e8875f40d808ab67b70b96097d83962d2df` Ubuntu22/24、workerd smoke PASS，但 Windows Node24 Run #40376870321 在 CLI 私有暫存檔測試中失敗，因 Runner checkout 在 D:，`os.tmpdir()` 可能位於 C:。Windows `path.relative(D:, C:)` 返回絕對目標路徑，不是以 `..` 開頭，原程式誤把非 Repo 檔案當成 Repo 內部。
+- 對字串路徑與 realpath 雙重查核都改由 `isOutsideRepository()` 統一判斷；跨磁碟時 `path.isAbsolute(relative)` 視為外部，子路徑仍拒絕。新增 win32 跨磁碟、Repo 內、相鄰目錄、同前綴目錄及 Repo 根路徑的負向/正向回歸。同步人工更新**僅兩個變更檔**的 SHA-256 白名單。
+- 必須按新 HEAD 核對 Windows/Ubuntu Node22/24 Hosted CI 與正式 Codex Review；仍無遠端部署或 Access/D1 操作。

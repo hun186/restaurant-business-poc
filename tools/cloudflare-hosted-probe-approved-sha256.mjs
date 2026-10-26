@@ -30,6 +30,22 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "public/app.js":"5d205b563a971c5331ff28fa0794c1398137d3ae27a5cda1dc1583498290422e",
+  "public/backup-ui.js":"4b9f3bc7c86c6ae24e92568172c62a024b9fee868bb57b6aef872c60c4ec46d7",
+  "public/index.html":"24e7ca3a1fe36801dcd958aaa460c274172c6c9d69ffca2afc5902174dc5c82f",
+  "public/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
+  "public/report-ui.js":"65bcd9f3a36cba6b05a8f566e74b825c2aa48a15ffb19ce59091844ffaf47752",
+  "public/styles.css":"64bbe3755a8c85a7d912c4750458e306df912b848df21cd1aa15bae36fae65d1",
+  "public/xlsx-lite.js":"197df982a0b7835778422b43e4521376b14af1d7339c587a371fb3767b6a7630",
+  "src/backup-acl.js":"6711f4b2681808bbe583095040e9c5005c3ceb810f6f0a936cb334e7580629f4",
+  "src/backup-manager.js":"8d2a28456621557933c59bc19d239708832c68ae7aab092bb0a52bc45cd0e5b0",
+  "src/backup-worker.js":"dccc00adaf3c1dd3a1f25ded9a8dcd4f60fb79c88f10fab20ac7314b306d17bd",
+  "src/db.js":"74b975176bf2c5813b198782baf299e4e64d9ea245baad500af036b78c0bdcb5",
+  "src/order-batches.js":"8cc1a7ea90528b7407e846d8645dd94ac54f08c2c4f2471ecc936e5d60efa95b",
+  "src/pricing.js":"895858e6936155dcda46d7d451fdae26ba139ca6aab26a4414eb16f2d1e6ae33",
+  "src/request-ip.js":"5127c470a065e4ceddde47cd0762bc18bd2e110a569a13f427eb02cc15abb800",
+  "src/security.js":"7ed9547085a65205b2f174fcd942780f18f6bc49a4d9ad874f9ec159c60f2ee5",
+  "src/service.js":"b0edcccfcffd686fb9522b9486ba42838452a6abbb081d1972b8b7b6ebee63a8",
   "cloudflare/auth-core.mjs":"e9acfa72ca8edbac0497e7855fb3fc3408b1a53661ba2b8ff978c12f7c54f7f6",
   "cloudflare/d1-readiness.mjs":"76c2c9be11d3ed4e7b689d883382a0189e29a8bacbb4679e05fecd9bc714e593",
   "cloudflare/identity.mjs":"36b3e99c4596398f39022ac4498f35d1271aacdad27368c41812e01383473b40",

@@ -23,3 +23,11 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/reset-owner-password.js":"86cb87cd9cbfaf0dfcbbae89c0f19d6e92b50c260b30d72a10c925f6e2c3c80d",
   "tools/run-pbkdf2-local-workerd.mjs":"042a46377d9aa3d5c0e0f61ba71fadf620b78f0b0df1205f4e349f1bf65bd182"
 });
+
+// Full reviewed execution surface, including transitive Node imports/requires,
+// tests/*.test.js, browser modules/assets, SQL and all Wrangler configurations.
+// This is an intentionally conservative superset of the executable dependency
+// graph; the preflight enforces closed inventories for every listed directory.
+// Never auto-regenerate hashes in CI. Update after human review only.
+export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+});

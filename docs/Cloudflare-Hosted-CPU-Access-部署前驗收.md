@@ -104,3 +104,26 @@ node tools/hosted-access-evidence-audit.mjs "/private/location/access-record.jso
 - [workers.dev 及其他 Version/Preview/Deployment URL 的差異](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
 - [Version URLs](https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/)
 - [Previews and Deployment URLs](https://developers.cloudflare.com/workers/previews/)
+
+## 2026-10-27｜Workers 平台 CPU/Wall 觀測紀錄的離線分析（RB-035）
+
+本階段新增 `tools/hosted-cpu-log-offline-audit.mjs`，目的為**將日後由 Cloudflare 管理員從 Workers invocation logs 取得、手工去識別化的三類合成 PBKDF2 操作**做離線資料品質／風險摘要。此工具**不會**發出請求到 Cloudflare、不讀 Token、不觸發部署、不開啟 Worker、**無法確定人工數值是由平台實測得來**。
+
+### 證據來源與格式
+
+依 [Cloudflare Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/)（last updated 2026-10-12）及 [Cloudflare Workers Observability 結構欄位](https://developers.cloudflare.com/api/resources/workers/subresources/observability/)：
+- 限用 invocation 事件（`$cloudflare.$metadata.type=cf-worker-event`）對應的 **`$workers.cpuTimeMs`**、`$workers.wallTimeMs`、`$workers.outcome`（例如 `ok`、`exceededCpu`、`exception`）；絕對**不能**用自行回傳的 `wall_ms`、`performance.now()` 或本機 workerd 計時代替 Hosted CPU。
+- 人工對照**正確專用 Worker** 與正確執行版本、確保每筆 invocation 真正對應 hash／verify-correct／verify-wrong 三種合成操作。因只接受去識別化數字，**CLI 無法自己核對 Worker ID、版本、請求對應或取樣偏差**；必須由獨立覆核人在私有環境查驗。
+- 只能將 [虛構樣本格式](hosted-cpu-private-samples.synthetic-example.json) 複製到 Git Repository **外部私有目錄**；範例的數值和時間是編造的，絕不可當成實際 Cloudflare 測量。每類**至少 5 筆**才可產生非樣本不足的摘要（仍無統計推論或認證價值）；最多各 100 筆；樣本格式固定三欄且禁止其他 URL/IP/ID/Token 欄位。
+- 時間採精確 UTC；超過 48 小時的人工紀錄、未來超過 5 分鐘、任何非 ok outcome、樣本不足、或任何 CPU Time **達到或超過 10 ms** 都必須產生警示，不得直接判定安全。
+- **10 ms 為 Workers Free 每 HTTP 請求 CPU 參考上限**，不是 Wall time 門檻。Cloudflare Workers Paid 限制不同且需要確認實際方案與 Worker 設定；本工具**不自動判定方案、付費可行性或部署適格**。參見 [Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/)。
+
+只在資料已私下整理後使用：
+
+```bash
+node tools/hosted-cpu-log-offline-audit.mjs "/private/outside-repo/worker-cpu.json"
+```
+
+CLI 僅輸出每類樣本數、CPU median/p95/max、Wall max、非 ok 次數和 ≥ 10 ms 次數，**不回顯完整單筆紀錄**。資訊完整且目前樣本看似低於 10 ms 時回傳 `OBSERVED_SAMPLES_BELOW_FREE_REFERENCE_NOT_CERTIFIED`，並非部署許可；遇到上限/失敗為 `OBSERVED_CPU_RISK_NEEDS_INVESTIGATION`；紀錄不完整為 `INSUFFICIENT_OR_STALE_CPU_EVIDENCE`；欄位/路徑違規則 fail-closed。所有結果固定為 `platform_log_provenance_verified:false`、`live_cloudflare_access_verified:false`、`remote_cpu_independently_verified:false`、`deployment_authorized:false`，由管理員人工查核真正雲端紀錄後仍須分開處理 Access 安全與部署授權。
+
+**現在沒有任何實際 Hosted CPU 樣本、沒有部署探針，不能填入範例值冒充測試結果。**

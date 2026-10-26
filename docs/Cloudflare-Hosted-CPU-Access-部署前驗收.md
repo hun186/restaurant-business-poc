@@ -62,3 +62,6 @@
 - **使用限制**：這是**封閉版本**白名單。今後正常修改 Worker、Workflow、工具或 \`package.json\` 前，需人工複審差異後才更新批准雜湊。**不得自動掃描檔案再自動更新白名單**。Preflight CLI 本身與雜湊白名單仍需 Code Review，不是不可篡改的簽章，不能取代 branch protection。
 - 靜態輸出維持 \`live_cloudflare_access_verified:false\`、\`version_and_deployment_url_exposure_verified:false\`、\`remote_cpu_verified:false\`、\`deployment_authorized:false\`。CI PASS **不能**證明 Cloudflare 遠端實際受 Access 保護，也不是部署授權。
 
+### Windows／Linux 一致性（SHA-256）
+
+第一次新增白名單後，Windows Git checkout 可能將換行 LF 改成 CRLF，使逐位元組 SHA-256 在 Ubuntu 通過、Windows 誤判。已修改檢查器**只**將 CRLF 轉成 LF 後再算 SHA-256，不會移除空格、程式碼或註解，也不會執行檔案。負向測試覆蓋 Windows 換行變體仍 PASS、但任何 `if(false && ...)` 安全守衛繞過仍 FAIL。SHA-256 白名單所列值以 Git repository 的 LF 文字為準。白名單本身與檢查器均需正式 Code Review。

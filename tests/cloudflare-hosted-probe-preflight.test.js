@@ -22,6 +22,7 @@ async function clone(){
     ...Object.keys(approved.APPROVED_PROBE_SHA256),
     ...Object.keys(approved.APPROVED_WORKFLOW_SHA256),
     ...Object.keys(approved.APPROVED_LOCAL_EXEC_SHA256),
+    ...Object.keys(approved.APPROVED_TRANSITIVE_DEPENDENCIES_SHA256),
     'tools/cloudflare-hosted-probe-preflight.mjs',
     'tools/cloudflare-hosted-probe-approved-sha256.mjs'
   ];
@@ -220,6 +221,59 @@ test('pinned SHA-256 manifest exactly covers present workflows and delegated too
     'cloudflare-hosted-probe-preflight.mjs',
     'cloudflare-hosted-probe-approved-sha256.mjs'
   ].sort());
+});
+test('P2: changes only in transitive imports and tests must fail, without altering tools/workflows',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const targets=[
+    'cloudflare/auth-core.mjs',
+    'cloudflare/d1-readiness.mjs',
+    'src/security.js',
+    'tests/core.test.js',
+    'tests/cloudflare-pbkdf2-hosted-access.test.js',
+    'db/schema.sql',
+    'vercel-demo/app.js'
+  ];
+  for(const target of targets){
+    const dir=await clone();
+    try{
+      assert.equal(inspectHostedProbeStatic(dir).result,'HOSTED_PROBE_STATIC_PREFLIGHT_PASS');
+      editText(dir,target,source=>source+'\n// conditionally deploy probe in imported source\n');
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_UNREVIEWED_TRANSITIVE_DEPENDENCY/,target);
+    }finally{fs.rmSync(dir,{recursive:true,force:true});}
+  }
+});
+test('P2: new unreviewed dynamic dependency or test entry is rejected by closed inventory',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  for(const target of [
+    'cloudflare/imported-deploy-helper.mjs',
+    'tests/new-unreviewed.test.js',
+    'src/remote-deploy.js',
+    'server-helper.js'
+  ]){
+    const dir=await clone();
+    try{
+      fs.writeFileSync(path.join(dir,target),"export default 'unsafe';\n");
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_UNREVIEWED_TRANSITIVE_DEPENDENCY/);
+    }finally{fs.rmSync(dir,{recursive:true,force:true});}
+  }
+});
+test('pinned manifest closes all transitive and test paths, including imported auth-core',async()=>{
+  const approved=await approvalPromise;
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const result=inspectHostedProbeStatic(root);
+  assert.equal(result.reviewed_transitive_dependencies_sha256_verified,true);
+  const all={
+    ...approved.APPROVED_PROBE_SHA256,
+    ...approved.APPROVED_TRANSITIVE_DEPENDENCIES_SHA256
+  };
+  for(const folder of ['cloudflare','db','public','src','tests','vercel-demo']){
+    const scan=(relative)=>fs.readdirSync(path.join(root,relative),{withFileTypes:true})
+      .flatMap(item=>item.isDirectory()?scan(relative+'/'+item.name):[relative+'/'+item.name]);
+    assert.deepEqual(scan(folder).sort(),Object.keys(all)
+      .filter(file=>file.startsWith(folder+'/')).sort());
+  }
+  assert.ok(approved.APPROVED_TRANSITIVE_DEPENDENCIES_SHA256['cloudflare/auth-core.mjs']);
+  assert.ok(approved.APPROVED_TRANSITIVE_DEPENDENCIES_SHA256['tests/core.test.js']);
 });
 test('the preflight never accesses Cloudflare API or pretends static equals live Access approval',async()=>{
   const src=fs.readFileSync(path.join(root,'tools/cloudflare-hosted-probe-preflight.mjs'),'utf8');

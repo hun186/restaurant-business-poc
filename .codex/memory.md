@@ -245,3 +245,10 @@
 - 已新增 `tools/cloudflare-hosted-probe-approved-sha256.mjs`，鎖定兩支 Hosted probe Source、五個 GitHub Workflows、現有 `tools/` 已審核委派可執行入口與 `package.json` 的完整位元組 SHA-256。靜態 preflight 先驗證完整內容，再檢查配置與執行防護；未知 Workflow、未知 `tools/` 執行檔、`.github/actions` local Action 皆 fail-closed。編修經白名單批准的可執行檔必須由獨立 Code Review 檢查差異並更新 checksum，不能自動重算放行。
 - `tests/cloudflare-hosted-probe-preflight.test.js` fixture 擴充：保留原始 regex 字串的兩種 `false &&` 守衛繞過、委派部署 YAML/new script、改既存 Workflow、改既存委派腳本、新 Composite Action，全部預期拒絕。CI 須以最終 HEAD Ubuntu/Windows Node22/24 + workerd smoke 成功核對。
 - 沒有更動正式 Worker、Cloudflare Access、遠端 D1、登入 API 或真正 Hosted CPU 探針；靜態 PASS 不等於 live Access 驗證。原 Review Threads 待修正回覆、正式 Codex 複審及確認後才能 Resolve。未經使用者授權不可 Merge。
+
+## 2026-10-26｜PR #21 第二輪 Codex P2：傳遞相依閉包修正
+
+- 最新正式 Codex Review 對 HEAD `1457286bee211c574e2605ae8bdc9c1622792685` Completed，新增 1 項 P2，Review Finding `4373190686`、Thread `PRRT_kwDOVUuF1c6wG2RM`：`tools/cloudflare-staging-owner.mjs` import 的 `cloudflare/auth-core.mjs`、以及 `npm run check` 直接執行的 `tests/*.test.js` 未納 SHA-256，僅篡改傳遞模組仍會 PASS。
+- 已於 PR #21 原分支擴大 `APPROVED_TRANSITIVE_DEPENDENCIES_SHA256`，鎖定 `cloudflare/`、`db/`、`public/`、`src/`、`tests/`、`vercel-demo/` 全部當前原始碼/資產與根目錄執行／Wrangler 設定；原 Worker Source、五個 Workflow、`tools/` 和 package.json 繼續釘選。資料夾與根目錄執行檔均封閉清單；不只 regex、也非只鎖最上層入口。
+- `tests/cloudflare-hosted-probe-preflight.test.js` 新增篡改 `auth-core.mjs`、其他傳遞載入模組、現存測試檔／SQL／前端程式、以及新增來源檔與新測試入口的 fail-closed fixture。檢查器先發現 digest 變更時可回傳 `E_UNREVIEWED_TRANSITIVE_DEPENDENCY`，故同步調整舊測試對拒絕錯誤碼的預期，惡意內容仍須被拒。
+- 以上屬**程式碼與靜態 CI**，並非 Cloudflare 遠端 Hosted CPU 實測。最新 HEAD Hosted CI／Codex 複審和 P2 Thread Resolve 均要再次核實。未經使用者明確授權不得 Merge、Cloudflare 部署、Access 變更或操作 D1。

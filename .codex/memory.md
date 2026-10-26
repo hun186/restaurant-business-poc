@@ -239,3 +239,9 @@
 - 已更新 `cloudflare/pbkdf2-hosted-synthetic.mjs` 移除 clock 參數／`performance.now` 差值；`cloudflare/pbkdf2-hosted-access-worker.mjs` 的回應和自訂 log 不再含任何 CPU/Wall 計時欄位；保留 `probe_id` 及操作，用於比對 Cloudflare 平台 invocation logs 的 `$workers.cpuTimeMs`、`$workers.wallTimeMs`、`$workers.outcome`。
 - `tests/cloudflare-pbkdf2-hosted-access.test.js` 新增凍結 `performance.now()` 為 0 的回歸，逐一驗證 hash／verify-correct／verify-wrong，應無任何偽計時欄位。
 - 此修正不表示已取得 Hosted CPU 實測，不允許自動部署遠端 Worker、變更 D1 或開啟登入。最新 HEAD Hosted CI、正式 Codex Review 和 Thread Resolve 均待核對；未授權不 Merge。
+
+## 2026-10-26｜PR #21 初輪 Codex P2 × 2 修正（最新 HEAD 複審待辦）
+- PR #21 原 HEAD `ef0e833d98b644a28088ea8349108abfbd7732f8` 正式 Codex Review Completed，但 2 項 P2、未解 Review Thread：`PRRT_kwDOVUuF1c6wC--v` 守衛只靠文字正規式、可能 `if(false && guard)` 停用仍 PASS；`PRRT_kwDOVUuF1c6wC--0` GitHub Workflow 委派 `bash tools/deploy-probe.sh` 時只看 YAML 可能漏報。
+- 已新增 `tools/cloudflare-hosted-probe-approved-sha256.mjs`，鎖定兩支 Hosted probe Source、五個 GitHub Workflows、現有 `tools/` 已審核委派可執行入口與 `package.json` 的完整位元組 SHA-256。靜態 preflight 先驗證完整內容，再檢查配置與執行防護；未知 Workflow、未知 `tools/` 執行檔、`.github/actions` local Action 皆 fail-closed。編修經白名單批准的可執行檔必須由獨立 Code Review 檢查差異並更新 checksum，不能自動重算放行。
+- `tests/cloudflare-hosted-probe-preflight.test.js` fixture 擴充：保留原始 regex 字串的兩種 `false &&` 守衛繞過、委派部署 YAML/new script、改既存 Workflow、改既存委派腳本、新 Composite Action，全部預期拒絕。CI 須以最終 HEAD Ubuntu/Windows Node22/24 + workerd smoke 成功核對。
+- 沒有更動正式 Worker、Cloudflare Access、遠端 D1、登入 API 或真正 Hosted CPU 探針；靜態 PASS 不等於 live Access 驗證。原 Review Threads 待修正回覆、正式 Codex 複審及確認後才能 Resolve。未經使用者授權不可 Merge。

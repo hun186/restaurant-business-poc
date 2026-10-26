@@ -30,6 +30,22 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/audit-ip.test.js":"9974730145e40f52fdc4217698e2fa799f56e249b62a94b52cf62ad3b00d76f1",
+  "tests/backup-manager.test.js":"5908e5dc61d65f2dd08bcac5eed82bd11bcf017aaaf1991baf3907fe50ae6e5d",
+  "tests/cloudflare-auth-foundation.test.js":"152a352bb89583c946f9c509f1f3319ad8d65abe8d670d4231d5221fee5ecd47",
+  "tests/cloudflare-d1-bindings.test.js":"1c61b03ea084414055820c0f81e15ab2469e1b42756337b8d35698f59e2b7b2b",
+  "tests/cloudflare-d1-login-indexes.test.js":"b9f5fd472f3a4cee2f9b46d1223305af2b2c0234a5af5130cc786bbb11d6f252",
+  "tests/cloudflare-d1-login-security.test.js":"1a297409f4f0a6cc6aeca71772d3579e27afbade8288232a923fbd4123984852",
+  "tests/cloudflare-d1-schema.test.js":"cf85e2c81feec3cf8a4fd5cadca67e2fbf1a73ff42be1d416f2a2f4e8aa28322",
+  "tests/cloudflare-d1-staging-workflow.test.js":"21d4ff1aa8bb474ac9061007c873cb127ff37a7c49a4c3f27b25851967e9ab4e",
+  "tests/cloudflare-hosted-probe-preflight.test.js":"954f1a557b2abdb0318758cc9e467e328c747c50c0f700aca73788a2a6d23c2f",
+  "tests/cloudflare-pbkdf2-hosted-access.test.js":"0a36297ab281cc10444f51f477a417f3e8ac1f1b9411ea4df5f8de357d368c38",
+  "tests/cloudflare-pbkdf2-local-probe.test.js":"eb5a17967458e70efd14e1e65144d533796d530a4750b825933df6777967e2e5",
+  "tests/cloudflare-routing.test.js":"b8e7e22be20afb6096a37380ffc264aa73a5ce4fca715066b8aabfc78f902ded",
+  "tests/cloudflare-staging-0002-migration.test.js":"191b10edfff27ab136166fa01799ec6dd8570976455aeb271bcfed28be55983e",
+  "tests/cloudflare-staging-owner-bootstrap.test.js":"d4fd776603260bfa0bf20d40f3c46b3c00bd76b6f7bb9346b69083bf0df0c218",
+  "tests/core.test.js":"fbb7075f0f442da90d76961d770d4bd8cb5d18f8e554bdc004247f0f00d32c24",
+  "tests/demo-backup.test.js":"69c3dd2b94d76858960d3869972ea0637ba4ecf10ab40217b5f6cff68dbb1258",
   "public/app.js":"5d205b563a971c5331ff28fa0794c1398137d3ae27a5cda1dc1583498290422e",
   "public/backup-ui.js":"4b9f3bc7c86c6ae24e92568172c62a024b9fee868bb57b6aef872c60c4ec46d7",
   "public/index.html":"24e7ca3a1fe36801dcd958aaa460c274172c6c9d69ffca2afc5902174dc5c82f",

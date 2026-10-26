@@ -297,6 +297,65 @@ test('P2: unreviewed root .npmrc must fail closed before npm/npx can read it',as
   }
 });
 
+
+test('P2: every Workflow job gates npm/npx behind a separate direct-node preflight step',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const name='Fail closed before npm/npx (offline Hosted probe preflight)';
+  const preflightStep='      - name: '+name+'\n        run: node tools/cloudflare-hosted-probe-preflight.mjs';
+  const workflowFiles=[
+    '.github/workflows/verify.yml',
+    '.github/workflows/d1-staging-migration.yml',
+    '.github/workflows/d1-staging-owner-bootstrap.yml',
+    '.github/workflows/d1-staging-incremental-0002.yml',
+    '.github/workflows/pbkdf2-local-workerd.yml'
+  ];
+  // Split actual YAML jobs, not just matching a preflight string anywhere.
+  // npm/npx commands may be at a single-line run or in a multi-line run block.
+  const assertOrder=(source)=>{
+    const jobs=source.slice(source.indexOf('\njobs:\n')+1);
+    const jobHeaders=[...jobs.matchAll(/^  ([a-z][\w-]*):\s*$/gm)];
+    assert.ok(jobHeaders.length>0,'E_MISSING_WORKFLOW_JOBS');
+    let guardedJobs=0;
+    for(let i=0;i<jobHeaders.length;i++){
+      const start=jobHeaders[i].index;
+      const end=i+1<jobHeaders.length?jobHeaders[i+1].index:jobs.length;
+      const job=jobs.slice(start,end);
+      const npmCommands=[...job.matchAll(/^(?:\s*-\s*run:\s*|\s+)(?:npm|npx)\s+[^\n]+$/gm)];
+      if(npmCommands.length===0)continue;
+      const guardAt=job.indexOf(preflightStep);
+      assert.ok(guardAt>=0 && guardAt<npmCommands[0].index,
+        'E_NPM_PREFLIGHT_ORDER: '+jobHeaders[i][1]);
+      assert.equal(job.split(preflightStep).length-1,1,
+        'E_MULTIPLE_OR_MISSING_PREFLIGHT_STEPS');
+      guardedJobs++;
+    }
+    return guardedJobs;
+  };
+  let totalJobs=0;
+  for(const file of workflowFiles){
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    totalJobs+=assertOrder(source);
+    const dir=await clone();
+    try{
+      // An unapproved config must be rejected by the very first node guard,
+      // before the Workflow could start npm. No injection payload is run.
+      fs.writeFileSync(path.join(dir,'.NPMRC'),'node-options=--import=./unreviewed.js\n');
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_UNREVIEWED_NPM_CONFIG/);
+    }finally{fs.rmSync(dir,{recursive:true,force:true});}
+  }
+  assert.equal(totalJobs,6,'expected all six npm/npx jobs to be covered');
+  const verify=fs.readFileSync(path.join(root,workflowFiles[0]),'utf8');
+  const firstGuard=verify.indexOf(preflightStep);
+  const firstNpm=verify.indexOf('      - run: npm run check');
+  assert.ok(firstGuard>=0 && firstNpm>firstGuard);
+  const reversed=verify.replace(
+    preflightStep+'\n      - run: npm run check',
+    '      - run: npm run check\n'+preflightStep
+  );
+  assert.notEqual(reversed,verify,'fixture must actually reverse the steps');
+  assert.throws(()=>assertOrder(reversed),/E_NPM_PREFLIGHT_ORDER/);
+});
+
 test('the preflight never accesses Cloudflare API or pretends static equals live Access approval',async()=>{
   const src=fs.readFileSync(path.join(root,'tools/cloudflare-hosted-probe-preflight.mjs'),'utf8');
   assert.doesNotMatch(src,/\bfetch\s*\(|https?:\/\/api\.cloudflare\.com|CLOUDFLARE_API_TOKEN|execSync|spawn\s*\(/);

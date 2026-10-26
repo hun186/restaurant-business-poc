@@ -30,6 +30,8 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Verify no Cloudflare remote targets are configured
         run: |
           node --check cloudflare/pbkdf2-local-probe.mjs

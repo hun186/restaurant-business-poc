@@ -43,6 +43,8 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Validate staging-only migration inventory and account
         shell: bash
         env:

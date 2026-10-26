@@ -264,3 +264,10 @@
 - 最新正式 Codex Review 已對 HEAD `032eee62d3f241a6c2a4525766f80a5e85887e8f` Completed；新增 P2 Finding `4376481803`、Thread `PRRT_kwDOVUuF1c6wOxWz`：根目錄 `.NPMRC`／`.npmRc` 在 Windows 不區分大小寫檔案系統中可被 npm 當作 `.npmrc` 讀取，但原本 `includes('.npmrc')` 會忽略，導致離線 preflight PASS。
 - 已改為 `fs.readdirSync(root).some(name=>name.toLowerCase()==='.npmrc')`，所有大小寫變體與空白變體均 fail-closed；在原本 `.npmrc` 的三項 regression 外另加入 `.NPMRC`、`.npmRc`、`.nPmRc` 測試，僅建立 fixture，不執行可能注入的設定內容。更新唯一有變更的測試檔 SHA-256 白名單，不自動重新信任其他原始碼。
 - 此為靜態程式與回歸測試，不是 Cloudflare Access 遠端驗證、Hosted CPU 測試或部署授權；須依新 HEAD 驗證 Hosted CI 五項與正式 Codex 複審、在 Thread 回覆。仍不允許未經使用者授權 Merge、部署 Cloudflare 或操作 D1。
+
+## 2026-10-26｜PR #21 第五輪 Codex P2：在首次 npm/npx 執行之前安全預檢
+
+- 最新正式 Codex Review 對 HEAD `d91a935f5b98c66599b988aab369268674ac9e59` Completed，新增 P2 Finding `4379430230`、Thread `PRRT_kwDOVUuF1c6wV0jz`：Verify workflow 在 `npm run check` 後才執行靜態 preflight；未審核 `.npmrc` 可在 npm 先執行惡意程式後自行刪除，造成其後掃描 PASS，安全檢查時序無效。
+- 本輪將離線安全 preflight 移到 Verify Node22/24 Windows/Ubuntu test 的 `npm run check` 之前，也在 Verify 的 local workerd smoke Job 與四個 `workflow_dispatch` 專用 Workflows（D1 staging migration、staging owner bootstrap、incremental 0002、PBKDF2 local workerd）的 Node setup 之後、任何 npm/npx 或委派工具之前加入獨立 `node tools/cloudflare-hosted-probe-preflight.mjs` 步驟。
+- 擴充測試，逐 Job 驗證實際 workflow 步驟順序與獨立 Node preflight（共六個 npm/npx Jobs），另有交換 npm/preflight 順序後必須失敗的負向 fixture；未執行注入 payload，也不執行任何遠端 API。人工同步更新五個 Workflow 與單一測試檔 SHA-256 allowlist，其他指紋不變。
+- 需於新 HEAD 核對 Hosted CI、正式 Codex 複審並回覆 Finding；仍禁止未獲用戶授權的 Merge、Cloudflare 部署、Access/D1 更動或 Hosted CPU 開啟。此靜態保護並不等於遠端 Access 驗證。

@@ -2,6 +2,12 @@
 // This CLI NEVER calls Cloudflare, reads secrets, verifies live Access, or deploys.
 // Passing is explicitly NOT deployment authorization.
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  APPROVED_PROBE_SHA256,
+  APPROVED_WORKFLOW_SHA256,
+  APPROVED_LOCAL_EXEC_SHA256
+} from './cloudflare-hosted-probe-approved-sha256.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,7 +20,52 @@ const readJson=(root,file)=>JSON.parse(fs.readFileSync(path.join(root,file),'utf
 const read=(root,file)=>fs.readFileSync(path.join(root,file),'utf8');
 function assert(ok,code){if(!ok)throw new Error(code);}
 
+function assertReviewedSHA256(root,relative,expected,code){
+  const file=path.join(root,relative);
+  // No symlinks or directories: fingerprint exactly the executable contents.
+  assert(fs.lstatSync(file).isFile() && !fs.lstatSync(file).isSymbolicLink(),code);
+  const actual=createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  assert(actual===expected,code);
+}
+function assertClosedInventory(root,folder,allowed,code){
+  const entries=fs.readdirSync(path.join(root,folder)).sort();
+  assert(JSON.stringify(entries)===JSON.stringify(Object.keys(allowed)
+    .map(x=>path.basename(x)).sort()),code);
+}
+function assertReviewedExecutableGraph(root){
+  // Exact SHA-256 guard fingerprints, rather than matching strings that may
+  // survive inside an unreachable if(false && ...) branch.
+  for(const [relative,digest] of Object.entries(APPROVED_PROBE_SHA256))
+    assertReviewedSHA256(root,relative,digest,'E_ACCESS_GUARD_SHA256_CHANGED');
+
+  // Every approved workflow is pinned byte-for-byte; a newly added reusable
+  // workflow, local action invocation, or "bash tools/deploy-probe.sh" delegate
+  // changes these digests or the closed workflow inventory.
+  assertClosedInventory(root,'.github/workflows',APPROVED_WORKFLOW_SHA256,
+    'E_UNREVIEWED_WORKFLOW');
+  for(const [relative,digest] of Object.entries(APPROVED_WORKFLOW_SHA256))
+    assertReviewedSHA256(root,relative,digest,'E_UNREVIEWED_WORKFLOW');
+
+  // Existing workflow delegates and npm check entrypoints are pinned as well:
+  // changing the script behind an unchanged workflow fails closed.
+  const toolsAllowed={
+    ...Object.fromEntries(Object.entries(APPROVED_LOCAL_EXEC_SHA256)
+      .filter(([name])=>name.startsWith('tools/'))),
+    'tools/cloudflare-hosted-probe-preflight.mjs':'self-reviewed',
+    'tools/cloudflare-hosted-probe-approved-sha256.mjs':'manifest-reviewed'
+  };
+  assertClosedInventory(root,'tools',toolsAllowed,'E_UNREVIEWED_LOCAL_EXECUTABLE');
+  for(const [relative,digest] of Object.entries(APPROVED_LOCAL_EXEC_SHA256))
+    assertReviewedSHA256(root,relative,digest,'E_UNREVIEWED_LOCAL_EXECUTABLE');
+
+  const actions=path.join(root,'.github/actions');
+  assert(!fs.existsSync(actions) || fs.readdirSync(actions).length===0,
+    'E_UNREVIEWED_LOCAL_ACTION');
+}
+
+
 export function inspectHostedProbeStatic(root){
+  assertReviewedExecutableGraph(root);
   const probe=readJson(root,PROBE_CONFIG);
   const prod=readJson(root,PROD_CONFIG);
   assert(exactKeys(probe,KEYS),'E_HOSTED_PROBE_CONFIG_KEYS');
@@ -50,12 +101,10 @@ export function inspectHostedProbeStatic(root){
     /hashWorkerPassword/.test(synthetic) && /verifyWorkerPassword/.test(synthetic),
     'E_SYNTHETIC_HASH_NOT_REUSED');
 
-  // Check no CI file can deploy the new probe. This check is deliberately
-  // conservative: a PR that adds deploy automation must undergo separate review.
-  const flows=path.join(root,'.github','workflows');
-  for(const filename of fs.readdirSync(flows)){
-    if(!/\.ya?ml$/.test(filename))continue;
-    const yaml=fs.readFileSync(path.join(flows,filename),'utf8');
+  // Defense in depth. The SHA-256 allowlist above is the real gate:
+  // delegates in unchanged workflows must also match approved script hashes.
+  for(const relative of Object.keys(APPROVED_WORKFLOW_SHA256)){
+    const yaml=read(root,relative);
     assert(!/wrangler\.pbkdf2-hosted-disabled\.jsonc|restaurant-pbkdf2-hosted-cpu-staging-probe/.test(yaml),
       'E_HOSTED_PROBE_DEPLOY_WORKFLOW_FORBIDDEN');
   }
@@ -68,6 +117,8 @@ export function inspectHostedProbeStatic(root){
     route_configured:false,
     d1_bound:false,
     access_runtime_guard_present:true,
+    reviewed_guard_sha256_verified:true,
+    reviewed_workflow_and_executables_sha256_verified:true,
     live_cloudflare_access_verified:false,
     version_and_deployment_url_exposure_verified:false,
     remote_cpu_verified:false,

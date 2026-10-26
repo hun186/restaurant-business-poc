@@ -30,6 +30,22 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "vercel-demo/README.md":"18ffdff6ea0d1ea025ecc334f032b1b957ee329678f5edada1d8837881bfc300",
+  "vercel-demo/index.html":"0752239d4291ac4bc93d9314a321e55684e532950b8913b97c510094683f9769",
+  "vercel-demo/mock.js":"fbaa4a287804c6af5b20ca96e226a0590b4787c738673b71515cd900e02211d5",
+  "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",
+  "vercel-demo/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
+  "vercel-demo/pricing-demo.js":"1686bc70008c3a903df8813b442c08157cd9e847383ef0c7d1c14aefd0e7c15e",
+  "vercel-demo/report-ui.js":"3657eb1364c9ad6027cee15c50a743ac572a49083e2eabf1238ec20f46cc4542",
+  "vercel-demo/styles.css":"50e210212deba7f48261b795dfba72db1eb0df87a26bfd8f6f3598b88aebf1ad",
+  "vercel-demo/xlsx-lite.js":"197df982a0b7835778422b43e4521376b14af1d7339c587a371fb3767b6a7630",
+  "wrangler.jsonc":"41a2e2b2441e343451a3fb6ace878631ce92e083751205c49032bfc810b95b51",
+  "wrangler.pbkdf2-hosted-disabled.jsonc":"2858fe4ae52bccbd60c8c5f0ba52dcc524787b95864c95aec190e0bac252a239",
+  "wrangler.pbkdf2-local.jsonc":"c069f464c266ab286d685ffddf54df3fb067db8ae599b0e7e028c3a011baa69b",
+  "wrangler.preview-migrations.jsonc":"fc67f950f58e4ab83299c4ddb10b14e4f61f72a8abed223a0fe24f69b95bee7b",
+  "server.js":"fd1b214718f93cb5bf21be66c17f9ea0a945b58acb25fdd5b60acdb81ee8407e",
+  "備份資料.bat":"185297a3fcdbb85f5e6d10ffd9aebad856c25640ace001a2b7ab8d483a45202f",
+  "啟動餐廳好管家.bat":"0623f1598fb58a479be0965877ea8a002ddfeb75a5bf895894e153c521ae7e2e",
   "tests/demo-pricing.test.js":"74f4b421745427113e9ea2a756c72f527028b3e52036ef62cc3e445e5757f9ed",
   "tests/demo.test.js":"335ad627a4de4ba434aedbbc41ef200724e5ed3d8be85926c6e13a199b8fc569",
   "tests/http.test.js":"59b038c09a800b535e65071a42606aa3111274dd142e9c60b7b3eceaa6c2b2f4",

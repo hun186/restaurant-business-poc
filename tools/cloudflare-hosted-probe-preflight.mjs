@@ -24,7 +24,10 @@ function assertReviewedSHA256(root,relative,expected,code){
   const file=path.join(root,relative);
   // No symlinks or directories: fingerprint exactly the executable contents.
   assert(fs.lstatSync(file).isFile() && !fs.lstatSync(file).isSymbolicLink(),code);
-  const actual=createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  // Git's Windows checkout may convert LF to CRLF. Canonicalize only
+  // line endings, not whitespace/comments/control flow or executable source.
+  const canonical=fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n');
+  const actual=createHash('sha256').update(canonical,'utf8').digest('hex');
   assert(actual===expected,code);
 }
 function assertClosedInventory(root,folder,allowed,code){

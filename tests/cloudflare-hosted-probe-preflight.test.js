@@ -320,7 +320,7 @@ test('P2: every Workflow job gates npm/npx behind a separate direct-node preflig
       const start=jobHeaders[i].index;
       const end=i+1<jobHeaders.length?jobHeaders[i+1].index:jobs.length;
       const job=jobs.slice(start,end);
-      const npmCommands=[...job.matchAll(/^(?:\s*-\s*run:\s*|\s+)(?:npm|npx)\s+[^\n]+$/gm)];
+      const npmCommands=[...job.matchAll(/^(?:[ \t]*-?[ \t]*run:[ \t]*|[ \t]+)(?:npm|npx)[ \t]+[^\r\n]+$/gm)];
       if(npmCommands.length===0)continue;
       const guardAt=job.indexOf(preflightStep);
       assert.ok(guardAt>=0 && guardAt<npmCommands[0].index,

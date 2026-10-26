@@ -71,7 +71,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-d1-login-security.test.js":"1a297409f4f0a6cc6aeca71772d3579e27afbade8288232a923fbd4123984852",
   "tests/cloudflare-d1-schema.test.js":"cf85e2c81feec3cf8a4fd5cadca67e2fbf1a73ff42be1d416f2a2f4e8aa28322",
   "tests/cloudflare-d1-staging-workflow.test.js":"21d4ff1aa8bb474ac9061007c873cb127ff37a7c49a4c3f27b25851967e9ab4e",
-  "tests/cloudflare-hosted-probe-preflight.test.js":"9cd10afe64944ae8fc9f3970dc8b6ba2d4b285f1926ce2cd2d028f732be92b33",
+  "tests/cloudflare-hosted-probe-preflight.test.js":"5dcf2eba9c84dc7678b2bab5c11d8b7875614038c11ed96ee074441c572fc970",
   "tests/cloudflare-pbkdf2-hosted-access.test.js":"0a36297ab281cc10444f51f477a417f3e8ac1f1b9411ea4df5f8de357d368c38",
   "tests/cloudflare-pbkdf2-local-probe.test.js":"eb5a17967458e70efd14e1e65144d533796d530a4750b825933df6777967e2e5",
   "tests/cloudflare-routing.test.js":"b8e7e22be20afb6096a37380ffc264aa73a5ce4fca715066b8aabfc78f902ded",

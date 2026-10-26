@@ -65,3 +65,15 @@
 ### Windows／Linux 一致性（SHA-256）
 
 第一次新增白名單後，Windows Git checkout 可能將換行 LF 改成 CRLF，使逐位元組 SHA-256 在 Ubuntu 通過、Windows 誤判。已修改檢查器**只**將 CRLF 轉成 LF 後再算 SHA-256，不會移除空格、程式碼或註解，也不會執行檔案。負向測試覆蓋 Windows 換行變體仍 PASS、但任何 `if(false && ...)` 安全守衛繞過仍 FAIL。SHA-256 白名單所列值以 Git repository 的 LF 文字為準。白名單本身與檢查器均需正式 Code Review。
+
+## 2026-10-26｜第二輪 Codex P2：傳遞相依模組與測試入口完整覆蓋
+
+正式 Codex 複審 HEAD `1457286bee211c574e2605ae8bdc9c1622792685` 指出：雖已鎖定工具入口、五個 Workflow 與 `package.json`，但 `tools/cloudflare-staging-owner.mjs` 間接載入的 `cloudflare/auth-core.mjs` 尚未釘選；在有 Cloudflare credentials 的 Workflow 步驟中，若僅篡改該檔仍可能通過 Preflight。此外 `npm run check` 的 `tests/*.test.js` 原未全數列入完整性檢查。
+
+修正方案採用人工審核之**執行相依的封閉超集合**，而非只依賴程式碼字串：
+- `tools/cloudflare-hosted-probe-approved-sha256.mjs` 新增 `APPROVED_TRANSITIVE_DEPENDENCIES_SHA256`，納入所有 `cloudflare/`（含 `auth-core.mjs`、D1、migrations）、`src/`、`db/`、`public/`、`tests/`、`vercel-demo/` 目前檔案與根目錄 JS、Wrangler JSONC、Windows BAT。原兩支 Hosted Worker Source 仍由既有 `APPROVED_PROBE_SHA256` 保護；Workflow、`tools/` 及 `package.json` 繼續使用既有指紋白名單。
+- 以上六個資料夾實施**遞迴封閉檔案清單**：新增或刪除任何子檔案、將檔案替換成 symlink、改寫任一已審核模組/SQL/測試入口，必須直接拒絕。根目錄執行或部署設定檔也維持封閉清單。
+- 負向測試只修改 `cloudflare/auth-core.mjs`、`cloudflare/d1-readiness.mjs`、`src/security.js`、`tests/core.test.js`、其他測試檔與業務原始碼；並分別插入新 Cloudflare helper、新測試檔、新根目錄可執行檔，確保即使所有 Workflow／工具入口 SHA 完全不變，仍 fail-closed。
+- Windows Git checkout 使用 CRLF 時僅將換行正規化為 LF 再計算 SHA-256，其餘程式文字不放寬。SHA 白名單不是自動產生通行證：後續任何合法改動都須人工比對差異、審核後手動更新，並重新跑 CI 與正式 Codex Review。
+
+此檢查只證明所審核 checkout 的程式/設定完整性，**不是** Cloudflare 遠端 Access、Worker Version URLs、D1 或 Hosted CPU 實站驗收證據。絕不自動部署或給予遠端修改授權。

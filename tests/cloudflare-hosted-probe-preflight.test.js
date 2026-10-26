@@ -121,6 +121,26 @@ test('fails closed on missing Access guard, fabricated wall timings or automatic
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });
+test('Git Windows CRLF checkout normalizes only line endings, not guard semantics',async()=>{
+  const {inspectHostedProbeStatic}=await preflightPromise;
+  const approved=await approvalPromise;
+  const dir=await clone();
+  try{
+    const sources=[
+      ...Object.keys(approved.APPROVED_PROBE_SHA256),
+      ...Object.keys(approved.APPROVED_WORKFLOW_SHA256),
+      ...Object.keys(approved.APPROVED_LOCAL_EXEC_SHA256)
+    ];
+    for(const file of sources)
+      editText(dir,file,contents=>contents.replace(/\r?\n/g,'\r\n'));
+    assert.equal(inspectHostedProbeStatic(dir).result,'HOSTED_PROBE_STATIC_PREFLIGHT_PASS');
+    editText(dir,'cloudflare/pbkdf2-hosted-access-worker.mjs',source=>
+      source.replace("if(env?.PROBE_ENABLED!=='access-only')",
+        "if(false && env?.PROBE_ENABLED!=='access-only')"));
+    assert.throws(()=>inspectHostedProbeStatic(dir),/E_ACCESS_GUARD_SHA256_CHANGED/);
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
 test('P2: retaining guard text inside false branches must FAIL via SHA-256',async()=>{
   const {inspectHostedProbeStatic}=await preflightPromise;
   const cases=[

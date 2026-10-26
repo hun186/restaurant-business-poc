@@ -33,6 +33,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Validate explicitly selected account and database
         shell: bash
         run: |

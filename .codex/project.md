@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17/#18/#19 已合併。staging D1 v3（Run #40172089719）、Owner（Run #40188578478）、0002 索引（APPLY/POSTFLIGHT #40204026605）已通過遠端驗收；production D1 **未初始化**。PR #19 合成本機 workerd PBKDF2 600k 三樣本 Run #40208993373 PASS（hash/正確/錯誤 wall median 79/79/78 ms，**非 Hosted CPU**）。目前分支 `feat/cloudflare-access-hosted-pbkdf2-probe-20261026` 僅開發受 Access 保護、預設關閉／無路由、與 D1 分離的 Hosted CPU 合成探針，**本輪不部署遠端**，也不開放真實登入。PR #7/#9 待處理。CI／Codex 以最新 HEAD 為準，未授權不 Merge。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17/#18/#19/#20 已合併；PR #20 squash merge `add71c83b96e31d9428b22e4e8971770eed88d71`，獨立 Hosted PBKDF2 合成探針只存在主線程式，**未部署**。staging D1 v3/Owner/0002 Run #40204026605 已遠端驗收；production D1 **未初始化**。PR #19 本機 workerd Run #40208993373 PASS（wall median hash/正確/錯誤 79/79/78 ms，**非 Hosted CPU**）。目前分支 `feat/hosted-cpu-access-preflight-20261026` 開發**離線靜態** fail-closed 設定檢查與 Cloudflare Access／Version URL／Bypass 部署前 SOP；此輪不修改遠端 Worker／Access／D1，遠端 Access 保護及真正 CPU time 尚未驗證。CI/Codex 以最新 HEAD 為準，未授權不 Merge。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

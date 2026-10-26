@@ -148,3 +148,14 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 
 - 已準備**獨立且預設 disabled** 的合成 Hosted Worker：`wrangler.pbkdf2-hosted-disabled.jsonc` 禁用 workers.dev 與預覽 URL，不連接 D1、營運 API、Owner 密碼或 Session。必須另外核對 Cloudflare Worker-level Access 的 `ctx.access` 與 AUD，取得授權後才可能開啟測試。
 - 每個受保護請求只做一個固定虛構向量 PBKDF2；回應與自訂 log 均不提供耗時數值（Hosted `performance.now()` 可能凍結），真正 Hosted CPU／Wall time 必須從 Cloudflare invocation logs 查詢。沒有自動部署或啟用。詳見 [Hosted PBKDF2 Access/CPU 驗證計畫](docs/Cloudflare-Hosted-PBKDF2-Access-CPU-驗證計畫.md)。
+
+### Cloudflare Hosted PBKDF2 部署前安全檢查（離線，未驗 Access）
+
+- `node tools/cloudflare-hosted-probe-preflight.mjs`：離線確認探針仍為 disabled、沒有 routes/D1/Preview，與正式 Worker 完全隔離；Hosted CI 同時跑故意改壞設定的負向測試。
+- 靜態工具**不能證明** Cloudflare 遠端 Worker 已受 Access 保護，也不能證明 workers.dev、Version/Deployment URLs 無意外暴露。現場還需核對 Worker-level Access **All traffic**、hostname/path 規則優先序、無 Bypass 與獨立 Worker ID；詳見 [部署前驗收 SOP](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md)。
+- 這套工具不會呼叫 Cloudflare API、部署 Worker 或觸碰 D1；實際 Hosted CPU 驗證需另外授權。
+
+
+**部署前 Preflight 修正（PR #21）：** 檢查器已改用固定的 SHA-256 白名單，包含 Hosted Access 守衛 Source、GitHub Workflow 及其委派的 `tools/` 與 `package.json`；新增 `false &&` 繞過和委派 `bash tools/deploy-probe.sh` 的負向回歸。將來修改這些檔案應先 Code Review 再更新白名單；此校驗仍不證明 Cloudflare 遠端 Access 已部署／CPU 已測得。
+
+**PR #21 安全檢查加強：** SHA-256 白名單也涵蓋所有目前的 Cloudflare 傳遞 import、`src/`、`tests/*.test.js`、資料庫 SQL、前端模組與 Wrangler 設定，使用遞迴封閉檔案清單避免新檔案繞過。僅更改 `cloudflare/auth-core.mjs` 或測試入口，就會讓 Preflight 失敗。這依然只是原始碼／CI 完整性證據，**不表示遠端 Cloudflare Access 已驗證或允許部署**。

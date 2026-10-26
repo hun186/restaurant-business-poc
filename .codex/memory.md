@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17/#18/#19 已 Merge；staging D1 0002 Run #40204026605 遠端 PASS；純虛構密碼本機 workerd 600k 三樣本 Run #40208993373 PASS，wall median hash/正確/錯誤=79/79/78 ms，但**不是 Cloudflare Hosted CPU**。Production D1 未初始化。新分支 `feat/cloudflare-access-hosted-pbkdf2-probe-20261026` 正開發 Access 驗證、Audience 檢查、無路由／預設 disabled 的獨立合成 Hosted Worker 及安全部署 SOP，**未獲授權不部署**，公開 `/api/login`、`/api/logout` 仍 503。真實 CPU logs 尚未取得。CI/正式 Codex Reviews 必須依最新 HEAD 查核，未授權不 Merge。
+- 首要目標：PR #17/#18/#19/#20 已 Merge；PR #20 Merge SHA `add71c83b96e31d9428b22e4e8971770eed88d71`，Access 保護合成 PBKDF2 Hosted 探針**僅程式碼存在、遠端未部署**。staging D1 0002 Run #40204026605 遠端 PASS；本機 workerd 三樣本 Run #40208993373 wall median 79/79/78 ms，不是 Hosted CPU。Production D1 未初始化、公開 Login 仍 503。當前分支 `feat/hosted-cpu-access-preflight-20261026` 開發**只讀取 Repo 的離線**靜態 preflight 與 Access hostname hierarchy／Version URL 實站驗收 SOP；靜態 PASS 不代表 Cloudflare 遠端 Access 真正通過。本輪無遠端寫入/部署，需以最新 HEAD 驗 CI/Codex，未授權不 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -239,3 +239,41 @@
 - 已更新 `cloudflare/pbkdf2-hosted-synthetic.mjs` 移除 clock 參數／`performance.now` 差值；`cloudflare/pbkdf2-hosted-access-worker.mjs` 的回應和自訂 log 不再含任何 CPU/Wall 計時欄位；保留 `probe_id` 及操作，用於比對 Cloudflare 平台 invocation logs 的 `$workers.cpuTimeMs`、`$workers.wallTimeMs`、`$workers.outcome`。
 - `tests/cloudflare-pbkdf2-hosted-access.test.js` 新增凍結 `performance.now()` 為 0 的回歸，逐一驗證 hash／verify-correct／verify-wrong，應無任何偽計時欄位。
 - 此修正不表示已取得 Hosted CPU 實測，不允許自動部署遠端 Worker、變更 D1 或開啟登入。最新 HEAD Hosted CI、正式 Codex Review 和 Thread Resolve 均待核對；未授權不 Merge。
+
+## 2026-10-26｜PR #21 初輪 Codex P2 × 2 修正（最新 HEAD 複審待辦）
+- PR #21 原 HEAD `ef0e833d98b644a28088ea8349108abfbd7732f8` 正式 Codex Review Completed，但 2 項 P2、未解 Review Thread：`PRRT_kwDOVUuF1c6wC--v` 守衛只靠文字正規式、可能 `if(false && guard)` 停用仍 PASS；`PRRT_kwDOVUuF1c6wC--0` GitHub Workflow 委派 `bash tools/deploy-probe.sh` 時只看 YAML 可能漏報。
+- 已新增 `tools/cloudflare-hosted-probe-approved-sha256.mjs`，鎖定兩支 Hosted probe Source、五個 GitHub Workflows、現有 `tools/` 已審核委派可執行入口與 `package.json` 的完整位元組 SHA-256。靜態 preflight 先驗證完整內容，再檢查配置與執行防護；未知 Workflow、未知 `tools/` 執行檔、`.github/actions` local Action 皆 fail-closed。編修經白名單批准的可執行檔必須由獨立 Code Review 檢查差異並更新 checksum，不能自動重算放行。
+- `tests/cloudflare-hosted-probe-preflight.test.js` fixture 擴充：保留原始 regex 字串的兩種 `false &&` 守衛繞過、委派部署 YAML/new script、改既存 Workflow、改既存委派腳本、新 Composite Action，全部預期拒絕。CI 須以最終 HEAD Ubuntu/Windows Node22/24 + workerd smoke 成功核對。
+- 沒有更動正式 Worker、Cloudflare Access、遠端 D1、登入 API 或真正 Hosted CPU 探針；靜態 PASS 不等於 live Access 驗證。原 Review Threads 待修正回覆、正式 Codex 複審及確認後才能 Resolve。未經使用者授權不可 Merge。
+
+## 2026-10-26｜PR #21 第二輪 Codex P2：傳遞相依閉包修正
+
+- 最新正式 Codex Review 對 HEAD `1457286bee211c574e2605ae8bdc9c1622792685` Completed，新增 1 項 P2，Review Finding `4373190686`、Thread `PRRT_kwDOVUuF1c6wG2RM`：`tools/cloudflare-staging-owner.mjs` import 的 `cloudflare/auth-core.mjs`、以及 `npm run check` 直接執行的 `tests/*.test.js` 未納 SHA-256，僅篡改傳遞模組仍會 PASS。
+- 已於 PR #21 原分支擴大 `APPROVED_TRANSITIVE_DEPENDENCIES_SHA256`，鎖定 `cloudflare/`、`db/`、`public/`、`src/`、`tests/`、`vercel-demo/` 全部當前原始碼/資產與根目錄執行／Wrangler 設定；原 Worker Source、五個 Workflow、`tools/` 和 package.json 繼續釘選。資料夾與根目錄執行檔均封閉清單；不只 regex、也非只鎖最上層入口。
+- `tests/cloudflare-hosted-probe-preflight.test.js` 新增篡改 `auth-core.mjs`、其他傳遞載入模組、現存測試檔／SQL／前端程式、以及新增來源檔與新測試入口的 fail-closed fixture。檢查器先發現 digest 變更時可回傳 `E_UNREVIEWED_TRANSITIVE_DEPENDENCY`，故同步調整舊測試對拒絕錯誤碼的預期，惡意內容仍須被拒。
+- 以上屬**程式碼與靜態 CI**，並非 Cloudflare 遠端 Hosted CPU 實測。最新 HEAD Hosted CI／Codex 複審和 P2 Thread Resolve 均要再次核實。未經使用者明確授權不得 Merge、Cloudflare 部署、Access 變更或操作 D1。
+
+## 2026-10-26｜PR #21 第三輪 Codex P2：根目錄 .npmrc 注入缺口
+
+- 正式 Codex Review 已對舊 HEAD `a6e00bff0f47572ab1835577d8838637606473e1` Completed；新 P2 Finding `4373339968`、Thread `PRRT_kwDOVUuF1c6wHNCT`：未審核的根目錄 `.npmrc` 會被 npm/npx 讀取，`node-options=--import=...` 可注入額外執行程式，但原本僅按副檔名篩選的 root 閉包會漏過。
+- 本輪在 `tools/cloudflare-hosted-probe-preflight.mjs` 對根目錄任何 `.npmrc`（含空檔案）明確 fail-closed（`E_UNREVIEWED_NPM_CONFIG`）；`tests/cloudflare-hosted-probe-preflight.test.js` 加入只建立該檔的 `node-options`、`script-shell` 與空檔負向 fixture，沒有執行 payload；更新人工審核的該測試檔 SHA-256 指紋，其餘 approved digest 不變。
+- 此修正只能驗證 PR checkout 的靜態檔案，**不會認證 runner 主機/npm 全域設定或遠端 Access**；必須依最新 HEAD 確認五個 Hosted CI Jobs 與正式 Codex 複審，並處理 Review Thread。未經使用者授權不得 Merge、Cloudflare 部署、Access 變更、D1 寫入或公開登入。
+
+## 2026-10-26｜PR #21 第四輪 Codex P2：Windows .npmrc 大小寫變體
+
+- 最新正式 Codex Review 已對 HEAD `032eee62d3f241a6c2a4525766f80a5e85887e8f` Completed；新增 P2 Finding `4376481803`、Thread `PRRT_kwDOVUuF1c6wOxWz`：根目錄 `.NPMRC`／`.npmRc` 在 Windows 不區分大小寫檔案系統中可被 npm 當作 `.npmrc` 讀取，但原本 `includes('.npmrc')` 會忽略，導致離線 preflight PASS。
+- 已改為 `fs.readdirSync(root).some(name=>name.toLowerCase()==='.npmrc')`，所有大小寫變體與空白變體均 fail-closed；在原本 `.npmrc` 的三項 regression 外另加入 `.NPMRC`、`.npmRc`、`.nPmRc` 測試，僅建立 fixture，不執行可能注入的設定內容。更新唯一有變更的測試檔 SHA-256 白名單，不自動重新信任其他原始碼。
+- 此為靜態程式與回歸測試，不是 Cloudflare Access 遠端驗證、Hosted CPU 測試或部署授權；須依新 HEAD 驗證 Hosted CI 五項與正式 Codex 複審、在 Thread 回覆。仍不允許未經使用者授權 Merge、部署 Cloudflare 或操作 D1。
+
+## 2026-10-26｜PR #21 第五輪 Codex P2：在首次 npm/npx 執行之前安全預檢
+
+- 最新正式 Codex Review 對 HEAD `d91a935f5b98c66599b988aab369268674ac9e59` Completed，新增 P2 Finding `4379430230`、Thread `PRRT_kwDOVUuF1c6wV0jz`：Verify workflow 在 `npm run check` 後才執行靜態 preflight；未審核 `.npmrc` 可在 npm 先執行惡意程式後自行刪除，造成其後掃描 PASS，安全檢查時序無效。
+- 本輪將離線安全 preflight 移到 Verify Node22/24 Windows/Ubuntu test 的 `npm run check` 之前，也在 Verify 的 local workerd smoke Job 與四個 `workflow_dispatch` 專用 Workflows（D1 staging migration、staging owner bootstrap、incremental 0002、PBKDF2 local workerd）的 Node setup 之後、任何 npm/npx 或委派工具之前加入獨立 `node tools/cloudflare-hosted-probe-preflight.mjs` 步驟。
+- 擴充測試，逐 Job 驗證實際 workflow 步驟順序與獨立 Node preflight（共六個 npm/npx Jobs），另有交換 npm/preflight 順序後必須失敗的負向 fixture；未執行注入 payload，也不執行任何遠端 API。人工同步更新五個 Workflow 與單一測試檔 SHA-256 allowlist，其他指紋不變。
+- 需於新 HEAD 核對 Hosted CI、正式 Codex 複審並回覆 Finding；仍禁止未獲用戶授權的 Merge、Cloudflare 部署、Access/D1 更動或 Hosted CPU 開啟。此靜態保護並不等於遠端 Access 驗證。
+
+## 2026-10-26｜PR #21 Codex 補充：具名 run 與 Windows CRLF
+
+- 上輪正式 Codex Review 對過程 HEAD `1a000f677f4241c371882a2c8d7a841c905d8ac6` 完成，新增兩個 P2 Findings `437986...`（依新 Threads 的實際 ID）指出 Workflow 順序測試：`run: npm ...` 解析遺漏，以及 Windows CRLF 與測試內固定 LF 不一致。
+- 已在後續 Commit 將 `run: npm/npx` 具名步驟也納入掃描，使 5 個 Workflow 共 6 個 Jobs 確實統計；本輪於 `assertOrder` 入口與 verify fixture 均正規化 CRLF→LF，增加每支 Workflow CRLF 模擬與顛倒步驟後仍拒絕的 CRLF 負向回歸。同步手工更新新增測試的 SHA-256，其餘 approved workflow hashes 不變。
+- 尚需核對最終 HEAD Hosted CI 與正式 Codex Review。未 Merge，不啟動遠端 Cloudflare、Access 或 D1。

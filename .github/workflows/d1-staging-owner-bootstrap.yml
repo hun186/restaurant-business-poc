@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Validate staging-only target and ephemeral password availability
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -52,4 +52,5 @@
 | RB-030 | DONE_STAGING | P1 | PR #18 已 Merge；CHECK #40203410303 PASS、APPLY #40204026605 PASS，staging D1 `0002` 實際套用並完成 ledger/三索引/Owner/FK 驗收；production 不變 |
 
 | RB-031 | DONE_LOCAL | P1 | PR #19 已 Merge，手動 synthetic local workerd 三樣本 Run #40208993373 PASS；wall median hash/正確/錯誤 79/79/78 ms，**非 Hosted CPU** |
-| RB-032 | IN_REVIEW | P1 | PR 開發中的獨立 Hosted PBKDF2 合成 CPU 探針（Worker-level Access ctx.access + AUD、預設 disabled、workers.dev/preview URLs 無路由、無 D1/Secrets）；待 Hosted CI/正式 Codex Review，**未部署、無 Hosted CPU 讀值**，未獲單獨授權不得部署或開放登入 |
+| RB-032 | PLANNED_HOSTED_VALIDATION | P1 | PR #20 已 Merge，但 Hosted PBKDF2 探針仍 disabled／未部署；待 Cloudflare Worker-level Access 與所有 URL/Bypass 現場證據，才可另行授權部署、測量實際 CPU time |
+| RB-033 | IN_REVIEW | P1 | 獨立 Probe 離線 preflight、嚴格拒絕錯誤 routes/bindings/登入啟用/CI 部署接線、Cloudflare Access 層級與版本路由驗收 SOP；靜態 PASS 不等於遠端 Access 驗收，待 Hosted CI／Codex、Merge 授權 |

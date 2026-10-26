@@ -30,6 +30,22 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/demo-pricing.test.js":"74f4b421745427113e9ea2a756c72f527028b3e52036ef62cc3e445e5757f9ed",
+  "tests/demo.test.js":"335ad627a4de4ba434aedbbc41ef200724e5ed3d8be85926c6e13a199b8fc569",
+  "tests/http.test.js":"59b038c09a800b535e65071a42606aa3111274dd142e9c60b7b3eceaa6c2b2f4",
+  "tests/login-ui.test.js":"24bc0b9f608138269ec89d863459a14a317e1ebe9397c6a566ebf57452867b71",
+  "tests/order-batch-double-submit.test.js":"791cf8b52e5b1d084eae3471a95f25b8604ba0518be55dbde0f344b3f548dbb2",
+  "tests/order-batch-modal-lifecycle.test.js":"05ded35b8e807fda4962bc3a2c49bf049b7812edbdfa69e73fd9a32abfee7cda",
+  "tests/order-batch-opening-generation.test.js":"50756e1af6a2863affc43d3a7a69e33beb8774bc62422ca1e82b3fd93fe1da2c",
+  "tests/order-batch-shared-modal.test.js":"83734032f720fb8533f3a8b12a0fb5b6e9f4409931fbba7cb79e397e37c07c89",
+  "tests/order-batches.test.js":"a877fb60b301b5bd66eb7f8cf18a5cc433b9432a06ae8e1f2943a8d7fe4c45a5",
+  "tests/owner-recovery.test.js":"8e243bbe525bcfdb750ae4fc35f9f63cac9c3de7d51e342f95fa39b526519acd",
+  "tests/pricing.test.js":"6aaf273d6aa847d33094f70f2e1f3384199519da31e20dbcbadeb2fe85c7d0b2",
+  "tests/report-export.test.js":"c9b5f4f8644a2d4f818770449b56f6b71a37e87a3f17054a895a28c84b722865",
+  "tests/report-logout.test.js":"197173c126f53961e3df53e1d4252c46e104028859c1e24006037fc80b34a0cd",
+  "vercel-demo/app.js":"b24111834690e311d62a7a0848fd1b4cc0832604778244c365e17b1a575eece1",
+  "vercel-demo/backup-demo-ui.js":"36c2c1497735892427ee21a8c2406ec6dd66693a789d72dfb8d30327fea82237",
+  "vercel-demo/backup-demo.js":"cc032a54a8310ed5e0f78a98e27cc5ead6b5b1e5ff346368403524582dc5bde2",
   "tests/audit-ip.test.js":"9974730145e40f52fdc4217698e2fa799f56e249b62a94b52cf62ad3b00d76f1",
   "tests/backup-manager.test.js":"5908e5dc61d65f2dd08bcac5eed82bd11bcf017aaaf1991baf3907fe50ae6e5d",
   "tests/cloudflare-auth-foundation.test.js":"152a352bb89583c946f9c509f1f3319ad8d65abe8d670d4231d5221fee5ecd47",

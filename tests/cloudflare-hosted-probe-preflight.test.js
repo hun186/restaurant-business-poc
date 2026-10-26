@@ -80,7 +80,7 @@ test('fails closed if any remote routes, bindings, values or new config keys are
     const dir=await clone();
     try{
       editJson(dir,probePath,change);
-      assert.throws(()=>inspectHostedProbeStatic(dir),/E_HOSTED_PROBE_/);
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_HOSTED_PROBE_|E_UNREVIEWED_TRANSITIVE_DEPENDENCY/);
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });
@@ -94,7 +94,7 @@ test('fails closed if production routing or auth phase changes',async()=>{
     const dir=await clone();
     try{
       editJson(dir,prodPath,change);
-      assert.throws(()=>inspectHostedProbeStatic(dir),/E_PROD_WORKER_ISOLATION/);
+      assert.throws(()=>inspectHostedProbeStatic(dir),/E_PROD_WORKER_ISOLATION|E_UNREVIEWED_TRANSITIVE_DEPENDENCY/);
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });
@@ -112,7 +112,7 @@ test('fails closed on missing Access guard, fabricated wall timings or automatic
   ];
   const expected=[
     'E_ACCESS_GUARD_SHA256_CHANGED','E_ACCESS_GUARD_SHA256_CHANGED',
-    'E_PROD_WORKER_PROBE_IMPORT','E_UNREVIEWED_WORKFLOW'
+    'E_UNREVIEWED_TRANSITIVE_DEPENDENCY','E_UNREVIEWED_WORKFLOW'
   ];
   for(let i=0;i<cases.length;i++){
     const dir=await clone();

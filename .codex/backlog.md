@@ -53,4 +53,5 @@
 
 | RB-031 | DONE_LOCAL | P1 | PR #19 已 Merge，手動 synthetic local workerd 三樣本 Run #40208993373 PASS；wall median hash/正確/錯誤 79/79/78 ms，**非 Hosted CPU** |
 | RB-032 | PLANNED_HOSTED_VALIDATION | P1 | PR #20 已 Merge，但 Hosted PBKDF2 探針仍 disabled／未部署；待 Cloudflare Worker-level Access 與所有 URL/Bypass 現場證據，才可另行授權部署、測量實際 CPU time |
-| RB-033 | IN_REVIEW | P1 | 獨立 Probe 離線 preflight、嚴格拒絕錯誤 routes/bindings/登入啟用/CI 部署接線、Cloudflare Access 層級與版本路由驗收 SOP；靜態 PASS 不等於遠端 Access 驗收，待 Hosted CI／Codex、Merge 授權 |
+| RB-033 | MERGED_CODE_ONLY | P1 | PR #21 已 Squash Merge `85f055e74593`，main push CI #40375126939 5/5 PASS、Codex 無新 P1/P2、歷史 Threads 8/8 Resolve；只有靜態安全檢查與 Access 驗收 SOP，**遠端 Access/Hosted CPU 尚未驗證** |
+| RB-034 | IN_REVIEW | P1 | 私人 Cloudflare Access/URL 實站查核紀錄樣板及離線結構驗證器（不讀 Token、無網路/部署）；即使填寫完整仍不能自動認證遠端或允許部署。待本 PR 最新 HEAD Hosted CI 與正式 Codex Review，遠端查核尚未做 |

@@ -157,3 +157,5 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 
 
 **部署前 Preflight 修正（PR #21）：** 檢查器已改用固定的 SHA-256 白名單，包含 Hosted Access 守衛 Source、GitHub Workflow 及其委派的 `tools/` 與 `package.json`；新增 `false &&` 繞過和委派 `bash tools/deploy-probe.sh` 的負向回歸。將來修改這些檔案應先 Code Review 再更新白名單；此校驗仍不證明 Cloudflare 遠端 Access 已部署／CPU 已測得。
+
+**PR #21 安全檢查加強：** SHA-256 白名單也涵蓋所有目前的 Cloudflare 傳遞 import、`src/`、`tests/*.test.js`、資料庫 SQL、前端模組與 Wrangler 設定，使用遞迴封閉檔案清單避免新檔案繞過。僅更改 `cloudflare/auth-core.mjs` 或測試入口，就會讓 Preflight 失敗。這依然只是原始碼／CI 完整性證據，**不表示遠端 Cloudflare Access 已驗證或允許部署**。

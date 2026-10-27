@@ -24,6 +24,7 @@
 | RB-016 | IN_REVIEW | P1 | 本機登入後 `e.currentTarget.reset()` 非同步 null 錯誤；已修前端並新增 regression，待 Hosted CI／Codex Review、使用者授權 Merge |
 
 | RB-017 | IN_REVIEW | P1 | Owner 初始密碼遺失：本機離線密碼復原工具（先驗證備份、保留 SQLite、撤銷 Session、稽核），待 Hosted CI / Codex Review / Merge 授權 |
+| RB-018 | IN_REVIEW | P1 | PR #7 Windows 業主密碼復原雙擊 BAT、中文引導（`--guided`）、保留離線備份/唯一 Owner/Session 撤銷；已以保留原 Commits 的 Merge Commit 整合 2026-10-27 主線安全 SHA-256 清單。待新 HEAD CI/Codex Review，Windows 實機仍待驗收，未授權不可 Merge |
 
 | RB-019 | IN_REVIEW | P1 | 安全稽核加入 TCP 來源 IP（owner 查閱、不採信偽造標頭、舊資料無法還原），待 CI／Review／Merge |
 | RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |
@@ -56,4 +57,4 @@
 | RB-033 | MERGED_CODE_ONLY | P1 | PR #21 已 Squash Merge `85f055e74593`，main push CI #40375126939 5/5 PASS、Codex 無新 P1/P2、歷史 Threads 8/8 Resolve；只有靜態安全檢查與 Access 驗收 SOP，**遠端 Access/Hosted CPU 尚未驗證** |
 | RB-034 | MERGED_CODE_ONLY | P1 | PR #22 已 Squash Merge `324677783fc1`，main push CI #40380907839 5/5 PASS，正式 Codex Review 最新 HEAD 無重大問題，唯一 P2 已 Resolve；私人 Access 證據紀錄格式稽核僅離線功能，**未驗證真實 Cloudflare Access** |
 | RB-035 | MERGED_CODE_ONLY | P1 | PR #23 已 Squash Merge `98e88811658b`，main push CI #40421482417 **5/5 PASS**；Workers invocation CPU/Wall/outcome 人工去識別化資料之離線分析已合併，**未部署探針、未取得真實 Hosted CPU** |
-| RB-036 | IN_REVIEW | P1 | 雲端 D1 Login 來源 IP HMAC 前嚴格 IPv4/IPv6 正規化，避免同一 IPv6 多種拼寫拆散 rate-limit quota，拒絕格式錯誤／代理列表；**不表示** CF-Connecting-IP 來源已通過 Cloudflare 實站信任驗證，公開 Login 仍 503。待 Hosted CI、Codex Review、授權 Merge |
+| RB-036 | MERGED_CODE_ONLY | P1 | PR #24 Squash Merge `832165a00430`，main push CI #40435777549 completed/success **5/5 PASS**；Cloudflare 內部 Login IPv4/IPv6 正規化已合併；CF-Connecting-IP 實站可信性、Access、Hosted CPU 未驗證，公開 Login 仍 503 |

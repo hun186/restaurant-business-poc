@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17–#23 已合併；最新 PR #23 main Squash `98e88811658bfd2d702fd3dee95a0522c1a6c8b2`，合併後 Hosted CI #40421482417 **5/5 PASS**，正式 Codex Review 無新重大問題。Cloudflare Hosted PBKDF2 探針仍**未部署**，真實 Access/Version URL/Hosted CPU 未驗證；RB-034／035 僅完成離線證據格式／人工觀測分析。當前 RB-036 對內部（尚未公開）的 D1 Login `CF-Connecting-IP` HMAC 前 IPv4/IPv6 嚴格解析及等價字面正規化，防止限流配額分散，**不能證明該標頭在實站可信**。公開 Worker Login 仍 503；staging D1 v3/Owner/0002 已遠端驗收，production D1 未初始化。新 PR 的 CI/Codex 按最新 HEAD，未授權禁止 Merge／Cloudflare 部署／Access 或 D1 變更。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17–#24 已合併；PR #24 main Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 Hosted CI #40435777549 completed/success **5/5 PASS**、正式 Codex Review 無重大問題。Cloudflare Access 實站、專用 PBKDF2 Worker、真正 Hosted CPU 仍未驗證；公開 Worker Login 503、production D1 未初始化。現在繼續既有 Draft PR #7（Windows 離線 Owner 密碼復原中文雙擊啟動器），將舊 Head `1749544ecf` 以保留歷史的 Merge Commit 整合最新 `main`，修復 Docs 衝突、將新/變更工具與測試 SHA-256 加入已審核白名單，最新 HEAD CI/Codex 必須重驗；PR #9 仍舊 Draft 且有衝突。未授權不可 Merge、不得遠端改 Cloudflare Access/D1/部署探針。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

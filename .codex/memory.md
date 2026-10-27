@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17–#23 已 Merge；PR #23 main Squash `98e88811658bfd2d702fd3dee95a0522c1a6c8b2`，合併後 Hosted CI #40421482417 **5/5 PASS**，正式 Codex Review 對 `2f256289b0` 無重大問題、0 未解 Review Threads。專用 Cloudflare PBKDF2 Hosted Worker 未部署，遠端 Access/CPU 尚未實測。現行 RB-036 加固未公開啟用的 D1 Login：嚴格驗證 `CF-Connecting-IP` 字面、IPv6 正規化／IPv4-mapped 相等，HMAC 統一來源以避免 IP 限流被分拆；此修正**不構成** Cloudflare edge 的來源可信驗證，也不啟用 Login。須以 PR 最新 HEAD 驗證 Hosted CI／Codex，未經明確授權不得 Merge。
+- 首要目標：PR #17–#24 已 Merge；PR #24 main Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 CI #40435777549 5/5 PASS、正式 Codex Review 無重大問題。現處理舊 Draft PR #7 的 Windows Owner 密碼復原雙擊 BAT，保留 PR7 原有 Commit、P2 修正及 main 全新功能，透過 Merge Commit 與 SHA-256 安全 manifest 整合；原 PR7 Codex/CI 只適用舊 HEAD，不能推論新 HEAD 已通過。PR #9 另有衝突尚未處理。Cloudflare Hosted CPU/Access 真實驗證未完成；未授權不可 Merge 或實站改動。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -305,3 +305,18 @@
 - 內部 `cloudflare/login-service.mjs` 原版 `sourceIpDigest` 將 `CF-Connecting-IP` 小寫後 HMAC；不同 IPv6 零展開/壓縮文字為同一來源卻可能產生不同 digest，令 `login_attempts.ip_hash` 限流計數拆分。IPv4 正規式原本也沒檢查 octet 最大 255，非法字面可通過。
 - RB-036 新增 Worker-safe `cloudflare/client-ip.mjs`，限制合法的四段十進位 IPv4（拒絕前導 0、超過 255、hex/octal 變體），使用 WHATWG URL IPv6 標準正規化，IPv4-mapped IPv6 與 IPv4 共用 `4:` HMAC 輸入，普通 IPv6 用 `6:` 區分。拒絕逗號列表、空白、方括號、IPv6 zone id、port、奇怪 mixed dotted；不信任 `X-Forwarded-For`。新測試校驗 HMAC 相等／差異與公開 Worker Login 永遠 503，既有登入交易邏輯不改。
 - 僅更新實際新增/變更的已審查 source/test SHA-256，保持全 Repo fail-closed 白名單。此工作不驗證 `CF-Connecting-IP` 在 Cloudflare edge 是否可信、無遠端部署／Access/D1 寫入／真實登入開啟。正式驗收仍須最新 PR HEAD CI、Codex Review 與使用者合併授權。
+
+## 2026-10-24｜Windows 業主密碼復原 BAT 操作引導（新 PR）
+- 業主實機執行 `node tools/reset-owner-password.js` 停在輸入 `RESET owner` 提示，又出現 Node.js SQLite ExperimentalWarning；希望降低非資訊背景使用者的操作困難。
+- 新增根目錄「重設業主密碼.bat」，檢查 Node.js 版本、原有資料庫與 `.installed`、工作目錄，以 UTF-8 顯示中文步驟，呼叫 CLI `--guided`，改成輸入數字 1 確認；無論成功失敗都 pause 留下畫面。僅針對 ExperimentalWarning 停用警告，其他錯誤照常顯示。
+- CLI 原本互動式 `RESET owner` 保留，`--guided` 只改確認方式，不繞過 TTY、schema / owner 驗證、完整備份、CAS 並行保護、Session 撤銷與稽核。正式 Windows 實機操作仍需額外驗收。
+- 仍須 Hosted CI 及 Codex Review，未獲 Merge 指示不得合併。
+
+- 2026-10-24 Codex P2：舊 BAT `cd /d "%~dp0"` 在 UNC／切換失敗時可能繼續從舊工作目錄執行錯誤專案。已改以 `pushd` 並檢查失敗立即中止、所有成功／失敗路徑 `popd`；回歸測試驗證順序與配對。需再跑 CI／正式複審。
+
+## 2026-10-27｜PR #7 回補主線安全預檢相容性
+
+- 最新 main 已確認 PR #24 Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 Verify #40435777549 5/5 PASS；公開雲端 Login 仍禁用。
+- PR #7 原 HEAD `1749544ecf7f15c61a3313c7f9719c476e4be2e5` 對應正式 Codex Review 無重大問題、舊 CI #40077146458 success，但與新 main 衝突。採用兩個父 Commits 的 Merge Commit（第一父 PR7 HEAD、第二父 main），避免 force-push 或重置舊 Commits。
+- PR7 原先新增 `重設業主密碼.bat`、`tests/owner-recovery-launcher.test.js`、更新 `tools/reset-owner-password.js`：和最新 main 的 tool 原始基底逐位相同，故可直接帶入修正後工具。保留並追加原 PR7 README/記憶，不以舊版覆寫新主線文件。
+- 主線目前安全預檢封閉列表要求所有 `tools/`、`tests/`、根目錄 BAT 由人工審核並 SHA-256 綁定；本輪必須只更新上述三項 digest，其餘保持不變。新 HEAD 的 Hosted CI 和正式 Codex Review 完成前不可認定合併適格；Windows 實機驗收仍未完成。

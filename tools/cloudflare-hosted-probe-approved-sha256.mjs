@@ -22,7 +22,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-staging-0002.mjs":"1051dd5aae3eb7c6fb6b6ad6590bcc5ddf3136461fbee5b1ef541c6ab831a4bb",
   "tools/cloudflare-staging-owner.mjs":"75300aa2da627d3da2c29c7706a0060f32c1f3674830248ea040ac83e8da2a7c",
   "tools/pbkdf2-workerd-sandbox.mjs":"33f2846108c0c4d246c8864ed5918c7e040f727a05a3e3824bcc888fb31d4b01",
-  "tools/reset-owner-password.js":"86cb87cd9cbfaf0dfcbbae89c0f19d6e92b50c260b30d72a10c925f6e2c3c80d",
+  "tools/reset-owner-password.js":"fcb21006def6c7053fa2ab8f1dc96b9d97a8dfe58f8726ae3721ec6bc0b2b750",
   "tools/run-pbkdf2-local-workerd.mjs":"042a46377d9aa3d5c0e0f61ba71fadf620b78f0b0df1205f4e349f1bf65bd182"
 });
 
@@ -47,6 +47,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "wrangler.pbkdf2-local.jsonc":"c069f464c266ab286d685ffddf54df3fb067db8ae599b0e7e028c3a011baa69b",
   "wrangler.preview-migrations.jsonc":"fc67f950f58e4ab83299c4ddb10b14e4f61f72a8abed223a0fe24f69b95bee7b",
   "server.js":"fd1b214718f93cb5bf21be66c17f9ea0a945b58acb25fdd5b60acdb81ee8407e",
+  "重設業主密碼.bat":"413c3f560749aa27c4d62c087d114dfac9fa9b652159044b6fc83ae3ec12b7f6",
   "備份資料.bat":"185297a3fcdbb85f5e6d10ffd9aebad856c25640ace001a2b7ab8d483a45202f",
   "啟動餐廳好管家.bat":"0623f1598fb58a479be0965877ea8a002ddfeb75a5bf895894e153c521ae7e2e",
   "tests/demo-pricing.test.js":"74f4b421745427113e9ea2a756c72f527028b3e52036ef62cc3e445e5757f9ed",
@@ -58,6 +59,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/order-batch-opening-generation.test.js":"50756e1af6a2863affc43d3a7a69e33beb8774bc62422ca1e82b3fd93fe1da2c",
   "tests/order-batch-shared-modal.test.js":"83734032f720fb8533f3a8b12a0fb5b6e9f4409931fbba7cb79e397e37c07c89",
   "tests/order-batches.test.js":"a877fb60b301b5bd66eb7f8cf18a5cc433b9432a06ae8e1f2943a8d7fe4c45a5",
+  "tests/owner-recovery-launcher.test.js":"fd9e8adb286b10e0dcca723d6b2f75486bbff596e563a4f2852f8442539f3817",
   "tests/owner-recovery.test.js":"8e243bbe525bcfdb750ae4fc35f9f63cac9c3de7d51e342f95fa39b526519acd",
   "tests/pricing.test.js":"6aaf273d6aa847d33094f70f2e1f3384199519da31e20dbcbadeb2fe85c7d0b2",
   "tests/report-export.test.js":"c9b5f4f8644a2d4f818770449b56f6b71a37e87a3f17054a895a28c84b722865",

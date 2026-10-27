@@ -165,3 +165,15 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 **Hosted CPU 平台觀測離線分析（RB-035，開發中）：** `node tools/hosted-cpu-log-offline-audit.mjs <repo外私有去識別化JSON>`，依 Cloudflare Workers invocation logs 的 `cpuTimeMs`、`wallTimeMs`、`outcome` 做只讀統計與 Free 10ms 風險提示；[填寫與安全 SOP](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md)。範例為**虛構數值**；工具不能證明平台資料真偽、Cloudflare Access 安全或部署授權。
 
 **內部 Cloudflare 登入來源 IP 正規化（RB-036，開發中）：** 為尚未啟用的 D1 Login 限流新增合法 IPv4／IPv6 解析，等價 IPv6 與 IPv4-mapped 位址在 HMAC 前統一，避免同一來源使用多個文字表示拆開來源限流；不代表 Cloudflare 標頭來源已獲實站驗證。Production Login 繼續返回 503，不變更遠端 Access、Worker 或 D1。
+
+## Windows 業主忘記密碼：雙擊 BAT 操作（業主友善）
+
+1. 關閉「啟動餐廳好管家.bat」的服務視窗（如果用 `npm start`，也要先停止服務）。
+2. 在**原本保存資料庫的專案資料夾**雙擊 **`重設業主密碼.bat`**。請勿解壓到另一個空白目錄，也不要刪除 `data/` 或 `backups/`。
+3. 閱讀畫面的中文說明，確認服務已停止後，輸入 **數字 `1`** 並按 Enter；其他輸入會取消。
+4. 工具會先建立並驗證備份；驗證通過才更新 `owner` 密碼。新密碼只顯示在視窗中一次，請立即記錄。若顯示錯誤，請保留畫面及原始資料，不要重設資料庫。
+5. 重新雙擊「啟動餐廳好管家.bat」，用 `owner` 及新密碼登入。登入後可在「變更密碼」改成自己保存的密碼。
+
+BAT 只簡化本機互動操作，實際安全檢查仍由 `tools/reset-owner-password.js` 執行；不產生固定預設密碼、不開放遠端重設、不改動營運資料。BAT 以 Node.js 的 `--disable-warning=ExperimentalWarning` **只隱藏 SQLite 實驗性警告**，不會隱藏一般錯誤或驗證失敗訊息。若不使用 Windows，仍可執行 `node tools/reset-owner-password.js` 並輸入 `RESET owner`。
+
+**路徑安全：** `重設業主密碼.bat` 會先以 Windows `pushd` 切換至 BAT 所在專案資料夾，失敗時立即中止，避免誤讀其他專案的 SQLite；結束後恢復工作目錄。雖然 `pushd` 能處理 UNC 網路路徑，但正式資料庫**仍建議放在本機磁碟**，不要直接放在不穩定的網路共享位置。

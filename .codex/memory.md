@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：`main` 最新 `4a0d6d03c159b14b5f292e22e106c53fd73f6c45`（PR #25 已 Merge）。當前 RB-003：建立跨角色、跨門市與同店他人資料之 DB/HTTP 權限回歸矩陣；新增 `tests/rbac-matrix.test.js`、封閉 SHA-256 白名單、README 與 backlog，需在新 Draft PR 最新 HEAD 的 Hosted CI/正式 Codex Review 驗收，禁止擅自 Merge。PR #1、#7–#10、#12–#25 已合併。正式 Windows、Cloudflare Access/Hosted PBKDF2 CPU、production D1、業主簽收仍未完成。
+- 首要目標：以最新 `main` `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`（PR #26 RB-003 已 Merge，push CI #40505949563 5/5 PASS）為基底，接續 RB-010/RB-011：新增一次性隔離備份還原驗證 `tools/restore-drill.js`、`備份還原演練.bat`、`tests/restore-drill.test.js`，不會覆寫既有營運 DB；等新 HEAD Hosted CI 與 Codex Review，未經授權不得 Merge。正式 Windows 業主實機、異機還原、異地備份、Cloudflare Access/Hosted CPU、production D1 均未完成。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -354,3 +354,17 @@
 - 正式 Codex Review 針對 HEAD `0fad7ffe2cbb0ef80edb5bcd39158391ccfc5e8d` 提出兩項 P2 測試缺口（不是既證實的業務越權漏洞）：(1) 降權後僅測舊 Session 撤銷，沒有檢查重新登入 Staff 權限；(2) Staff 對進價／庫存估值／成本明細拒讀未形成直接測試。
 - 已補充 `/api/me` 降權角色 assert、降權前 Manager 可成功而降權後 Staff 必須 403 的後端命令對照；另新增 `ingredient_prices`、`inventory_values`、`dish_cost_lines` 及 `dish_ingredients` 等 DB/HTTP 真 Cookie 的 Staff 403 覆蓋。新測試 exact SHA-256 `7580293896754e7d52c41f0e6f62b0774396c56b8cc32d6a7a363900e965cdd4`；更新 manifest，其他程式未變。
 - 須以本次修正後最新 HEAD 重跑 Windows/Ubuntu Hosted CI 及正式 Codex Review；未取得完成證據不得標記 P2 解決或 Merge。
+
+## 2026-10-27｜RB-010／RB-011 隔離備份還原演練工具
+
+- 本輪基底 `main` `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`；PR #26 RB-003 已 Squash Merge；main push Verify #40505949563 全 5/5 PASS，Workers Build Success。舊 `.codex` Current Focus 已更新。
+- `tools/restore-drill.js` 僅對既有備份做唯讀校驗，以獨立、受 ACL 保護的系統暫存目錄建立一次性副本，驗證 SHA-256 位元組一致、SQLite v3 Schema/quick_check/FK、業務 fingerprint 和有效業主/門市資料；最後刪除副本。不得覆寫營運 DB，不得自動重建 DB。
+- `備份還原演練.bat` 為 Windows 中文提示雙擊啟動器，使用 `pushd`/Node 22.13+ 檢查；`tests/restore-drill.test.js` 測試正式庫備份後異動仍不受演練影響、預設選最新、指定備份名稱校驗、壞備份與遺失 DB fail-closed；新可執行項目確切 SHA-256 均列入封閉式安全 manifest。
+- **驗證範圍限制**：僅一次性隔離副本的可讀性與結構安全，未進行真正的 Windows 業主機部署、異機啟動登入、跨磁碟/異地備份、實際還原寫入、RTO/RPO、人工簽收。不得把工具 PASS 寫成完整災難復原完成。
+- 最新 HEAD Hosted CI 和正式 Codex Review 必須完成，若 P1/P2 須修正/再審。使用者未另行授權不可 Merge。
+
+### 2026-10-27｜PR #27 Codex P2：來源備份零寫入修正
+
+- 首輪正式 Codex Review 對 HEAD `4212a881583474ce71cc6b4ede8313e3dfc30f35` 發現 2 項 P2：(1) `backup-manager.list` 原本會透過 `protect` 修改未選取備份/目錄 ACL；(2) 對原始 WAL SQLite 使用 `verifySnapshot` 即使 readOnly 仍可能產生 -wal/-shm 暫存檔，並且在來源 descriptor 身分檢查前已開啟來源路徑。
+- 修正為 `backupsReadOnly` 使用 readdir/lstat 列舉、拒絕非一般檔/符號連結，不調整原始備份任何權限；複製時由已固定、驗證身分的來源 FD 一次取得原始位元組 SHA-256，僅對受保護的隔離副本使用 SQLite 完整性與 fingerprint 校驗。新增原始檔/資料夾 mode 不變、WAL sidecar 不產生、symlink fail-closed 回歸。
+- 新工具／測試精確 SHA-256 分別為 `8ebd3d933287d7bcd0994f6095f02f01ba2ee121dcbd52c167d792d1ef920b14`／`13cf3b47ab6e4eda3e6d139973bba2d74754ec4b4a34396d97d4b56c11445efb`，更新安全白名單後需新 HEAD Windows/Ubuntu Hosted CI 與正式 Codex Review 複審，舊 P2 在核對後方可 Resolve；未授權不可合併。

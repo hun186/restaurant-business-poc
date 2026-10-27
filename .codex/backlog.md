@@ -9,13 +9,13 @@
 | RB-002 | PLANNED | P1 | 多人正式部署拓樸、HTTPS、Secure Cookie、遠端連線安全與後端儲存選型 |
 | RB-003 | MERGED_CODE_ONLY | P1 | PR #26 已 Squash Merge `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`，main push CI #40505949563 5/5 PASS、正式 Codex Review 無新 P1/P2，2/2 Threads Resolved；RBAC 矩陣已納入主線，但正式門市角色政策／Windows 多使用者實機 UAT 尚未執行 |
 | RB-004 | MERGED_CODE_ONLY | P1 | PR #1 自動備份、無資料異動跳過與站內備份管理程式已合併；Windows 隔離還原、備份磁碟隔離/異地複本及業主簽收尚未執行 |
-| RB-011 | PARTIAL_CODE | P1 | 安全隔離備份副本核驗工具與離線 SOP 已提案；**真正異機還原、跨磁碟／異地備份、備份儲存權限、啟動登入與災難復原 RTO/RPO、業主簽收仍未完成**，需安排現場演練並保存私有證據 |
+| RB-011 | IN_REVIEW | P1 | 既有 PR #27 同機備份副本驗證已合併；本輪新增外接／異機唯讀備份核對 CLI/BAT，依來源另存 SHA-256 在沒有 data/ 的新電腦驗證快照。待新 PR CI/Codex；**實際異機啟動還原、跨磁碟/異地自動備份、加密與存取政策、RTO/RPO／業主簽收仍待現場執行** |
 | RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |
 | RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
 | RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |
 | RB-008 | PLANNED | P2 | 預定保養、開關店 SOP、值日表、設備／食安檢查表 |
 | RB-009 | PARTIAL_CODE | P2 | PR #8 已提供 Excel 匯出及列印預覽；進階庫存成本/營運分析、POS 介接與業主使用流程仍待規劃 |
-| RB-010 | IN_REVIEW | P1 | 新增 Windows 雙擊 `備份還原演練.bat`、隔離快照驗證 CLI 與回歸測試（只複製到暫存位置，確認 SHA-256、SQLite Schema/FK、資料指紋和有效 Owner，清除隔離副本，不覆寫 data/backups）；待本 PR 最新 Hosted CI/Codex、業主 Windows 實機部署/登入/操作簽收 |
+| RB-010 | MERGED_CODE_ONLY | P1 | PR #27 已 Squash Merge `e6827cb7436c7b86b1808d4f0de55983138eac28`；合併後 main push CI #40542421530 **5/5 PASS**。Windows 雙擊隔離備份驗證 CLI/BAT 與來源唯讀防護已入 main；正式業主 Windows 實機部署、登入/操作及災難還原簽收仍未執行 |
 
 | RB-011-PRICING | MERGED_CODE_ONLY | P1 | 已合併 v3 食材歷史進價、叫貨驗收單價、菜品配方與估算毛利；屬估算功能，正式營運成本／會計與真實菜單驗收尚未完成 |
 | RB-012 | PLANNED | P2 | FIFO／移動平均、批次效期、稅費／折扣、POS 出餐扣料與營運會計成本 |

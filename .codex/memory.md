@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：以最新 `main` `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`（PR #26 RB-003 已 Merge，push CI #40505949563 5/5 PASS）為基底，接續 RB-010/RB-011：新增一次性隔離備份還原驗證 `tools/restore-drill.js`、`備份還原演練.bat`、`tests/restore-drill.test.js`，不會覆寫既有營運 DB；等新 HEAD Hosted CI 與 Codex Review，未經授權不得 Merge。正式 Windows 業主實機、異機還原、異地備份、Cloudflare Access/Hosted CPU、production D1 均未完成。
+- 首要目標：以 Hosted `main` `e6827cb7436c7b86b1808d4f0de55983138eac28`（PR #27 已 Merge，main push CI #40542421530 5/5 PASS）為基底，接續 RB-011：提供獨立主機／外接磁碟備份只讀核對、來源 SHA-256 搬運一致、SQLite 暫存副本驗證的 Windows 雙擊工具與回歸，須新 HEAD 正式 Codex Review/CI 完成後才能合併。正式異機服務啟動、跨磁碟加密/異地備份、業主現場簽收、Cloudflare 正式授權與 production D1 仍未完成；未經使用者授權不可 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -368,3 +368,11 @@
 - 首輪正式 Codex Review 對 HEAD `4212a881583474ce71cc6b4ede8313e3dfc30f35` 發現 2 項 P2：(1) `backup-manager.list` 原本會透過 `protect` 修改未選取備份/目錄 ACL；(2) 對原始 WAL SQLite 使用 `verifySnapshot` 即使 readOnly 仍可能產生 -wal/-shm 暫存檔，並且在來源 descriptor 身分檢查前已開啟來源路徑。
 - 修正為 `backupsReadOnly` 使用 readdir/lstat 列舉、拒絕非一般檔/符號連結，不調整原始備份任何權限；複製時由已固定、驗證身分的來源 FD 一次取得原始位元組 SHA-256，僅對受保護的隔離副本使用 SQLite 完整性與 fingerprint 校驗。新增原始檔/資料夾 mode 不變、WAL sidecar 不產生、symlink fail-closed 回歸。
 - 新工具／測試精確 SHA-256 分別為 `8ebd3d933287d7bcd0994f6095f02f01ba2ee121dcbd52c167d792d1ef920b14`／`13cf3b47ab6e4eda3e6d139973bba2d74754ec4b4a34396d97d4b56c11445efb`，更新安全白名單後需新 HEAD Windows/Ubuntu Hosted CI 與正式 Codex Review 複審，舊 P2 在核對後方可 Resolve；未授權不可合併。
+
+## 2026-10-28｜RB-011 外接磁碟／異機備份驗證新工作
+
+- 已確認 PR #27 `e6827cb7436c7b86b1808d4f0de55983138eac28` 合併後 main push #40542421530 **completed/success 5/5 PASS**；本輪起始無 Open PR。RB-010 狀態調整為 `MERGED_CODE_ONLY`，非業主現場 UAT 通過。
+- `tools/offsite-backup-verify.js`：外接檔案完整路徑 + 來源主機獨立留存 SHA-256，來源一般檔和開啟 FD 身分檢查，在受 ACL 保護的一次性 temp 僅執行 SQLite 完整性、Schema/FK/fingerprint 與有效業主摘要，清理副本。**不要求原電腦 data/ 存在**，不修改備份 ACL，不在原備份位置產生 SQLite WAL/SHM。
+- `異機備份驗證.bat`：Node 22.13+ 版本檢查，使用 Node readline 互動輸入外部來源路徑／雜湊，避免在 CMD 插入使用者輸入；沒有真的還原啟動服務。
+- `tests/offsite-backup-verify.test.js`：驗證無原 data 仍能處理、來源位元組與 mode 不變、錯誤 hash／損毀檔拒絕、WAL sidecar 不出現在來源，以及 Windows 啟動器靜態檢查。
+- 須更新 3 個執行檔 exact bytes SHA-256 安全 allowlist；Hosted CI/Codex 正式複審、P1/P2 修正與合併授權尚待完成。正式 Windows 實機/異機真正恢復、加密異地備份、RTO/RPO 與業主簽收必須另行安排。

@@ -18,4 +18,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - run: npm run check
+
+  pbkdf2-workerd-http-smoke:
+    # This is a single synthetic localhost HTTP regression, NOT a Cloudflare
+    # hosted CPU benchmark, cloud deploy or D1 migration.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Install fixed local workerd tooling without Cloudflare credentials
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Verify actual loopback POST transport and reject nonempty inputs
+        run: node tools/run-pbkdf2-local-workerd.mjs --smoke

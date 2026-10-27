@@ -1,7 +1,8 @@
 'use strict';
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {openDb}=require('./src/db'),{uuid,checkPassword,randomToken,sha}=require('./src/security');
-const {rows,command,overview,audit}=require('./src/service');
+const {rows,command,overview,audit,scope}=require('./src/service');
+const orderBatches=require('./src/order-batches');
 const {withRequestIp,clientIp}=require('./src/request-ip');
 const APP_ROOT=path.join(__dirname,'public');
 const {createManager}=require('./src/backup-manager');
@@ -102,6 +103,7 @@ function makeHandler(db,backups=null){
     }
     if(req.method==='GET'&&route==='/api/overview')return safeJson(res,200,{overview:overview(db,u)});
     if(req.method==='GET'&&route==='/api/data')return safeJson(res,200,{rows:rows(db,u,url.searchParams.get('entity'))});
+     if(req.method==='GET'&&route==='/api/order-batch')return safeJson(res,200,orderBatches.details(db,u,url.searchParams.get('number'),scope));
     if(req.method==='POST'){
      originCheck(req);
      if(req.headers['x-csrf-token']!==u.csrf_token)return safeJson(res,403,{error:'CSRF 驗證失敗'});
@@ -124,7 +126,7 @@ function makeHandler(db,backups=null){
    }
    if(req.method!=='GET'&&req.method!=='HEAD')return safeJson(res,405,{error:'方法不允許'});
    let filename=route==='/'?'/index.html':route;
-   if(!['/index.html','/styles.css','/app.js','/backup-ui.js','/xlsx-lite.js','/report-ui.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
+   if(!['/index.html','/styles.css','/app.js','/backup-ui.js','/xlsx-lite.js','/report-ui.js','/order-batch-ui.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
    const abs=path.join(APP_ROOT,filename.slice(1)),types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
    res.writeHead(200,{'Content-Type':types[path.extname(abs)],'Cache-Control':'no-store'});
    if(req.method==='HEAD')return res.end();fs.createReadStream(abs).pipe(res);

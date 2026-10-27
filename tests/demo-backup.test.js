@@ -8,7 +8,7 @@ function demo(existing){
  const location={href:'https://restaurant-business-poc.vercel.app/',reload:()=>{}};
  const window={fetch:async()=>{throw Error('Unexpected remote request')},confirm:()=>true};
  const context=vm.createContext({window,sessionStorage:storage,location,URL,Response,Date,console});
- for(const script of ['pricing-demo.js','backup-demo.js','mock.js'])
+ for(const script of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])
   vm.runInContext(fs.readFileSync(path.join(dir,script),'utf8'),context,{filename:script});
  const api=async(action,data={})=>{
   const response=await window.fetch('/api/demo-backups',{method:'POST',body:JSON.stringify({action,...data})});

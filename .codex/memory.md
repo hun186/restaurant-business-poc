@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：確認 PR #1 最新 HEAD 的 Hosted CI、正式 Codex Review 與安全／相容性修正；禁止未授權合併。
+- 首要目標：PR #17–#24 已 Merge；PR #24 main Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 CI #40435777549 5/5 PASS、正式 Codex Review 無重大問題。現處理舊 Draft PR #7 的 Windows Owner 密碼復原雙擊 BAT，保留 PR7 原有 Commit、P2 修正及 main 全新功能，透過 Merge Commit 與 SHA-256 安全 manifest 整合；原 PR7 Codex/CI 只適用舊 HEAD，不能推論新 HEAD 已通過。PR #9 另有衝突尚未處理。Cloudflare Hosted CPU/Access 真實驗證未完成；未授權不可 Merge 或實站改動。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -125,6 +125,208 @@
 
 - 2026-10-24 Codex 新 P2（HEAD 2b7f277）：舊 logout Set-Cookie 清除可能晚於新 login Set-Cookie，導致新登入 Session 被抹除。正式版與 Demo 新增 logoutInFlight Promise，登出按下同步清畫面／鎖定列印不變；新登入 submit 須先等舊登出請求完成才發送 /api/login，登出失敗亦不得永久卡住；加入 VM 延遲登出回應回歸測試。待 Hosted CI／Codex 複審。
 
+## 2026-10-24｜多品項叫貨與供應商自動分單＋LINE 半自動草稿（新 PR）
+- 業主提供先前系統三張畫面：員工盤點→自動整理叫貨→主管核准→依廠商分單→複製 LINE 文字或開啟分享，員工自行按送出。依官方 LINE 文件用 `https://line.me/R/share?text=`，不做自動傳送或假造已讀／已送狀態。
+- 不更改嚴格版控的 v3 SQLite Schema：沿用 purchase_orders 每筆一食材，新的多品項群組以 `POB-<randomUUIDhex>-001` 等內部行號與共同 `POB-<randomUUIDhex>` 廠商主單號表示。原始舊單完全保留；同一供應商／門市的多行在交易內一併核准、取消、驗收入庫，逐行 reference_id 防重複，維持後端角色與門市 scope。
+- 供應商建議源自門市最近有效歷史價格供應商；可明確覆寫，缺廠商須人工輸入，正式供應商主檔／自動推估安全庫存缺口／外部傳送回執後續可再擴充。
+- 新 `src/order-batches.js`、`public/order-batch-ui.js`、`/api/order-batch` 及虛構 Vercel Mock。此為 PoC 功能，需實際 Hosted CI、Codex Review 與 Windows／LINE 操作驗收；未授權不可合併。
+
+- PR #10 Codex 最新 HEAD 8d5ac3 3 個 P2：廠商預覽回應晚於登出可能重開敏感 modal，已於 start/preview/submit/action 檢查 authEpoch+userId；補貨建議等待 API 時若門市由 A 改 B，改成丟棄舊結果；Vercel Mock 新版整張驗收支援各行有效價格先完整驗證才變更庫存，失敗則還原虛構資料 snapshot，不會部分入庫。正式與 Demo UI 同步；補回歸後依最新 SHA 重新送 Review。
+
+- 2026-10-24 PR #10 最新 Codex Review P2：整張批次驗收 UI 缺失逐項進價欄，導致不能如舊 `order.receive` 保留此次進價與庫存關聯；已在正式版和 Vercel Demo 共用 `order-batch-ui.js` 主管驗收視窗加入各行選填進價（元）、進價單位、生效日，送出 `prices[orderLineId]`；空白價不建進價，資料完整性由正式 backend 與 Demo 全張原子交易強制檢查。
+- 同輪 P2：Vercel Demo 同日更換供應商的建議選錯舊廠商；供應商排序加入原始 `ingredient_prices` 陣列 index 的同日最新記錄 tie breaker，比照既有 `pricing-demo.js`。需針對最新 HEAD 重新驗證 Hosted CI 與正式 Codex Review，不可沿用舊結果。未授權不得 Merge。
+
+- 2026-10-24 PR #10 Codex P2 (HEAD 98c869c)：`<input type=number>` 在使用者輸入未完成（如 `1e` 或 `-`）時可能 DOM value='' 而 validity.badInput=true，舊判斷誤當自願留空，造成庫存驗收成功但想填的進價未建立。正式與 Demo 先檢查 validity.badInput／checkValidity，再判斷真正空白才跳過，且驗價時再檢查單位／日期有效性；加入模擬瀏覽器 invalid field 及實際按驗收按鈕回歸，確保整張不送出 API。需重跑最新 Hosted CI 與 Codex Review，不得未授權 Merge。
+
+## 2026-10-24｜PR #10 最新 Codex P2：重複快速提交多品項叫貨
+
+- GitHub HEAD `caebe207` 的正式 Codex Review **Completed**，7 個 thread 中 1 個新 P2 未解：`public/order-batch-ui.js` 尚未阻止使用者在首次 `order.batch-create` 回應前連按兩次送出，導致後端建立兩張不同 UUID 的採購申請。
+- 已在 `public/order-batch-ui.js` 及 `vercel-demo/order-batch-ui.js` 同步：提交事件一開始阻止重入，通過前端驗證後、發出 API 前同步設定 `submitting` 並 disable 按鈕；API 拒絕後才解鎖允許重試；API 已成功時保持鎖定，即使後續刷新列表失敗也不再重送。
+- 新增 `tests/order-batch-double-submit.test.js`，使用 VM 非同步延遲回應重現連點、確認只有單次 API，失敗可重試；成功後刷新失敗亦不可重送。程式＋測試 HEAD `4f8cf235f03f6a731301a7e22927bffd23ff2056`，**不得以其前代 `caebe207` 的 Hosted CI PASS 代表新 HEAD PASS**。
+- 後續：查最新 HEAD Ubuntu／Windows Node22/24 Hosted CI；對新 Finding 回覆與 Resolve；提交最新 HEAD 的正式 Codex 複審，確認是否有新 P1/P2。Vercel Preview 目前每日部署額度失敗，與 GitHub CI 分開看。PR #10 仍 Draft，沒有 Merge 授權，Windows／LINE 真人操作未驗收。
+
+## 2026-10-24｜PR #10 新 P2：舊叫貨請求清空新草稿視窗
+
+- 最新已核實 Codex Review：HEAD `2c31530c818b01c47f54bbfaebf4ae9742c7b8fd` **Completed**，新 P2：送出舊叫貨表單後，若在 API 回應前取消、再開啟新表單，舊 API 成功會誤用共用 `#modal-root` 清空新草稿；Review Thread `PRRT_kwDOVUuF1c6v5B4c`。
+- 已針對 `public/order-batch-ui.js` 與 `vercel-demo/order-batch-ui.js` 在 submit closure 捕獲實際 DOM form；API 成功、失敗或驗證錯誤時要求 `ownsModal()`（帳號／epoch 未變、modal 可見且當前 form identity 相同），只允許原表單被關閉／解鎖／提示。舊請求仍可能在後端建立單據，這項修正只防止舊結果毀損新 UI，**不宣稱網路請求已取消**。
+- 新增 VM 重現：舊表單送出後關閉再建立新草稿，舊成功不得清除新表單；舊失敗不得解鎖或顯示舊錯誤；最新表單仍可提交成功。測試涵蓋正式與 Demo。新 HEAD 的 Hosted CI／正式 Codex Review 待依提交 SHA 核實；前版 PASS 不代表新 HEAD PASS。
+- PR 仍 Draft、未經使用者授權不可 Merge；Windows 與 LINE 真機操作、Vercel Preview 部署仍待另行驗收。
+
+## 2026-10-24｜PR #10 新 Codex P2：整張狀態操作與補貨建議須綁定原 modal
+
+- Review HEAD `3bd2bb8d0f13ca156eff7232c6d427ef00770256` **Completed**，新兩項 P2：`PRRT_kwDOVUuF1c6v5Hm4` 舊「主管核准／整張狀態操作」回應可能清空後開的新叫貨草稿；`PRRT_kwDOVUuF1c6v5Hm5` 舊補貨建議在同門市重新開表單後可能填入新草稿。兩者皆在正式版與 Demo 可重現。
+- 已在兩份 `order-batch-ui.js` 新增來源 modal instance 檢查：補貨回應先比原 `#batch-form` 實例，再比門市；整張狀態操作回應須比原 `.order-batch-modal` 實例，登入 epoch／帳號亦不變，才可清除畫面及更新 UI。舊失敗亦不能覆蓋新視窗提示。
+- 新 `tests/order-batch-modal-lifecycle.test.js` 以 VM 延遲 API 模擬主管核准成功／失敗與舊庫存回應跨表單污染、驗證新視窗保留輸入；`tests/order-batches.test.js` 同步補齊既有進價輸入測試的 modal element 模擬身份，不放寬價格驗證。
+- 初版測試 HEAD `95c16db` CI Ubuntu Node22/24 數字價格既有 fixture 失敗（模擬 modal 無實例），已於 `31f317fb` 調整測試；最終 Hosted CI 及正式 Codex 複審**尚須以最新 HEAD 重新核實**。不得沿用前代 PASS。
+- PR #10 保留 Draft／OPEN，未經使用者授權不可 Merge。LINE 真機與 Vercel Preview 實站仍未驗收。
+
+## 2026-10-24｜PR #10 P2：初始 GET 開窗覆寫較新的叫貨草稿
+
+- 最新 Codex Review（HEAD `91826043f021485f6c028d85560d3597393a7970`）已 **Completed**，新增一個 P2：`PRRT_kwDOVUuF1c6v5QmB`。舊 `preview()` 的初始 GET 等待回應期間，使用者已 `start()` 開啟新草稿，舊 GET 回來仍會 `show()` 覆蓋新表單；既有 `ownsPreview()` 只保護預覽建立後的狀態 API，不能攔截這條路徑。
+- 已修改正式版與 Vercel Demo 的 `order-batch-ui.js`，共用模組內 `openGeneration`，`start()` 與 `preview()` 在登入權限確認後同步取得下一個 generation；所有初始 GET 回應必須確認仍為最新 generation 及原登入主體，才可 `show()`，避免舊預覽／舊建單要求蓋掉新表單。原有表單提交、主管操作、補貨建議 DOM identity guards 保留。
+- 新增 `tests/order-batch-opening-generation.test.js` VM 延遲 API 回應，雙版測試（1）舊預覽 GET 晚於新建單表單、保留數量與供應商；（2）舊建單 GET 晚於新預覽；（3）兩次預覽 GET 逆序回應時只顯示最新預覽。修正程式與測試已提交至 `dd50fea7e03ea12ea63357cad9ee173c8b12aedc`，該 HEAD Hosted CI 仍須完成最後核實。
+- 此修補僅阻止舊回應改動新 UI，不聲稱已取消發出的 HTTP 請求。新 SHA CI 完成後需回覆／Resolve 原 P2 並正式複審。PR 仍 Draft、未授權禁止 Merge；Vercel Preview／LINE 真機操作未驗收。
+
+## 2026-10-24｜PR #10 最新 Codex P2：舊廠商預覽覆蓋既有單品項表單
+
+- Review HEAD `01e93916cf665f00f135552f49317e5a5b16c98e` 正式 **Completed**，新增 P2 `PRRT_kwDOVUuF1c6v5U8r`：舊 `OrderBatchUI.preview()` 初始 GET 尚在等待時，使用者開啟原有 `app.js showForm('order.create')` 單品項叫貨表單並填寫，因該入口未增加批次模組的 `openGeneration`，舊回應仍覆蓋共用 `#modal-root`，導致資料遺失；正式／Demo 皆可重現。
+- 已在正式及 Demo 共四個 UI 檔改用 DOM 根節點共用 `__openTicket`：`order-batch-ui.js` 的 start/preview 在 await 初始 GET 前 claim ticket，回應後比對；`app.js showForm` 在 await getLists 前先 invalidate ticket，回應後比對 ticket/登入 epoch/帳號才開窗；原兩版 modal Close／背景關閉、auth overlay 清空視窗時同步 invalidate，防止已關閉後舊 GET 再開啟。保留既有 DOM identity guard，沒有變更交易或權限。
+- 新增 `tests/order-batch-shared-modal.test.js`，使用兩版真實 `showForm()` 函數與真實 OrderBatchUI VM：舊批次預覽 GET 延遲→原有單品項表單開啟且其輸入保留；舊單品項 getLists 延遲→新批次預覽成功且不被舊表單覆蓋。代碼 Commit `0d9e5b65`，測試補至 `9fbda867`。需用**最後 HEAD** 核對 Hosted Ubuntu/Windows Node22/24 CI，再正式回覆/Resolve P2 並重送 Codex Review，不能沿用先前 Completed。
+- PR #10 繼續 Draft，未取得使用者明確同意不得 Merge；Windows 真機及 LINE 人工流程仍待驗收，Vercel Preview 部署限額需另查。
+
+## 2026-10-25｜D1 首輪基礎建設（RB-023，等待 CI／Review）
+- 已核對 PR #12 合併後的 `main`；Cloudflare Preview 基礎路由可用，正式 API 仍 Demo-only，未綁定 D1。
+- 新分支 `feat/cloudflare-d1-foundation-20261025`：以現有 SQLite v3 Schema 轉換 D1 初始 Migration，禁止 `IF NOT EXISTS` 掩蓋非空資料庫，保留 FK/CHECK/index、建立 `cloud_schema_contract`。不匯入真實資料、不建立預設 owner、不改本機 SQLite。
+- 增加 D1 只讀結構探測，只有 DB 綁定時檢查 Schema，仍一律 `production_ready:false`；提供正式／Preview 分離綁定設定範本、Migration 操作 SOP、Node SQLite parity/FK/拒絕重複初始化測試。
+- 使用者已建立正式 `restaurant-business-prod`（ID `b882a6e8-0e56-49a6-bd41-1a6cadd726c9`）與測試 `restaurant-business-staging`（ID `2c355bed-d9c3-449c-aa9b-1018f3bc1177`）D1。PR #13 已提交根目錄 `wrangler.jsonc` 正式/Preview 分離綁定、`wrangler.preview-migrations.jsonc` 僅 staging 的遷移設定、綁定隔離回歸和安全 SOP。**沒有遠端執行 Migration 的 Cloudflare 帳戶操作權限**，也尚未完成真實營運 API、Google Drive 備份或業主登入。新 HEAD Hosted CI／Codex Review 尚需確認、不得未授權 Merge。
+
+## 2026-10-25｜GitHub Actions staging-only D1 Migration 工作流
+- 在 PR #13 新增 `.github/workflows/d1-staging-migration.yml`（workflow_dispatch ONLY，限制 main、必填 `APPLY_STAGING_ONLY`、Environment `d1-staging`），並新增 `tools/check-cloudflare-staging.mjs` 只讀 preflight 及 migration 後完整性校驗。
+- 使用者正在設定 Cloudflare Token / GitHub Secrets；**不能宣稱已確認 Token 存入 GitHub，亦不能宣稱 workflow 或遠端 D1 migration 已執行**。
+- Workflow 確認 Cloudflare 帳號 ID 和兩個不同 D1 UUID；preflight 拒絕 staging 既有任何使用者 table/d1_migrations；僅對 STAGING_DB 執行 migration，後測 v3 contract、表集合、FK 及無 owner。環境審查規則需 GitHub Settings 額外設定才會生效。
+- 本次 Commit 後需以最新 PR HEAD 驗證 Hosted CI／Cloudflare Preview 與正式 Codex Review；PR #13 尚未經使用者授權 Merge。正式 D1 不可自動 Migration。
+
+## 2026-10-25｜PR #13 最新正式 Codex P1 `_cf_KV`
+- 使用者已在 GitHub 建立 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 兩筆 Secrets（值不讀取、不能聲稱 API 存取已驗證）。
+- 正式 Codex Review HEAD `4e914e7` Completed 發現 P1：新建立 D1 預設包含系統保留表 `_cf_KV`；staging Migration preflight/postflight 僅排除 `sqlite_%` 會誤判空庫／Schema 不符。
+- 已在 `.github/workflows/d1-staging-migration.yml` 的前後兩個只讀 SQL 查詢排除 `_cf_KV`，`tools/check-cloudflare-staging.mjs` 統一只過濾此精確系統表（不過度排除未知表、保留 d1_migrations 非空拒絕），測試增 `_cf_KV` 單獨存在、與業務表/ledger 並存及未知表。後續必須檢查最新 HEAD CI、Cloudflare Preview、正式 Codex 複審，處理 Findings 並確認後才可請求使用者 Merge；**目前未執行遠端 Migration**。
+
+## 2026-10-25｜RB-025 Cloudflare 認證基礎（尚未合併）
+- 2026-10-25 staging D1 Run #40172089719 遠端 Migration `0001_initial_v3.sql` 成功，30 SQL commands + `STAGING_ONLY_VERIFY_PASS`；使用者實測 Preview `schema_only`，正式 D1 未移轉。
+- 新分支 `feat/cloudflare-auth-foundation-20261025`：`cloudflare/auth-core.mjs` WebCrypto PBKDF2(600k SHA-256, 16-byte salt) 測試用密碼介面、Host-only Session Cookie 與 SHA256 token、Session expiration/user.active、Origin/CSRF 檢查、Owner/Manager/Staff + active locations 範圍；`cloudflare/identity.mjs` 唯讀 `GET /api/me`，僅 Worker Preview `CLOUD_AUTH_PHASE=preview-readonly` 可用，Production `disabled`。其他 login/logout/command API 仍 503，沒有啟動真實密碼 API 或任何 schema 變更。
+- 既有 Node `scryptSync` 密碼不可直接當 PBKDF2 使用；Workes Free CPU 10ms 限制及未來密碼初始化、登入限流／稽核要另驗測。下一步為 PR Hosted CI、正式 Codex Review、修 Findings，使用者明確授權才 Merge。
+
+## 2026-10-25｜PR #15 staging D1 單次 Owner 建立（STAGED，未執行）
+- PR #14 `afd5ac01` Codex Code Review Completed / 無 Findings，CI 4/4 PASS、Preview Build/Deployment PASS；仍 OPEN Draft，使用者只說「繼續」，未授權 Merge。
+- 為避免阻塞後續業主登入，另開 Stacked PR #15 分支 `feat/cloudflare-staging-owner-bootstrap-20261025`，基於 PR #14：人工核准 GitHub workflow `d1-staging-owner-bootstrap.yml`，新 `tools/cloudflare-staging-owner.mjs` 及獨立回歸測試；命名 `STAGING_OWNER_PASSWORD` 的環境 Secret 尚未要求使用者設定，切勿貼入聊天或 repo。
+- 僅在已初始化 v3、無使用者與營運紀錄之 `restaurant-business-staging` 才可產生第一位 Owner，驗證唯一 active owner / FK，絕不操作 production D1 或把明文／密碼 hash 放入 GitHub logs；此工作流程目前未執行。
+- 修正 `tools/check-cloudflare-staging.mjs` 被其它工具 import 會意外執行 CLI 的副作用，改 direct-script guard。
+- Cloudflare Workers Free HTTP CPU 10ms；PBKDF2 600k 是否適合 Worker 需另行真機測試，不能把 Github Runner 生成成功當成正式 Login ready。PR #15 必須以最新 Hosted CI、Preview、正式 Codex Review 驗證，待使用者分別授權 Merge #14 與 #15，再由使用者手動觸發 Owner 初始化。
+
+## 2026-10-25｜staging Owner 初始密碼下限改為 12 字元（獨立 PR，未合併）
+- 使用者明確要求將 staging Owner 一次性初始化的 `STAGING_OWNER_PASSWORD` 最小長度由 20 改為 12（上限維持 256），不是放寬至 8；原雲端 `cloudflare/auth-core.mjs` 的密碼雜湊函式本來就要求 12～256，不需修改正式 Worker 登入（目前仍停用）。
+- 新分支 `fix/staging-owner-password-min12-20261025` 修改 `tools/cloudflare-staging-owner.mjs` 的輸入下限與錯誤訊息、`tests/cloudflare-staging-owner-bootstrap.test.js` 邊界測試（8/11 拒絕、12 可生成和驗證、257 拒絕），同步更新 `docs/Cloudflare-D1-staging-初始業主建立.md`。不改 schema、Cloudflare prod/staging D1 綁定、Workflow Secrets 或 SQL 空庫防護。
+- PR #14、#15 已取得授權並已合併；staging D1 Schema Run #40172089719 已驗收，但**staging 初始 Owner 尚未被遠端建立，也未執行一次性 Bootstrap Workflow**；任何 PR 待最新 Hosted CI / 正式 Codex Review 與使用者明確 Merge 授權後才可合併。不能將這次程式修改視為密碼已經設定或資料庫已經初始化。
+
+## 2026-10-25｜RB-028 Cloudflare 登入服務內部階段（開發中、不可對外）
+- 已核對 GitHub：PR #14/#15/#16 均 MERGED；staging D1 Owner Bootstrap workflow_dispatch Run #40188578478 經實際日誌證實 `STAGING_OWNER_PREFLIGHT_PASS`、`WRITE_SQL_PASS`、`VERIFY_PASS`，遠端 STAGING_DB 有一位 active Owner、無 Session；Production D1 沒有執行 migration。
+- 分支 `feat/cloudflare-d1-login-security-20261025` 新增 `cloudflare/login-service.mjs`：D1 單語句原子 `INSERT ... SELECT COUNT` 限流（per-user 8/per-source 32、15 分鐘）、PBKDF2 600k dummy KDF 以減少 username 枚舉時差、登入失敗/成功 Audit、成功 Session SHA-256 + CSRF + 8 小時 Secure Host-only Cookie，D1 batch 同時寫 Session/成功 Audit/嘗試標記且 guard 帳號活動/密碼雜湊變動。登出需要 HTTPS Origin + CSRF + 有效 Session，再 batch 撤銷 Session 與 Audit。來源 HMAC digest 只讀 CF-Connecting-IP，拒絕 X-Forwarded-For、缺 Pepper。
+- 新增 `tests/cloudflare-d1-login-security.test.js` 使用 Node SQLite v3 執行實際 SQL 模擬 D1，測正確/錯誤帳密、停權/不存在、SQL 限流、密碼更換的 race、D1 batch rollback、CSRF/跨來源與已停用公開 API；另有部署阻擋文件。
+- **尚未接上 Worker 公開路由**，本 PR 沒有任何遠端 D1 寫入、Cloudflare Secret 變更、Migration 或正式登入上線。Cloudflare Workers Free 的 CPU 10ms 對 PBKDF2 600k 未在真機驗證，Preview 網址公開且共用 staging DB，所以嚴禁公開接收真實 Owner 密碼。下一輪需先實測/隔離，不能把 CI PASS 當成可正式登入。Hosted 最新 HEAD CI、Cloudflare Preview、正式 Codex Review 和未授權不得 Merge 規範繼續適用。
+
+## 2026-10-25｜PR #17 Codex P2：索引/清理修正（最新 HEAD 待 CI 與正式重審）
+- 最新正式 Codex Review 前一版 `fe43a9ad` Completed，有 1 項未解 P2：登入限流 `username COLLATE NOCASE` 與舊 BINARY 索引不匹配，`ip_hash` 缺複合索引，且登入嘗試紀錄沒有過期清理；上一輪 CI PASS 不能當成新 HEAD 驗收。
+- 已新增 `cloudflare/migrations/0002_login_attempts_window_indexes.sql`，只加 `(username COLLATE NOCASE, at)`、`(ip_hash,at)`、`(at,id)` 三組索引；保留已經安裝於 staging 的 v3 `0001` 原樣，**無遠端 D1 Migration 或資料寫入**。D1 ledger 後續須走人工核准的既有庫增量流程，不可重跑只允許空庫的 `d1-staging-migration.yml`。
+- `cloudflare/login-service.mjs` 提取共用 `LOGIN_RESERVATION_SQL`，新 `pruneExpiredLoginAttempts()` 以 7 天保留/每批最多 500 筆之 SQL 清理（不刪 Audit）。**尚未設立 Cron、未對遠端 staging/prod 自動清理**；待 staging 0002 套用、真機驗證與後續安全部署批准。
+- 新 `tests/cloudflare-d1-login-indexes.test.js` 讀 D1 0001+0002，在 Node SQLite 以 `EXPLAIN QUERY PLAN` 驗證兩條 15 分鐘限流子查詢和清理均有對應索引，測既有 Owner 不變、分批刪除舊登入嘗試不影響 Session/Audit、批次上限。須等最新 Head Hosted Ubuntu/Windows Node22/24 CI、Cloudflare Preview、正式 Codex Review，再修 Findings；使用者尚未授權合併。
+
+## 2026-10-25｜D1 staging 0002 安全增量部署（PR 開發中）
+- 最新 Hosted GitHub PR #17 已 merged，僅 `cloudflare/migrations/0002_login_attempts_window_indexes.sql` 合併，**沒有套用 remote staging/prod**。Run #40188578478 建立一位 active staging Owner 且驗收 PASS，切勿重跑原先空庫專用 `d1-staging-migration.yml`。
+- 新分支 `feat/d1-staging-0002-incremental-20261025`：新增 `tools/cloudflare-staging-0002.mjs`，對帳戶/正式與 staging D1 ID、兩檔 Migration 清單、0002 只含三項 CREATE INDEX、遠端 ledger 必須只有 0001、staging v3 完整表集合、恰一 active Owner、零 FK 錯、0002 未套用作嚴格 preflight；若 Apply，postflight 檢查 ledger 正確新增 0002、索引 DDL 一致及 Owner/Schema 前後未改動。
+- GitHub Workflow `.github/workflows/d1-staging-incremental-0002.yml` `workflow_dispatch` only、main + 精確輸入、Environment `d1-staging`、與舊 staging schema migration 共用 concurrency group、Wrangler 4.152.0 固定、機密不傳入 npm install。預設動作 `CHECK_STAGING_0002` 只讀；`APPLY_STAGING_0002` 需獨立授權與人工觸發。
+- 新 `tests/cloudflare-staging-0002-migration.test.js` 以 D1 0001 模擬已建立 Owner／ledger，回歸部分套用、錯庫、owner 缺失、遷移污染、postflight 確認。紀錄於 `docs/Cloudflare-D1-staging-0002-安全增量遷移.md`。
+- 此 PR 不能聲稱已對 D1 做任何操作。正式登入仍關閉，Workers 真機 PBKDF2 600k CPU/受保護 staging 還未完成。須 Hosted CI、Preview、正式 Codex Review 完成，使用者授權才 Merge。
+
+## 2026-10-25｜PR #19 Codex P1/P2 修正與實際 workerd HTTP 回歸（持續審查）
+- Hosted PR #19 原 HEAD `1f1b49d00053ea53e6eb8258d7fc678c404f176f` 正式 Codex Review Completed 有 **P1 1 項、P2 1 項**：P1 workerd 接受零內容 POST 時仍可能有 `request.body` stream，原本會誤回 400；P2 Wrangler `dev --local` 會自動載入 source checkout 的 `.env`/`.dev.vars`，原 ENV allowlist 不足以隔離 Secrets。
+- 修正 P1：`cloudflare/pbkdf2-local-probe-worker.mjs` 將真實零位元組 Content-Length: 0 的可讀串流與非空請求區分，只檢查第一個 stream chunk 是否立即 done；Content-Length 非 0／不明串流／Authorization／傳輸編碼等一律 fail-closed。新增直接 Request 零內容 stream／偽裝非空內容測試。
+- 修正 P2：`tools/pbkdf2-workerd-sandbox.mjs` 建立權限限制的私有隨機 tmp 專案，只將 review 過的 `auth-core`、probe、probe Worker 與無遠端 bindings 的 config 複製入；Wrangler 的 cwd/config/HOME/TMPDIR/XDG_CONFIG_HOME 都在暫存目錄；限制環境變數正向白名單且關閉 dotenv。回歸以 `.env`、`.dev.vars` canary 驗證 Secret 不會複製進沙箱。
+- `tools/run-pbkdf2-local-workerd.mjs --smoke` 新增真實 loopback HTTP 傳輸測試（POST 零內容應回 200、帶內容或 Authorization 應回 400），單組合成 KDF。GitHub `.github/workflows/verify.yml` 增加 Ubuntu 24 的 `pbkdf2-workerd-http-smoke`，已在本輪早期 Run #40207616103 看到此專用 Job SUCCESS；**後續仍須以最終 HEAD 重新核對全部 CI**。
+- 以上皆為本機 synthetic workerd wall-clock，**不是 Cloudflare Hosted CPU 毫秒測試**。不讀真實 Owner Secret、不連 D1、不開放 /api/login。需依最新 SHA 正式 Codex 複審、修 Findings、未授權不 Merge。
+
+## PR #20｜2026-10-26 Codex P2 Hosted performance.now 凍結問題修正（待複審）
+- 原 HEAD `e99940821819ea2a6b2be27fa9672894a9ff0383` 的正式 Codex Review Completed，1 項 P2、Review Thread `PRRT_kwDOVUuF1c6wCyy9`：Hosted `performance.now()` 在無 I/O 時可能不前進，舊 `wall_ms` 可能誤報 0；Node 本機時鐘測試無法證明真實 Hosted wall-time。
+- 已更新 `cloudflare/pbkdf2-hosted-synthetic.mjs` 移除 clock 參數／`performance.now` 差值；`cloudflare/pbkdf2-hosted-access-worker.mjs` 的回應和自訂 log 不再含任何 CPU/Wall 計時欄位；保留 `probe_id` 及操作，用於比對 Cloudflare 平台 invocation logs 的 `$workers.cpuTimeMs`、`$workers.wallTimeMs`、`$workers.outcome`。
+- `tests/cloudflare-pbkdf2-hosted-access.test.js` 新增凍結 `performance.now()` 為 0 的回歸，逐一驗證 hash／verify-correct／verify-wrong，應無任何偽計時欄位。
+- 此修正不表示已取得 Hosted CPU 實測，不允許自動部署遠端 Worker、變更 D1 或開啟登入。最新 HEAD Hosted CI、正式 Codex Review 和 Thread Resolve 均待核對；未授權不 Merge。
+
+## 2026-10-26｜PR #21 初輪 Codex P2 × 2 修正（最新 HEAD 複審待辦）
+- PR #21 原 HEAD `ef0e833d98b644a28088ea8349108abfbd7732f8` 正式 Codex Review Completed，但 2 項 P2、未解 Review Thread：`PRRT_kwDOVUuF1c6wC--v` 守衛只靠文字正規式、可能 `if(false && guard)` 停用仍 PASS；`PRRT_kwDOVUuF1c6wC--0` GitHub Workflow 委派 `bash tools/deploy-probe.sh` 時只看 YAML 可能漏報。
+- 已新增 `tools/cloudflare-hosted-probe-approved-sha256.mjs`，鎖定兩支 Hosted probe Source、五個 GitHub Workflows、現有 `tools/` 已審核委派可執行入口與 `package.json` 的完整位元組 SHA-256。靜態 preflight 先驗證完整內容，再檢查配置與執行防護；未知 Workflow、未知 `tools/` 執行檔、`.github/actions` local Action 皆 fail-closed。編修經白名單批准的可執行檔必須由獨立 Code Review 檢查差異並更新 checksum，不能自動重算放行。
+- `tests/cloudflare-hosted-probe-preflight.test.js` fixture 擴充：保留原始 regex 字串的兩種 `false &&` 守衛繞過、委派部署 YAML/new script、改既存 Workflow、改既存委派腳本、新 Composite Action，全部預期拒絕。CI 須以最終 HEAD Ubuntu/Windows Node22/24 + workerd smoke 成功核對。
+- 沒有更動正式 Worker、Cloudflare Access、遠端 D1、登入 API 或真正 Hosted CPU 探針；靜態 PASS 不等於 live Access 驗證。原 Review Threads 待修正回覆、正式 Codex 複審及確認後才能 Resolve。未經使用者授權不可 Merge。
+
+## 2026-10-26｜PR #21 第二輪 Codex P2：傳遞相依閉包修正
+
+- 最新正式 Codex Review 對 HEAD `1457286bee211c574e2605ae8bdc9c1622792685` Completed，新增 1 項 P2，Review Finding `4373190686`、Thread `PRRT_kwDOVUuF1c6wG2RM`：`tools/cloudflare-staging-owner.mjs` import 的 `cloudflare/auth-core.mjs`、以及 `npm run check` 直接執行的 `tests/*.test.js` 未納 SHA-256，僅篡改傳遞模組仍會 PASS。
+- 已於 PR #21 原分支擴大 `APPROVED_TRANSITIVE_DEPENDENCIES_SHA256`，鎖定 `cloudflare/`、`db/`、`public/`、`src/`、`tests/`、`vercel-demo/` 全部當前原始碼/資產與根目錄執行／Wrangler 設定；原 Worker Source、五個 Workflow、`tools/` 和 package.json 繼續釘選。資料夾與根目錄執行檔均封閉清單；不只 regex、也非只鎖最上層入口。
+- `tests/cloudflare-hosted-probe-preflight.test.js` 新增篡改 `auth-core.mjs`、其他傳遞載入模組、現存測試檔／SQL／前端程式、以及新增來源檔與新測試入口的 fail-closed fixture。檢查器先發現 digest 變更時可回傳 `E_UNREVIEWED_TRANSITIVE_DEPENDENCY`，故同步調整舊測試對拒絕錯誤碼的預期，惡意內容仍須被拒。
+- 以上屬**程式碼與靜態 CI**，並非 Cloudflare 遠端 Hosted CPU 實測。最新 HEAD Hosted CI／Codex 複審和 P2 Thread Resolve 均要再次核實。未經使用者明確授權不得 Merge、Cloudflare 部署、Access 變更或操作 D1。
+
+## 2026-10-26｜PR #21 第三輪 Codex P2：根目錄 .npmrc 注入缺口
+
+- 正式 Codex Review 已對舊 HEAD `a6e00bff0f47572ab1835577d8838637606473e1` Completed；新 P2 Finding `4373339968`、Thread `PRRT_kwDOVUuF1c6wHNCT`：未審核的根目錄 `.npmrc` 會被 npm/npx 讀取，`node-options=--import=...` 可注入額外執行程式，但原本僅按副檔名篩選的 root 閉包會漏過。
+- 本輪在 `tools/cloudflare-hosted-probe-preflight.mjs` 對根目錄任何 `.npmrc`（含空檔案）明確 fail-closed（`E_UNREVIEWED_NPM_CONFIG`）；`tests/cloudflare-hosted-probe-preflight.test.js` 加入只建立該檔的 `node-options`、`script-shell` 與空檔負向 fixture，沒有執行 payload；更新人工審核的該測試檔 SHA-256 指紋，其餘 approved digest 不變。
+- 此修正只能驗證 PR checkout 的靜態檔案，**不會認證 runner 主機/npm 全域設定或遠端 Access**；必須依最新 HEAD 確認五個 Hosted CI Jobs 與正式 Codex 複審，並處理 Review Thread。未經使用者授權不得 Merge、Cloudflare 部署、Access 變更、D1 寫入或公開登入。
+
+## 2026-10-26｜PR #21 第四輪 Codex P2：Windows .npmrc 大小寫變體
+
+- 最新正式 Codex Review 已對 HEAD `032eee62d3f241a6c2a4525766f80a5e85887e8f` Completed；新增 P2 Finding `4376481803`、Thread `PRRT_kwDOVUuF1c6wOxWz`：根目錄 `.NPMRC`／`.npmRc` 在 Windows 不區分大小寫檔案系統中可被 npm 當作 `.npmrc` 讀取，但原本 `includes('.npmrc')` 會忽略，導致離線 preflight PASS。
+- 已改為 `fs.readdirSync(root).some(name=>name.toLowerCase()==='.npmrc')`，所有大小寫變體與空白變體均 fail-closed；在原本 `.npmrc` 的三項 regression 外另加入 `.NPMRC`、`.npmRc`、`.nPmRc` 測試，僅建立 fixture，不執行可能注入的設定內容。更新唯一有變更的測試檔 SHA-256 白名單，不自動重新信任其他原始碼。
+- 此為靜態程式與回歸測試，不是 Cloudflare Access 遠端驗證、Hosted CPU 測試或部署授權；須依新 HEAD 驗證 Hosted CI 五項與正式 Codex 複審、在 Thread 回覆。仍不允許未經使用者授權 Merge、部署 Cloudflare 或操作 D1。
+
+## 2026-10-26｜PR #21 第五輪 Codex P2：在首次 npm/npx 執行之前安全預檢
+
+- 最新正式 Codex Review 對 HEAD `d91a935f5b98c66599b988aab369268674ac9e59` Completed，新增 P2 Finding `4379430230`、Thread `PRRT_kwDOVUuF1c6wV0jz`：Verify workflow 在 `npm run check` 後才執行靜態 preflight；未審核 `.npmrc` 可在 npm 先執行惡意程式後自行刪除，造成其後掃描 PASS，安全檢查時序無效。
+- 本輪將離線安全 preflight 移到 Verify Node22/24 Windows/Ubuntu test 的 `npm run check` 之前，也在 Verify 的 local workerd smoke Job 與四個 `workflow_dispatch` 專用 Workflows（D1 staging migration、staging owner bootstrap、incremental 0002、PBKDF2 local workerd）的 Node setup 之後、任何 npm/npx 或委派工具之前加入獨立 `node tools/cloudflare-hosted-probe-preflight.mjs` 步驟。
+- 擴充測試，逐 Job 驗證實際 workflow 步驟順序與獨立 Node preflight（共六個 npm/npx Jobs），另有交換 npm/preflight 順序後必須失敗的負向 fixture；未執行注入 payload，也不執行任何遠端 API。人工同步更新五個 Workflow 與單一測試檔 SHA-256 allowlist，其他指紋不變。
+- 需於新 HEAD 核對 Hosted CI、正式 Codex 複審並回覆 Finding；仍禁止未獲用戶授權的 Merge、Cloudflare 部署、Access/D1 更動或 Hosted CPU 開啟。此靜態保護並不等於遠端 Access 驗證。
+
+## 2026-10-26｜PR #21 Codex 補充：具名 run 與 Windows CRLF
+
+- 上輪正式 Codex Review 對過程 HEAD `1a000f677f4241c371882a2c8d7a841c905d8ac6` 完成，新增兩個 P2 Findings `437986...`（依新 Threads 的實際 ID）指出 Workflow 順序測試：`run: npm ...` 解析遺漏，以及 Windows CRLF 與測試內固定 LF 不一致。
+- 已在後續 Commit 將 `run: npm/npx` 具名步驟也納入掃描，使 5 個 Workflow 共 6 個 Jobs 確實統計；本輪於 `assertOrder` 入口與 verify fixture 均正規化 CRLF→LF，增加每支 Workflow CRLF 模擬與顛倒步驟後仍拒絕的 CRLF 負向回歸。同步手工更新新增測試的 SHA-256，其餘 approved workflow hashes 不變。
+- 尚需核對最終 HEAD Hosted CI 與正式 Codex Review。未 Merge，不啟動遠端 Cloudflare、Access 或 D1。
+
+## 2026-10-27｜PR #21 已合併、RB-034 私人證據表單離線稽核
+
+- **主線已驗證**：PR #21 Squash Merge `85f055e745931b280818b9fdad0c1cb9b4ea1833`，合併後 push CI Run #40375126939 completed/success 5/5。安全 Workflow 首次 npm/npx 前執行固定 Node preflight；正式 Codex Review（最後 PR HEAD `7da292aa56`）無新重大問題、八個歷史 Threads 已 Resolve。
+- **本輪 RB-034 開發內容**：`tools/hosted-access-evidence-audit.mjs` 離線查核私人 JSON 結構／指定獨立 Worker／十二條 Access/URL/Policy 人工勾選條件、48h 時效；新增無真實資訊的樣板與負向回歸測試。工具不連 Cloudflare、不讀 Token、不部署、不印私有值，完成表單時仍固定 `live_cloudflare_access_verified:false` 和 `deployment_authorized:false`。證據應放 Git Repo 外，不能寫入 Public Repo。
+- **SHA-256 管控**：新 tools 程式與新 tests 檔案須由人核對並加入既有固定 SHA-256 清單；其他已審核 digest 不變。PR 最新 CI/正式 Codex Review 未完成前不可報為已驗收或 Merge。
+- **後續**：具權限管理員須獨立在 Cloudflare 後台查核 Worker-level Access All traffic、host/path 優先級、Bypass、Version/Preview/Deployment URLs，將證據保留私下；使用者另行授權前不部署 dedicated Worker、也不操作遠端 Access/D1/Hosted CPU。
+
+## 2026-10-27｜RB-034 Windows CI 跨磁碟來源路徑誤拒
+
+- 初版 PR #22 HEAD `2e100e8875f40d808ab67b70b96097d83962d2df` Ubuntu22/24、workerd smoke PASS，但 Windows Node24 Run #40376870321 在 CLI 私有暫存檔測試中失敗，因 Runner checkout 在 D:，`os.tmpdir()` 可能位於 C:。Windows `path.relative(D:, C:)` 返回絕對目標路徑，不是以 `..` 開頭，原程式誤把非 Repo 檔案當成 Repo 內部。
+- 對字串路徑與 realpath 雙重查核都改由 `isOutsideRepository()` 統一判斷；跨磁碟時 `path.isAbsolute(relative)` 視為外部，子路徑仍拒絕。新增 win32 跨磁碟、Repo 內、相鄰目錄、同前綴目錄及 Repo 根路徑的負向/正向回歸。同步人工更新**僅兩個變更檔**的 SHA-256 白名單。
+- 必須按新 HEAD 核對 Windows/Ubuntu Node22/24 Hosted CI 與正式 Codex Review；仍無遠端部署或 Access/D1 操作。
+
+## 2026-10-27｜PR #22 主線合併與 RB-035 離線 CPU 平台日誌摘要
+
+- PR #22 已成功 Squash Merge 至 main：`324677783fc1fedb90023c4f0529c36236fb55c0`，main push CI #40380907839 completed/success 5/5。原 PR Codex Review 對 `2b65112288` 無新重大問題、Windows 跨磁碟 P2 Thread 1/1 Resolved。RB-034 **MERGED_CODE_ONLY**，不等於 live Access 已查核。
+- Cloudflare 官方 2026-10-12 文檔：Workers Logs 的 invocation 事件提供平台 `$workers.cpuTimeMs`、`$workers.wallTimeMs` 與 `outcome`；Workers Free HTTP CPU 10 ms，Wall time 不應取代 CPU time，Worker 自行使用 `performance.now()` 也不是 Cloudflare 平台 CPU。真正驗收需取得管理員私下保存、去識別化後的**平台觀測來源**並完成來源覆核。
+- RB-035 擬新增 `tools/hosted-cpu-log-offline-audit.mjs`：輸入 Git Repo 外的 JSON、只允許目標專用 Worker／固定 Workers invocation logs manually redacted source／三種操作 (hash, verify_correct, verify_wrong) 的 `cpuTimeMs`、`wallTimeMs`、`outcome`。逐操作輸出樣本數、CPU median/p95/max、Wall max、非 ok 數、Free 10ms 參考線到達數。任何樣本不足、異常或接近上限都不得視為風險已清除；就算全部樣本低於 10 ms 也不能宣稱性能驗收、Access 保護或遠端部署可行。
+- 不連 Cloudflare、不讀 Token、不讀取 request URLs/IP/headers/IDs，未知資料鍵直接拒絕以避免私人資料誤入；輸出永遠固定 `platform_log_provenance_verified:false`、`remote_cpu_independently_verified:false`、`live_cloudflare_access_verified:false` 與 `deployment_authorized:false`。
+- 應同步人工將新工具／測試檔的 SHA-256 加入封閉白名單，新增 CLI / schema / timestamp / 失敗 outcome / Free 10 ms / wall-vs-CPU 反例回歸。後續 Hosted CI 與正式 Codex Review 以最新 HEAD 為準。沒有進行真實 Cloudflare 部署、Access/D1 修改或 Hosted CPU 測試。
+
+## 2026-10-27｜PR #23 已合併，RB-036 Cloudflare Login 來源 IP 正規化
+
+- Hosted 主線確認：PR #23 Squash Commit `98e88811658bfd2d702fd3dee95a0522c1a6c8b2`，push CI #40421482417 **completed/success 5/5**，前次 Codex 無 P1/P2。RB-035 只是離線 CPU 紀錄摘要工具，仍無真正 Hosted CPU 實測。
+- 內部 `cloudflare/login-service.mjs` 原版 `sourceIpDigest` 將 `CF-Connecting-IP` 小寫後 HMAC；不同 IPv6 零展開/壓縮文字為同一來源卻可能產生不同 digest，令 `login_attempts.ip_hash` 限流計數拆分。IPv4 正規式原本也沒檢查 octet 最大 255，非法字面可通過。
+- RB-036 新增 Worker-safe `cloudflare/client-ip.mjs`，限制合法的四段十進位 IPv4（拒絕前導 0、超過 255、hex/octal 變體），使用 WHATWG URL IPv6 標準正規化，IPv4-mapped IPv6 與 IPv4 共用 `4:` HMAC 輸入，普通 IPv6 用 `6:` 區分。拒絕逗號列表、空白、方括號、IPv6 zone id、port、奇怪 mixed dotted；不信任 `X-Forwarded-For`。新測試校驗 HMAC 相等／差異與公開 Worker Login 永遠 503，既有登入交易邏輯不改。
+- 僅更新實際新增/變更的已審查 source/test SHA-256，保持全 Repo fail-closed 白名單。此工作不驗證 `CF-Connecting-IP` 在 Cloudflare edge 是否可信、無遠端部署／Access/D1 寫入／真實登入開啟。正式驗收仍須最新 PR HEAD CI、Codex Review 與使用者合併授權。
+
+## 2026-10-24｜Windows 業主密碼復原 BAT 操作引導（新 PR）
+- 業主實機執行 `node tools/reset-owner-password.js` 停在輸入 `RESET owner` 提示，又出現 Node.js SQLite ExperimentalWarning；希望降低非資訊背景使用者的操作困難。
+- 新增根目錄「重設業主密碼.bat」，檢查 Node.js 版本、原有資料庫與 `.installed`、工作目錄，以 UTF-8 顯示中文步驟，呼叫 CLI `--guided`，改成輸入數字 1 確認；無論成功失敗都 pause 留下畫面。僅針對 ExperimentalWarning 停用警告，其他錯誤照常顯示。
+- CLI 原本互動式 `RESET owner` 保留，`--guided` 只改確認方式，不繞過 TTY、schema / owner 驗證、完整備份、CAS 並行保護、Session 撤銷與稽核。正式 Windows 實機操作仍需額外驗收。
+- 仍須 Hosted CI 及 Codex Review，未獲 Merge 指示不得合併。
+
+- 2026-10-24 Codex P2：舊 BAT `cd /d "%~dp0"` 在 UNC／切換失敗時可能繼續從舊工作目錄執行錯誤專案。已改以 `pushd` 並檢查失敗立即中止、所有成功／失敗路徑 `popd`；回歸測試驗證順序與配對。需再跑 CI／正式複審。
+
+## 2026-10-27｜PR #7 回補主線安全預檢相容性
+
+- 最新 main 已確認 PR #24 Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 Verify #40435777549 5/5 PASS；公開雲端 Login 仍禁用。
+- PR #7 原 HEAD `1749544ecf7f15c61a3313c7f9719c476e4be2e5` 對應正式 Codex Review 無重大問題、舊 CI #40077146458 success，但與新 main 衝突。採用兩個父 Commits 的 Merge Commit（第一父 PR7 HEAD、第二父 main），避免 force-push 或重置舊 Commits。
+- PR7 原先新增 `重設業主密碼.bat`、`tests/owner-recovery-launcher.test.js`、更新 `tools/reset-owner-password.js`：和最新 main 的 tool 原始基底逐位相同，故可直接帶入修正後工具。保留並追加原 PR7 README/記憶，不以舊版覆寫新主線文件。
+- 主線目前安全預檢封閉列表要求所有 `tools/`、`tests/`、根目錄 BAT 由人工審核並 SHA-256 綁定；本輪必須只更新上述三項 digest，其餘保持不變。新 HEAD 的 Hosted CI 和正式 Codex Review 完成前不可認定合併適格；Windows 實機驗收仍未完成。
 ## 2026-10-24｜菜品封存／配方食材移除（新 PR）
 - 使用者回報「菜品與售價、食材配方只能新增修改，無法刪過時品項」。採 owner-only `dish.active`（0 封存／1 恢復）與 owner-only `recipe.delete`（只刪 dish_ingredients 連結），避免硬刪菜品造成配方連鎖消失及價值歷史混淆。
 - 封存菜品不列入 costs/recipe 選單與預設菜品列表，仍可檢視封存項與恢復；不影響庫存或歷史價格。配方移除立刻影響成本試算，稽核 detail 記錄刪除前數量／食材。驗證重複／無效操作、非 owner 拒絕、交易與備份 fingerprint；Vercel Mock 同步模擬，正式環境不改 DB Schema。最新 CI／Codex Review 與 Merge 狀態須個別驗證。
+
+## 2026-10-27｜PR #9 既有菜品／配方功能回補主線
+
+- main 先前確認 PR #7 Squash `d307bc38967f05446dd79b3b093a2085d669a364`，push CI #40464034678 完成 5/5 PASS，RB-018 仍有正式 Windows 業主現場驗收。
+- PR #9 原有 HEAD `acda039c612760b80d43a0de20789bd508e8db21` 已通過舊版 Codex Review 與舊 CI，但因 main 多次擴充造成衝突。採用原 Head 與最新 main 雙親 Merge Commit，不 reset、不 force push、不失去先前記憶。以新 main 為檔案基底只回補菜品封存/恢復、配方逐項移除、正式和 Demo UI、報表篩選、測試；保留 main 的多品項叫貨、登入安全、來源稽核、Cloudflare 限制。
+- 既存 SHA-256 fail-closed preflight 涵蓋所有新的/修改過的 src/public/demo/tests；人工逐項核對目標 source 後才更新 9 筆允許雜湊，不變動 Worker 探針、部署流程、Access、D1。
+- 本次以最新 HEAD 的 Hosted CI 及正式 Codex Review 為權威；舊的 Codex PASS 不等於整合後 PR PASS；PR 維持 Draft、未授權 Merge。

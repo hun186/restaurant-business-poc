@@ -21,7 +21,7 @@ const pages={
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
  stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；新增期初庫存僅供未有庫存的食材',action:'stock.opening',permission:'owner',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
  stock_moves:{title:'庫存異動流水',desc:'不可直接修改的入庫、耗用與盤點調整紀錄',columns:[['created_at','時間'],['location_name','門市'],['ingredient_name','食材'],['move_type','類別'],['qty_delta','異動量'],['note','說明']]},
- purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['number','單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['status','狀態']]},
+ purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['group_number','廠商叫貨單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['unit','單位'],['status','狀態']]},
  stocktakes:{title:'食材盤點',desc:'員工申報盤點數，主管確認後產生有稽核紀錄的庫存差異',action:'stocktake.create',permission:'staff',columns:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面數量'],['counted_qty','盤點數量'],['status','狀態']]},
  repairs:{title:'設備維修',desc:'報修、指派、結案與維修追蹤',action:'repair.create',permission:'staff',columns:[['location_name','門市'],['equipment','設備'],['description','問題描述'],['assigned_name','處理人員'],['status','狀態']]},
  shifts:{title:'人事排班',desc:'主管安排班次；一般員工只能查看自己的班表',action:'shift.create',permission:'manager',columns:[['shift_date','日期'],['staff_name','員工'],['location_name','門市'],['start_time','上班'],['end_time','下班'],['note','備註']]},
@@ -51,7 +51,7 @@ function showAuth(flag){
   // forms. This also runs when an existing session expires during bootstrap.
   S.me=null;S.csrf='';S.cache={};S.filter='';S.page='dashboard';S.authEpoch++;
   $('#main').innerHTML='';
-  const modal=$('#modal-root');modal.hidden=true;modal.innerHTML='';
+  const modal=$('#modal-root');invalidateModalOpens(modal);modal.hidden=true;modal.innerHTML='';
  }
 }
 function setActive(page){S.page=page;S.filter='';document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#crumb').textContent=pages[page].title;$('#sidebar').classList.remove('open');}
@@ -66,6 +66,7 @@ const colValue=(key,r)=>{
  return fmt(v);
 };
 function rowActions(page,r){const a=[];
+ if(page==='purchase_orders'&&typeof r.group_number==='string'&&r.group_number.startsWith('POB-'))return `<button class="btn small ghost" data-batch-preview="${E(r.group_number)}">查看廠商單／LINE</button>`;
  const btn=(act,txt,fields={})=>`<button class="btn small ghost" data-operation="${act}" data-id="${E(r.id)}" data-state="${E(fields.status||'')}">${E(txt)}</button>`;
  if(page==='menu_dishes'&&can('owner')){
    if(r.active===1){a.push(btn('dish.price','修改售價'));a.push(btn('dish.active','封存菜品',{status:'off'}));}
@@ -83,7 +84,7 @@ function rowActions(page,r){const a=[];
 }
 async function dataPage(page){
  const cfg=pages[page];setActive(page);
- $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+(page==='menu_dishes'?`<div class="toolbar"><label><input type="checkbox" data-toggle-archived="1" ${S.showArchivedDishes?'checked':''}> 顯示已封存菜品（可恢復）</label></div>`:'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
+ $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+(page==='purchase_orders'?'<div class="toolbar"><button class="btn primary" data-new-batch="1">＋ 多品項叫貨／依供應商分單</button><span class="muted">虛構展示，勿向真實供應商發送。</span></div>':'')+(page==='menu_dishes'?`<div class="toolbar"><label><input type="checkbox" data-toggle-archived="1" ${S.showArchivedDishes?'checked':''}> 顯示已封存菜品（可恢復）</label></div>`:'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
  try{const x=await api('/api/data?entity='+encodeURIComponent(page));S.cache[page]=x.rows;drawTable(page);}catch(e){$('#table-wrap').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
 function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>(page!=='menu_dishes'||S.showArchivedDishes||r.active===1)&&JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
@@ -138,10 +139,16 @@ function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(
  const step=f.type==='number'?'step="any" min="0"':'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
 }
-async function showForm(action,id){const d=def[action];if(!d){toast('此操作目前未提供表單');return;}await getLists();
- const root=$('#modal-root');root.hidden=false;
+function invalidateModalOpens(root){return (root.__openTicket=(root.__openTicket||0)+1);}
+async function showForm(action,id){
+ const d=def[action];if(!d){toast('此操作目前未提供表單');return;}
+ // Invalidate pending batch preview/create GETs *before* await getLists().
+ const root=$('#modal-root'),ticket=invalidateModalOpens(root),epoch=S.authEpoch,userId=S.me?.id;
+ await getLists();
+ if(root.__openTicket!==ticket||S.authEpoch!==epoch||S.me?.id!==userId)return;
+ root.hidden=false;
  root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>僅修改本次瀏覽器中的虛構示範資料，不產生正式紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
- const close=()=>{root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
+ const close=()=>{invalidateModalOpens(root);root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
  try{await api('/api/command','POST',{action,data:raw});close();toast(action==='user.password'?'密碼已變更，請重新登入':'已成功儲存');if(action==='user.password'){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
 }
@@ -173,7 +180,9 @@ $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
  if(b.dataset.exportCurrent)exportCurrentPage('xlsx');
  if(b.dataset.printCurrent)exportCurrentPage('print');
  if(b.dataset.create)showForm(b.dataset.create);
- if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
+ if(b.dataset.newBatch)OrderBatchUI.start().catch(e=>toast(e.message));
+  if(b.dataset.batchPreview)OrderBatchUI.preview(b.dataset.batchPreview).catch(e=>toast(e.message));
+  if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
 });
 $('#main').addEventListener('change',e=>{if(e.target.matches('[data-toggle-archived]')){S.showArchivedDishes=e.target.checked;drawTable('menu_dishes');}});
 $('#main').addEventListener('input',e=>{if(e.target.id==='search'){S.filter=e.target.value;drawTable(S.page);}});
@@ -190,5 +199,5 @@ $('#logout').addEventListener('click',async()=>{
  try{await pending;}catch{toast('伺服器尚未確認登出，請關閉此分頁並通知管理者。');}
  finally{if(logoutInFlight===pending)logoutInFlight=null;}
 });
-$('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
+$('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){invalidateModalOpens(e.currentTarget);e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
 bootstrap();

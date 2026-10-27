@@ -110,6 +110,74 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 
 - **公開 Vercel Demo** 也加入純虛構 Excel 匯出與列印操作，使用獨立的模擬 sessionStorage 資料；「來源 IP」僅顯示文件範例 `192.0.2.20`，不會收集真實訪客來源。
 
+## 多品項叫貨與人工 LINE 叫貨（工作分支，待正式驗收）
+- 原先叫貨單為一單一食材；新版可在「叫貨管理 → 多品項叫貨」一次輸入至多 60 項，依**供應商名稱＋門市**自動分成各自的廠商單號。多品項的每筆明細使用不同的內部編號（`POB-...-001`），面向廠商則顯示共用主號（`POB-...`）；既有舊版 `PO-...` 單據不改動、仍可正常核准／驗收。
+- 供應商建議以該門市食材**最近有效歷史進價**中的非空供應商為依據，不代表供應商契約或名單已驗證。沒有可參考的供應商時必須人工指定；送出前請核對名稱、食材、數量及單位。
+- 多品項單由主管核准後產生一張廠商 LINE 文字草稿；可複製或開啟 LINE 官方 `https://line.me/R/share?text=` 分享畫面，**不會自動傳訊，也不能自動判斷是否已送達或已讀**。選擇收件人、按送出需由人員親自完成。
+- 核准及整張驗收採單一 SQLite transaction；每個食材獨立保留一筆 `purchase_orders`、庫存 `stock_moves` 及 reference ID，重複驗收會拒絕。可按品項帶入選填進價，既有歷史進價表繼續適用。不更動 Schema/user_version=3，智慧備份仍涵蓋異動。
+- Vercel 公開 Demo 只能產生虛構叫貨與 LINE 草稿，不會連線正式 SQLite 或發真實叫貨訊息；**展示版使用時請勿送出給真正供應商**。
+
+- 「多品項叫貨」表單另提供**依安全庫存填入補貨建議**：採該門市 `max(0,安全庫存-現有庫存)` 計算，填入後仍可人工調整，不會捏造預估銷量或需求預測，且不覆蓋已手動選擇的項目。舊的逐行 `order.approve/receive/cancel` API 對新群組行會拒絕，避免繞過整張單交易造成部分驗收。
+
+- 人員在 LINE **實際按下送出後**，可再按「我已在 LINE 手動送出」留下操作人與時間的稽核紀錄，系統不會因點擊複製或分享連結就擅自改成已送出。此狀態是**人工申報**，不是 LINE 平台提供的送達／已讀回執。未核准不得登記，同張單重複登記會被拒絕；單據若在 LINE 上已送出，再於系統取消也必須另行通知廠商。
+
+## Cloudflare D1 資料庫基礎（開發中，尚非正式雲端版）
+
+- 已有 Demo-only Cloudflare Worker；`/api/health` 回報 `production_ready: false`，不代表已能安全保存營運資料。
+- D1 逐步移植工作見 [Cloudflare D1 資料庫基礎 SOP](docs/Cloudflare-D1-正式版資料庫基礎.md)：提供 v3 空白 Migration、Schema 驗證及正式／Preview 雙庫範本，已提供正式／Preview 不同 D1 UUID 的綁定設定，但尚未執行遠端 Migration、也尚未初始化業主帳號。
+- 暫時**不要將真實帳密、人事、營運資料輸入 Cloudflare 展示站**；本機原有 SQLite 正式功能不因 D1 工作改變。後續實作仍須 Hosted CI、正式 Codex Review 與獨立的生產驗收。
+
+### Cloudflare D1 認證第一階段（開發中）
+
+- staging D1 已透過 GitHub Actions Run [#40172089719](https://github.com/hun186/restaurant-business-poc/actions/runs/40172089719) 完成 v3 空白 Schema 安裝及 FK 驗證；**production D1 仍未初始化**。
+- Worker 新增 WebCrypto／Session／CSRF／RBAC 基礎及僅限 Preview 的唯讀 `GET /api/me`，Production 認證功能仍關閉；`/api/login` 與正式營運 API 仍為 `503 E_NOT_READY`。
+- 詳細安全邊界見 [Cloudflare D1 登入與權限第一階段](docs/Cloudflare-D1-登入與權限第一階段.md)。不要輸入真實員工帳密或營運資料，也不要把本機 scrypt 密碼視為可直接移轉到雲端。
+
+### Cloudflare D1 登入安全內部階段（尚未開放帳密登入）
+
+- Staging D1 已建立第一位測試 Owner（[GitHub Run #40188578478](https://github.com/hun186/restaurant-business-poc/actions/runs/40188578478) 遠端 postflight 成功），但無法直接使用公開網站登入。
+- 新增 `cloudflare/login-service.mjs`（僅**內部、未接路由**）：原子 D1 登入嘗試限流、PBKDF2 密碼驗證、Session／登入稽核交易、登出 CSRF／Origin 撤銷；前端及正式／Preview 的 `/api/login`、`/api/logout` 仍 **503 E_NOT_READY**。
+- Workers Free 每個 HTTP 請求 10ms CPU 限額、Preview 存取保護、IP 來源信任與 D1 實機併發尚未驗收；在完成之前不能將本程式視為可正式登入的功能。詳情：[Cloudflare D1 登入安全服務內部階段](docs/Cloudflare-D1-登入安全服務內部階段.md)。
+
+### Cloudflare Workers PBKDF2 虛構密碼效能探針（尚未上線）
+
+- 新增完全**獨立的本機 workerd** 合成密碼 Hash／Verify 效能探針和手動 GitHub Actions。它不連 staging／production D1、沒有 Cloudflare Secret，也不會開放公開登入路由。
+- 本機探針測的是 **wall-clock elapsed time，不是 Cloudflare Hosted CPU time**；Free 10ms CPU 上限與實際 Password Hash 可行性仍須另外在受保護測試環境驗證，否則不能開啟登入。詳見 [PBKDF2 Workerd 合成效能驗證](docs/Cloudflare-PBKDF2-Workerd-合成效能驗證.md)。
+
+### Cloudflare Hosted PBKDF2 CPU 驗證工具（僅準備，未部署）
+
+- 已準備**獨立且預設 disabled** 的合成 Hosted Worker：`wrangler.pbkdf2-hosted-disabled.jsonc` 禁用 workers.dev 與預覽 URL，不連接 D1、營運 API、Owner 密碼或 Session。必須另外核對 Cloudflare Worker-level Access 的 `ctx.access` 與 AUD，取得授權後才可能開啟測試。
+- 每個受保護請求只做一個固定虛構向量 PBKDF2；回應與自訂 log 均不提供耗時數值（Hosted `performance.now()` 可能凍結），真正 Hosted CPU／Wall time 必須從 Cloudflare invocation logs 查詢。沒有自動部署或啟用。詳見 [Hosted PBKDF2 Access/CPU 驗證計畫](docs/Cloudflare-Hosted-PBKDF2-Access-CPU-驗證計畫.md)。
+
+### Cloudflare Hosted PBKDF2 部署前安全檢查（離線，未驗 Access）
+
+- `node tools/cloudflare-hosted-probe-preflight.mjs`：離線確認探針仍為 disabled、沒有 routes/D1/Preview，與正式 Worker 完全隔離；Hosted CI 同時跑故意改壞設定的負向測試。
+- 靜態工具**不能證明** Cloudflare 遠端 Worker 已受 Access 保護，也不能證明 workers.dev、Version/Deployment URLs 無意外暴露。現場還需核對 Worker-level Access **All traffic**、hostname/path 規則優先序、無 Bypass 與獨立 Worker ID；詳見 [部署前驗收 SOP](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md)。
+- 這套工具不會呼叫 Cloudflare API、部署 Worker 或觸碰 D1；實際 Hosted CPU 驗證需另外授權。
+
+
+**部署前 Preflight 修正（PR #21）：** 檢查器已改用固定的 SHA-256 白名單，包含 Hosted Access 守衛 Source、GitHub Workflow 及其委派的 `tools/` 與 `package.json`；新增 `false &&` 繞過和委派 `bash tools/deploy-probe.sh` 的負向回歸。將來修改這些檔案應先 Code Review 再更新白名單；此校驗仍不證明 Cloudflare 遠端 Access 已部署／CPU 已測得。
+
+**PR #21 安全檢查加強：** SHA-256 白名單也涵蓋所有目前的 Cloudflare 傳遞 import、`src/`、`tests/*.test.js`、資料庫 SQL、前端模組與 Wrangler 設定，使用遞迴封閉檔案清單避免新檔案繞過。僅更改 `cloudflare/auth-core.mjs` 或測試入口，就會讓 Preflight 失敗。這依然只是原始碼／CI 完整性證據，**不表示遠端 Cloudflare Access 已驗證或允許部署**。
+
+**私人 Access 證據離線稽核（RB-034，開發中）：** [填寫規範與判定邊界](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md) 與 [無敏感值 JSON 樣板](docs/hosted-access-private-evidence.template.json)。將樣板複製到 Git Repo **外**的私有目錄後才可執行 `node tools/hosted-access-evidence-audit.mjs <private-file.json>`；完成表單**不代表**真的驗證了 Cloudflare Access，也不授權部署。
+
+**Hosted CPU 平台觀測離線分析（RB-035，開發中）：** `node tools/hosted-cpu-log-offline-audit.mjs <repo外私有去識別化JSON>`，依 Cloudflare Workers invocation logs 的 `cpuTimeMs`、`wallTimeMs`、`outcome` 做只讀統計與 Free 10ms 風險提示；[填寫與安全 SOP](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md)。範例為**虛構數值**；工具不能證明平台資料真偽、Cloudflare Access 安全或部署授權。
+
+**內部 Cloudflare 登入來源 IP 正規化（RB-036，開發中）：** 為尚未啟用的 D1 Login 限流新增合法 IPv4／IPv6 解析，等價 IPv6 與 IPv4-mapped 位址在 HMAC 前統一，避免同一來源使用多個文字表示拆開來源限流；不代表 Cloudflare 標頭來源已獲實站驗證。Production Login 繼續返回 503，不變更遠端 Access、Worker 或 D1。
+
+## Windows 業主忘記密碼：雙擊 BAT 操作（業主友善）
+
+1. 關閉「啟動餐廳好管家.bat」的服務視窗（如果用 `npm start`，也要先停止服務）。
+2. 在**原本保存資料庫的專案資料夾**雙擊 **`重設業主密碼.bat`**。請勿解壓到另一個空白目錄，也不要刪除 `data/` 或 `backups/`。
+3. 閱讀畫面的中文說明，確認服務已停止後，輸入 **數字 `1`** 並按 Enter；其他輸入會取消。
+4. 工具會先建立並驗證備份；驗證通過才更新 `owner` 密碼。新密碼只顯示在視窗中一次，請立即記錄。若顯示錯誤，請保留畫面及原始資料，不要重設資料庫。
+5. 重新雙擊「啟動餐廳好管家.bat」，用 `owner` 及新密碼登入。登入後可在「變更密碼」改成自己保存的密碼。
+
+BAT 只簡化本機互動操作，實際安全檢查仍由 `tools/reset-owner-password.js` 執行；不產生固定預設密碼、不開放遠端重設、不改動營運資料。BAT 以 Node.js 的 `--disable-warning=ExperimentalWarning` **只隱藏 SQLite 實驗性警告**，不會隱藏一般錯誤或驗證失敗訊息。若不使用 Windows，仍可執行 `node tools/reset-owner-password.js` 並輸入 `RESET owner`。
+
+**路徑安全：** `重設業主密碼.bat` 會先以 Windows `pushd` 切換至 BAT 所在專案資料夾，失敗時立即中止，避免誤讀其他專案的 SQLite；結束後恢復工作目錄。雖然 `pushd` 能處理 UNC 網路路徑，但正式資料庫**仍建議放在本機磁碟**，不要直接放在不穩定的網路共享位置。
+
 ## 菜品封存與配方移除（新 PR）
 
 「菜品與售價」只有業主可把停售菜品**封存**，封存後預設不顯示於日常菜單、不能調整售價，也不參與成本／毛利試算；勾選「顯示已封存菜品」可檢視並**恢復**，保留原菜品識別碼及配方以利未來重新上架，不會更動食材價格、庫存或歷史異動。

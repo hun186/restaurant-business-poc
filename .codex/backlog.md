@@ -24,10 +24,38 @@
 | RB-016 | IN_REVIEW | P1 | 本機登入後 `e.currentTarget.reset()` 非同步 null 錯誤；已修前端並新增 regression，待 Hosted CI／Codex Review、使用者授權 Merge |
 
 | RB-017 | IN_REVIEW | P1 | Owner 初始密碼遺失：本機離線密碼復原工具（先驗證備份、保留 SQLite、撤銷 Session、稽核），待 Hosted CI / Codex Review / Merge 授權 |
+| RB-018 | MERGED_CODE_ONLY | P1 | PR #7 Squash Merge `d307bc38967f05446dd79b3b093a2085d669a364`，main push CI #40464034678 completed/success **5/5 PASS**；Windows 業主離線復原雙擊 BAT 已合併，正式 Windows 業主機操作/備份還原仍未現場驗收 |
 
 | RB-019 | IN_REVIEW | P1 | 安全稽核加入 TCP 來源 IP（owner 查閱、不採信偽造標頭、舊資料無法還原），待 CI／Review／Merge |
 | RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |
+| RB-021 | IN_REVIEW | P1 | PR #9 菜品封存／恢復、配方逐項移除（owner-only、交易、稽核、成本重新估算、正式＋Demo UI／Excel 篩選），保留舊 PR Commits 並以最新 main 合併解衝突；新增／變更檔案須納入 SHA-256 封閉白名單，待新 HEAD Hosted CI／Codex 複審與授權 Merge |
 
 | RB-020-SEC | IN_REVIEW | P2 | PR #8 登出清除報表快取、即刻鎖定列印 CSS、防範非同步舊報表重現（正式版＋Demo）；待 Hosted CI／最新 Codex 重審 |
 
-| RB-021 | IN_REVIEW | P1 | owner-only 菜品封存／恢復與配方食材逐項移除（成本重算、稽核、備份及 Vercel Mock），待 Hosted CI、正式 Review 與 Merge 授權 |
+| RB-022 | IN_REVIEW | P1 | PR #10 多品項叫貨、依歷史價供應商分單、整張主管核准／驗收、逐行價格及 LINE 人工分享草稿；前輪 CI PASS 但最新重送防護修正須新 HEAD CI／Codex 複審，不得未授權 Merge |
+
+| RB-022-SEC | IN_REVIEW | P2 | PR #10 `caebe207` Codex 重複提交 Finding：正式與 Demo UI 同步提交鎖、停用按鈕、失敗重試；新 VM 非同步雙擊回歸已提交，待最新 SHA Hosted CI、Review Thread 回覆／Resolve 及正式複審 |
+
+| RB-022-MODAL | IN_REVIEW | P2 | PR #10 共用 modal 生命週期：正式／Demo 批次與單品項表單共享 root.__openTicket，防止舊 GET／關閉後遲到回應覆蓋新視窗；保留 DOM instance guards、新 VM 雙向回歸。待最新 HEAD CI、Codex 複審及真人驗收 |
+
+| RB-023 | DONE_STAGING | P1 | Cloudflare Workers＋D1 staging v3 Schema 已經 Run #40172089719 遠端驗證 PASS；prod D1 仍未 migration，正式 API 未上線 |
+| RB-024 | PLANNED | P1 | D1 正式/Preview 各建獨立資源與 migration；Worker Auth/RBAC/CSRF/安全初始業主建立；各營運模組 D1 原子性資料存取；加密異地備份與災難復原驗收後才可交付業主 |
+
+| RB-025 | MERGED_CODE_ONLY | P1 | PR #14 的 WebCrypto Password、Session／Origin／CSRF／RBAC 基礎已合併；Preview /api/me 唯讀，Production Auth disabled，雲端登入仍未對外啟用 |
+
+| RB-026 | DONE_STAGING | P1 | PR #15 已合併、Run #40188578478 實際建立 staging D1 active Owner=1、Session=0、Schema/FK 驗證 PASS；Cloudflare 正式 Login API 仍 503 |
+| RB-027 | PLANNED | P1 | Workers Free CPU 10ms 下之 PBKDF2 600k 真機成本／相容性驗收，與 login 防暴力破解、帳號鎖定稽核、雲端原生 Session 與登出開發；不可在性能／安全證據前啟用實際登入 |
+
+| RB-028 | MERGED_CODE_ONLY | P1 | PR #17 已合併，內部 D1 Login/Session/Audit/限流及 0002 索引程式已入 main；公開 API 仍 503，遠端 staging 0002 尚未套用，Workers CPU／Access 真機驗收未完成 |
+| RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 Cloudflare CF-Connecting-IP 來源可信度 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |
+
+| RB-028-P2 | IN_REVIEW | P2 | PR #17 Codex 問題：限流 NOCASE 與來源索引、7 日過期嘗試分批清理；已新增 D1 0002 Versioned Migration 與 EXPLAIN QUERY PLAN 測試，**尚未套用 staging/prod**、Cron 未設；需最新 CI + 正式 Codex 複審與授權 Merge |
+
+| RB-030 | DONE_STAGING | P1 | PR #18 已 Merge；CHECK #40203410303 PASS、APPLY #40204026605 PASS，staging D1 `0002` 實際套用並完成 ledger/三索引/Owner/FK 驗收；production 不變 |
+
+| RB-031 | DONE_LOCAL | P1 | PR #19 已 Merge，手動 synthetic local workerd 三樣本 Run #40208993373 PASS；wall median hash/正確/錯誤 79/79/78 ms，**非 Hosted CPU** |
+| RB-032 | PLANNED_HOSTED_VALIDATION | P1 | PR #20 已 Merge，但 Hosted PBKDF2 探針仍 disabled／未部署；待 Cloudflare Worker-level Access 與所有 URL/Bypass 現場證據，才可另行授權部署、測量實際 CPU time |
+| RB-033 | MERGED_CODE_ONLY | P1 | PR #21 已 Squash Merge `85f055e74593`，main push CI #40375126939 5/5 PASS、Codex 無新 P1/P2、歷史 Threads 8/8 Resolve；只有靜態安全檢查與 Access 驗收 SOP，**遠端 Access/Hosted CPU 尚未驗證** |
+| RB-034 | MERGED_CODE_ONLY | P1 | PR #22 已 Squash Merge `324677783fc1`，main push CI #40380907839 5/5 PASS，正式 Codex Review 最新 HEAD 無重大問題，唯一 P2 已 Resolve；私人 Access 證據紀錄格式稽核僅離線功能，**未驗證真實 Cloudflare Access** |
+| RB-035 | MERGED_CODE_ONLY | P1 | PR #23 已 Squash Merge `98e88811658b`，main push CI #40421482417 **5/5 PASS**；Workers invocation CPU/Wall/outcome 人工去識別化資料之離線分析已合併，**未部署探針、未取得真實 Hosted CPU** |
+| RB-036 | MERGED_CODE_ONLY | P1 | PR #24 Squash Merge `832165a00430`，main push CI #40435777549 completed/success **5/5 PASS**；Cloudflare 內部 Login IPv4/IPv6 正規化已合併；CF-Connecting-IP 實站可信性、Access、Hosted CPU 未驗證，公開 Login 仍 503 |

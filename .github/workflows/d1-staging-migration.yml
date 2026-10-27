@@ -1,0 +1,76 @@
+name: D1 staging schema initialization (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY_STAGING_ONLY to initialize the EMPTY staging D1'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-d1-staging-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate-staging:
+    # Must be reviewed and merged into main first. Never run PR or push-triggered migrations.
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'APPLY_STAGING_ONLY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: d1-staging
+    env:
+      CI: 'true'
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Fail closed before npm/npx (offline Hosted probe preflight)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Validate explicitly selected account and database
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "::error::Missing required CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID secret"
+            exit 1
+          fi
+          if [[ "${CLOUDFLARE_ACCOUNT_ID}" != '31b409b04896d260ba0fadf6cc2bb305' ]]; then
+            echo "::error::The configured Cloudflare account is not the expected staging account"
+            exit 1
+          fi
+          node tools/check-cloudflare-staging.mjs config
+      - name: Install reviewed Wrangler version
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Read-only check target staging D1 is empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;" > "$RUNNER_TEMP/d1-preflight.json"
+          node tools/check-cloudflare-staging.mjs preflight "$RUNNER_TEMP/d1-preflight.json"
+      - name: Review migrations pending on staging
+        run: npx --no-install wrangler d1 migrations list STAGING_DB --remote --config wrangler.preview-migrations.jsonc
+      - name: Apply migration to staging only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/check-cloudflare-staging.mjs config
+          npx --no-install wrangler d1 migrations apply STAGING_DB --remote --config wrangler.preview-migrations.jsonc
+      - name: Query read-only schema and referential integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;" > "$RUNNER_TEMP/d1-tables.json"
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT contract_version FROM cloud_schema_contract WHERE id=1;" > "$RUNNER_TEMP/d1-contract.json"
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "PRAGMA foreign_key_check;" > "$RUNNER_TEMP/d1-foreign-keys.json"
+          npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "SELECT COUNT(*) AS count FROM users;" > "$RUNNER_TEMP/d1-users.json"
+          node tools/check-cloudflare-staging.mjs verify "$RUNNER_TEMP/d1-tables.json" "$RUNNER_TEMP/d1-contract.json" "$RUNNER_TEMP/d1-foreign-keys.json" "$RUNNER_TEMP/d1-users.json"
+          echo 'Staging D1 v3 schema installed; NO owner account, NO production API, NO production migrations.'

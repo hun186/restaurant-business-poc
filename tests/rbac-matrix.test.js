@@ -63,13 +63,14 @@ test('RB-003 read matrix: owner across stores, manager assigned store, staff ass
   assert.ok(visible.length>0,entity+' exists');
   assert.ok(visible.every(x=>x[scoped]===f.a),entity+' manager may not read other store');
  }
+ for(const entity of ['dish_costs','dish_cost_lines','menu_dishes','ingredient_prices','inventory_values','dish_ingredients']){
+  assert.throws(()=>rows(f.db,f.sa,entity),{status:403},entity+' staff financial read denied');
+ }
  for(const entity of ['users','audit_logs']){
   assert.throws(()=>rows(f.db,f.ma,entity),{status:403});
   assert.throws(()=>rows(f.db,f.sa,entity),{status:403});
   assert.ok(rows(f.db,f.owner,entity).length>0,entity+' owner can read');
  }
- assert.throws(()=>rows(f.db,f.sa,'dish_costs'),{status:403});
- assert.throws(()=>rows(f.db,f.sa,'menu_dishes'),{status:403});
  assert.equal(rows(f.db,f.ma,'dish_costs').every(x=>x.location_id===f.a),true);
  assert.equal(overview(f.db,f.sa).orders,1);
  assert.equal(overview(f.db,f.ma).orders,2);
@@ -136,7 +137,7 @@ test('RB-003 live HTTP role/assignment changes invalidate existing cookies; disa
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  t.after(async()=>{await new Promise(resolve=>server.close(resolve));});
  const port=server.address().port;
- async function login(username,password){const r=await request(port,'/api/login',{method:'POST',body:{username,password}});assert.equal(r.status,200);const cookie=r.cookies[0].split(';')[0];const me=await request(port,'/api/me',{headers:{Cookie:cookie}});assert.equal(me.status,200);return {cookie,csrf:me.body.csrf};}
+ async function login(username,password){const r=await request(port,'/api/login',{method:'POST',body:{username,password}});assert.equal(r.status,200);const cookie=r.cookies[0].split(';')[0];const me=await request(port,'/api/me',{headers:{Cookie:cookie}});assert.equal(me.status,200);return {cookie,csrf:me.body.csrf,role:me.body.user.role};}
  const owner=await login('owner',f.bootstrapPassword),manager=await login(f.ma.username,'test-password-234');
  const auth=h=>({Cookie:h.cookie,'x-csrf-token':h.csrf});
  const get=async(h,entity)=>request(port,'/api/data?entity='+entity,{headers:{Cookie:h.cookie}});
@@ -147,12 +148,21 @@ test('RB-003 live HTTP role/assignment changes invalidate existing cookies; disa
  assert.equal(mutation.status,200);
  assert.equal((await request(port,'/api/me',{headers:{Cookie:manager.cookie}})).status,401,'location change revokes original session');
  const newManager=await login(f.ma.username,'test-password-234');
+ assert.equal(newManager.role,'manager');
+ const managerCanCreate=await request(port,'/api/command',{method:'POST',headers:auth(newManager),body:{action:'ingredient.create',data:{sku:'MGR-OK',name:'授權主管建立',unit:'公斤'}}});
+ assert.equal(managerCanCreate.status,200,'positive baseline: manager is allowed to create shared ingredient');
  list=await get(newManager,'purchase_orders');assert.equal(list.status,200);assert.equal(list.body.rows.length,3,'newly authorized store is visible only after re-login');
  mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),body:{action:'user.role',data:{user_id:f.ma.id,role:'staff'}}});
  assert.equal(mutation.status,200);
  assert.equal((await request(port,'/api/me',{headers:{Cookie:newManager.cookie}})).status,401);
  const retyped=await login(f.ma.username,'test-password-234');
- assert.equal((await request(port,'/api/data?entity=audit_logs',{headers:{Cookie:retyped.cookie}})).status,403);
+ assert.equal(retyped.role,'staff','re-login must load the downgraded role, not just revoke the old cookie');
+ const managerOnly=await request(port,'/api/command',{method:'POST',headers:auth(retyped),body:{action:'ingredient.create',data:{sku:'MGR-DENIED',name:'降權不可建立',unit:'公斤'}}});
+ assert.equal(managerOnly.status,403,'previously authorized manager command must now be forbidden');
+ for(const entity of ['ingredient_prices','inventory_values','dish_cost_lines','audit_logs']){
+  const result=await request(port,'/api/data?entity='+entity,{headers:{Cookie:retyped.cookie}});
+  assert.equal(result.status,403,entity+' rejects actual staff cookie');
+ }
  mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),body:{action:'user.active',data:{user_id:f.ma.id,active:false}}});
  assert.equal(mutation.status,200);
  assert.equal((await request(port,'/api/me',{headers:{Cookie:retyped.cookie}})).status,401);

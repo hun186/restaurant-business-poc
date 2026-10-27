@@ -346,5 +346,11 @@
 
 - 已核對 Hosted main `4a0d6d03c159b14b5f292e22e106c53fd73f6c45`；PR #25 Closed/Merged，合併後 CI #40491933689 5/5 PASS，正式 Codex Review 完成且沒有重大問題。
 - 本輪新測試用獨立臨時 SQLite（`openDb`），同時覆蓋 owner、A/B 兩店主管、A 店兩名員工與 B 店員工；讀取 8 類個人資料、7 類門市資料，越權寫入要回 403 且資料 fingerprint、audit 與庫存不變；另測批次叫貨與正式 HTTP Session 的新增門市、降權及停用撤銷。
-- 新測試檔案依完整實際位元組 SHA-256 `8dc3e8b77080ecd108af25dd0419ddda5140583759ede3fff222790bdee9c1e7` 明確加入 `tools/cloudflare-hosted-probe-approved-sha256.mjs` 白名單，其他 entries 維持原值；無 Schema/Workers/D1/Access/正式部署變更。
+- 新測試檔案依完整實際位元組 SHA-256 `7580293896754e7d52c41f0e6f62b0774396c56b8cc32d6a7a363900e965cdd4` 明確加入 `tools/cloudflare-hosted-probe-approved-sha256.mjs` 白名單，其他 entries 維持原值；無 Schema/Workers/D1/Access/正式部署變更。
 - 此為原始碼＋回歸測試提案，並非真人門市實際授權/UAT 完成。新 HEAD Hosted CI/正式 Codex Review 結果須重新查證，若有 P1/P2 先修正再複審；未獲指示不得 Merge。
+
+### RB-003 Codex 首輪 P2 修正（2026-10-27）
+
+- 正式 Codex Review 針對 HEAD `0fad7ffe2cbb0ef80edb5bcd39158391ccfc5e8d` 提出兩項 P2 測試缺口（不是既證實的業務越權漏洞）：(1) 降權後僅測舊 Session 撤銷，沒有檢查重新登入 Staff 權限；(2) Staff 對進價／庫存估值／成本明細拒讀未形成直接測試。
+- 已補充 `/api/me` 降權角色 assert、降權前 Manager 可成功而降權後 Staff 必須 403 的後端命令對照；另新增 `ingredient_prices`、`inventory_values`、`dish_cost_lines` 及 `dish_ingredients` 等 DB/HTTP 真 Cookie 的 Staff 403 覆蓋。新測試 exact SHA-256 `7580293896754e7d52c41f0e6f62b0774396c56b8cc32d6a7a363900e965cdd4`；更新 manifest，其他程式未變。
+- 須以本次修正後最新 HEAD 重跑 Windows/Ubuntu Hosted CI 及正式 Codex Review；未取得完成證據不得標記 P2 解決或 Merge。

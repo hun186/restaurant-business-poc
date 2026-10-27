@@ -55,4 +55,5 @@
 | RB-032 | PLANNED_HOSTED_VALIDATION | P1 | PR #20 已 Merge，但 Hosted PBKDF2 探針仍 disabled／未部署；待 Cloudflare Worker-level Access 與所有 URL/Bypass 現場證據，才可另行授權部署、測量實際 CPU time |
 | RB-033 | MERGED_CODE_ONLY | P1 | PR #21 已 Squash Merge `85f055e74593`，main push CI #40375126939 5/5 PASS、Codex 無新 P1/P2、歷史 Threads 8/8 Resolve；只有靜態安全檢查與 Access 驗收 SOP，**遠端 Access/Hosted CPU 尚未驗證** |
 | RB-034 | MERGED_CODE_ONLY | P1 | PR #22 已 Squash Merge `324677783fc1`，main push CI #40380907839 5/5 PASS，正式 Codex Review 最新 HEAD 無重大問題，唯一 P2 已 Resolve；私人 Access 證據紀錄格式稽核僅離線功能，**未驗證真實 Cloudflare Access** |
-| RB-035 | IN_DEVELOPMENT | P1 | 基於 Cloudflare Workers invocation logs 手工去識別化 CPU/Wall/outcome 紀錄，進行只讀離線摘要與 Free 10ms 參考門檻風險分析；不得依輸入證明紀錄真實性、Access 安全或 CPU 部署授權。待最新 PR Hosted CI／Codex Review，真正 Hosted CPU 尚未測量 |
+| RB-035 | MERGED_CODE_ONLY | P1 | PR #23 已 Squash Merge `98e88811658b`，main push CI #40421482417 **5/5 PASS**；Workers invocation CPU/Wall/outcome 人工去識別化資料之離線分析已合併，**未部署探針、未取得真實 Hosted CPU** |
+| RB-036 | IN_REVIEW | P1 | 雲端 D1 Login 來源 IP HMAC 前嚴格 IPv4/IPv6 正規化，避免同一 IPv6 多種拼寫拆散 rate-limit quota，拒絕格式錯誤／代理列表；**不表示** CF-Connecting-IP 來源已通過 Cloudflare 實站信任驗證，公開 Login 仍 503。待 Hosted CI、Codex Review、授權 Merge |

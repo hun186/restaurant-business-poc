@@ -5,6 +5,7 @@ import {
   verifyWorkerPassword, freshSessionToken, tokenSha256, sessionCookie,
   expiredSessionCookie, loadPrincipal, authorizedMutation, readSessionCookie
 } from './auth-core.mjs';
+import { canonicalCloudflareClientIp } from './client-ip.mjs';
 
 const utf8 = new TextEncoder();
 const DUMMY_SALT = '00'.repeat(16);
@@ -42,11 +43,14 @@ const newId = () => crypto.randomUUID();
 
 export async function sourceIpDigest(request, secret) {
   // Never use unverified X-Forwarded-For / X-Real-IP headers.
-  const ip = request.headers.get('CF-Connecting-IP');
-  if (typeof secret !== 'string' || secret.length < 32 ||
-      !ip || ip.length > 45 || !/^[a-fA-F0-9:.]+$/.test(ip)) throw new Error('E_AUTH_SOURCE_UNAVAILABLE');
+  // Do not trust X-Forwarded-For or caller-controlled proxy claims.
+  // Even a syntactically valid CF-Connecting-IP is NOT proof of edge provenance;
+  // independent live Worker/Access verification remains required.
+  const ip = canonicalCloudflareClientIp(request?.headers?.get('CF-Connecting-IP'));
+  if (typeof secret !== 'string' || secret.length < 32 || !ip)
+    throw new Error('E_AUTH_SOURCE_UNAVAILABLE');
   const key = await crypto.subtle.importKey('raw', utf8.encode(secret), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
-  return hex(new Uint8Array(await crypto.subtle.sign('HMAC', key, utf8.encode(ip.toLowerCase()))));
+  return hex(new Uint8Array(await crypto.subtle.sign('HMAC', key, utf8.encode(ip))));
 }
 function resultChanges(result) {
   const n = result?.meta?.changes ?? result?.changes;

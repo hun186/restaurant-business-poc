@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17–#22 已合併；最新 PR #22 Squash Commit `324677783fc1fedb90023c4f0529c36236fb55c0`，main push Verify Run #40380907839 **5/5 PASS**；PR #22 最終正式 Codex Review 無新重大問題、1/1 P2 Thread Resolve。獨立 Hosted PBKDF2 探針**仍未遠端部署**；RB-034 的私人 Access 記錄完整性驗證器已合併，但本質上無 Cloudflare 真實 Access／版本 URL 證據。新的 RB-035 只準備以人工去識別化 Workers invocation Logs 為輸入的離線 CPU/Wall/Outcome 評估，**不讀 Cloudflare Token、不呼叫遠端 Worker、不能驗證來源真偽**。staging D1 v3/Owner/0002 已完成遠端驗收（#40204026605），production D1 尚未初始化；PR #19 本機 workerd median 79/79/78 ms 不是 Hosted CPU。任何新的 PR 都要獨立驗證最新 HEAD CI/Codex、使用者未授權不得 Merge。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17–#23 已合併；最新 PR #23 main Squash `98e88811658bfd2d702fd3dee95a0522c1a6c8b2`，合併後 Hosted CI #40421482417 **5/5 PASS**，正式 Codex Review 無新重大問題。Cloudflare Hosted PBKDF2 探針仍**未部署**，真實 Access/Version URL/Hosted CPU 未驗證；RB-034／035 僅完成離線證據格式／人工觀測分析。當前 RB-036 對內部（尚未公開）的 D1 Login `CF-Connecting-IP` HMAC 前 IPv4/IPv6 嚴格解析及等價字面正規化，防止限流配額分散，**不能證明該標頭在實站可信**。公開 Worker Login 仍 503；staging D1 v3/Owner/0002 已遠端驗收，production D1 未初始化。新 PR 的 CI/Codex 按最新 HEAD，未授權禁止 Merge／Cloudflare 部署／Access 或 D1 變更。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17–#22 已 Merge；PR #22 最新 main Squash Commit `324677783fc1fedb90023c4f0529c36236fb55c0`，合併後 Hosted CI #40380907839 **5/5 PASS**，最終正式 Codex Review 無重大問題，1/1 P2 已 Resolve。獨立 PBKDF2 Hosted 探針**程式存在但遠端未部署**，真實 Access/Version URLs 尚未驗證，Hosted CPU time 未測。RB-034 已完成『私人證據紀錄格式檢查』但此非 Remote verification；目前 RB-035 是『人工去識別化 Workers invocation Logs 的離線 CPU/Wall/outcome 統計』，只做來源未驗證的本地摘要／上限風險警示，嚴禁將自填數字視為真實 Hosted CPU 證據。新 PR 必須最新 CI/Codex，未授權不得 Merge。
+- 首要目標：PR #17–#23 已 Merge；PR #23 main Squash `98e88811658bfd2d702fd3dee95a0522c1a6c8b2`，合併後 Hosted CI #40421482417 **5/5 PASS**，正式 Codex Review 對 `2f256289b0` 無重大問題、0 未解 Review Threads。專用 Cloudflare PBKDF2 Hosted Worker 未部署，遠端 Access/CPU 尚未實測。現行 RB-036 加固未公開啟用的 D1 Login：嚴格驗證 `CF-Connecting-IP` 字面、IPv6 正規化／IPv4-mapped 相等，HMAC 統一來源以避免 IP 限流被分拆；此修正**不構成** Cloudflare edge 的來源可信驗證，也不啟用 Login。須以 PR 最新 HEAD 驗證 Hosted CI／Codex，未經明確授權不得 Merge。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -298,3 +298,10 @@
 - RB-035 擬新增 `tools/hosted-cpu-log-offline-audit.mjs`：輸入 Git Repo 外的 JSON、只允許目標專用 Worker／固定 Workers invocation logs manually redacted source／三種操作 (hash, verify_correct, verify_wrong) 的 `cpuTimeMs`、`wallTimeMs`、`outcome`。逐操作輸出樣本數、CPU median/p95/max、Wall max、非 ok 數、Free 10ms 參考線到達數。任何樣本不足、異常或接近上限都不得視為風險已清除；就算全部樣本低於 10 ms 也不能宣稱性能驗收、Access 保護或遠端部署可行。
 - 不連 Cloudflare、不讀 Token、不讀取 request URLs/IP/headers/IDs，未知資料鍵直接拒絕以避免私人資料誤入；輸出永遠固定 `platform_log_provenance_verified:false`、`remote_cpu_independently_verified:false`、`live_cloudflare_access_verified:false` 與 `deployment_authorized:false`。
 - 應同步人工將新工具／測試檔的 SHA-256 加入封閉白名單，新增 CLI / schema / timestamp / 失敗 outcome / Free 10 ms / wall-vs-CPU 反例回歸。後續 Hosted CI 與正式 Codex Review 以最新 HEAD 為準。沒有進行真實 Cloudflare 部署、Access/D1 修改或 Hosted CPU 測試。
+
+## 2026-10-27｜PR #23 已合併，RB-036 Cloudflare Login 來源 IP 正規化
+
+- Hosted 主線確認：PR #23 Squash Commit `98e88811658bfd2d702fd3dee95a0522c1a6c8b2`，push CI #40421482417 **completed/success 5/5**，前次 Codex 無 P1/P2。RB-035 只是離線 CPU 紀錄摘要工具，仍無真正 Hosted CPU 實測。
+- 內部 `cloudflare/login-service.mjs` 原版 `sourceIpDigest` 將 `CF-Connecting-IP` 小寫後 HMAC；不同 IPv6 零展開/壓縮文字為同一來源卻可能產生不同 digest，令 `login_attempts.ip_hash` 限流計數拆分。IPv4 正規式原本也沒檢查 octet 最大 255，非法字面可通過。
+- RB-036 新增 Worker-safe `cloudflare/client-ip.mjs`，限制合法的四段十進位 IPv4（拒絕前導 0、超過 255、hex/octal 變體），使用 WHATWG URL IPv6 標準正規化，IPv4-mapped IPv6 與 IPv4 共用 `4:` HMAC 輸入，普通 IPv6 用 `6:` 區分。拒絕逗號列表、空白、方括號、IPv6 zone id、port、奇怪 mixed dotted；不信任 `X-Forwarded-For`。新測試校驗 HMAC 相等／差異與公開 Worker Login 永遠 503，既有登入交易邏輯不改。
+- 僅更新實際新增/變更的已審查 source/test SHA-256，保持全 Repo fail-closed 白名單。此工作不驗證 `CF-Connecting-IP` 在 Cloudflare edge 是否可信、無遠端部署／Access/D1 寫入／真實登入開啟。正式驗收仍須最新 PR HEAD CI、Codex Review 與使用者合併授權。

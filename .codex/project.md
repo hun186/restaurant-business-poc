@@ -4,7 +4,7 @@
 
 > 最新狀態以本節、`.codex/backlog.md` 與當前 Hosted GitHub 為準。下方有日期的章節刻意保留舊時點資訊，**不能作為今日 PR／部署狀態**。
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。最新已確認 main `4a0d6d03c159b14b5f292e22e106c53fd73f6c45`（PR #25 文件記憶校正已 Squash Merge）；PR #1、#7–#10、#12–#25 均已合併。本輪開發 RB-003 跨角色／跨門市 RBAC 測試矩陣（新增 `tests/rbac-matrix.test.js` 並經單檔驗證、受 SHA-256 封閉預檢管制），仍須最新 Hosted CI／正式 Codex Review 才能判定合併適格。Windows 正式場域、Cloudflare Hosted CPU/Access、production D1 尚未驗證，公開登入仍關閉。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。最新核對 main `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`（PR #26 RB-003 已合併），合併後 Hosted CI #40505949563 5/5 PASS、Cloudflare Workers Build Success；本輪接續 RB-010／RB-011 隔離備份還原驗證工具、Windows 雙擊啟動與非破壞性回歸。**程式/CI PASS 不代表 Windows 業主實機、異機還原或異地備份簽收**。Cloudflare production D1/Access/Hosted PBKDF2 CPU 未驗證，公開登入仍關閉。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

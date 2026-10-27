@@ -163,3 +163,5 @@ Vercel Demo 左側「系統管理 → 智慧備份示範」可操作虛構備份
 **私人 Access 證據離線稽核（RB-034，開發中）：** [填寫規範與判定邊界](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md) 與 [無敏感值 JSON 樣板](docs/hosted-access-private-evidence.template.json)。將樣板複製到 Git Repo **外**的私有目錄後才可執行 `node tools/hosted-access-evidence-audit.mjs <private-file.json>`；完成表單**不代表**真的驗證了 Cloudflare Access，也不授權部署。
 
 **Hosted CPU 平台觀測離線分析（RB-035，開發中）：** `node tools/hosted-cpu-log-offline-audit.mjs <repo外私有去識別化JSON>`，依 Cloudflare Workers invocation logs 的 `cpuTimeMs`、`wallTimeMs`、`outcome` 做只讀統計與 Free 10ms 風險提示；[填寫與安全 SOP](docs/Cloudflare-Hosted-CPU-Access-部署前驗收.md)。範例為**虛構數值**；工具不能證明平台資料真偽、Cloudflare Access 安全或部署授權。
+
+**內部 Cloudflare 登入來源 IP 正規化（RB-036，開發中）：** 為尚未啟用的 D1 Login 限流新增合法 IPv4／IPv6 解析，等價 IPv6 與 IPv4-mapped 位址在 HMAC 前統一，避免同一來源使用多個文字表示拆開來源限流；不代表 Cloudflare 標頭來源已獲實站驗證。Production Login 繼續返回 503，不變更遠端 Access、Worker 或 D1。

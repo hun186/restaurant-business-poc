@@ -2,6 +2,8 @@
 const {uuid,hashPassword,cleanText,nonneg,requiredRole}=require('./security');
 const {inTransaction}=require('./db');
 const pricing=require('./pricing');
+const batches=require('./order-batches');
+const {requestIp}=require('./request-ip');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
 const day=v=>{const s=cleanText(v,10,true);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(new Date(s+'T00:00:00Z').valueOf())||new Date(s+'T00:00:00Z').toISOString().slice(0,10)!==s)bad('日期格式需為 YYYY-MM-DD');return s;};
 const time=v=>{const s=cleanText(v,5,true);if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))bad('時間格式錯誤');return s;};
@@ -17,10 +19,12 @@ function hasLocationUser(db,userId,locationId){return !!db.prepare('SELECT 1 FRO
 function activeUser(db,userId,locationId){const v=db.prepare('SELECT id,role FROM users WHERE id=? AND active=1').get(uid(userId));if(!v)bad('找不到有效員工',404);if(!hasLocationUser(db,userId,locationId))bad('員工不屬於該門市',400);return v;}
 function exists(db,table,id){const allowed=['ingredients','training_courses','users'];if(!allowed.includes(table))bad('資料表不允許');const v=db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(uid(id));if(!v)bad('指定資料不存在',404);return v;}
 function audit(db,u,action,entity,entityId,locationId,detail={}){
- const safe=JSON.stringify(detail).slice(0,3000);
+ const sourceIp=requestIp();
+ const safe=JSON.stringify(sourceIp?{...detail,source_ip:sourceIp}:detail).slice(0,3000);
  db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) VALUES(?,?,?,?,?,?,?,?)').run(uuid(),u?.id||null,u?.username||'(anonymous)',action,entity,entityId||null,locationId||null,safe);
 }
 function rows(db,u,name){
+ if(name==='purchase_supplier_suggestions')return batches.suggestions(db,u);
  const priced=pricing.pricingRows(db,u,name);if(priced!==null)return priced;
  const read={
   locations:'SELECT id,name,active FROM locations ORDER BY name',
@@ -53,6 +57,7 @@ function rows(db,u,name){
   sql=sql.replace(/\s+ORDER BY\s/i,' WHERE '+predicate+' ORDER BY ');
  }
  let data=db.prepare(sql).all(...params);
+ if(name==='purchase_orders')data=data.map(r=>({...r,group_number:batches.groupOf(r.number)}));
  if(u.role!=='owner'){
   const allowed=new Set(db.prepare('SELECT location_id FROM user_locations WHERE user_id=?').all(u.id).map(x=>x.location_id));
   if(name==='locations')data=data.filter(x=>allowed.has(x.id));
@@ -60,6 +65,11 @@ function rows(db,u,name){
   else if(name==='staff_directory')data=data.filter(x=>allowed.has(x.location_id));
   // Scoped limited collections are already filtered in SQL before LIMIT.
  }
+ if(name==='audit_logs')data=data.map(row=>{
+  let ip=null;
+  try{const d=JSON.parse(row.detail);if(d&&typeof d.source_ip==='string')ip=d.source_ip;}catch{}
+  return {...row,ip_address:ip};
+ });
  return data;
 }
 function balance(db,ingredient,location){return Number(db.prepare('SELECT COALESCE(SUM(qty_delta),0) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?').get(ingredient,location).n);}
@@ -79,6 +89,7 @@ function move(db,u,x,kind,reference){
 function command(db,u,action,x={}){
  if(!x||typeof x!=='object'||Array.isArray(x))bad('資料格式錯誤');
  const priced=pricing.pricingCommand(db,u,action,x,audit);if(priced!==null)return priced;
+ const grouped=batches.handle(db,u,action,x,{scope,audit,move,pricing});if(grouped!==null)return grouped;
  return inTransaction(db,()=>{
  let id=uuid(),l=x.location_id;
  switch(action){
@@ -161,6 +172,7 @@ function command(db,u,action,x={}){
  }
  case 'order.approve':case 'order.receive':case 'order.cancel':{
   const o=db.prepare('SELECT * FROM purchase_orders WHERE id=?').get(uid(x.id));if(!o)bad('找不到叫貨單',404);
+   if(batches.groupOf(o.number)!==o.number)bad('多品項叫貨單須使用整張核准、取消或驗收入庫',409);
   scope(db,u,o.location_id,'manager');
   if(action==='order.approve'&&o.status==='requested'){
    db.prepare("UPDATE purchase_orders SET status='approved',approved_by=? WHERE id=?").run(u.id,o.id);

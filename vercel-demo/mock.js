@@ -4,6 +4,7 @@
  const key='restaurant-public-demo-v1';
  const now=new Date();
  const day=(offset)=>{const d=new Date(now);d.setDate(d.getDate()+offset);return d.toLocaleDateString('sv-SE');};
+  const createdAt=()=>new Date().toLocaleDateString('sv-SE')+' '+new Date().toLocaleTimeString('en-GB',{hour12:false});
  const locs=[{id:'l1',name:'台北示範店',active:1},{id:'l2',name:'新北示範店',active:1}];
  const users=[{id:'u1',username:'demo-owner',display_name:'展示業主',role:'owner',locations:'全部門市',active:1},
  {id:'u2',username:'demo-manager',display_name:'示範主管',role:'manager',locations:'台北示範店',active:1},
@@ -26,12 +27,12 @@
  {id:'t2',title:'確認晚班清潔檢核表',location_id:'l1',location_name:'台北示範店',assigned_to:'u2',assigned_name:'示範主管',due_date:day(-1),status:'doing'},
  {id:'t3',title:'檢查設備保養紀錄',location_id:'l2',location_name:'新北示範店',assigned_to:'u4',assigned_name:'示範員工乙',due_date:day(1),status:'done'}],
  purchase_orders:[
- {id:'o1',number:'PO-DEMO-001',location_id:'l1',location_name:'台北示範店',ingredient_id:'i1',ingredient_name:'牛番茄',supplier:'示範蔬果商',qty:18,status:'requested'},
- {id:'o2',number:'PO-DEMO-002',location_id:'l1',location_name:'台北示範店',ingredient_id:'i3',ingredient_name:'生菜',supplier:'示範生鮮商',qty:10,status:'approved'}],
- stocktakes:[{id:'c1',location_id:'l1',location_name:'台北示範店',ingredient_id:'i2',ingredient_name:'雞胸肉',expected_qty:20,counted_qty:19,status:'pending'}],
+ {id:'o1',number:'PO-DEMO-001',location_id:'l1',location_name:'台北示範店',ingredient_id:'i1',ingredient_name:'牛番茄',supplier:'示範蔬果商',qty:18,status:'requested',created_at:day(-2)+' 09:00'},
+ {id:'o2',number:'PO-DEMO-002',location_id:'l1',location_name:'台北示範店',ingredient_id:'i3',ingredient_name:'生菜',supplier:'示範生鮮商',qty:10,status:'approved',created_at:day(-1)+' 11:00'}],
+ stocktakes:[{id:'c1',location_id:'l1',location_name:'台北示範店',ingredient_id:'i2',ingredient_name:'雞胸肉',expected_qty:20,counted_qty:19,status:'pending',created_at:day(-1)+' 15:00'}],
  stock_moves:[{id:'m1',created_at:day(0)+' 08:30',location_name:'台北示範店',ingredient_name:'牛番茄',move_type:'purchase',qty_delta:6,note:'展示資料'}],
- repairs:[{id:'r1',location_id:'l1',location_name:'台北示範店',equipment:'冷藏展示櫃',description:'溫度顯示異常',assigned_name:'示範主管',status:'reported'},
- {id:'r2',location_id:'l2',location_name:'新北示範店',equipment:'洗碗機',description:'排水異音',status:'assigned'}],
+ repairs:[{id:'r1',location_id:'l1',location_name:'台北示範店',equipment:'冷藏展示櫃',description:'溫度顯示異常',assigned_name:'示範主管',status:'reported',created_at:day(-2)+' 12:00'},
+ {id:'r2',location_id:'l2',location_name:'新北示範店',equipment:'洗碗機',description:'排水異音',status:'assigned',created_at:day(-1)+' 10:00'}],
  shifts:[{id:'sh1',shift_date:day(0),start_time:'09:00',end_time:'17:00',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',note:'早班'},
  {id:'sh2',shift_date:day(0),start_time:'12:00',end_time:'20:00',user_id:'u4',staff_name:'示範員工乙',location_id:'l2',location_name:'新北示範店',note:'晚班'}],
  leave_requests:[{id:'leave1',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',start_date:day(5),end_date:day(5),reason:'個人事務（虛構）',status:'pending'}],
@@ -39,12 +40,21 @@
  {id:'tr2',title:'新進員工服務禮儀',description:'點餐與顧客服務流程',required_score:85}],
  training_records:[{id:'trr1',course_id:'tr1',course_title:'食品衛生安全 SOP',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',score:null,completed_on:null}],
  evaluations:[{id:'ev1',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',period:'2026-10',score:88,feedback:'虛構考核範例'}],
- audit_logs:[{id:'a1',at:day(0)+' 09:00',actor_name:'展示業主',action:'demo.login_sample',entity:'demo',entity_id:'—',detail:'{"sample":true}'}]
+ audit_logs:[{id:'a1',at:day(0)+' 09:00',actor_name:'展示業主',action:'demo.login_sample',entity:'demo',entity_id:'—',ip_address:'192.0.2.20',detail:'{"sample":true,"source_ip":"192.0.2.20"}'}]
  };
  const copy=x=>JSON.parse(JSON.stringify(x));
  let db;
  try{const saved=sessionStorage.getItem(key);db=saved?JSON.parse(saved):copy(initial);}catch{db=copy(initial);}
  if(!db||!Array.isArray(db.tasks)||!Array.isArray(db.stock))db=copy(initial);
+  // Old sessionStorage examples predate report dates. Add synthetic metadata
+  // without discarding existing mock business edits or overwriting timestamps.
+  for(const group of ['purchase_orders','stocktakes','repairs']){
+   if(Array.isArray(db[group]))for(const record of db[group]){
+    if(!record.created_at)record.created_at=createdAt();
+   }
+  }
+ const orders=window.RestaurantDemoOrders;
+ if(!orders)throw Error('缺少虛構廠商分單模組');
  const pricing=window.RestaurantDemoPricing;
  if(!pricing)throw Error('公開示範價格模組載入失敗');
  pricing.seed(db);
@@ -57,7 +67,7 @@
  const lName=id=>lookup('locations',id)?.name||'示範門市';
  const iName=id=>lookup('ingredients',id)?.name||'示範食材';
  const uName=id=>lookup('users',id)?.display_name||'示範員工';
- const log=(action,entity,id)=>{db.audit_logs.unshift({id:makeId(),at:new Date().toLocaleString('zh-TW'),actor_name:'展示業主',action:'demo.'+action,entity,entity_id:id,detail:'{"demo":true}'});};
+ const log=(action,entity,id)=>{db.audit_logs.unshift({id:makeId(),at:new Date().toLocaleString('zh-TW'),actor_name:'展示業主',action:'demo.'+action,entity,entity_id:id,ip_address:'192.0.2.20',detail:'{"demo":true,"source_ip":"192.0.2.20"}'});};
  const stockFor=(location_id,ingredient_id)=>db.stock.find(x=>x.location_id===location_id&&x.ingredient_id===ingredient_id);
  function changeStock(location_id,ingredient_id,delta,type,note){
   const ing=lookup('ingredients',ingredient_id);
@@ -79,10 +89,19 @@
  });
  const enrich=(entity,rows)=>{
   if(entity==='staff_directory')return db.users.map(x=>({id:x.id,display_name:x.display_name,role:x.role,active:x.active}));
+  if(entity==='purchase_supplier_suggestions')return orders.suppliers(db);
+  if(entity==='purchase_orders')return rows.map(r=>({...r,group_number:orders.groupOf(r.number)}));
   const projected=pricing.rows(db,entity);if(projected)return projected;
   return rows;
  };
  function command(action,d){
+  if(action.startsWith('order.batch-')){
+   // Simulate an atomic transaction: a failed second line cannot leak the
+   // first line's stock movement, price or state into persisted mock data.
+   const snapshot=JSON.stringify(db);
+   try{const out=orders.command(db,action,d,{makeId,changeStock,log,makePrice:pricing.makePrice});save();return out;}
+   catch(err){db=JSON.parse(snapshot);throw err;}
+  }
   if(action.startsWith('user.'))throw Error('展示版不提供真實帳號、角色及密碼操作');
   if(['price.record','dish.create','dish.price','recipe.set'].includes(action)){
    const out=pricing.handle(db,action,d,makeId());
@@ -103,7 +122,7 @@
    'course.create':'training_courses','training.assign':'training_records','evaluation.create':'evaluations'
   };
   if(defs[action]){
-   const group=defs[action],r={...d,id:makeId()};
+   const group=defs[action],r={...d,id:makeId(),created_at:createdAt()};
    if(r.location_id)r.location_name=lName(r.location_id);
    if(r.ingredient_id){r.ingredient_name=iName(r.ingredient_id);if(group==='stocktakes'){r.expected_qty=stockFor(r.location_id,r.ingredient_id)?.on_hand||0;r.status='pending';}}
    if(r.user_id){r.staff_name=uName(r.user_id);}
@@ -125,6 +144,7 @@
     'stocktake.confirm':'stocktakes','repair.status':'repairs','leave.review':'leave_requests','training.score':'training_records'};
    const group=groups[action];if(!group)throw Error('這個展示操作尚未提供');
    const row=lookup(group,d.id);if(!row)throw Error('找不到示範資料');
+    if(group==='purchase_orders'&&orders.groupOf(row.number)!==row.number)throw Error('多品項叫貨須整張處理');
    if(action==='order.approve'){if(row.status!=='requested')throw Error('狀態已變更');row.status='approved';}
    if(action==='order.receive'){
     if(row.status!=='approved')throw Error('請先核准叫貨');
@@ -160,7 +180,8 @@
     else if(url.pathname==='/api/me')result={user:{id:'u1',username:'demo-owner',display_name:'展示業主',role:'owner',locations:['l1','l2']},csrf:'demo-only'};
    else if(url.pathname==='/api/overview')result={overview:overview()};
    else if(url.pathname==='/api/data'){const entity=url.searchParams.get('entity');result={rows:copy(enrich(entity,entity==='staff_directory'?[]:(db[entity]||[])))};}
-   else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:command(body.action,body.data||{})};}
+   else if(url.pathname==='/api/order-batch'&&method==='GET')result=orders.detail(db,url.searchParams.get('number'));
+    else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:command(body.action,body.data||{})};}
    else if(url.pathname==='/api/logout')result={ok:true};
    else if(url.pathname==='/api/login')result={error:'展示模式沒有真實帳號登入'} ,status=403;
    else result={error:'展示路由不存在'},status=404;

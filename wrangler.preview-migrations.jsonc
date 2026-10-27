@@ -1,0 +1,12 @@
+{
+  "name": "restaurant-business-poc-d1-migrations-staging",
+  "compatibility_date": "2026-10-25",
+  "d1_databases": [
+    {
+      "binding": "STAGING_DB",
+      "database_name": "restaurant-business-staging",
+      "database_id": "2c355bed-d9c3-449c-aa9b-1018f3bc1177",
+      "migrations_dir": "cloudflare/migrations"
+    }
+  ]
+}

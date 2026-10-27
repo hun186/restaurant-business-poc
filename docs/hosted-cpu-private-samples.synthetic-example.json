@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "source": "workers_invocation_logs_manually_redacted",
+  "target_worker": "restaurant-pbkdf2-hosted-cpu-staging-probe",
+  "observed_at_utc": "2026-10-27T00:00:00Z",
+  "operations": {
+    "hash": [
+      {
+        "cpuTimeMs": 3,
+        "wallTimeMs": 10,
+        "outcome": "ok"
+      }
+    ],
+    "verify_correct": [
+      {
+        "cpuTimeMs": 4,
+        "wallTimeMs": 12,
+        "outcome": "ok"
+      }
+    ],
+    "verify_wrong": [
+      {
+        "cpuTimeMs": 5,
+        "wallTimeMs": 15,
+        "outcome": "ok"
+      }
+    ]
+  }
+}

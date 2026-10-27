@@ -1,7 +1,9 @@
 'use strict';
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {openDb}=require('./src/db'),{uuid,checkPassword,randomToken,sha}=require('./src/security');
-const {rows,command,overview,audit}=require('./src/service');
+const {rows,command,overview,audit,scope}=require('./src/service');
+const orderBatches=require('./src/order-batches');
+const {withRequestIp,clientIp}=require('./src/request-ip');
 const APP_ROOT=path.join(__dirname,'public');
 const {createManager}=require('./src/backup-manager');
 const safeJson=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
@@ -23,6 +25,7 @@ function makeHandler(db,backups=null){
  });}
  function originCheck(req){const o=req.headers.origin;if(o){try{const url=new URL(o);if(url.host!==req.headers.host||!['http:','https:'].includes(url.protocol))throw Error();}catch{throw Object.assign(new Error('來源驗證失敗'),{status:403});}}}
  return async function handler(req,res){
+  return withRequestIp(clientIp(req),async()=>{
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
   res.setHeader('Content-Security-Policy',"default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
   try{
@@ -39,7 +42,7 @@ function makeHandler(db,backups=null){
      const valid=u?checkPassword(password,u.password_salt,u.password_hash):false;
      db.prepare('INSERT INTO login_attempts(id,username,ip_hash,success) VALUES(?,?,?,?)').run(uuid(),username,ip,valid?1:0);
      db.prepare("DELETE FROM login_attempts WHERE at<datetime('now','-2 days')").run();
-     if(!valid){db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)').run(uuid(),username,'auth.login_failed','sessions',ip,'{}');return safeJson(res,401,{error:'帳號或密碼錯誤'});}
+     if(!valid){db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)').run(uuid(),username,'auth.login_failed','sessions',ip,JSON.stringify({source_ip:clientIp(req)}));return safeJson(res,401,{error:'帳號或密碼錯誤'});}
      const token=randomToken(),csrf=randomToken(),exp=new Date(Date.now()+Math.min(24,Math.max(1,Number(process.env.SESSION_HOURS)||8))*3600000).toISOString();
      db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)').run(sha(token),csrf,u.id,exp);
      audit(db,u,'auth.login','sessions',null,null,{});
@@ -100,6 +103,7 @@ function makeHandler(db,backups=null){
     }
     if(req.method==='GET'&&route==='/api/overview')return safeJson(res,200,{overview:overview(db,u)});
     if(req.method==='GET'&&route==='/api/data')return safeJson(res,200,{rows:rows(db,u,url.searchParams.get('entity'))});
+     if(req.method==='GET'&&route==='/api/order-batch')return safeJson(res,200,orderBatches.details(db,u,url.searchParams.get('number'),scope));
     if(req.method==='POST'){
      originCheck(req);
      if(req.headers['x-csrf-token']!==u.csrf_token)return safeJson(res,403,{error:'CSRF 驗證失敗'});
@@ -122,7 +126,7 @@ function makeHandler(db,backups=null){
    }
    if(req.method!=='GET'&&req.method!=='HEAD')return safeJson(res,405,{error:'方法不允許'});
    let filename=route==='/'?'/index.html':route;
-   if(!['/index.html','/styles.css','/app.js','/backup-ui.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
+   if(!['/index.html','/styles.css','/app.js','/backup-ui.js','/xlsx-lite.js','/report-ui.js','/order-batch-ui.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
    const abs=path.join(APP_ROOT,filename.slice(1)),types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
    res.writeHead(200,{'Content-Type':types[path.extname(abs)],'Cache-Control':'no-store'});
    if(req.method==='HEAD')return res.end();fs.createReadStream(abs).pipe(res);
@@ -131,6 +135,7 @@ function makeHandler(db,backups=null){
    if(!res.headersSent)safeJson(res,status,{error:status>=500?'E_SERVER: 系統處理失敗':e.message});
    else res.end();
   }
+  });
  };
 }
 function start({folder,port}={}){

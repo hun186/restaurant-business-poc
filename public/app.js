@@ -1,12 +1,14 @@
 'use strict';
 const $=s=>document.querySelector(s);
-const S={me:null,csrf:'',page:'dashboard',cache:{},filter:''};
+const S={me:null,csrf:'',page:'dashboard',cache:{},filter:'',authEpoch:0};
+let logoutInFlight=null;
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消',pending:'待確認',confirmed:'已確認',reported:'待派工',assigned:'已派工',closed:'已結案',rejected:'已駁回',owner:'業主',manager:'主管',staff:'一般員工',purchase:'進貨',usage:'領用',adjustment:'盤點調整'};
 const label=v=>nice[v]||String(v??'—');
 const fmt=v=>(v===null||v===undefined||v==='')?'—':E(v);
 const pages={
  dashboard:{title:'今日營運總覽',desc:'工作、叫貨、庫存、人事與設備的即時概覽'},
+ reports:{title:'Excel 匯出與列印',desc:'匯出指定模組、欄位與篩選條件'},
  backups:{title:'資料庫備份管理',desc:'自動備份與歷史版本'},
  ingredient_prices:{title:'食材歷史價格',desc:'各門市分別保留日期與供應商單價紀錄',action:'price.record',permission:'manager',columns:[['price_date','生效日'],['location_name','門市'],['ingredient_name','食材'],['unit_price_twd','單價（元）'],['unit','計價單位'],['supplier','供應商'],['source','來源']]},
  inventory_values:{title:'庫存估算價值',desc:'按最近有效價格乘上即時庫存，非 FIFO 或移動平均會計成本',permission:'manager',columns:[['location_name','門市'],['ingredient_name','食材'],['on_hand','庫存量'],['unit','庫存單位'],['unit_price_twd','單價（元）'],['price_unit','價格單位'],['estimated_value_twd','估值（元）'],['cost_status','說明']]},
@@ -18,7 +20,7 @@ const pages={
  ingredients:{title:'食材主檔',desc:'管理食材名稱、單位及低庫存告警值',action:'ingredient.create',permission:'manager',columns:[['sku','料號'],['name','食材名稱'],['unit','單位'],['min_stock','安全庫存']]},
  stock:{title:'庫存管理',desc:'各門市實際庫存與安全庫存提示；所有出入庫保留流水紀錄',action:'stock.opening',permission:'owner',columns:[['location_name','門市'],['name','食材'],['on_hand','現有庫存'],['min_stock','安全庫存'],['unit','單位']]},
  stock_moves:{title:'庫存異動流水',desc:'不可直接修改的入庫、耗用與盤點調整紀錄',columns:[['created_at','時間'],['location_name','門市'],['ingredient_name','食材'],['move_type','類別'],['qty_delta','異動量'],['note','說明']]},
- purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['number','單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['status','狀態']]},
+ purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['group_number','廠商叫貨單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['unit','單位'],['status','狀態']]},
  stocktakes:{title:'食材盤點',desc:'員工申報盤點數，主管確認後產生有稽核紀錄的庫存差異',action:'stocktake.create',permission:'staff',columns:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面數量'],['counted_qty','盤點數量'],['status','狀態']]},
  repairs:{title:'設備維修',desc:'報修、指派、結案與維修追蹤',action:'repair.create',permission:'staff',columns:[['location_name','門市'],['equipment','設備'],['description','問題描述'],['assigned_name','處理人員'],['status','狀態']]},
  shifts:{title:'人事排班',desc:'主管安排班次；一般員工只能查看自己的班表',action:'shift.create',permission:'manager',columns:[['shift_date','日期'],['staff_name','員工'],['location_name','門市'],['start_time','上班'],['end_time','下班'],['note','備註']]},
@@ -28,7 +30,7 @@ const pages={
  evaluations:{title:'員工績效考核',desc:'主管記錄評分與回饋，員工只可查看自己的紀錄',action:'evaluation.create',permission:'manager',columns:[['staff_name','員工'],['location_name','門市'],['period','考核期別'],['score','分數'],['feedback','回饋']]},
  users:{title:'帳號與權限',desc:'每人獨立帳號，業主管理角色與門市授權',action:'user.create',permission:'owner',columns:[['username','登入帳號'],['display_name','姓名'],['role','角色'],['locations','授權門市'],['active','啟用']]},
  locations:{title:'門市管理',desc:'門市資料及資料隔離邊界',action:'location.create',permission:'owner',columns:[['name','門市'],['active','啟用']]},
- audit_logs:{title:'系統安全稽核',desc:'登入、登入失敗、登出及重要資料變更事件',columns:[['at','時間'],['actor_name','操作者'],['action','事件'],['entity','資料類別'],['entity_id','資料識別碼'],['detail','摘要']]}
+ audit_logs:{title:'系統安全稽核',desc:'僅業主可看：登入、登入失敗、登出與資料變更（IP 取自直接連線；過去紀錄無法還原）',columns:[['at','時間'],['actor_name','操作者'],['ip_address','來源 IP'],['action','事件'],['entity','資料類別'],['entity_id','資料識別碼'],['detail','摘要']]}
 };
 const roleLevel={owner:3,manager:2,staff:1};
 const can=p=>S.me && roleLevel[S.me.role]>=roleLevel[p||'staff'];
@@ -39,7 +41,18 @@ async function api(path,method='GET',payload){
  if(!r.ok){const err=new Error(j.error||'操作失敗');err.status=r.status;throw err;}return j;
 }
 function toast(text){const n=$('#toast');n.textContent=text;n.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>n.classList.remove('show'),4000);}
-function showAuth(flag){$('#auth-overlay').hidden=!flag;$('#sidebar').style.visibility=flag?'hidden':'visible';}
+function showAuth(flag){
+ $('#auth-overlay').hidden=!flag;
+ $('#sidebar').style.visibility=flag?'hidden':'visible';
+ document.body.classList.toggle('auth-locked',flag);
+ if(flag){
+  // A shared workstation must not retain prior users' reports, cached rows or
+  // forms. This also runs when an existing session expires during bootstrap.
+  S.me=null;S.csrf='';S.cache={};S.filter='';S.page='dashboard';S.authEpoch++;
+  $('#main').innerHTML='';
+  const modal=$('#modal-root');invalidateModalOpens(modal);modal.hidden=true;modal.innerHTML='';
+ }
+}
 function setActive(page){S.page=page;S.filter='';document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('#crumb').textContent=pages[page].title;$('#sidebar').classList.remove('open');}
 function head(title,desc,action,permission){return `<div class="heading"><div><div class="eyebrow">RESTAURANT OPERATIONS</div><h1>${E(title)}</h1><p>${E(desc)}</p></div>${action&&can(permission)?`<button class="btn primary" data-create="${E(action)}">＋ 新增${E(title.replace(/管理|紀錄|主檔|與驗收/g,''))}</button>`:''}</div>`;}
 function pill(v){let a=['done','approved','received','confirmed','closed','active'].includes(v)?'ok':['todo','requested','pending','reported'].includes(v)?'warn':['rejected','cancelled'].includes(v)?'bad':'';return `<span class="badge ${a}">${E(label(v))}</span>`;}
@@ -52,6 +65,7 @@ const colValue=(key,r)=>{
  return fmt(v);
 };
 function rowActions(page,r){const a=[];
+ if(page==='purchase_orders'&&typeof r.group_number==='string'&&r.group_number.startsWith('POB-'))return `<button class="btn small ghost" data-batch-preview="${E(r.group_number)}">查看廠商單／LINE</button>`;
  const btn=(act,txt,fields={})=>`<button class="btn small ghost" data-operation="${act}" data-id="${E(r.id)}" data-state="${E(fields.status||'')}">${E(txt)}</button>`;
  if(page==='tasks'&&(can('manager')||r.assigned_to===S.me.id)&&r.status!=='done')a.push(btn('task.status',r.status==='todo'?'開始處理':'標記完成',{status:r.status==='todo'?'doing':'done'}));
  if(page==='purchase_orders'&&can('manager')){if(r.status==='requested')a.push(btn('order.approve','核准'),btn('order.cancel','取消'));if(r.status==='approved')a.push(btn('order.receive','驗收入庫'),btn('order.cancel','取消'));}
@@ -65,7 +79,7 @@ function rowActions(page,r){const a=[];
 }
 async function dataPage(page){
  const cfg=pages[page];setActive(page);
- $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
+ $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+(page==='purchase_orders'?'<div class="toolbar"><button class="btn primary" data-new-batch="1">＋ 多品項叫貨／依供應商分單</button><span class="muted">主管核准後才能產生廠商 LINE 草稿；傳送需人工確認。</span></div>':'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
  try{const x=await api('/api/data?entity='+encodeURIComponent(page));S.cache[page]=x.rows;drawTable(page);}catch(e){$('#table-wrap').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
 function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
@@ -120,10 +134,16 @@ function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(
  const step=f.type==='number'?'step="any" min="0"':'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
 }
-async function showForm(action,id){const d=def[action];if(!d){toast('此操作目前未提供表單');return;}await getLists();
- const root=$('#modal-root');root.hidden=false;
+function invalidateModalOpens(root){return (root.__openTicket=(root.__openTicket||0)+1);}
+async function showForm(action,id){
+ const d=def[action];if(!d){toast('此操作目前未提供表單');return;}
+ // Invalidate pending batch preview/create GETs *before* await getLists().
+ const root=$('#modal-root'),ticket=invalidateModalOpens(root),epoch=S.authEpoch,userId=S.me?.id;
+ await getLists();
+ if(root.__openTicket!==ticket||S.authEpoch!==epoch||S.me?.id!==userId)return;
+ root.hidden=false;
  root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>儲存後立即更新資料，並寫入操作紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
- const close=()=>{root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
+ const close=()=>{invalidateModalOpens(root);root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
  try{await api('/api/command','POST',{action,data:raw});close();const ownPassword=action==='user.password'&&id===S.me?.id;toast(ownPassword?'密碼已變更，請重新登入':'已成功儲存');if(ownPassword){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
 }
@@ -135,20 +155,34 @@ async function operation(action,id,status){try{
  if(action==='repair.status')data={id,status};
  await api('/api/command','POST',{action,data});toast('操作完成');await refresh();
  }catch(e){toast(e.message);}}
-async function refresh(){return S.page==='dashboard'?dashboard():S.page==='backups'?backupPage():dataPage(S.page);}
+async function refresh(){return S.page==='dashboard'?dashboard():S.page==='backups'?backupPage():S.page==='reports'?reportPage():dataPage(S.page);}
 async function bootstrap(){try{const out=await api('/api/me');S.me=out.user;S.csrf=out.csrf;showAuth(false);$('#avatar').textContent=S.me.display_name.slice(0,1)||'餐';
  document.querySelectorAll('[data-owner]').forEach(x=>x.hidden=S.me.role!=='owner');document.querySelectorAll('[data-manager]').forEach(x=>x.hidden=!can('manager'));$('#today').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
  dashboard();}catch(e){showAuth(true);}}
-$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;$('#login-error').textContent='';const data=Object.fromEntries(new FormData(form));try{await api('/api/login','POST',data);form.reset();await bootstrap();}catch(err){$('#login-error').textContent=err.message;}});
-$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else if(p==='backups')backupPage();else dataPage(p);});
+$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget;$('#login-error').textContent='';const data=Object.fromEntries(new FormData(form));try{if(logoutInFlight)await logoutInFlight.catch(()=>{});await api('/api/login','POST',data);form.reset();await bootstrap();}catch(err){$('#login-error').textContent=err.message;}});
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(!b)return;const p=b.dataset.page;if(p==='dashboard')dashboard();else if(p==='backups')backupPage();else if(p==='reports')reportPage();else dataPage(p);});
 $('#main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():p==='backups'?backupPage():dataPage(p);return;}
- if(b.dataset.create)showForm(b.dataset.create);
- if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
+ if(b.dataset.page){const p=b.dataset.page;p==='dashboard'?dashboard():p==='backups'?backupPage():p==='reports'?reportPage():dataPage(p);return;}
+ if(b.dataset.exportCurrent)exportCurrentPage('xlsx');
+  if(b.dataset.printCurrent)exportCurrentPage('print');
+  if(b.dataset.create)showForm(b.dataset.create);
+ if(b.dataset.newBatch)OrderBatchUI.start().catch(e=>toast(e.message));
+  if(b.dataset.batchPreview)OrderBatchUI.preview(b.dataset.batchPreview).catch(e=>toast(e.message));
+  if(b.dataset.operation)operation(b.dataset.operation,b.dataset.id,b.dataset.state);
 });
 $('#main').addEventListener('input',e=>{if(e.target.id==='search'){S.filter=e.target.value;drawTable(S.page);}});
 $('#menu-btn').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
 $('#change-password').addEventListener('click',()=>{if(S.me)showForm('user.password',S.me.id);});
-$('#logout').addEventListener('click',async()=>{try{await api('/api/logout','POST',{});}finally{S.me=null;S.csrf='';showAuth(true);$('#sidebar').classList.remove('open');}});
-$('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
+$('#logout').addEventListener('click',async()=>{
+ if(logoutInFlight)return;
+ // Start the logout request with the original CSRF. Lock the display now,
+ // then wait for the previous response before issuing any new login:
+ // the old logout's Set-Cookie deletion could erase the new login cookie.
+ const pending=api('/api/logout','POST',{});
+ logoutInFlight=pending;
+ showAuth(true);$('#sidebar').classList.remove('open');
+ try{await pending;}catch{toast('伺服器尚未確認登出，請關閉此分頁並通知管理者。');}
+ finally{if(logoutInFlight===pending)logoutInFlight=null;}
+});
+$('#modal-root').addEventListener('click',e=>{if(e.target.id==='modal-root'){invalidateModalOpens(e.currentTarget);e.currentTarget.hidden=true;e.currentTarget.innerHTML='';}});
 bootstrap();

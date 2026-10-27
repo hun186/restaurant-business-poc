@@ -6,7 +6,10 @@
 <meta name="theme-color" content="#102f43">
 <title>餐廳好管家｜餐飲營運管理</title>
 <link rel="stylesheet" href="/styles.css">
+<script src="/xlsx-lite.js" defer></script>
 <script src="/app.js" defer></script>
+<script src="/order-batch-ui.js" defer></script>
+<script src="/report-ui.js" defer></script>
 <script src="/backup-ui.js" defer></script>
 </head>
 <body>
@@ -24,7 +27,7 @@
    <details><summary>♙ 人事與訓練 <span>⌄</span></summary><div class="nav-children">
     <button data-page="shifts">▦ 人事排班</button><button data-page="leave_requests">◷ 請假申請</button><button data-page="training_courses">▥ 教育訓練</button><button data-page="training_records">✓ 訓練紀錄</button><button data-page="evaluations">★ 員工考核</button></div></details>
    <details><summary>⚙ 系統管理 <span>⌄</span></summary><div class="nav-children">
-    <button data-page="users" data-owner>♙ 帳號與權限</button><button data-page="locations">⌂ 門市管理</button><button data-page="audit_logs" data-owner>◉ 安全稽核</button><button data-page="backups" data-owner>◷ 備份管理</button></div></details>
+    <button data-page="users" data-owner>♙ 帳號與權限</button><button data-page="locations">⌂ 門市管理</button><button data-page="audit_logs" data-owner>◉ 安全稽核</button><button data-page="reports">▤ Excel 匯出與列印</button><button data-page="backups" data-owner>◷ 備份管理</button></div></details>
   </nav>
   <div class="side-bottom"><div class="mode-label">◉ 本機 SQLite 持久化</div><p>角色權限 × 門市範圍 × 操作留痕</p><button class="link-button" id="change-password">⚿ 變更我的密碼</button><div style="height:8px"></div><button class="link-button" id="logout">↪ 安全登出</button></div>
  </aside>

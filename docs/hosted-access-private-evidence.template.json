@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "target_worker": "restaurant-pbkdf2-hosted-cpu-staging-probe",
+  "observed_at_utc": null,
+  "checks": {
+    "correct_account_and_dedicated_worker_id": false,
+    "destination_type_worker_not_preview_worker": false,
+    "scope_all_traffic_not_previews_only": false,
+    "no_bypass_everyone_or_broad_access_policy": false,
+    "hostname_and_path_rule_precedence_checked": false,
+    "account_level_fallback_checked": false,
+    "routes_and_custom_domains_checked": false,
+    "workers_dev_exposure_checked": false,
+    "version_preview_and_deployment_urls_checked": false,
+    "probe_disabled_and_no_public_routes_confirmed": false,
+    "private_evidence_archived_outside_repository": false,
+    "independent_human_review_completed": false
+  }
+}

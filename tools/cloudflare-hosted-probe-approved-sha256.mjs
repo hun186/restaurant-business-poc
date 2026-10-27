@@ -63,6 +63,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/owner-recovery.test.js":"8e243bbe525bcfdb750ae4fc35f9f63cac9c3de7d51e342f95fa39b526519acd",
   "tests/pricing.test.js":"07a7260856f22d33809ea2a95798a0ed44f6481cbfb76f7238c852cbc7d1bda9",
   "tests/report-export.test.js":"c9b5f4f8644a2d4f818770449b56f6b71a37e87a3f17054a895a28c84b722865",
+  "tests/rbac-matrix.test.js":"7580293896754e7d52c41f0e6f62b0774396c56b8cc32d6a7a363900e965cdd4",
   "tests/report-logout.test.js":"197173c126f53961e3df53e1d4252c46e104028859c1e24006037fc80b34a0cd",
   "vercel-demo/app.js":"6e33de9f600186dbeeb9b80657a1bbbb979401189f26b3ecb9b7095689ba065a",
   "vercel-demo/backup-demo-ui.js":"36c2c1497735892427ee21a8c2406ec6dd66693a789d72dfb8d30327fea82237",

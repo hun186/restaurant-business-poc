@@ -7,7 +7,7 @@
 | --- | --- | --- | --- |
 | RB-001 | MERGED_CODE_ONLY | P1 | PR #1 已合併（PoC 基礎營運、SQLite/RBAC/稽核）；現有 main 程式合併後驗證已進行，但業主 Windows 安裝、真實門市權限/災難復原與上線前驗收仍待辦 |
 | RB-002 | PLANNED | P1 | 多人正式部署拓樸、HTTPS、Secure Cookie、遠端連線安全與後端儲存選型 |
-| RB-003 | PLANNED | P1 | 角色細粒度授權、跨店／跨角色越權完整測試與帳號停權操作流程 |
+| RB-003 | IN_REVIEW | P1 | 已新增涵蓋業主／主管／員工、跨店、同店他人、稽核與庫存不變性、批次叫貨、HTTP Session 授權變更／停用的自動化 RBAC 回歸矩陣 `tests/rbac-matrix.test.js`；待新 HEAD Hosted CI 與正式 Codex Review。實機權限／多使用者併發及正式門市政策仍需另行驗收 |
 | RB-004 | MERGED_CODE_ONLY | P1 | PR #1 自動備份、無資料異動跳過與站內備份管理程式已合併；Windows 隔離還原、備份磁碟隔離/異地複本及業主簽收尚未執行 |
 | RB-011 | PLANNED | P1 | 異地／跨磁碟備份、Windows 隔離還原演練、業主簽收（本機有備份功能不等於完整災難復原） |
 | RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |

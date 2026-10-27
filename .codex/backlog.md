@@ -24,10 +24,11 @@
 | RB-016 | IN_REVIEW | P1 | 本機登入後 `e.currentTarget.reset()` 非同步 null 錯誤；已修前端並新增 regression，待 Hosted CI／Codex Review、使用者授權 Merge |
 
 | RB-017 | IN_REVIEW | P1 | Owner 初始密碼遺失：本機離線密碼復原工具（先驗證備份、保留 SQLite、撤銷 Session、稽核），待 Hosted CI / Codex Review / Merge 授權 |
-| RB-018 | IN_REVIEW | P1 | PR #7 Windows 業主密碼復原雙擊 BAT、中文引導（`--guided`）、保留離線備份/唯一 Owner/Session 撤銷；已以保留原 Commits 的 Merge Commit 整合 2026-10-27 主線安全 SHA-256 清單。待新 HEAD CI/Codex Review，Windows 實機仍待驗收，未授權不可 Merge |
+| RB-018 | MERGED_CODE_ONLY | P1 | PR #7 Squash Merge `d307bc38967f05446dd79b3b093a2085d669a364`，main push CI #40464034678 completed/success **5/5 PASS**；Windows 業主離線復原雙擊 BAT 已合併，正式 Windows 業主機操作/備份還原仍未現場驗收 |
 
 | RB-019 | IN_REVIEW | P1 | 安全稽核加入 TCP 來源 IP（owner 查閱、不採信偽造標頭、舊資料無法還原），待 CI／Review／Merge |
 | RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |
+| RB-021 | IN_REVIEW | P1 | PR #9 菜品封存／恢復、配方逐項移除（owner-only、交易、稽核、成本重新估算、正式＋Demo UI／Excel 篩選），保留舊 PR Commits 並以最新 main 合併解衝突；新增／變更檔案須納入 SHA-256 封閉白名單，待新 HEAD Hosted CI／Codex 複審與授權 Merge |
 
 | RB-020-SEC | IN_REVIEW | P2 | PR #8 登出清除報表快取、即刻鎖定列印 CSS、防範非同步舊報表重現（正式版＋Demo）；待 Hosted CI／最新 Codex 重審 |
 

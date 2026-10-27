@@ -320,3 +320,13 @@
 - PR #7 原 HEAD `1749544ecf7f15c61a3313c7f9719c476e4be2e5` 對應正式 Codex Review 無重大問題、舊 CI #40077146458 success，但與新 main 衝突。採用兩個父 Commits 的 Merge Commit（第一父 PR7 HEAD、第二父 main），避免 force-push 或重置舊 Commits。
 - PR7 原先新增 `重設業主密碼.bat`、`tests/owner-recovery-launcher.test.js`、更新 `tools/reset-owner-password.js`：和最新 main 的 tool 原始基底逐位相同，故可直接帶入修正後工具。保留並追加原 PR7 README/記憶，不以舊版覆寫新主線文件。
 - 主線目前安全預檢封閉列表要求所有 `tools/`、`tests/`、根目錄 BAT 由人工審核並 SHA-256 綁定；本輪必須只更新上述三項 digest，其餘保持不變。新 HEAD 的 Hosted CI 和正式 Codex Review 完成前不可認定合併適格；Windows 實機驗收仍未完成。
+## 2026-10-24｜菜品封存／配方食材移除（新 PR）
+- 使用者回報「菜品與售價、食材配方只能新增修改，無法刪過時品項」。採 owner-only `dish.active`（0 封存／1 恢復）與 owner-only `recipe.delete`（只刪 dish_ingredients 連結），避免硬刪菜品造成配方連鎖消失及價值歷史混淆。
+- 封存菜品不列入 costs/recipe 選單與預設菜品列表，仍可檢視封存項與恢復；不影響庫存或歷史價格。配方移除立刻影響成本試算，稽核 detail 記錄刪除前數量／食材。驗證重複／無效操作、非 owner 拒絕、交易與備份 fingerprint；Vercel Mock 同步模擬，正式環境不改 DB Schema。最新 CI／Codex Review 與 Merge 狀態須個別驗證。
+
+## 2026-10-27｜PR #9 既有菜品／配方功能回補主線
+
+- main 先前確認 PR #7 Squash `d307bc38967f05446dd79b3b093a2085d669a364`，push CI #40464034678 完成 5/5 PASS，RB-018 仍有正式 Windows 業主現場驗收。
+- PR #9 原有 HEAD `acda039c612760b80d43a0de20789bd508e8db21` 已通過舊版 Codex Review 與舊 CI，但因 main 多次擴充造成衝突。採用原 Head 與最新 main 雙親 Merge Commit，不 reset、不 force push、不失去先前記憶。以新 main 為檔案基底只回補菜品封存/恢復、配方逐項移除、正式和 Demo UI、報表篩選、測試；保留 main 的多品項叫貨、登入安全、來源稽核、Cloudflare 限制。
+- 既存 SHA-256 fail-closed preflight 涵蓋所有新的/修改過的 src/public/demo/tests；人工逐項核對目標 source 後才更新 9 筆允許雜湊，不變動 Worker 探針、部署流程、Access、D1。
+- 本次以最新 HEAD 的 Hosted CI 及正式 Codex Review 為權威；舊的 Codex PASS 不等於整合後 PR PASS；PR 維持 Draft、未授權 Merge。

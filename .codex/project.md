@@ -2,7 +2,7 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #17–#24 已合併；PR #24 main Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 Hosted CI #40435777549 completed/success **5/5 PASS**、正式 Codex Review 無重大問題。Cloudflare Access 實站、專用 PBKDF2 Worker、真正 Hosted CPU 仍未驗證；公開 Worker Login 503、production D1 未初始化。現在繼續既有 Draft PR #7（Windows 離線 Owner 密碼復原中文雙擊啟動器），將舊 Head `1749544ecf` 以保留歷史的 Merge Commit 整合最新 `main`，修復 Docs 衝突、將新/變更工具與測試 SHA-256 加入已審核白名單，最新 HEAD CI/Codex 必須重驗；PR #9 仍舊 Draft 且有衝突。未授權不可 Merge、不得遠端改 Cloudflare Access/D1/部署探針。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #7 已 Squash Merge `d307bc38967f05446dd79b3b093a2085d669a364`，主線 Hosted CI #40464034678 5/5 PASS，正式 Codex Review 無重大問題；PR #17–#24 亦已合併。現接續 PR #9（RB-021 菜品封存/恢復、配方食材逐項移除）舊 HEAD `acda039c612760b80d43a0de20789bd508e8db21`，以保留原 Commits 的兩親 Merge Commit 整合最新 main 與封閉 SHA-256 白名單，正式/示範 UI 需保留新叫貨流程。新 HEAD 必須重驗 Hosted CI/Codex，未經明確授權不 Merge。Cloudflare Hosted PBKDF2 專用探針仍未部署；真實 Access/Hosted CPU 未驗證，公開 Worker Login 503，production D1 尚未初始化。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

@@ -22,7 +22,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-staging-0002.mjs":"1051dd5aae3eb7c6fb6b6ad6590bcc5ddf3136461fbee5b1ef541c6ab831a4bb",
   "tools/cloudflare-staging-owner.mjs":"75300aa2da627d3da2c29c7706a0060f32c1f3674830248ea040ac83e8da2a7c",
   "tools/pbkdf2-workerd-sandbox.mjs":"33f2846108c0c4d246c8864ed5918c7e040f727a05a3e3824bcc888fb31d4b01",
-  "tools/restore-drill.js":"6e1fb9952f87ccf52b0612a17a8efd1640c5d389481f5a6e84e2584769825d22",
+  "tools/restore-drill.js":"8ebd3d933287d7bcd0994f6095f02f01ba2ee121dcbd52c167d792d1ef920b14",
   "tools/reset-owner-password.js":"fcb21006def6c7053fa2ab8f1dc96b9d97a8dfe58f8726ae3721ec6bc0b2b750",
   "tools/run-pbkdf2-local-workerd.mjs":"042a46377d9aa3d5c0e0f61ba71fadf620b78f0b0df1205f4e349f1bf65bd182"
 });
@@ -66,7 +66,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/pricing.test.js":"07a7260856f22d33809ea2a95798a0ed44f6481cbfb76f7238c852cbc7d1bda9",
   "tests/report-export.test.js":"c9b5f4f8644a2d4f818770449b56f6b71a37e87a3f17054a895a28c84b722865",
   "tests/rbac-matrix.test.js":"7580293896754e7d52c41f0e6f62b0774396c56b8cc32d6a7a363900e965cdd4",
-  "tests/restore-drill.test.js":"f8f53a6ca1ad534714e7f7ac5de1310c222bc92796931aa6ff659964214b0ba5",
+  "tests/restore-drill.test.js":"13cf3b47ab6e4eda3e6d139973bba2d74754ec4b4a34396d97d4b56c11445efb",
   "tests/report-logout.test.js":"197173c126f53961e3df53e1d4252c46e104028859c1e24006037fc80b34a0cd",
   "vercel-demo/app.js":"6e33de9f600186dbeeb9b80657a1bbbb979401189f26b3ecb9b7095689ba065a",
   "vercel-demo/backup-demo-ui.js":"36c2c1497735892427ee21a8c2406ec6dd66693a789d72dfb8d30327fea82237",

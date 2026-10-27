@@ -362,3 +362,9 @@
 - `備份還原演練.bat` 為 Windows 中文提示雙擊啟動器，使用 `pushd`/Node 22.13+ 檢查；`tests/restore-drill.test.js` 測試正式庫備份後異動仍不受演練影響、預設選最新、指定備份名稱校驗、壞備份與遺失 DB fail-closed；新可執行項目確切 SHA-256 均列入封閉式安全 manifest。
 - **驗證範圍限制**：僅一次性隔離副本的可讀性與結構安全，未進行真正的 Windows 業主機部署、異機啟動登入、跨磁碟/異地備份、實際還原寫入、RTO/RPO、人工簽收。不得把工具 PASS 寫成完整災難復原完成。
 - 最新 HEAD Hosted CI 和正式 Codex Review 必須完成，若 P1/P2 須修正/再審。使用者未另行授權不可 Merge。
+
+### 2026-10-27｜PR #27 Codex P2：來源備份零寫入修正
+
+- 首輪正式 Codex Review 對 HEAD `4212a881583474ce71cc6b4ede8313e3dfc30f35` 發現 2 項 P2：(1) `backup-manager.list` 原本會透過 `protect` 修改未選取備份/目錄 ACL；(2) 對原始 WAL SQLite 使用 `verifySnapshot` 即使 readOnly 仍可能產生 -wal/-shm 暫存檔，並且在來源 descriptor 身分檢查前已開啟來源路徑。
+- 修正為 `backupsReadOnly` 使用 readdir/lstat 列舉、拒絕非一般檔/符號連結，不調整原始備份任何權限；複製時由已固定、驗證身分的來源 FD 一次取得原始位元組 SHA-256，僅對受保護的隔離副本使用 SQLite 完整性與 fingerprint 校驗。新增原始檔/資料夾 mode 不變、WAL sidecar 不產生、symlink fail-closed 回歸。
+- 新工具／測試精確 SHA-256 分別為 `8ebd3d933287d7bcd0994f6095f02f01ba2ee121dcbd52c167d792d1ef920b14`／`13cf3b47ab6e4eda3e6d139973bba2d74754ec4b4a34396d97d4b56c11445efb`，更新安全白名單後需新 HEAD Windows/Ubuntu Hosted CI 與正式 Codex Review 複審，舊 P2 在核對後方可 Resolve；未授權不可合併。

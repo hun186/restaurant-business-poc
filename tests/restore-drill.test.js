@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
+const {DatabaseSync}=require('node:sqlite');
 const {openDb}=require('../src/db');
 const {command}=require('../src/service');
 const {perform,verifySnapshot,list}=require('../src/backup-manager');
@@ -54,6 +55,39 @@ test('missing backups and corrupt snapshots fail closed; no live database is ove
  assert.equal(sha(path.join(f.folder,'restaurant.sqlite')),before);
  assert.equal(fs.readFileSync(file,'utf8'),'bad sqlite');
  unchanged(temp);
+});
+test('read-only drill preserves original archive permissions and never creates SQLite WAL sidecars there',t=>{
+ const f=fixture(t);
+ const entry=perform({folder:f.folder,backupDir:f.backupDir,type:'manual'});
+ const file=path.join(f.backupDir,entry.name);
+ // WAL-mode backups demonstrate why calling DatabaseSync on the *source*
+ // would be unsafe even when the SQLite handle is marked readOnly.
+ const writable=new DatabaseSync(file);
+ try{writable.exec('PRAGMA journal_mode=WAL');}finally{writable.close();}
+ for(const suffix of ['-wal','-shm'])fs.rmSync(file+suffix,{force:true});
+ const before=transient(),byteHash=sha(file);
+ if(process.platform!=='win32'){
+  fs.chmodSync(f.backupDir,0o750);fs.chmodSync(file,0o640);
+ }
+ const beforeDirMode=fs.statSync(f.backupDir).mode&0o777;
+ const beforeFileMode=fs.statSync(file).mode&0o777;
+ const result=drillRestore({folder:f.folder,backupDir:f.backupDir,name:entry.name});
+ assert.equal(result.result,'verified');assert.equal(result.sha256,byteHash);
+ assert.equal(fs.statSync(f.backupDir).mode&0o777,beforeDirMode,'archive dir mode untouched');
+ assert.equal(fs.statSync(file).mode&0o777,beforeFileMode,'backup file mode untouched');
+ for(const suffix of ['-wal','-shm'])assert.equal(fs.existsSync(file+suffix),false,'no sidecar next to source backup');
+ assert.equal(sha(file),byteHash);
+ unchanged(before);
+});
+test('rejected snapshot symlink does not adjust source permissions',t=>{
+ if(process.platform==='win32'){t.skip('Windows symlink creation may require developer privileges');return;}
+ const f=fixture(t),e=perform({folder:f.folder,backupDir:f.backupDir,type:'manual'});
+ const backup=path.join(f.backupDir,e.name),outside=path.join(f.root,'outside.sqlite');
+ fs.renameSync(backup,outside);fs.symlinkSync(outside,backup);
+ const before=transient();
+ assert.throws(()=>drillRestore({folder:f.folder,backupDir:f.backupDir}),{code:'E_BACKUP'});
+ assert.equal(fs.lstatSync(backup).isSymbolicLink(),true);
+ unchanged(before);
 });
 test('does not create a database when the original data folder has been lost',t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-drill-missing-'));

@@ -8,12 +8,23 @@ const path=require('node:path');
 const os=require('node:os');
 const crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
-const {getPaths,list,verifySnapshot}=require('../src/backup-manager');
+const {getPaths,verifySnapshot}=require('../src/backup-manager');
+const BACKUP_NAME=/^restaurant-backup-\d{8}-\d{6}-[a-f0-9]{8}-(auto|manual|migration)\.sqlite$/;
 const {protect}=require('../src/backup-acl');
 function error(code,message){throw Object.assign(new Error(message),{code});}
 function inside(parent,child){
  const relative=path.relative(parent,child);
  return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative));
+}
+function backupsReadOnly(dir){
+ let dirStat;
+ try{dirStat=fs.lstatSync(dir);}catch(e){if(e.code==='ENOENT')return [];throw e;}
+ if(!dirStat.isDirectory()||dirStat.isSymbolicLink())error('E_BACKUP','備份資料夾不是一般實體目錄');
+ return fs.readdirSync(dir).filter(name=>BACKUP_NAME.test(name)).map(name=>{
+  const st=fs.lstatSync(path.join(dir,name));
+  if(!st.isFile()||st.isSymbolicLink())error('E_BACKUP','拒絕讀取不安全的備份檔案');
+  return {name};
+ }).sort((a,b)=>b.name.localeCompare(a.name));
 }
 function fileDigest(filename){
  const fd=fs.openSync(filename,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
@@ -32,16 +43,19 @@ function copyExclusive(source,dest){
   if(!seen.isFile()||seen.isSymbolicLink()||!opened.isFile()||
      seen.dev!==opened.dev||seen.ino!==opened.ino)error('E_DRILL','來源備份檔案不安全或已變更');
   target=fs.openSync(dest,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
-  const block=Buffer.alloc(1024*1024);
+  const block=Buffer.alloc(1024*1024),sha=crypto.createHash('sha256');
   let count=0,n;
   while((n=fs.readSync(src,block,0,block.length,null))!==0){
    let offset=0;
    while(offset<n){const written=fs.writeSync(target,block,offset,n-offset);if(written<=0)error('E_DRILL','隔離複製寫入失敗');offset+=written;}
+   sha.update(block.subarray(0,n));
    count+=n;
   }
   fs.fsyncSync(target);
-  if(fs.fstatSync(src).size!==count)error('E_DRILL','來源備份複製期間長度改變');
-  return count;
+  const now=fs.fstatSync(src);
+  if(now.size!==count||opened.size!==now.size||opened.mtimeMs!==now.mtimeMs||opened.ctimeMs!==now.ctimeMs)
+   error('E_DRILL','來源備份複製期間已變更，拒絕採用副本');
+  return {bytes:count,sha256:sha.digest('hex')};
  }finally{if(target!==undefined)fs.closeSync(target);fs.closeSync(src);}
 }
 function drillRestore(opts={}){
@@ -50,13 +64,11 @@ function drillRestore(opts={}){
  // Never create missing operational data here (even an empty demo database).
  if(!fs.existsSync(dbFile)||!fs.lstatSync(dbFile).isFile()||fs.lstatSync(dbFile).isSymbolicLink())
   error('E_DB','未找到既有正式資料庫；拒絕以空白資料庫進行演練');
- const backups=list(backupDir);
+ const backups=backupsReadOnly(backupDir);
  if(!backups.length)error('E_BACKUP','找不到符合格式的既有備份，請先執行手動備份');
  const chosen=opts.name===undefined?backups[0]:backups.find(b=>b.name===opts.name);
  if(!chosen)error('E_CONFIG','備份名稱不存在或不符合允許格式');
  const source=path.join(backupDir,chosen.name);
- const before=verifySnapshot(source); // read-only, schema/quick_check/FK validation
- const originalDigest=fileDigest(source);
  const base=fs.realpathSync.native(os.tmpdir());
  const active=fs.realpathSync.native(folder),archive=fs.realpathSync.native(backupDir);
  if(inside(active,base)||inside(archive,base))error('E_CONFIG','系統暫存位置位於正式資料或備份目錄中，拒絕演練');
@@ -66,12 +78,12 @@ function drillRestore(opts={}){
   if(inside(active,tempDir)||inside(archive,tempDir))error('E_CONFIG','隔離驗證位置不安全');
   protect(tempDir);
   const copy=path.join(tempDir,'restored-copy.sqlite');
-  const bytes=copyExclusive(source,copy);
+  const {bytes,sha256}=copyExclusive(source,copy);
   protect(copy);
-  if(fileDigest(copy)!==originalDigest)error('E_DRILL','隔離副本與備份原檔校驗值不同');
+  if(fileDigest(copy)!==sha256)error('E_DRILL','隔離副本的位元組校驗失敗');
+  // Only open SQLite in the disposable directory: readOnly SQLite may create
+  // -wal/-shm sidecars, which must never be created alongside the source.
   const copiedFingerprint=verifySnapshot(copy);
-  if(copiedFingerprint!==before||verifySnapshot(source)!==before||fileDigest(source)!==originalDigest)
-   error('E_DRILL','來源備份與隔離副本內容驗證不一致');
   const readOnly=new DatabaseSync(copy,{readOnly:true});
   let counts;
   try{
@@ -83,7 +95,7 @@ function drillRestore(opts={}){
    };
   }finally{readOnly.close();}
   if(counts.activeOwners<1)error('E_DRILL','隔離備份中沒有有效業主帳號');
-  return {result:'verified',name:chosen.name,bytes,sha256:originalDigest,
+  return {result:'verified',name:chosen.name,bytes,sha256,
    fingerprint:copiedFingerprint,counts,temporaryCopyRemoved:true};
  }finally{
   // Only remove a freshly generated directory under system temp; never the

@@ -4,7 +4,7 @@
 
 > 最新狀態以本節、`.codex/backlog.md` 與當前 Hosted GitHub 為準。下方有日期的章節刻意保留舊時點資訊，**不能作為今日 PR／部署狀態**。
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。最新核對 main `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`（PR #26 RB-003 已合併），合併後 Hosted CI #40505949563 5/5 PASS、Cloudflare Workers Build Success；本輪接續 RB-010／RB-011 隔離備份還原驗證工具、Windows 雙擊啟動與非破壞性回歸。**程式/CI PASS 不代表 Windows 業主實機、異機還原或異地備份簽收**。Cloudflare production D1/Access/Hosted PBKDF2 CPU 未驗證，公開登入仍關閉。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。已確認 main `e6827cb7436c7b86b1808d4f0de55983138eac28`（PR #27 合併，push CI #40542421530 **5/5 PASS**）。本輪 RB-011 新增**無須原 data 資料庫**的外接備份唯讀驗證 CLI、Windows 雙擊 BAT、獨立 SHA-256 比對與回歸／SOP；尚待新 HEAD CI/Codex 複審。Windows 業主實機、獨立主機真正啟動還原、異地/加密備份管理、RTO/RPO 簽收未完成；Cloudflare production D1/Access/Hosted PBKDF2 CPU 未驗證，不能宣稱正式登入已上線。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

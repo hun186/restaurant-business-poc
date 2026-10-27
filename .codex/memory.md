@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：最新 main `6e474b187843179dc2af15836f55675210eca3a4`（PR #9 已 Squash Merge），PR #7/#9 新版正式 Codex Review 無重大問題，main push CI #40464034678/#40484482579 **5/5 PASS**；PR #1、#7–#10、#12–#24 全部合併，GitHub 無 Open PR。下一項集中 RB-003 多角色/跨店驗收、RB-010/RB-011 Windows 部署與備份隔離還原，雲端部署 RB-024/027/029/032 必須先取得 Access/Hosted CPU 真實驗證與使用者授權。不得混同 staging D1 0002 已套用與 production D1 尚未 migration。
+- 首要目標：`main` 最新 `4a0d6d03c159b14b5f292e22e106c53fd73f6c45`（PR #25 已 Merge）。當前 RB-003：建立跨角色、跨門市與同店他人資料之 DB/HTTP 權限回歸矩陣；新增 `tests/rbac-matrix.test.js`、封閉 SHA-256 白名單、README 與 backlog，需在新 Draft PR 最新 HEAD 的 Hosted CI/正式 Codex Review 驗收，禁止擅自 Merge。PR #1、#7–#10、#12–#25 已合併。正式 Windows、Cloudflare Access/Hosted PBKDF2 CPU、production D1、業主簽收仍未完成。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -341,3 +341,10 @@
 - Production Workers Login **仍為 503**；production D1 未 migration、Cloudflare Access/真實 Hosted CPU/登入來源信任尚未實測。Staging `0002` 已經 PR #18 的 Run #40204026605 套用，與 production 不可混淆。
 - 此為專案記憶/狀態修正 PR，只更新文件，不改執行程式、測試、密碼、營運資料、Cloudflare/D1 或已通過的安全 allowlist。新的文件 PR 須走 Hosted CI／Codex Review；未經使用者明確授權不可 Merge。
 
+
+## 2026-10-27｜RB-003 RBAC 跨店／跨角色矩陣開發交接
+
+- 已核對 Hosted main `4a0d6d03c159b14b5f292e22e106c53fd73f6c45`；PR #25 Closed/Merged，合併後 CI #40491933689 5/5 PASS，正式 Codex Review 完成且沒有重大問題。
+- 本輪新測試用獨立臨時 SQLite（`openDb`），同時覆蓋 owner、A/B 兩店主管、A 店兩名員工與 B 店員工；讀取 8 類個人資料、7 類門市資料，越權寫入要回 403 且資料 fingerprint、audit 與庫存不變；另測批次叫貨與正式 HTTP Session 的新增門市、降權及停用撤銷。
+- 新測試檔案依完整實際位元組 SHA-256 `8dc3e8b77080ecd108af25dd0419ddda5140583759ede3fff222790bdee9c1e7` 明確加入 `tools/cloudflare-hosted-probe-approved-sha256.mjs` 白名單，其他 entries 維持原值；無 Schema/Workers/D1/Access/正式部署變更。
+- 此為原始碼＋回歸測試提案，並非真人門市實際授權/UAT 完成。新 HEAD Hosted CI/正式 Codex Review 結果須重新查證，若有 P1/P2 先修正再複審；未獲指示不得 Merge。

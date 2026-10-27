@@ -90,13 +90,33 @@ function parseArgs(args){
   fail('E_CONFIG','用法：node tools/offsite-backup-verify.js --file <外接備份路徑> --sha256 <原始 SHA-256>');
  return {file:args[1],expectedSha256:args[3]};
 }
+function requiredAnswer(rl,prompt){
+ // EOF/closed stdin can end Node's event loop while question() is pending.
+ // Reject explicitly instead of allowing the process to exit successfully.
+ return new Promise((resolve,reject)=>{
+  let settled=false;
+  const closed=()=>{
+   if(settled)return;
+   settled=true;
+   reject(Object.assign(new Error('未完成輸入，禁止將備份視為驗證成功'),{code:'E_INPUT'}));
+  };
+  rl.once('close',closed);
+  rl.question(prompt).then(answer=>{
+   if(settled)return;
+   settled=true;rl.removeListener('close',closed);resolve(answer);
+  },err=>{
+   if(settled)return;
+   settled=true;rl.removeListener('close',closed);reject(err);
+  });
+ });
+}
 async function interactiveInput(){
  const readline=require('node:readline/promises');
  const rl=readline.createInterface({input:process.stdin,output:process.stdout});
  try{
-  const supplied=(await rl.question('請輸入已搬到這台電腦的 .sqlite 備份完整路徑：')).trim();
+  const supplied=(await requiredAnswer(rl,'請輸入已搬到這台電腦的 .sqlite 備份完整路徑：')).trim();
   const file=supplied.startsWith('"')&&supplied.endsWith('"')?supplied.slice(1,-1):supplied;
-  const expectedSha256=(await rl.question('請輸入從來源電腦另行安全留存的 64 碼 SHA-256：')).trim();
+  const expectedSha256=(await requiredAnswer(rl,'請輸入從來源電腦另行安全留存的 64 碼 SHA-256：')).trim();
   return {file,expectedSha256};
  }finally{rl.close();}
 }
@@ -109,10 +129,14 @@ async function main(){
   console.log('SHA-256：'+result.sha256);
   console.log('有效業主／門市／庫存流水／叫貨筆數：'+Object.values(result.counts).join('／'));
   console.log('外接來源備份未被修改；隔離副本已刪除。未執行實際還原、登入或異地備份。');
+  process.exitCode=0;
  }catch(e){
   console.error('['+(e.code||'E_VERIFY')+'] 外接備份驗證失敗：'+e.message);
   process.exitCode=1;
  }
 }
-if(require.main===module)void main();
+if(require.main===module){
+ process.exitCode=1; // fail closed until complete verified outcome
+ void main();
+}
 module.exports={verifyOffsiteCopy,parseArgs};

@@ -75,6 +75,16 @@ test('CLI validates external snapshot without printing actual account or employe
  assert.match(child.stdout,new RegExp(hash));
  assert.doesNotMatch(child.stdout,/password_hash|password_salt|display_name/);
 });
+test('interactive mode fails closed on EOF before any or all input, never printing PASS',()=>{
+ const script=path.join(__dirname,'../tools/offsite-backup-verify.js');
+ const spawn=require('node:child_process').spawnSync;
+ for(const input of ['', 'C:\\some-backup.sqlite\n']){
+  const child=spawn(process.execPath,[script,'--interactive'],{input,encoding:'utf8',timeout:15000});
+  assert.equal(child.error,undefined,String(child.error||''));
+  assert.notEqual(child.status,0,'EOF before complete validation cannot exit 0');
+  assert.doesNotMatch(child.stdout,/PASS/,'no success feedback on incomplete input');
+ }
+});
 test('rejects symlinks, unexpected filenames and invalid CLI parameters',t=>{
  const f=fixture(t),hash=digest(f.remote),args=['--file',f.remote,'--sha256',hash];
  assert.deepEqual(parseArgs(args),{file:f.remote,expectedSha256:hash});

@@ -376,3 +376,9 @@
 - `異機備份驗證.bat`：Node 22.13+ 版本檢查，使用 Node readline 互動輸入外部來源路徑／雜湊，避免在 CMD 插入使用者輸入；沒有真的還原啟動服務。
 - `tests/offsite-backup-verify.test.js`：驗證無原 data 仍能處理、來源位元組與 mode 不變、錯誤 hash／損毀檔拒絕、WAL sidecar 不出現在來源，以及 Windows 啟動器靜態檢查。
 - 須更新 3 個執行檔 exact bytes SHA-256 安全 allowlist；Hosted CI/Codex 正式複審、P1/P2 修正與合併授權尚待完成。正式 Windows 實機/異機真正恢復、加密異地備份、RTO/RPO 與業主簽收必須另行安排。
+
+### RB-011 PR #28 首輪 Codex P2：互動 EOF 不得回傳成功
+
+- 正式 Codex Review 在 `6b51e887dce9b612c5951fd640c1977362f4ffcf` 指出 1 個 P2：Node readline/promises 互動中 stdin 提前 EOF 時 pending `question()` 不一定 reject，行程可能在尚未驗證前以退出碼 0 結束，Windows BAT 因而誤顯示成功。
+- 修正為 `requiredAnswer` 監聽 readline 的 close、未填完整即以 `E_INPUT` reject；CLI main 先預設 `process.exitCode=1`，只有完成 `verifyOffsiteCopy` 並輸出 PASS 才改成 0。新增空輸入與只輸入第一行就 EOF 的實際 child_process 測試，必須非零退出且不得印 PASS。
+- 新 SHA-256 CLI `4a07a66aa3ccc06bcb1f12fe1971c71a086a0e91a83394f9c3248efb291358ef`、test `8acce74ffcdf384def6752e09e0a183c3240044b872b271a618e4d83c50ea3d2`；已更新封閉 manifest。需新 HEAD Hosted CI 及正式 Codex 複審，再確認舊 P2 才可 Resolve／Merge。

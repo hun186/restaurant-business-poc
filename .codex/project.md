@@ -2,7 +2,9 @@
 
 ## Current State
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。PR #7 已 Squash Merge `d307bc38967f05446dd79b3b093a2085d669a364`，主線 Hosted CI #40464034678 5/5 PASS，正式 Codex Review 無重大問題；PR #17–#24 亦已合併。現接續 PR #9（RB-021 菜品封存/恢復、配方食材逐項移除）舊 HEAD `acda039c612760b80d43a0de20789bd508e8db21`，以保留原 Commits 的兩親 Merge Commit 整合最新 main 與封閉 SHA-256 白名單，正式/示範 UI 需保留新叫貨流程。新 HEAD 必須重驗 Hosted CI/Codex，未經明確授權不 Merge。Cloudflare Hosted PBKDF2 專用探針仍未部署；真實 Access/Hosted CPU 未驗證，公開 Worker Login 503，production D1 尚未初始化。
+> 最新狀態以本節、`.codex/backlog.md` 與當前 Hosted GitHub 為準。下方有日期的章節刻意保留舊時點資訊，**不能作為今日 PR／部署狀態**。
+
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。截至 2026-10-27，`main` `6e474b187843179dc2af15836f55675210eca3a4`；PR #1、#7–#10、#12–#24 已全部 Merge，當時 GitHub Open PR=0。PR #9 main push CI #40484482579 **5/5 PASS**，PR #7 main push CI #40464034678 **5/5 PASS**；正式 Codex Reviews 均無重大問題。下一步為實機/實站驗收前的資料、權限與災難復原風險收斂。正式 Cloudflare Login 503、prod D1 尚未 migration，Access 與 Hosted PBKDF2 CPU 未驗證。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。
@@ -14,7 +16,7 @@
 
 ## Not Yet Validated
 
-- GitHub Public Repo 已建立；PR #1 於 2026-10-23 建立，Hosted CI 須以最新 HEAD 核實，正式 Codex Review 尚未確認完成。
+- 已合併 PR 的程式/Hosted CI 驗證和正式 Windows 業主機、真實營運資料、Vercel/Cloudflare 正式部署驗收是不同層次；目前沒有已證實的正式場域簽收。
 - 尚未取得業主實際工作流程、真實欄位範例與正式門市權限表。
 - 尚未進行 Windows 真機及正式場域資安、備份還原／多使用者負載驗收。
 
@@ -24,25 +26,25 @@
 - `db/backup.sql`／`db/schema.sql`：舊 v1 升到 v2 前建立 migration 快照。下載備份不是站內即時還原。
 - `vercel-demo/` 仍完全獨立，**不能聲稱它有正式備份功能**。
 
-## 2026-10-24｜Current PR Focus
+## 2026-10-24｜Historical PR #10 Snapshot（已合併，請以 Current State 為準）
 
 - PR #10：一張多品項叫貨單按供應商分組，主管整張核准／驗收並可逐行填寫進價，LINE 僅產生人工分享草稿；不代表送達。
 - 最新 Codex Review `caebe207` Completed，發現 P2：重複快速提交會產生雙份叫貨；`4f8cf235` 已修正式與 Demo 共用 UI，同步提交鎖與失敗重試回歸。最新 SHA CI／複審必須再次驗證；未經使用者授權不 Merge。
 - Vercel Preview 遇每日部署限額，公開站不能視為新功能部署成功；正式 Windows 及 LINE 真機流程仍待驗收。
 
-## 2026-10-25｜Cloudflare / D1 新工作（PR 尚未合併）
+## 2026-10-25｜Cloudflare / D1 Historical Planning Snapshot
 
 - PR #12 已於 2026-10-25 合併，Cloudflare Worker `/api/health` 的 Demo-only 路由與 Preview 設定已納入 main；此結果**不等於**正式登入／D1 已上線。
 - 新分支 `feat/cloudflare-d1-foundation-20261025`：建立與 `db/schema.sql` v3 對應的嚴格 D1 初始 Migration、只讀 Schema 狀態探測、正式／Preview 雙庫設定範本與測試。正式 `wrangler.jsonc` 不新增未取得的 D1 UUID 綁定。
 - 使用者已建立獨立 D1：`restaurant-business-prod` 與 `restaurant-business-staging`；PR #13 已更新根目錄 `wrangler.jsonc` 的正式／Preview 連線，另新增 `wrangler.preview-migrations.jsonc` staging 專用遷移設定與測試。**D1 遠端 Migration 尚未執行、無 owner 帳號、正式營運 API 尚未啟用**；Google Drive 備份、Worker Auth 未完成。Hosted CI / Cloudflare Preview / Codex Review 須按最新 HEAD 核對；未授權不 Merge。
 
-## 2026-10-25｜D1 Auth 第一階段（新 PR，未合併）
+## 2026-10-25｜D1 Auth 第一階段 Historical Planning Snapshot
 
 - Run #40172089719：staging D1 `0001_initial_v3.sql` 遷移與 Schema/FK/零使用者驗證 PASS；使用者實測 Preview `/api/health` 為 `schema_only`。正式 prod D1 尚無 Schema 移轉。
 - 分支 `feat/cloudflare-auth-foundation-20261025`：WebCrypto PBKDF2 雲端專用密碼格式、Secure/HttpOnly Host-only Session、CSRF、Session 唯讀驗證、門市 RBAC；只有 Preview `GET /api/me` 唯讀開啟，Production 關閉。沒有真實登入或建立雲端 Owner，沒有新增或執行 D1 Migration、沒有資料異動 API。
 - 本地 Node scrypt 與雲端 PBKDF2 **不自動相容**，未規劃好的密碼移轉不可自動發生。須按本 PR 最新 Head 重新進行 Hosted CI／Cloudflare Preview／正式 Codex Review，不得自行 Merge。
 
-## 2026-10-25｜PR #15 Staging Owner Bootstrap（依賴 PR #14）
+## 2026-10-25｜PR #15 Staging Owner Bootstrap Historical Planning Snapshot
 
 - PR #14 `feat/cloudflare-auth-foundation-20261025` 最新 HEAD `afd5ac01` 已通過 Hosted CI 四組、Cloudflare Preview、正式 Codex Review（無 Findings），但尚未 Merge，未取得合併授權。
 - 新 stacked branch `feat/cloudflare-staging-owner-bootstrap-20261025` 基於 PR #14，新增僅 GitHub Actions 人工核准的 staging D1 單次 Owner 初始建立。

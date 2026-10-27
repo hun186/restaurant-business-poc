@@ -1,42 +1,46 @@
 # Backlog
 
+> 2026-10-27 主線事實快照：核對 GitHub PR #1、#7–#10、#12–#24 已合併，當時沒有未結 PR。`MERGED_CODE_ONLY` 僅代表程式碼入 `main`，**不代表 Windows 實機、Vercel 正式部署、Cloudflare Access/Hosted CPU、production D1 或業主驗收已完成**。歷史日期在 `.codex/memory.md` 仍保留；後續需以最新 Hosted GitHub 與實站驗證覆蓋此快照。
+
+
 | ID | Status | Priority | Work |
 | --- | --- | --- | --- |
-| RB-001 | IN_REVIEW | P1 | Public Repo 已建立，PR #1 已提交完整 PoC；等待新 HEAD 對應的 Windows／Ubuntu Hosted CI 與正式 Codex Review，未授權不可 Merge |
+| RB-001 | MERGED_CODE_ONLY | P1 | PR #1 已合併（PoC 基礎營運、SQLite/RBAC/稽核）；現有 main 程式合併後驗證已進行，但業主 Windows 安裝、真實門市權限/災難復原與上線前驗收仍待辦 |
 | RB-002 | PLANNED | P1 | 多人正式部署拓樸、HTTPS、Secure Cookie、遠端連線安全與後端儲存選型 |
 | RB-003 | PLANNED | P1 | 角色細粒度授權、跨店／跨角色越權完整測試與帳號停權操作流程 |
-| RB-004 | IN_REVIEW | P1 | 自動備份、無變化跳過、管理介面已於 PR #1 開發；待 Hosted CI、正式 Codex 複審與 Windows/安全驗收 |\n| RB-011 | PLANNED | P1 | 異地／跨磁碟備份、Windows 隔離還原演練、業主簽收（本機功能完成不等於整體災難復原完成） |
-| RB-005 | PLANNED | P2 | 多品項採購、批號效期、進銷存成本、配方與耗損報表 |
+| RB-004 | MERGED_CODE_ONLY | P1 | PR #1 自動備份、無資料異動跳過與站內備份管理程式已合併；Windows 隔離還原、備份磁碟隔離/異地複本及業主簽收尚未執行 |
+| RB-011 | PLANNED | P1 | 異地／跨磁碟備份、Windows 隔離還原演練、業主簽收（本機有備份功能不等於完整災難復原） |
+| RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |
 | RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
 | RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |
 | RB-008 | PLANNED | P2 | 預定保養、開關店 SOP、值日表、設備／食安檢查表 |
-| RB-009 | PLANNED | P2 | Excel 匯出、庫存成本／營運分析、POS 與報表介接 |
+| RB-009 | PARTIAL_CODE | P2 | PR #8 已提供 Excel 匯出及列印預覽；進階庫存成本/營運分析、POS 介接與業主使用流程仍待規劃 |
 | RB-010 | PLANNED | P1 | 業主 Windows 實機部署、登入／測試帳號／備份還原與簽收 |
 
-| RB-011 | IN_REVIEW | P1 | v3 食材歷史價、叫貨驗收單價、每份配方和估算毛利，待 Hosted CI / Codex 正式審查 |
+| RB-011-PRICING | MERGED_CODE_ONLY | P1 | 已合併 v3 食材歷史進價、叫貨驗收單價、菜品配方與估算毛利；屬估算功能，正式營運成本／會計與真實菜單驗收尚未完成 |
 | RB-012 | PLANNED | P2 | FIFO／移動平均、批次效期、稅費／折扣、POS 出餐扣料與營運會計成本 |
 | RB-013 | PLANNED | P2 | 與 AI menu-planner 的可控、版本化資料交換與食材識別碼映射，目前未做 |
 
-| RB-014 | IN_REVIEW | P1 | Vercel Public Demo 增加虛構菜單、歷史價、配方、成本毛利試算與進貨驗收單價；待 Hosted CI、Codex Review、Merge 及 Vercel 部署驗收 |
+| RB-014 | MERGED_CODE_ONLY | P1 | Vercel Demo 虛構菜單、食材歷史價、配方與成本估算、進貨驗收價格已合併；公開網站最新部署/人工互動仍須獨立驗證 |
 
-| RB-015 | IN_REVIEW | P1 | Vercel Demo 虛構智慧備份教學頁：自動檢查、無異動跳過、虛構手動版本、保留份數與刪除。待最新 CI、Codex Review、Merge 授權及實站確認 |
+| RB-015 | MERGED_CODE_ONLY | P1 | Vercel Demo 虛構智慧備份教學（定時檢查、無更新跳過、手動版本/保留/刪除）程式已合併；不能視為真實資料庫備份 |
 
-| RB-016 | IN_REVIEW | P1 | 本機登入後 `e.currentTarget.reset()` 非同步 null 錯誤；已修前端並新增 regression，待 Hosted CI／Codex Review、使用者授權 Merge |
+| RB-016 | MERGED_CODE_ONLY | P1 | 本機登入後表單 reset 非同步錯誤修正及回歸程式已合併；正式 Windows 操作仍需人工驗收 |
 
-| RB-017 | IN_REVIEW | P1 | Owner 初始密碼遺失：本機離線密碼復原工具（先驗證備份、保留 SQLite、撤銷 Session、稽核），待 Hosted CI / Codex Review / Merge 授權 |
-| RB-018 | MERGED_CODE_ONLY | P1 | PR #7 Squash Merge `d307bc38967f05446dd79b3b093a2085d669a364`，main push CI #40464034678 completed/success **5/5 PASS**；Windows 業主離線復原雙擊 BAT 已合併，正式 Windows 業主機操作/備份還原仍未現場驗收 |
+| RB-017 | MERGED_CODE_ONLY | P1 | 本機離線 owner 密碼復原（備份驗證、SQLite 防護、Session 撤銷、稽核）已合併；Windows 中文 BAT 為 RB-018，現場演練仍未完成 |
+| RB-018 | MERGED_CODE_ONLY | P1 | PR #7 Squash `d307bc38967f05446dd79b3b093a2085d669a364`，main push CI #40464034678 **5/5 PASS**；Windows 業主離線復原雙擊 BAT 已合併，正式 Windows 業主機操作/備份還原尚未現場驗收 |
 
-| RB-019 | IN_REVIEW | P1 | 安全稽核加入 TCP 來源 IP（owner 查閱、不採信偽造標頭、舊資料無法還原），待 CI／Review／Merge |
-| RB-020 | IN_REVIEW | P1 | 透過既有列表 API 權限產製多工作表 .xlsx 與可選欄位／日期／關鍵字的列印預覽，待 CI／Review／Merge |
-| RB-021 | IN_REVIEW | P1 | PR #9 菜品封存／恢復、配方逐項移除（owner-only、交易、稽核、成本重新估算、正式＋Demo UI／Excel 篩選），保留舊 PR Commits 並以最新 main 合併解衝突；新增／變更檔案須納入 SHA-256 封閉白名單，待新 HEAD Hosted CI／Codex 複審與授權 Merge |
+| RB-019 | MERGED_CODE_ONLY | P1 | PR #8 已合併安全稽核直接 TCP 來源 IP（owner 查閱，不信任可偽造標頭）；過去紀錄來源 IP 無法追補，正式環境可信代理另需驗證 |
+| RB-020 | MERGED_CODE_ONLY | P1 | PR #8 已合併從授權列表產出 .xlsx／列印預覽與條件篩選；真實業主 Excel／印表機工作流程尚未驗收 |
+| RB-021 | MERGED_CODE_ONLY | P1 | PR #9 Squash `6e474b187843179dc2af15836f55675210eca3a4`，main push CI #40484482579 **5/5 PASS**、最新 Head Codex 無重大問題；owner-only 菜品封存/恢復與配方食材移除程式已合併，正式營運與 Demo 人工操作尚未驗收 |
 
-| RB-020-SEC | IN_REVIEW | P2 | PR #8 登出清除報表快取、即刻鎖定列印 CSS、防範非同步舊報表重現（正式版＋Demo）；待 Hosted CI／最新 Codex 重審 |
+| RB-020-SEC | MERGED_CODE_ONLY | P2 | PR #8 已合併登出清除報表快取、列印 CSS 鎖定及非同步舊報表重現防護；正式場域操作仍待人工驗收 |
 
-| RB-022 | IN_REVIEW | P1 | PR #10 多品項叫貨、依歷史價供應商分單、整張主管核准／驗收、逐行價格及 LINE 人工分享草稿；前輪 CI PASS 但最新重送防護修正須新 HEAD CI／Codex 複審，不得未授權 Merge |
+| RB-022 | MERGED_CODE_ONLY | P1 | PR #10 已合併多品項叫貨、供應商分單、整張主管核准／驗收、逐行價與 LINE 人工草稿；實際 LINE 分享與門市工作流程尚未真機驗收，草稿不代表已發送 |
 
-| RB-022-SEC | IN_REVIEW | P2 | PR #10 `caebe207` Codex 重複提交 Finding：正式與 Demo UI 同步提交鎖、停用按鈕、失敗重試；新 VM 非同步雙擊回歸已提交，待最新 SHA Hosted CI、Review Thread 回覆／Resolve 及正式複審 |
+| RB-022-SEC | MERGED_CODE_ONLY | P2 | PR #10 已合併正式與 Demo 的同步提交鎖、按鈕停用及失敗重試回歸；真實跨裝置/慢網路與人工連點驗收尚未執行 |
 
-| RB-022-MODAL | IN_REVIEW | P2 | PR #10 共用 modal 生命週期：正式／Demo 批次與單品項表單共享 root.__openTicket，防止舊 GET／關閉後遲到回應覆蓋新視窗；保留 DOM instance guards、新 VM 雙向回歸。待最新 HEAD CI、Codex 複審及真人驗收 |
+| RB-022-MODAL | MERGED_CODE_ONLY | P2 | PR #10 已合併共享 modal 生命週期 ticket、DOM instance guard，避免舊 GET/關閉後回應覆蓋新視窗；保留 VM 回歸，真實瀏覽器操作待驗收 |
 
 | RB-023 | DONE_STAGING | P1 | Cloudflare Workers＋D1 staging v3 Schema 已經 Run #40172089719 遠端驗證 PASS；prod D1 仍未 migration，正式 API 未上線 |
 | RB-024 | PLANNED | P1 | D1 正式/Preview 各建獨立資源與 migration；Worker Auth/RBAC/CSRF/安全初始業主建立；各營運模組 D1 原子性資料存取；加密異地備份與災難復原驗收後才可交付業主 |
@@ -46,10 +50,10 @@
 | RB-026 | DONE_STAGING | P1 | PR #15 已合併、Run #40188578478 實際建立 staging D1 active Owner=1、Session=0、Schema/FK 驗證 PASS；Cloudflare 正式 Login API 仍 503 |
 | RB-027 | PLANNED | P1 | Workers Free CPU 10ms 下之 PBKDF2 600k 真機成本／相容性驗收，與 login 防暴力破解、帳號鎖定稽核、雲端原生 Session 與登出開發；不可在性能／安全證據前啟用實際登入 |
 
-| RB-028 | MERGED_CODE_ONLY | P1 | PR #17 已合併，內部 D1 Login/Session/Audit/限流及 0002 索引程式已入 main；公開 API 仍 503，遠端 staging 0002 尚未套用，Workers CPU／Access 真機驗收未完成 |
+| RB-028 | MERGED_CODE_ONLY | P1 | PR #17 已合併 D1 Login/Session/Audit/限流與 0002 程式；**staging D1 0002 已於 PR #18 的 Run #40204026605 套用驗證**，production 未套用，公開 API 仍 503，Hosted CPU/Access 尚未實測 |
 | RB-029 | PLANNED | P1 | Workers Runtime 真機 PBKDF2 600k CPU/付費方案與 Cloudflare CF-Connecting-IP 來源可信度 驗收、Preview Access 限制與獨立 staging Worker；全部完成且驗證前不得開啟公開真實登入 |
 
-| RB-028-P2 | IN_REVIEW | P2 | PR #17 Codex 問題：限流 NOCASE 與來源索引、7 日過期嘗試分批清理；已新增 D1 0002 Versioned Migration 與 EXPLAIN QUERY PLAN 測試，**尚未套用 staging/prod**、Cron 未設；需最新 CI + 正式 Codex 複審與授權 Merge |
+| RB-028-P2 | MERGED_CODE_ONLY | P2 | PR #17 的 NOCASE/來源索引與過期登入嘗試清理程式、D1 0002 migration 和 EXPLAIN 測試已合併；staging 0002 已驗證、production 未套用，Cron 真實排程未設置 |
 
 | RB-030 | DONE_STAGING | P1 | PR #18 已 Merge；CHECK #40203410303 PASS、APPLY #40204026605 PASS，staging D1 `0002` 實際套用並完成 ledger/三索引/Owner/FK 驗收；production 不變 |
 

@@ -3,19 +3,19 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：PR #17–#24 已 Merge；PR #24 main Squash `832165a00430558c09869ebbfb876358a5c1f1ef`，合併後 CI #40435777549 5/5 PASS、正式 Codex Review 無重大問題。現處理舊 Draft PR #7 的 Windows Owner 密碼復原雙擊 BAT，保留 PR7 原有 Commit、P2 修正及 main 全新功能，透過 Merge Commit 與 SHA-256 安全 manifest 整合；原 PR7 Codex/CI 只適用舊 HEAD，不能推論新 HEAD 已通過。PR #9 另有衝突尚未處理。Cloudflare Hosted CPU/Access 真實驗證未完成；未授權不可 Merge 或實站改動。
+- 首要目標：最新 main `6e474b187843179dc2af15836f55675210eca3a4`（PR #9 已 Squash Merge），PR #7/#9 新版正式 Codex Review 無重大問題，main push CI #40464034678/#40484482579 **5/5 PASS**；PR #1、#7–#10、#12–#24 全部合併，GitHub 無 Open PR。下一項集中 RB-003 多角色/跨店驗收、RB-010/RB-011 Windows 部署與備份隔離還原，雲端部署 RB-024/027/029/032 必須先取得 Access/Hosted CPU 真實驗證與使用者授權。不得混同 staging D1 0002 已套用與 production D1 尚未 migration。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
-## Recent Outcomes (2026-10-23)
+## Recent Outcomes (2026-10-23; historical)
 
 - 從水電 Repo 確認 Node.js + SQLite + 無外部 npm deps + RWD 設計路線。
 - 建立餐廳 PoC 資料模型、角色與門市範圍、基本操作後端、瀏覽器前端、稽核紀錄。
 - 本機 `npm run check` 11 項自動測試 PASS；2026-10-23 已透過 GitHub Connector 提交 24 檔至 PR #1 Draft；Ubuntu 22/24 的首次 CI 已 PASS，Windows 尚待確認。
 
-## Open Handoffs
+## Open Handoffs（2026-10-27 更新；以下日期章節保留歷史狀態）
 
-- 已由使用者建立 Public Repo，透過 GitHub Connector 提交 PR #1；待核對 4 個 CI 結果、正式 Codex Review、Windows 清理回歸及使用者 Merge 授權。
+- 舊 PR #1 與 PR #7/#8/#9/#10 均已合併；這段的歷史開發/Review 訊息不再代表待處理 PR。下一輪先讀本文件 Current Focus 和 `.codex/backlog.md`；正式 Windows/業主簽收、異地備份、雲端 Access/Hosted CPU/production D1 尚未完成。
 - 優先處理 `.codex/backlog.md` 的後續項目，不得將未完成報為完成。
 
 ### Public Vercel Demo handoff (2026-10-23)
@@ -330,3 +330,14 @@
 - PR #9 原有 HEAD `acda039c612760b80d43a0de20789bd508e8db21` 已通過舊版 Codex Review 與舊 CI，但因 main 多次擴充造成衝突。採用原 Head 與最新 main 雙親 Merge Commit，不 reset、不 force push、不失去先前記憶。以新 main 為檔案基底只回補菜品封存/恢復、配方逐項移除、正式和 Demo UI、報表篩選、測試；保留 main 的多品項叫貨、登入安全、來源稽核、Cloudflare 限制。
 - 既存 SHA-256 fail-closed preflight 涵蓋所有新的/修改過的 src/public/demo/tests；人工逐項核對目標 source 後才更新 9 筆允許雜湊，不變動 Worker 探針、部署流程、Access、D1。
 - 本次以最新 HEAD 的 Hosted CI 及正式 Codex Review 為權威；舊的 Codex PASS 不等於整合後 PR PASS；PR 維持 Draft、未授權 Merge。
+
+## 2026-10-27｜主線狀態結算與後續交接
+
+## 2026-10-27｜Current authoritative handoff
+
+- 最新已驗證 `main` HEAD：`6e474b187843179dc2af15836f55675210eca3a4`（PR #9 Squash）。PR #7 `d307bc38967f05446dd79b3b093a2085d669a364`、PR #9 均已 Merge；main push CI 分別 #40464034678、#40484482579 **completed/success 5/5 PASS**；兩者最新整合 HEAD 的 Codex Code Review **Completed／無重大問題**。
+- GitHub REST `pulls?state=open` 查詢 **0 個 Open PR**；歷史 PR #1、#7–#10、#12–#24 均已合併。`backlog.md` 已分出 MERGED_CODE_ONLY、PARTIAL_CODE、DONE_STAGING、PLANNED 與仍需真人/Hosted 驗證項目，不再把已合併 PR 描述成等待 Merge。
+- 下一個可在離線開發環境先行的重點：改善跨角色／跨店驗收、Windows 隔離還原演練 SOP（RB-003/RB-010/RB-011），並定義真正可驗證的 Hosted CPU/Access 先決條件（RB-027/RB-029/RB-032）；任何實站權限設定、Probe 部署、遠端 D1 migration 必須獲使用者明確授權。
+- Production Workers Login **仍為 503**；production D1 未 migration、Cloudflare Access/真實 Hosted CPU/登入來源信任尚未實測。Staging `0002` 已經 PR #18 的 Run #40204026605 套用，與 production 不可混淆。
+- 此為專案記憶/狀態修正 PR，只更新文件，不改執行程式、測試、密碼、營運資料、Cloudflare/D1 或已通過的安全 allowlist。新的文件 PR 須走 Hosted CI／Codex Review；未經使用者明確授權不可 Merge。
+

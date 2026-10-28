@@ -11,8 +11,8 @@
 | RB-004 | MERGED_CODE_ONLY | P1 | PR #1 自動備份、無資料異動跳過與站內備份管理程式已合併；Windows 隔離還原、備份磁碟隔離/異地複本及業主簽收尚未執行 |
 | RB-011 | MERGED_CODE_ONLY | P1 | PR #28 Squash Merge `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，主線 push CI #40603773240 completed/success；外接/異機快照唯讀 SHA-256/SQLite 校驗與 BAT 已合併，但未進行真正異機啟動或真人災難復原簽收 |
 | RB-011-SMOKE | MERGED_CODE_ONLY | P1 | PR #29 已 Squash Merge，main `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`，Verify #40613800190 5/5 PASS；單機隔離 synthetic HTTP 還原回歸已入主線，但真正 Windows 異機、舊 Session、RTO/RPO、業主簽收均未實測 |
-| RB-011-SESSION | IN_REVIEW | P1 | PR #30 Draft／Open，HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` Verify #40622456552 5/5 PASS、Codex Completed／無重大 Findings／0 Threads；新 Session 舊 Cookie 401 合成測試及停機 SOP **尚未 Merge**，實機 Session 撤銷另待驗收 |
-| RB-011-UAT | PREPARING_DOCS | P1 | Issue #31 Open，真人 Windows 異機還原與 RTO/RPO 簽收 NOT_RUN；新增 `docs/Windows異機還原現場驗收紀錄.md` 公開空白範本供授權技術人員使用。範本與 GitHub CI 不等於現場簽收；此文件 PR 尚待 Hosted CI／Codex |
+| RB-011-SESSION | MERGED_CODE_ONLY | P1 | PR #30 已 Squash Merge `b0e02aadc9bfc0d9707727e460cec149af070872`；原 HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` Hosted Verify #40622456552 5/5 PASS、Codex Completed／無重大 Findings／0 Threads。Session 舊 Cookie 401 合成測試及停機清理 SOP 已入主線；實機 Session 撤銷仍待驗收 |
+| RB-011-UAT | IN_REVIEW_DOCS | P1 | Issue #31 Open，真人 Windows 異機還原、Session 舊 Cookie、RTO/RPO 簽收仍 NOT_RUN。PR #32 新增空白 G0–G7 現場證據範本；首輪 Codex P2 的 RPO 起點改以故障時點 `T_incident` 修正，仍待本 HEAD Hosted CI／正式複審；文件 ≠ 現場驗收 |
 | RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |
 | RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
 | RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |

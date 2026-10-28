@@ -23,7 +23,7 @@ const pages={
  purchase_orders:{title:'叫貨與驗收',desc:'先申請叫貨，主管核准後才能驗收入庫',action:'order.create',permission:'staff',columns:[['group_number','廠商叫貨單號'],['location_name','門市'],['ingredient_name','食材'],['supplier','供應商'],['qty','數量'],['unit','單位'],['status','狀態']]},
  stocktakes:{title:'食材盤點',desc:'員工申報盤點數，主管確認後產生有稽核紀錄的庫存差異',action:'stocktake.create',permission:'staff',columns:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面數量'],['counted_qty','盤點數量'],['status','狀態']]},
  repairs:{title:'設備維修',desc:'報修、指派、結案與維修追蹤',action:'repair.create',permission:'staff',columns:[['location_name','門市'],['equipment','設備'],['description','問題描述'],['assigned_name','處理人員'],['status','狀態']]},
- shifts:{title:'人事排班',desc:'主管安排班次；一般員工只能查看自己的班表',action:'shift.create',permission:'manager',columns:[['shift_date','日期'],['staff_name','員工'],['location_name','門市'],['start_time','上班'],['end_time','下班'],['note','備註']]},
+ shifts:{title:'人事排班',desc:'主管安排班次；下班早於上班代表隔日，一般員工只能查看自己的班表',action:'shift.create',permission:'manager',columns:[['shift_date','日期'],['staff_name','員工'],['location_name','門市'],['start_time','上班'],['end_time','下班'],['note','備註']]},
  leave_requests:{title:'請假申請',desc:'申請及主管審核；禁止自行核准自己的請假',action:'leave.create',permission:'staff',columns:[['staff_name','員工'],['location_name','門市'],['start_date','起始日'],['end_date','結束日'],['reason','原因'],['status','狀態']]},
  training_courses:{title:'教育訓練課程',desc:'建立 SOP 課程、訓練內容與及格門檻',action:'course.create',permission:'manager',columns:[['title','課程'],['description','課程說明'],['required_score','及格分數']]},
  training_records:{title:'訓練與考核紀錄',desc:'課程分派、完成日期、訓練分數',action:'training.assign',permission:'manager',columns:[['course_title','課程'],['staff_name','員工'],['location_name','門市'],['score','分數'],['completed_on','完成日期']]},
@@ -61,6 +61,7 @@ const colValue=(key,r)=>{
  if(key==='active')return pill(v?'active':'rejected');
  if(key==='on_hand')return `<strong style="color:${r.on_hand<r.min_stock?'#b75e42':'inherit'}">${E(v)}</strong>`;
  if(key==='detail'){try{return E(JSON.stringify(JSON.parse(v))).slice(0,120)}catch{return E(v).slice(0,120)}}
+ if(key==='end_time'&&r.shift_date&&r.start_time&&v<r.start_time)return `${fmt(v)} <span class="muted">（隔日）</span>`;
  if(key==='qty_delta')return `<strong>${v>0?'+':''}${E(v)}</strong>`;
  return fmt(v);
 };
@@ -116,7 +117,7 @@ const def={
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
  'stocktake.create':{title:'新增盤點記錄',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('counted_qty','實際數量','number')]},
  'repair.create':{title:'回報設備問題',fields:[field('location_id','門市','locations'),field('equipment','設備名稱'),field('description','故障描述','textarea')]},
- 'shift.create':{title:'安排員工班表',fields:[field('location_id','門市','locations'),field('user_id','員工','users'),field('shift_date','排班日期','date'),field('start_time','上班時間','time'),field('end_time','下班時間','time'),field('note','備註','textarea',false)]},
+ 'shift.create':{title:'安排員工班表',fields:[field('location_id','門市','locations'),field('user_id','員工','users'),field('shift_date','排班日期','date'),field('start_time','上班時間','time'),field('end_time','下班（早於上班視為隔日）','time'),field('note','備註','textarea',false)]},
  'leave.create':{title:'申請請假',fields:[field('location_id','門市','locations'),field('start_date','起始日期','date'),field('end_date','結束日期','date'),field('reason','請假原因','textarea')]},
  'course.create':{title:'新增訓練課程',fields:[field('title','課程名稱'),field('description','SOP／課程內容','textarea',false),field('required_score','及格分數','number',true,{value:80})]},
  'training.assign':{title:'分派教育訓練',fields:[field('location_id','門市','locations'),field('course_id','訓練課程','training_courses'),field('user_id','受訓員工','users')]},

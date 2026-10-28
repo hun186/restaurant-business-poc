@@ -2,6 +2,9 @@
 
 ## Current State
 
+> 2026-10-29｜P0 Cloudflare 正式營運優先：依業主要求，正式生產部署及 D1 實際業務操作優先於 RB-006 第二階段。main PR #33 Squash `976859cd851da6cb917cf1b17594c49c0e4bf63b`、Push Verify #40735901964 5/5 completed/success。Issue #34 為 Production 放行追蹤。本增量只新增 Preview D1 `/api/data` 白名單唯讀資料與 DB 內角色/門市過濾，不開啟雲端登入、不做 production D1 migration、不修改正式資料。Production 仍是 Demo-only、CLOUD_AUTH_PHASE=disabled。Owner 真實營運/Access/Hosted CPU/備份/UAT 仍待完成；本 PR 最新 Head CI/Codex 以 Hosted 實測為準。
+
+
 > 最新狀態以本節、`.codex/backlog.md` 與當前 Hosted GitHub 為準。下方有日期的章節刻意保留舊時點資訊，**不能作為今日 PR／部署狀態**。
 
 - 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。最新已核對 Hosted main `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`（PR #30/#32 均 Squash Merge；main push Verify #40628721464 completed/success 5/5）。RB-011 真實 Windows 異機還原／RTO-RPO／業主簽收 Issue #31 尚未實測。本輪 RB-006 進入跨日班第一階段開發：不改 SQLite Schema v3，`shift.create` 允許 end_time 早於 start_time 代表翌日；檢查同員工前／當／隔日與跨店班次重疊；UI 明確標示隔日，加入虛構回歸測試。PR #33 初輪 Hosted CI completed/success、正式 Codex Review 有 P2：9999-12-31 日期上界令 SQL 範圍失效；本修正補 0000/9999 邊界與回歸，新 HEAD CI／複審仍待驗證，未授權不得 Merge；月曆／換班／工時法規／請假衝突未實作。Cloudflare production D1/Access/Hosted CPU 未驗證，正式登入不可開啟。

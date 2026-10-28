@@ -2,6 +2,11 @@
 
 ## Current Focus
 
+- 2026-10-29｜PR #35 首輪 Codex P2：非業主 SQL 過濾未排除停用門市（loadPrincipal 已排除，卻可透過剩餘 user_locations 讀取）。本次增量將 DB SQL scope、locations/staff_directory 統一只許 active 門市，新增已停用門市仍殘留 grant 的完整讀取回歸；更新 reviewed exact-byte hashes。新 HEAD CI/正式 Codex 複審待驗，尚未 Merge；正式環境維持 disabled，未操作 Cloudflare Production/D1。
+
+- 2026-10-29｜P0 Cloudflare 正式營運優先：使用者明確要求先完成 Cloudflare 正式部署及業主真實營運，暫緩排班月曆。main 已 Squash Merge PR #33 `976859cd851da6cb917cf1b17594c49c0e4bf63b`、Push Verify #40735901964 5/5 PASS。已開 Issue #34 P0 放行清單。本 PR 先提供 D1 Preview Authenticated Read-only `/api/data` 對 tasks/stock/ingredients/門市及部分營運主檔的 SQL 層 RBAC 隔離測試，Production Auth/業務異動繼續 fail-closed；現場 Access/Hosted CPU、D1 prod migration/備份、真實 Owner 登入與 UAT 均 NOT_DONE。不得未授權 Merge。
+
+
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
 - 首要目標：最新 main `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`（PR #30/#32 已合併，main Push Verify #40628721464 5/5 PASS）；Issue #31 實場 Windows 異機還原與 RTO/RPO 簽收 NOT_RUN。RB-006 跨日排班最小增量進行中：結束時間早於開始時間表示翌日、同員工跨日及跨門市重疊拒絕 409、表單與列表隔日提示，合成資料測試；不改 SQLite v3 或 Cloudflare。PR #33 初輪 Hosted CI PASS，Codex 找到日期上界 9999-12-31 P2；已修正四位數上下界並新增回歸，新 HEAD Hosted CI／正式複審仍待驗證，未授權不得 Merge；月曆、換班、勞動規則、請假衝突仍待後續。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。

@@ -70,3 +70,24 @@ test('invalid equal time, invalid calendar day, and unauthorized staff writes le
  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM shifts').get().n,0);
  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n,before);
 });
+
+test('the maximum four-digit date cannot bypass same-day or previous-night overlaps',t=>{
+ const f=fixture(t);
+ shift(f,'9999-12-31','09:00','17:00');
+ const auditBefore=f.db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n;
+ assert.throws(()=>shift(f,'9999-12-31','10:00','11:00'),{status:409});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n,auditBefore);
+ shift(f,'9999-12-30','22:00','01:00');
+ assert.throws(()=>shift(f,'9999-12-31','00:30','03:00'),{status:409});
+ shift(f,'9999-12-31','17:00','18:00');
+ shift(f,'9999-12-31','23:00','01:00');
+ assert.throws(()=>shift(f,'9999-12-31','23:30','23:45'),{status:409});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM shifts').get().n,4);
+});
+
+test('the minimum four-digit date still detects same-day overlaps',t=>{
+ const f=fixture(t);
+ shift(f,'0000-01-01','09:00','17:00');
+ assert.throws(()=>shift(f,'0000-01-01','10:00','11:00'),{status:409});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM shifts').get().n,1);
+});

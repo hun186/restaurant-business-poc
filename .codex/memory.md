@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：最新 main `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`（PR #30/#32 已合併，main Push Verify #40628721464 5/5 PASS）；Issue #31 實場 Windows 異機還原與 RTO/RPO 簽收 NOT_RUN。RB-006 跨日排班最小增量進行中：結束時間早於開始時間表示翌日、同員工跨日及跨門市重疊拒絕 409、表單與列表隔日提示，合成資料測試；不改 SQLite v3 或 Cloudflare。新 Head Hosted CI／正式 Codex Review 待驗證，未授權不得 Merge；月曆、換班、勞動規則、請假衝突仍待後續。
+- 首要目標：最新 main `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`（PR #30/#32 已合併，main Push Verify #40628721464 5/5 PASS）；Issue #31 實場 Windows 異機還原與 RTO/RPO 簽收 NOT_RUN。RB-006 跨日排班最小增量進行中：結束時間早於開始時間表示翌日、同員工跨日及跨門市重疊拒絕 409、表單與列表隔日提示，合成資料測試；不改 SQLite v3 或 Cloudflare。PR #33 初輪 Hosted CI PASS，Codex 找到日期上界 9999-12-31 P2；已修正四位數上下界並新增回歸，新 HEAD Hosted CI／正式複審仍待驗證，未授權不得 Merge；月曆、換班、勞動規則、請假衝突仍待後續。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 

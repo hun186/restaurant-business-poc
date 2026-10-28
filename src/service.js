@@ -220,8 +220,10 @@ function command(db,u,action,x={}){
   const midnight=Date.parse(sd+'T00:00:00Z');
   const startAt=Date.parse(sd+'T'+start+':00Z');
   const endAt=Date.parse(sd+'T'+end+':00Z')+(end<start?86400000:0);
-  const prev=new Date(midnight-86400000).toISOString().slice(0,10);
-  const next=new Date(midnight+86400000).toISOString().slice(0,10);
+  // day() permits only four-digit years. Clamp the neighbor query range at
+  // 0000/9999; extended-year ISO values would corrupt slice(0,10).
+  const prev=sd==='0000-01-01'?sd:new Date(midnight-86400000).toISOString().slice(0,10);
+  const next=sd==='9999-12-31'?sd:new Date(midnight+86400000).toISOString().slice(0,10);
   // Include yesterday's night shift and tomorrow's early shift across ALL stores.
   // Half-open intervals allow an ending shift to touch the next starting shift.
   const overlap=db.prepare('SELECT shift_date,start_time,end_time FROM shifts WHERE user_id=? AND shift_date BETWEEN ? AND ?')

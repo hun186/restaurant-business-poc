@@ -14,7 +14,8 @@ const reply = (status, data) => new Response(JSON.stringify(data), {status, head
 function queryFor(entity, p) {
   const owner = p.role === 'owner';
   const staff = p.role === 'staff';
-  const allowed = ' IN (SELECT location_id FROM user_locations WHERE user_id=?)';
+  // Match loadPrincipal(): a stale grant must not authorize deactivated stores.
+  const allowed = ' IN (SELECT ul.location_id FROM user_locations ul JOIN locations authorized_l ON authorized_l.id=ul.location_id WHERE ul.user_id=? AND authorized_l.active=1)';
   const scope = (alias, ownColumn) => owner ? {where:'', params:[]} : {
     where:' WHERE '+alias+'.location_id'+allowed+(staff && ownColumn ? ' AND '+alias+'.'+ownColumn+'=?' : ''),
     params:staff && ownColumn ? [p.id,p.id] : [p.id]
@@ -22,7 +23,7 @@ function queryFor(entity, p) {
   const simple = (sql, params=[]) => ({sql,params});
   if(entity==='locations') {
     if(owner) return simple('SELECT l.id,l.name,l.active FROM locations l ORDER BY l.name LIMIT 500');
-    return simple('SELECT l.id,l.name,l.active FROM locations l JOIN user_locations ul ON ul.location_id=l.id WHERE ul.user_id=? ORDER BY l.name LIMIT 500',[p.id]);
+    return simple('SELECT l.id,l.name,l.active FROM locations l JOIN user_locations ul ON ul.location_id=l.id WHERE ul.user_id=? AND l.active=1 ORDER BY l.name LIMIT 500',[p.id]);
   }
   if(entity==='ingredients') return simple('SELECT id,sku,name,unit,min_stock,active FROM ingredients ORDER BY name LIMIT 500');
   if(entity==='training_courses') return simple('SELECT id,title,description,required_score,active FROM training_courses ORDER BY title LIMIT 500');

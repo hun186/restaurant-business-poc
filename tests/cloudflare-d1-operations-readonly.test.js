@@ -55,6 +55,35 @@ test('owner preview reads both stores while manager/staff are scoped in SQL befo
  assert.deepEqual((await (await get(f,'staff','stock')).json()).rows.map(x=>x.location_id),['store-a']);
  assert.deepEqual((await (await get(f,'owner','stock')).json()).rows.map(x=>x.location_id).sort(),['store-a','store-b']);
 });
+test('deactivated location revokes read access even when stale user_locations grants remain',async t=>{
+ const f=await fixture(t);
+ const db=f.db;
+ db.prepare('INSERT INTO repairs(id,location_id,equipment,description,created_by) VALUES(?,?,?,?,?)')
+   .run('repair-a','store-a','測試設備','虛構故障','staff');
+ db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time,created_by) VALUES(?,?,?,?,?,?,?)')
+   .run('shift-a','store-a','staff','2026-11-02','09:00','17:00','manager');
+ db.prepare('INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,created_by) VALUES(?,?,?,?,?,?,?)')
+   .run('po-a','PO-TEST','store-a','ing-1','虛構廠商',1,'staff');
+ // Mirror the auth-core contract: inactive locations are excluded by loadPrincipal.
+ db.prepare("UPDATE locations SET active=0 WHERE id='store-a'").run();
+ const principal=await f.auth.loadPrincipal(d1(db),
+   new Request('https://private-preview.workers.dev/api/me',{headers:{cookie:f.cookies.manager}}));
+ assert.deepEqual(principal.locations,[]);
+ assert.equal(f.auth.hasAccess(principal,'staff','store-a'),false);
+ const auditBefore=db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n;
+ for(const role of ['manager','staff']){
+   for(const entity of ['locations','tasks','repairs','purchase_orders','shifts','stock','staff_directory']){
+     const response=await get(f,role,entity);
+     assert.equal(response.status,200,role+' '+entity);
+     assert.deepEqual((await response.json()).rows,[],role+' '+entity+' must not leak inactive-store data');
+   }
+ }
+ // Owner retains global administrative visibility to manage a disabled store.
+ assert.deepEqual((await (await get(f,'owner','tasks')).json()).rows.map(r=>r.id).sort(),['ta','tb','tm']);
+ assert.deepEqual((await (await get(f,'owner','locations')).json()).rows.filter(r=>r.active===0).map(r=>r.id),['store-a']);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n,auditBefore);
+});
+
 test('production remains disabled; unknown resources and all writes fail closed',async t=>{
  const f=await fixture(t);
  assert.equal((await get(f,'owner','tasks','disabled')).status,503);

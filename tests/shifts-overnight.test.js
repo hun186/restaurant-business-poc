@@ -24,7 +24,7 @@ test('overnight shift is persisted and remains visible with the original end clo
  const f=fixture(t);
  const id=shift(f,'2026-11-01','22:00','06:00').id;
  const record=f.db.prepare('SELECT shift_date,start_time,end_time FROM shifts WHERE id=?').get(id);
- assert.deepEqual(record,{shift_date:'2026-11-01',start_time:'22:00',end_time:'06:00'});
+ assert.deepEqual([record.shift_date,record.start_time,record.end_time],['2026-11-01','22:00','06:00']);
  assert.equal(rows(f.db,f.owner,'shifts').find(r=>r.id===id).end_time,'06:00');
  // No schema change: end < start signifies the following calendar day.
  const ui=fs.readFileSync(path.join(__dirname,'../public/app.js'),'utf8');

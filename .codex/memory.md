@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：最新 Hosted main `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，PR #28 已 Squash Merge，合併後 #40603773240 **completed/success**；RB-011 外接備份唯讀驗證已入主線。本輪 RB-011-SMOKE 針對獨立乾淨資料夾與虛構資料執行真正本機 HTTP 回歸：從備份複製啟動 DB/服務、測試原密碼登入、讀取食材、角色 403、損毀快照拒絕、備份來源未改。此為 synthetic automated restore-to-service，非 Windows 跨機器、真人操作、實際營運資料/Session 歸零或災難復原簽收。須最新 HEAD Hosted CI/Codex 正式複審，未經授權不得 Merge；禁止未授權 Cloudflare production D1/Access/Hosted CPU 操作。
+- 首要目標：Hosted `main` `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`，PR #29 已合併且 main Verify #40613800190 5/5 PASS；PR #30 RB-011-SESSION `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` 已有最新 HEAD CI 5/5 PASS、正式 Codex Completed／無重大 Findings／0 Threads，但保持 **Draft、未授權不得 Merge**。Issue #31 追蹤真正第二台 Windows 還原、舊 Cookie 401、資料保全、RTO/RPO 與業主簽收；本輪新增公開**空白**驗收記錄範本，實測紀錄和憑證只能保存在授權的私人位置。CI 合成測試和 GitHub 文件不代表實場驗收。Cloudflare production D1/Access/Hosted CPU 未驗證，不能啟用正式 Login。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -389,3 +389,10 @@
 - 本輪新增 `tests/recovered-service-smoke.test.js`：以全新虛構 SQLite建立門市、食材庫存與主管；建立正式 snapshot；來源 DB 關閉後複製備份到另一個不存在原 data 的隔離目錄。用 `openDb` 驗證已存在 DB，不可重新產生業主密碼；透過實際 `server.makeHandler` 的 loopback 隨機埠測試健康、未登入 401、原業主密碼、食材資料、概況、主管權限拒絕 403。另有毀損備份 clone 的 fail-closed 與原始 source hash 無變動測試。
 - **未宣稱事項**：單一 CI runner 的不同資料夾≠Windows 第二台機器；程式未測外接真實磁碟、真正斷線/故障切換、舊 Session revocation、防護代理、現場 RTO/RPO 或人員驗收；僅測 synthetic fixture。正式還原前應先停服務、封存舊 DB/WAL/SHM、離線檢查後撤銷備份中的舊 sessions 再起服務，不能直接把歷史 session 視為仍有效。
 - 新增 Node test 在 package `tests/*.test.js` 自動涵蓋，需加入新測試的精確 SHA-256 白名單，不更動正式 DB schema/Cloudflare/Auth Route。最新 HEAD Hosted CI 和正式 Codex Review 未完成前保持 Draft，不得自行 Merge。
+
+## 2026-10-28｜RB-011-UAT 現場驗收紀錄範本（本 PR 尚待 CI／Codex）
+
+- 基於 Hosted main `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a` 建立獨立**文件**分支；不疊加 PR #30，沒有更動其 Session 合成測試、工具雜湊、SQLite Schema／API，亦未觸及 production D1/Access。
+- 新增 `docs/Windows異機還原現場驗收紀錄.md`，以 G0–G7 的現場關卡、私人證據索引、時點與 RTO/RPO 可量測性、失敗拒絕及業主簽收作為未來可稽核 UAT；README 加入口。
+- 工作表只可在 Repo 外私下填寫。沒有現場資料或預定義目標時不能冒稱 RTO/RPO 達標；實機、舊 Cookie 受控測試、Owner/Manager 重新登入仍是 **NOT_RUN**。關聯 Issue #31。
+- 待此文件 PR 最新 HEAD 的 Hosted `npm run check`、正式 Codex Review；未授權不可 Merge。另有 PR #30 Draft 不可合併，兩案相互獨立。

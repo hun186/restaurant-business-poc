@@ -208,3 +208,7 @@ BAT 只簡化本機互動操作，實際安全檢查仍由 `tools/reset-owner-pa
 工具只將原始備份複製到受保護的一次性隔離資料夾，核對 SHA-256、SQLite Schema/quick_check/FK、資料指紋與有效業主/營運摘要，然後刪除隔離副本。**不修改來源備份、原主機 data/、檔案 ACL 或密碼；不啟動服務；不等於已完成真正異機還原或業主簽收。**
 
 詳情與安全／異常 SOP 參見 [備份與還原 SOP](docs/備份與還原SOP.md)。絕不可將任何營運備份及個資傳至公開 GitHub、Vercel 或外部分享空間。
+
+## 合成資料隔離復原後服務啟動回歸（RB-011-SMOKE）
+
+`npm run check` 包含 `tests/recovered-service-smoke.test.js`：在臨時目錄建立**全虛構**門市、帳號、食材與庫存，從真實備份程式產生快照，將快照複製到另一全新隔離路徑，啟動 Node.js 本機隨機 HTTP 埠，驗證既有業主／主管帳號、`/api/me`、食材與概況 API、角色 403，以及損毀副本拒絕啟動。來源備份不會被修改，測試後自動清理臨時資料。這只是 CI runner 上的 **synthetic restore-to-service**，沒有啟動公開服務／真實營運資料／真正獨立 Windows 機器，亦不會替業主做正式還原。真實還原前應由技術人員撤銷備份包含的舊 Session 並完成現場 RTO/RPO 簽收；參見 [備份與還原 SOP](docs/備份與還原SOP.md)。

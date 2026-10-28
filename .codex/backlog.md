@@ -10,7 +10,9 @@
 | RB-003 | MERGED_CODE_ONLY | P1 | PR #26 已 Squash Merge `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`，main push CI #40505949563 5/5 PASS、正式 Codex Review 無新 P1/P2，2/2 Threads Resolved；RBAC 矩陣已納入主線，但正式門市角色政策／Windows 多使用者實機 UAT 尚未執行 |
 | RB-004 | MERGED_CODE_ONLY | P1 | PR #1 自動備份、無資料異動跳過與站內備份管理程式已合併；Windows 隔離還原、備份磁碟隔離/異地複本及業主簽收尚未執行 |
 | RB-011 | MERGED_CODE_ONLY | P1 | PR #28 Squash Merge `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，主線 push CI #40603773240 completed/success；外接/異機快照唯讀 SHA-256/SQLite 校驗與 BAT 已合併，但未進行真正異機啟動或真人災難復原簽收 |
-| RB-011-SMOKE | IN_REVIEW | P1 | 在完全虛構、隔離的測試資料目錄，從已驗證 snapshot 複製恢復，透過實際 local Node HTTP `makeHandler` 驗證健康、原業主/主管登入、食材/庫存保留、跨角色 403 及失敗封閉；不得誤稱 Windows 異機真實啟動、現場登入或 Cookie/Session 撤銷驗收；需 Hosted CI 與正式 Codex Review |
+| RB-011-SMOKE | MERGED_CODE_ONLY | P1 | PR #29 已 Squash Merge，main `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`，Verify #40613800190 5/5 PASS；單機隔離 synthetic HTTP 還原回歸已入主線，但真正 Windows 異機、舊 Session、RTO/RPO、業主簽收均未實測 |
+| RB-011-SESSION | IN_REVIEW | P1 | PR #30 Draft／Open，HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` Verify #40622456552 5/5 PASS、Codex Completed／無重大 Findings／0 Threads；新 Session 舊 Cookie 401 合成測試及停機 SOP **尚未 Merge**，實機 Session 撤銷另待驗收 |
+| RB-011-UAT | PREPARING_DOCS | P1 | Issue #31 Open，真人 Windows 異機還原與 RTO/RPO 簽收 NOT_RUN；新增 `docs/Windows異機還原現場驗收紀錄.md` 公開空白範本供授權技術人員使用。範本與 GitHub CI 不等於現場簽收；此文件 PR 尚待 Hosted CI／Codex |
 | RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |
 | RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
 | RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |

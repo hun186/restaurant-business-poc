@@ -9,7 +9,8 @@
 | RB-002 | PLANNED | P1 | 多人正式部署拓樸、HTTPS、Secure Cookie、遠端連線安全與後端儲存選型 |
 | RB-003 | MERGED_CODE_ONLY | P1 | PR #26 已 Squash Merge `1eb9fa7930c49c4dcecc90b8c4ca683d3859a0b8`，main push CI #40505949563 5/5 PASS、正式 Codex Review 無新 P1/P2，2/2 Threads Resolved；RBAC 矩陣已納入主線，但正式門市角色政策／Windows 多使用者實機 UAT 尚未執行 |
 | RB-004 | MERGED_CODE_ONLY | P1 | PR #1 自動備份、無資料異動跳過與站內備份管理程式已合併；Windows 隔離還原、備份磁碟隔離/異地複本及業主簽收尚未執行 |
-| RB-011 | IN_REVIEW | P1 | 既有 PR #27 同機備份副本驗證已合併；本輪新增外接／異機唯讀備份核對 CLI/BAT，依來源另存 SHA-256 在沒有 data/ 的新電腦驗證快照。待新 PR CI/Codex；**實際異機啟動還原、跨磁碟/異地自動備份、加密與存取政策、RTO/RPO／業主簽收仍待現場執行** |
+| RB-011 | MERGED_CODE_ONLY | P1 | PR #28 Squash Merge `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，主線 push CI #40603773240 completed/success；外接/異機快照唯讀 SHA-256/SQLite 校驗與 BAT 已合併，但未進行真正異機啟動或真人災難復原簽收 |
+| RB-011-SMOKE | IN_REVIEW | P1 | 在完全虛構、隔離的測試資料目錄，從已驗證 snapshot 複製恢復，透過實際 local Node HTTP `makeHandler` 驗證健康、原業主/主管登入、食材/庫存保留、跨角色 403 及失敗封閉；不得誤稱 Windows 異機真實啟動、現場登入或 Cookie/Session 撤銷驗收；需 Hosted CI 與正式 Codex Review |
 | RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |
 | RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
 | RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |

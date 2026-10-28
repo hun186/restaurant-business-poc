@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：以 Hosted `main` `e6827cb7436c7b86b1808d4f0de55983138eac28`（PR #27 已 Merge，main push CI #40542421530 5/5 PASS）為基底，接續 RB-011：提供獨立主機／外接磁碟備份只讀核對、來源 SHA-256 搬運一致、SQLite 暫存副本驗證的 Windows 雙擊工具與回歸，須新 HEAD 正式 Codex Review/CI 完成後才能合併。正式異機服務啟動、跨磁碟加密/異地備份、業主現場簽收、Cloudflare 正式授權與 production D1 仍未完成；未經使用者授權不可 Merge。
+- 首要目標：最新 Hosted main `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，PR #28 已 Squash Merge，合併後 #40603773240 **completed/success**；RB-011 外接備份唯讀驗證已入主線。本輪 RB-011-SMOKE 針對獨立乾淨資料夾與虛構資料執行真正本機 HTTP 回歸：從備份複製啟動 DB/服務、測試原密碼登入、讀取食材、角色 403、損毀快照拒絕、備份來源未改。此為 synthetic automated restore-to-service，非 Windows 跨機器、真人操作、實際營運資料/Session 歸零或災難復原簽收。須最新 HEAD Hosted CI/Codex 正式複審，未經授權不得 Merge；禁止未授權 Cloudflare production D1/Access/Hosted CPU 操作。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -382,3 +382,10 @@
 - 正式 Codex Review 在 `6b51e887dce9b612c5951fd640c1977362f4ffcf` 指出 1 個 P2：Node readline/promises 互動中 stdin 提前 EOF 時 pending `question()` 不一定 reject，行程可能在尚未驗證前以退出碼 0 結束，Windows BAT 因而誤顯示成功。
 - 修正為 `requiredAnswer` 監聽 readline 的 close、未填完整即以 `E_INPUT` reject；CLI main 先預設 `process.exitCode=1`，只有完成 `verifyOffsiteCopy` 並輸出 PASS 才改成 0。新增空輸入與只輸入第一行就 EOF 的實際 child_process 測試，必須非零退出且不得印 PASS。
 - 新 SHA-256 CLI `4a07a66aa3ccc06bcb1f12fe1971c71a086a0e91a83394f9c3248efb291358ef`、test `8acce74ffcdf384def6752e09e0a183c3240044b872b271a618e4d83c50ea3d2`；已更新封閉 manifest。需新 HEAD Hosted CI 及正式 Codex 複審，再確認舊 P2 才可 Resolve／Merge。
+
+## 2026-10-28｜PR #28 已合併；RB-011-SMOKE 乾淨隔離復原後 HTTP 服務回歸
+
+- PR #28 合併到 Hosted `main` `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`；Verify Run #40603773240 completed/success。既有外接／異機備份唯讀工具、SHA-256 搬運一致、隔離 SQLite 驗證程式完成，**未在業主 Windows 異機真正還原啟動**。
+- 本輪新增 `tests/recovered-service-smoke.test.js`：以全新虛構 SQLite建立門市、食材庫存與主管；建立正式 snapshot；來源 DB 關閉後複製備份到另一個不存在原 data 的隔離目錄。用 `openDb` 驗證已存在 DB，不可重新產生業主密碼；透過實際 `server.makeHandler` 的 loopback 隨機埠測試健康、未登入 401、原業主密碼、食材資料、概況、主管權限拒絕 403。另有毀損備份 clone 的 fail-closed 與原始 source hash 無變動測試。
+- **未宣稱事項**：單一 CI runner 的不同資料夾≠Windows 第二台機器；程式未測外接真實磁碟、真正斷線/故障切換、舊 Session revocation、防護代理、現場 RTO/RPO 或人員驗收；僅測 synthetic fixture。正式還原前應先停服務、封存舊 DB/WAL/SHM、離線檢查後撤銷備份中的舊 sessions 再起服務，不能直接把歷史 session 視為仍有效。
+- 新增 Node test 在 package `tests/*.test.js` 自動涵蓋，需加入新測試的精確 SHA-256 白名單，不更動正式 DB schema/Cloudflare/Auth Route。最新 HEAD Hosted CI 和正式 Codex Review 未完成前保持 Draft，不得自行 Merge。

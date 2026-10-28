@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：最新 Hosted main `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，PR #28 已 Squash Merge，合併後 #40603773240 **completed/success**；RB-011 外接備份唯讀驗證已入主線。本輪 RB-011-SMOKE 針對獨立乾淨資料夾與虛構資料執行真正本機 HTTP 回歸：從備份複製啟動 DB/服務、測試原密碼登入、讀取食材、角色 403、損毀快照拒絕、備份來源未改。此為 synthetic automated restore-to-service，非 Windows 跨機器、真人操作、實際營運資料/Session 歸零或災難復原簽收。須最新 HEAD Hosted CI/Codex 正式複審，未經授權不得 Merge；禁止未授權 Cloudflare production D1/Access/Hosted CPU 操作。
+- 首要目標：最新 `main` `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`（PR #29 已 Squash Merge），main push Verify #40613800190 5/5 PASS、Workers Build Success；既有 PR #27/#28/#29 的備份唯讀驗證與隔離 HTTP 合成還原測試已入主線。本輪 RB-011-SESSION 增加原始備份可能含有效 Session 的回放風險／清除隔離副本後舊 Cookie 401 與新登入正向測試、補正式 SOP；新 PR Hosted CI/Codex 待驗證，未授權不 Merge。禁止將 CI 模擬視為真實 Windows 災難還原、實站 RTO/RPO 或 Owner 簽收；亦禁止未授權 Cloudflare production D1/Access/Hosted CPU 操作。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -389,3 +389,10 @@
 - 本輪新增 `tests/recovered-service-smoke.test.js`：以全新虛構 SQLite建立門市、食材庫存與主管；建立正式 snapshot；來源 DB 關閉後複製備份到另一個不存在原 data 的隔離目錄。用 `openDb` 驗證已存在 DB，不可重新產生業主密碼；透過實際 `server.makeHandler` 的 loopback 隨機埠測試健康、未登入 401、原業主密碼、食材資料、概況、主管權限拒絕 403。另有毀損備份 clone 的 fail-closed 與原始 source hash 無變動測試。
 - **未宣稱事項**：單一 CI runner 的不同資料夾≠Windows 第二台機器；程式未測外接真實磁碟、真正斷線/故障切換、舊 Session revocation、防護代理、現場 RTO/RPO 或人員驗收；僅測 synthetic fixture。正式還原前應先停服務、封存舊 DB/WAL/SHM、離線檢查後撤銷備份中的舊 sessions 再起服務，不能直接把歷史 session 視為仍有效。
 - 新增 Node test 在 package `tests/*.test.js` 自動涵蓋，需加入新測試的精確 SHA-256 白名單，不更動正式 DB schema/Cloudflare/Auth Route。最新 HEAD Hosted CI 和正式 Codex Review 未完成前保持 Draft，不得自行 Merge。
+
+## 2026-10-28｜RB-011-SESSION 合成還原後 Session 復活風險
+
+- 基底 main `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`；PR #29 已合併，主線 Verify #40613800190 5/5 PASS，Cloudflare Build Success，0 Open PR（工作開始時）。
+- 新 `tests/restore-session-revocation.test.js` 自建臨時虛構 SQLite，插入僅用於測試的 future valid Session，以正式備份系統 VACUUM 快照並作原始 SHA-256；第一份隔離恢復副本以真實 Node HTTP `/api/me` 觀察舊 Cookie 被接受；第二份隔離恢復副本關站離線 SQLite transaction `DELETE FROM sessions` 後啟動 Node HTTP，舊 Cookie 必須 401、既有 Owner 帳密重新登入成功、庫存仍在，原始備份 SHA/SQLite footprint 不變。
+- 精確 SHA-256 `e3e2f0fdda14da45831022652d7e93ef0b96f30de33f4f6c4f48776ebba2d6c2` 已加入 fail-closed manifest。更新 SOP 停機移除 WAL/SHM 與 Session 清理/稽核步驟，並強調此非可在正式服務直接執行的一鍵還原。
+- 待最新 HEAD Hosted Windows/Ubuntu CI、Cloudflare Preview/正式 Codex Review；不得宣稱實機 Windows／異地／業主驗收完成。未經指示不可 Merge。

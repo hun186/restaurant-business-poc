@@ -69,6 +69,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/report-export.test.js":"c9b5f4f8644a2d4f818770449b56f6b71a37e87a3f17054a895a28c84b722865",
   "tests/rbac-matrix.test.js":"7580293896754e7d52c41f0e6f62b0774396c56b8cc32d6a7a363900e965cdd4",
   "tests/offsite-backup-verify.test.js":"8acce74ffcdf384def6752e09e0a183c3240044b872b271a618e4d83c50ea3d2",
+  "tests/restore-session-revocation.test.js":"e3e2f0fdda14da45831022652d7e93ef0b96f30de33f4f6c4f48776ebba2d6c2",
   "tests/recovered-service-smoke.test.js":"55f49ba31f271707d0937ec36e08504ed21a329d6bdf0b024703c167ca25e788",
   "tests/restore-drill.test.js":"13cf3b47ab6e4eda3e6d139973bba2d74754ec4b4a34396d97d4b56c11445efb",
   "tests/report-logout.test.js":"197173c126f53961e3df53e1d4252c46e104028859c1e24006037fc80b34a0cd",

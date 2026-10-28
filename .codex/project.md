@@ -4,7 +4,7 @@
 
 > 最新狀態以本節、`.codex/backlog.md` 與當前 Hosted GitHub 為準。下方有日期的章節刻意保留舊時點資訊，**不能作為今日 PR／部署狀態**。
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。已核實最新 main `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`（PR #28 合併），main push Verify #40603773240 **completed/success**。本輪 RB-011-SMOKE 用虛構資料建立備份、恢復到全新隔離目錄，實際以 Node 本機 HTTP 啟動測試健康、業主/主管登入、營運資料保留與角色拒絕及損毀檔拒絕；**僅 CI 模擬啟動，不是獨立 Windows 實機／業主真人還原驗收**。PR 最新 HEAD 仍須 CI/Codex，使用者未授權不得 Merge。現有 RB-011 外接快照唯讀校驗程式已合併，Windows 場域、備份加密/異地、RTO/RPO 簽收未完成；Cloudflare production D1/Access/Hosted PBKDF2 CPU 未驗證，不可宣稱正式登入上線。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。已核實最新 `main` `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`（PR #29 已 Squash Merge），main push Verify #40613800190 **5/5 PASS**、Workers Build Success；PR #29 的虛構備份→隔離 HTTP 啟動測試已入主線。本輪 RB-011-SESSION 新增合成測試，明確驗證未清空 Session 的備份可能復活舊 Cookie，而在獨立還原工作副本停機清空 Session 後舊 Cookie 401、新登入與營運資料正常；同時增補正式 SOP。此為程式碼／CI 模擬而非 Windows 異機或業主簽收；新 PR 須 Hosted CI/正式 Codex Review 驗證後才可合併。Cloudflare production D1/Access/Hosted PBKDF2 CPU 未驗證，不可啟用正式登入。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

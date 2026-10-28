@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **Cloudflare 上線現況（2026-10-29）**：業主要求先完成雲端正式營運（[P0 Issue #34](https://github.com/hun186/restaurant-business-poc/issues/34)）。現有 Cloudflare Production 仍僅虛構 Demo，登入/業務寫入未啟用。本開發增量只在 Preview 的既有 Session 保護下試行 D1 `/api/data` 唯讀查詢，不代表真實 Owner 已能登入或正式資料庫可用；不得輸入真實帳密／營運資料。
+
 以 [水電好管家](https://github.com/hun186/plumber-business-poc) 的繁體中文深藍／青綠管理介面為視覺參考，針對餐飲業另建的**獨立程式**。本版本具備可執行的 Node.js + SQLite 後端、三層級帳號權限及基本營運工作流程，不是靜態空殼。**狀態：可供本機 PoC 驗證，尚未通過生產環境安全驗收。**
 
 ## 現有功能

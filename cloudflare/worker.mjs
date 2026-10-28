@@ -1,5 +1,6 @@
 import { inspectD1Contract } from './d1-readiness.mjs';
 import { previewIdentity } from './identity.mjs';
+import { previewOperationalData } from './operations-readonly.mjs';
 // Cloudflare staging bootstrap: the D1-backed business API has NOT been ported.
 // Keep the public endpoint an explicitly labelled demo; never accept real login
 // credentials or pretend that browser-only mock data is persisted by a server.
@@ -17,6 +18,7 @@ export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
     if (pathname === '/api/me') return previewIdentity(request, env);
+    if (pathname === '/api/data') return previewOperationalData(request, env);
     if (pathname === '/api/health') {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         return json({ code: 'METHOD_NOT_ALLOWED' }, 405);

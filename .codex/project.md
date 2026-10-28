@@ -4,7 +4,7 @@
 
 > 最新狀態以本節、`.codex/backlog.md` 與當前 Hosted GitHub 為準。下方有日期的章節刻意保留舊時點資訊，**不能作為今日 PR／部署狀態**。
 
-- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。已核對 Hosted `main` `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`（PR #29 Squash Merge），main Verify #40613800190 **5/5 PASS**；PR #30（RB-011-SESSION）HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` Hosted Verify #40622456552 5/5 PASS、正式 Codex Review Completed／無重大 Findings／Review Threads 0，但仍 **Draft／Open，未經使用者授權不得 Merge**。現場 Windows 異機還原／舊 Session 驗證／RTO-RPO/業主簽收仍未執行；Issue #31 追蹤。本輪新增可供真人填寫的現場證據範本（文件階段，不是已完成的 UAT）。Cloudflare production D1/Access/Hosted PBKDF2 CPU 仍無正式驗收，不得啟用公開真實登入。
+- 專案：餐廳好管家 / `restaurant-business-poc` GitHub **Public**。Hosted `main` 已合併 PR #30（Squash `b0e02aadc9bfc0d9707727e460cec149af070872`），原 PR HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` Hosted Verify #40622456552 **5/5 PASS**、正式 Codex Review Completed／無重大 Findings／0 Threads；其 Session 復活回歸及停機清理 SOP 已入主線。**仍未在第二台 Windows 實機驗證**；Issue #31 追蹤現場 Session 401／RTO-RPO／業主簽收。本輪 PR #32 提出空白現場證據範本並修正 Codex 發現的時間型 RPO 公式（`T_incident - T_last_restored`）；文件尚待新 HEAD CI／正式複審，未 Merge。Cloudflare production D1/Access/Hosted PBKDF2 CPU 尚未完成正式驗收，不得啟用公開真實登入。
 - 定位：餐飲業務／營運管理 PoC；非現有水電 Repo 分支。
 - 技術：Node.js >=22.13、內建 `node:sqlite`、HTML/CSS/JS、無外部 npm 套件。
 - UI：參照 `plumber-business-poc` 深藍側欄、青綠操作、RWD；首頁四大入口比照業主提供的截圖。

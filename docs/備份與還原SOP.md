@@ -32,8 +32,8 @@
 1. **停止網站及備份 Worker**（等待正在執行的備份結束），先完整封存 `data/restaurant.sqlite` 與若存在的 `data/restaurant.sqlite-wal`、`data/restaurant.sqlite-shm` 三者，以及其他現場相關設定，作為復原前證據。
 2. 選擇需要的已驗證備份；先在**隔離測試資料夾**使用 SQLite `PRAGMA quick_check`、`PRAGMA foreign_key_check` 確認完整，並檢視正確日期與資料版本。若是 `migration`（v1），需要再經版本遷移。
 3. 將正式資料庫及舊 WAL/SHM **整組移出**正式 `data/`，確保沒有遺留舊 WAL/SHM。**不得只在原路徑覆寫 `.sqlite`，更不能在服務運作中還原。**
-4. 複製備份成 `data/restaurant.sqlite`，確認只剩正確的正式 SQLite 檔；檢查檔案／目錄 ACL、`.installed` 標記與 OS 存取權限，再啟動程式。
-5. 以測試帳號核對筆數、重要庫存記錄與日期，驗證應用程式授權及功能，再交還業主。還原演練與簽收尚未完成，不能因此文件宣稱已正式驗收。
+4. 在**服務未啟動的隔離工作副本**先完成下方「復原前舊 Session 失效」檢查；確認 `sessions` 為 0 後才將該副本放回正式 `data/restaurant.sqlite`。**不可直接啟動尚含舊 Session 的快照。** 檢查檔案／目錄 ACL、`.installed` 標記與 OS 存取權限，確認無舊 WAL/SHM 後才啟動程式。
+5. 以**重新登入**的測試帳號核對筆數、重要庫存記錄與日期，驗證舊 Cookie 無效、授權及功能，再交還業主。還原演練與簽收尚未完成，不能因此文件宣稱已正式驗收。
 
 ## 異常 SOP
 
@@ -65,3 +65,25 @@ PASS 僅能證明外接備份的位元組與來源紀錄一致、可被此版本
 `npm run check` 的 `tests/recovered-service-smoke.test.js` 僅使用新建的**虛構測試資料**，在同一個 CI 執行環境的另一個隔離資料目錄模擬「從備份還原→以現有 SQLite 啟動 Node HTTP 服務→業主／主管登入→讀取食材與概況→跨角色限制 403」。備份來源不修改；毀損復原副本必須拒絕開啟。此測試比單純檔案 SHA-256 更接近應用程式啟動，但**不是**真正的第二台 Windows 主機、實體磁碟故障、遠端使用者登入或營運資料復原驗收。
 
 **正式還原時的重要安全補充：** 舊快照可能包含仍未過期、甚至在備份之後已遭撤銷的 `sessions` 紀錄；復原時若直接啟動服務，歷史 Cookie 可能被重新接受。技術人員應先在**已驗證的復原工作副本**、**正式服務啟動前**以受控離線 SQLite 交易清空 `sessions`，確認沒有有效舊 Session，要求所有人重新登入；不得清理、改寫原始備份或原主機。須封存原 DB/WAL/SHM 以供鑑識／回滾，完整確認權限、登入、業務紀錄與 RTO/RPO 後才可業主簽收。本階段不提供自動寫入式正式還原工具，也不宣稱舊 Session 已在現場成功撤銷。
+
+## 復原前舊 Session 失效：離線工作副本檢查（RB-011-SESSION）
+
+舊備份內 `sessions` 有可能仍保留有效的 `token_hash`；若在災難前該憑證已被登出、停權或外洩，直接啟動舊快照可能把原本失效的 Cookie **復活**。`tests/restore-session-revocation.test.js` 已在虛構資料中證明：未清理的隔離副本可接受舊 Cookie；對**另一份**隔離副本於停機狀態清空 Session 後，舊 Cookie 回 401，既有帳號重新輸入密碼登入仍可使用，原始備份及庫存資料不受更動。
+
+**現場程序（限具備 SQLite/Windows 權限與停機能力的技術人員）：**
+
+1. 先停掉 Node 服務與備份 Worker；對原主機的 `restaurant.sqlite`、`-wal`、`-shm` 完整封存，分別記錄來源備份檔與 SHA-256。對來源備份只做唯讀驗證，**不要以 SQLite 寫入開啟原始備份**。
+2. 在受管制的**獨立、已保護權限**的還原工作目錄，建立備份的全新可寫副本（檔名可使用 `restaurant.sqlite`）。核對副本 SHA-256 等於原備份的獨立雜湊紀錄，SQLite `quick_check`、`foreign_key_check`、Schema 版本與必要業主/營運資料均正常。若其中任一失敗，立即停止；不可「修補」來源備份。
+3. 保持服務完全停止，**只對該已驗證的隔離工作副本**開啟 SQLite 管理工具，在單一交易執行下列 SQL；若交易失敗，回滾，不進行上線：
+
+   ```sql
+   BEGIN IMMEDIATE;
+   DELETE FROM sessions;
+   COMMIT;
+   SELECT COUNT(*) AS remaining_sessions FROM sessions;
+   ```
+
+   `remaining_sessions` 必須為 **0**，並再次驗證 SQLite `quick_check`、`foreign_key_check` 及主要營運資料一致。此交易刻意不更動 `users` 密碼雜湊、門市授權、稽核或 `stock_moves`。SQLite GUI/CLI 操作、NTFS ACL、舊 WAL/SHM 分離以及正式 DB 替換，均需由授權技術人員在現場辦理；專案**尚未提供一鍵覆寫正式資料庫**的工具。
+4. 將清理完且已驗證的副本移至正式資料目錄（不得留下舊 WAL/SHM），再次確認權限和離線備份已封存後啟動服務。驗證**舊 Cookie `/api/me` 回 401**、Owner/Manager 重新登入、門市權限與庫存等營運資料正確，核對異地備份/RTO/RPO 並簽收。
+
+**驗收邊界：** 本輪僅把舊 Session 復活風險納入合成快照的 CI 回歸測試；仍沒有在真實業主 Windows 主機執行上列交易、跨機器還原、外接磁碟故障演練或實站 RTO/RPO 計時。不得將 GitHub CI 通過描述成正式還原／資安／業主簽收完成。

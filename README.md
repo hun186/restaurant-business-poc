@@ -212,3 +212,7 @@ BAT 只簡化本機互動操作，實際安全檢查仍由 `tools/reset-owner-pa
 ## 合成資料隔離復原後服務啟動回歸（RB-011-SMOKE）
 
 `npm run check` 包含 `tests/recovered-service-smoke.test.js`：在臨時目錄建立**全虛構**門市、帳號、食材與庫存，從真實備份程式產生快照，將快照複製到另一全新隔離路徑，啟動 Node.js 本機隨機 HTTP 埠，驗證既有業主／主管帳號、`/api/me`、食材與概況 API、角色 403，以及損毀副本拒絕啟動。來源備份不會被修改，測試後自動清理臨時資料。這只是 CI runner 上的 **synthetic restore-to-service**，沒有啟動公開服務／真實營運資料／真正獨立 Windows 機器，亦不會替業主做正式還原。真實還原前應由技術人員撤銷備份包含的舊 Session 並完成現場 RTO/RPO 簽收；參見 [備份與還原 SOP](docs/備份與還原SOP.md)。
+
+## RB-011-SESSION：還原舊 Session 憑證復活風險（合成測試）
+
+`tests/restore-session-revocation.test.js` 建立完全虛構且可拋棄的 SQLite 備份，模擬快照中的舊 Session 在未清除時可能被 `/api/me` 接受；再只對另一份受控隔離副本在服務未啟動時執行 `DELETE FROM sessions`，確認舊 Cookie 為 401，原帳號重新登入、庫存資料與原始備份均不受影響。`npm run check` 包含此回歸。實際停機復原步驟參考 [備份與還原 SOP](docs/備份與還原SOP.md)。這**不代表**已在真實 Windows 異機還原或對正式資料庫執行 Session 清除；需要授權技術人員現場核對、備份/ACL、RTO/RPO 與業主簽收。

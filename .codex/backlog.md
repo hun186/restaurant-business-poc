@@ -12,9 +12,9 @@
 | RB-011 | MERGED_CODE_ONLY | P1 | PR #28 Squash Merge `0e8c80f8364b6b268c6ec39874a7b0cfebdbcf71`，主線 push CI #40603773240 completed/success；外接/異機快照唯讀 SHA-256/SQLite 校驗與 BAT 已合併，但未進行真正異機啟動或真人災難復原簽收 |
 | RB-011-SMOKE | MERGED_CODE_ONLY | P1 | PR #29 已 Squash Merge，main `a35d72df79fdcb1d7ce29934f5d421ffa6ab329a`，Verify #40613800190 5/5 PASS；單機隔離 synthetic HTTP 還原回歸已入主線，但真正 Windows 異機、舊 Session、RTO/RPO、業主簽收均未實測 |
 | RB-011-SESSION | MERGED_CODE_ONLY | P1 | PR #30 已 Squash Merge `b0e02aadc9bfc0d9707727e460cec149af070872`；原 HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` Hosted Verify #40622456552 5/5 PASS、Codex Completed／無重大 Findings／0 Threads。Session 舊 Cookie 401 合成測試及停機清理 SOP 已入主線；實機 Session 撤銷仍待驗收 |
-| RB-011-UAT | IN_REVIEW_DOCS | P1 | Issue #31 Open，真人 Windows 異機還原、Session 舊 Cookie、RTO/RPO 簽收仍 NOT_RUN。PR #32 新增空白 G0–G7 現場證據範本；首輪 Codex P2 的 RPO 起點改以故障時點 `T_incident` 修正，仍待本 HEAD Hosted CI／正式複審；文件 ≠ 現場驗收 |
+| RB-011-UAT | MERGED_DOCS_ONLY | P1 | PR #32 Squash Merge `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`；主線 Verify #40628721464 5/5 PASS。G0–G7 UAT 空白範本／RPO 定義已入 main，但 Issue #31 真實 Windows 異機還原與業主簽收仍 NOT_RUN |
 | RB-005 | PARTIAL_CODE | P2 | PR #10 多品項叫貨與供應商分單已實作；批號效期、FIFO/成本法、耗損/進銷存報表等仍待規劃與驗收 |
-| RB-006 | PLANNED | P2 | 排班月曆、跨日班、假別與人力／工時規則 |
+| RB-006 | IN_REVIEW_PARTIAL_CODE | P2 | 第一階段新增跨日班（end_time < start_time 代表翌日）、前／當／隔日與跨店防重疊、UI 隔日標示、合成回歸；SQLite v3 無遷移。**月曆、換班、假別工時／人力、請假衝突仍未完成**；最新 Head Hosted CI／正式 Codex Review 待核對，未授權不 Merge |
 | RB-007 | PLANNED | P2 | 課程附件、測驗題庫、複訓與多維度考核流程 |
 | RB-008 | PLANNED | P2 | 預定保養、開關店 SOP、值日表、設備／食安檢查表 |
 | RB-009 | PARTIAL_CODE | P2 | PR #8 已提供 Excel 匯出及列印預覽；進階庫存成本/營運分析、POS 介接與業主使用流程仍待規劃 |

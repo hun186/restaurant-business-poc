@@ -3,7 +3,7 @@
 ## Current Focus
 
 - 新專案從水電業務管理系統 UI 參考與兩張餐飲版初稿開工，不能誤改水電 Repository。
-- 首要目標：Hosted `main` 已於 PR #30 Squash Merge `b0e02aadc9bfc0d9707727e460cec149af070872`；其 PR HEAD `0ed4b027ec7001dcf3ffe53fd653295579ec0f28` 5/5 Hosted CI PASS、Codex Completed／無重大 Findings，RB-011-SESSION 合成測試和清 Session SOP 已入主線。Issue #31 實際 Windows 異機還原、舊 Cookie 401、RTO/RPO、業主簽收仍 **NOT_RUN**。PR #32 在獨立文件分支提出現場 G0–G7 證據範本，Codex 首輪 P2 指出 RPO 需以故障時點為準，已修正待新 HEAD Hosted CI／正式 Codex 複審；未授權不得 Merge。Cloudflare production D1/Access/Hosted CPU 未驗證，公開真實 Login 不可啟用。
+- 首要目標：最新 main `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`（PR #30/#32 已合併，main Push Verify #40628721464 5/5 PASS）；Issue #31 實場 Windows 異機還原與 RTO/RPO 簽收 NOT_RUN。RB-006 跨日排班最小增量進行中：結束時間早於開始時間表示翌日、同員工跨日及跨門市重疊拒絕 409、表單與列表隔日提示，合成資料測試；不改 SQLite v3 或 Cloudflare。新 Head Hosted CI／正式 Codex Review 待驗證，未授權不得 Merge；月曆、換班、勞動規則、請假衝突仍待後續。
 - 部署政策：程式碼公開，但營運／人事資料嚴禁公開；本機 SQLite 與 Public Demo 必須分離。
 - 使用者習慣：正式 Codex Review、逐輪 P1/P2 修正、Hosted CI 最新 SHA 驗證、未授權不 Merge。
 
@@ -403,3 +403,11 @@
 - 新增 `docs/Windows異機還原現場驗收紀錄.md`，以 G0–G7 的現場關卡、私人證據索引、時點與 RTO/RPO 可量測性、失敗拒絕及業主簽收作為未來可稽核 UAT；README 加入口。
 - 工作表只可在 Repo 外私下填寫。沒有現場資料或預定義目標時不能冒稱 RTO/RPO 達標；實機、舊 Cookie 受控測試、Owner/Manager 重新登入仍是 **NOT_RUN**。關聯 Issue #31。
 - PR #30 已 Squash Merge 至 main `b0e02aadc9bfc0d9707727e460cec149af070872`，但實場驗收仍未完成。PR #32 首輪 Codex 於 `e7d4fe1b94627f0f8c177ca53ddff5a201ad936e` 發現 1 項 P2：時間型 RPO 不可用最後提交與還原點的差值，應以 `T_incident - T_last_restored`；已依此修正文檔，重測 CI／正式 Codex 複審尚待完成。該 PR 未合併；兩者不混淆。
+
+## 2026-10-28｜RB-006 跨日班第一階段（開發中／待 Hosted 驗證）
+
+- 基底 main `40d3607789d3bc14ececd56fb6d7f1b69d6bfad9`，已確認 #30/#32 Squash Merge、主線 CI #40628721464 completed/success 5/5；Issue #31 實場驗收維持 Open。
+- `src/service.js`：end_time 早於 start_time 表示次日，不支援 24 小時整班；用 UTC-like 數值比較不做時區換算；掃描前一日、當天與隔日同一員工在所有門市的班次，以半開時間區間拒絕相交（409），剛好相接允許。
+- `public/app.js`：表單提供隔日語意、跨日紀錄下班欄標示「隔日」。不改 SQL Schema/UserVersion、帳號權限、Cloudflare D1。
+- `tests/shifts-overnight.test.js`：隔日資料、前後相交、跨店、跨年／閏日、非法日期與權限失敗無持久變更；更新 exact SHA-256 fail-closed 測試／程式白名單。
+- RB-006 其餘排班月曆、換班、假別、工時／人力需求及請假衝突仍需另行設計、測試與場域驗收。本輪程式與測試尚待新 Head Hosted CI、正式 Codex Review；未授權不得 Merge。

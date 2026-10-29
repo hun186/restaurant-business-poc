@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-29 P0 #34：D1 盤點確認內部原型已提交開發分支（PR 與 CI/Review 須以 Hosted 最新狀態確認）。只有合成資料與未接線交易 API，不能視為正式 Cloudflare 生產寫入、Access、備份或 UAT 完成；RB-006 進階排班繼續後延。
+
+
 > 2026-10-27 主線事實快照：核對 GitHub PR #1、#7–#10、#12–#24 已合併，當時沒有未結 PR。`MERGED_CODE_ONLY` 僅代表程式碼入 `main`，**不代表 Windows 實機、Vercel 正式部署、Cloudflare Access/Hosted CPU、production D1 或業主驗收已完成**。歷史日期在 `.codex/memory.md` 仍保留；後續需以最新 Hosted GitHub 與實站驗證覆蓋此快照。
 
 

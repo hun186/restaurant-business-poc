@@ -24,9 +24,9 @@ function routes(){
  return {
   '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts':reply(fixture().scripts),
   '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/domains?page=1&per_page=50':
-   {...reply([]),result_info:{page:1,count:0,total_pages:1}},
+   {...reply([]),result_info:{page:1,count:0,total_count:0,total_pages:1,per_page:50}},
   '/zones?account.id=31b409b04896d260ba0fadf6cc2bb305&page=1&per_page=50':
-   {...reply([{id:ZONE}]),result_info:{page:1,count:1,total_pages:1}},
+   {...reply([{id:ZONE}]),result_info:{page:1,count:1,total_count:1,total_pages:1,per_page:50}},
   ['/zones/'+ZONE+'/workers/routes']:reply([]),
   '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-business-poc/subdomain':
    reply({enabled:true,previews_enabled:true}),
@@ -110,6 +110,60 @@ test('incomplete domain pagination or failed Cloudflare API read never becomes e
  }));
  data[dom]={success:false,result:[],errors:[{message:'token_redacted'}]};
  await assert.rejects(()=>m.collectCloudflareInventory(p=>Promise.resolve(data[p])),/E_G0_READONLY_INVENTORY/);
+});
+test('missing or mismatched Cloudflare total_count never permits an empty inventory',async()=>{
+ const m=await modulePromise;
+ const dom='/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/domains?page=1&per_page=50';
+ const zone='/zones?account.id=31b409b04896d260ba0fadf6cc2bb305&page=1&per_page=50';
+ for(const change of [
+  d=>{delete d[dom].result_info.total_count;},
+  d=>{d[dom].result_info.total_count=1;}, // 0 rows but API says 1
+  d=>{d[zone].result_info.total_count=2;}, // zone list misses a zone
+  d=>{d[dom].result_info.total_count=-1;},
+  d=>{d[dom].result_info.total_count=0.5;},
+  d=>{d[dom].result_info.per_page=20;},
+  d=>{d[dom].result_info.count=1;},
+  d=>{d[dom].result_info.total_pages=2;}
+ ]){
+  const data=routes();change(data);
+  await assert.rejects(
+    ()=>m.collectCloudflareInventory(p=>Promise.resolve(data[p])),
+    /E_G0_READONLY_INVENTORY/
+  );
+ }
+});
+test('multi-page Cloudflare data passes only with exact cross-page count',async()=>{
+ const m=await modulePromise;
+ const dom='/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/domains?page=1&per_page=50';
+ const dom2='/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/domains?page=2&per_page=50';
+ const entries=Array.from({length:51},(_,i)=>({
+  service:'restaurant-business-poc',hostname:'store'+i+'.example.invalid',
+  enabled:false,previews_enabled:false
+ }));
+ function multi(){
+  const d=routes();
+  d[dom]={...reply(entries.slice(0,50)),
+   result_info:{page:1,count:50,total_count:51,total_pages:2,per_page:50}};
+  d[dom2]={...reply(entries.slice(50)),
+   result_info:{page:2,count:1,total_count:51,total_pages:2,per_page:50}};
+  return d;
+ }
+ const ok=await m.collectCloudflareInventory(p=>Promise.resolve(multi()[p]));
+ assert.equal(ok.domains.length,51);
+ assert.equal(m.classifyInventory(ok).g0_certified,false);
+ for(const change of [
+  d=>{d[dom2].result_info.total_count=52;}, // API changes count across pages
+  d=>{d[dom2].result=[];d[dom2].result_info.count=0;}, // early termination
+  d=>{d[dom2].result.push(entries[0]);d[dom2].result_info.count=2;},
+  d=>{d[dom2].result_info.page=1;},
+  d=>{delete d[dom2].result_info.total_count;}
+ ]){
+  const d=multi();change(d);
+  await assert.rejects(
+   ()=>m.collectCloudflareInventory(p=>Promise.resolve(d[p])),
+   /E_G0_READONLY_INVENTORY/
+  );
+ }
 });
 test('local repository deploy isolation and read-only environment gating are required',async()=>{
  const m=await modulePromise;

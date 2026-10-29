@@ -18,25 +18,36 @@ function rows(reply) {
     reply.success===true&&Array.isArray(reply.result));
   return reply.result;
 }
-function isPaginatedComplete(reply,page) {
+function isPaginatedComplete(reply,page,received,expectedTotal) {
   const info=reply.result_info;
-  // Zone/domain lists are paginated. Without metadata, completeness cannot be proven.
-  if(info===undefined)fail();
+  // Both domain and zone list responses expose total_count. No metadata, no
+  // success: an incomplete inventory could otherwise conceal a public route.
   ensure(info&&Number.isSafeInteger(info.page)&&info.page===page&&
-    Number.isSafeInteger(info.count)&&info.count>=0&&
+    Number.isSafeInteger(info.count)&&info.count>=0&&info.count<=50&&
+    Number.isSafeInteger(info.total_count)&&info.total_count>=0&&
     Number.isSafeInteger(info.total_pages)&&info.total_pages>=1&&
-    info.total_pages<=MAX_PAGES);
-  ensure(info.count===reply.result.length);
+    info.total_pages<=MAX_PAGES&&
+    (info.per_page===undefined||info.per_page===50));
+  ensure(info.count===reply.result.length&&
+    info.total_pages===Math.max(1,Math.ceil(info.total_count/50))&&
+    (expectedTotal===null||info.total_count===expectedTotal)&&
+    received<=info.total_count);
+  // A terminal page cannot silently return fewer rows than the API reports;
+  // nonterminal pages must leave some rows to retrieve.
+  ensure(page===info.total_pages?
+    received===info.total_count:received<info.total_count);
   return page===info.total_pages;
 }
 async function pages(getJSON,path) {
   const all=[];
+  let expectedTotal=null;
   for(let page=1;page<=MAX_PAGES;page++){
     const delimiter=path.includes('?')?'&':'?';
     const reply=await getJSON(path+delimiter+'page='+page+'&per_page=50');
     const list=rows(reply);
     all.push(...list);
-    if(isPaginatedComplete(reply,page))return all;
+    if(isPaginatedComplete(reply,page,all.length,expectedTotal))return all;
+    expectedTotal=reply.result_info.total_count;
   }
   fail();
 }

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29 PR #41 Codex P2 分頁完整性修正：Cloudflare G0 Worker/Domain/Zone 只讀盤點現在要求有效 total_count，核對 per-page count、per_page（如有提供）、total_pages、跨頁 total_count 不變及最後累計筆數完全一致；有缺漏即 E_G0_READONLY_INVENTORY，沒有正式授權與任何 D1 修改。合成回歸已加入缺失筆數、異常 metadata、51 筆跨頁成功及第二頁缺漏/超額/計數改變；已更新 exact-byte SHA256 allowlist。新 HEAD Hosted CI / 正式 Codex Review 待查驗，未經使用者授權不可 Merge。
+
+
 - 2026-10-29 P0 G0 / PR #41（新主線重整）：新增只讀 Cloudflare Worker Scripts、Domain、Zone Routes、workers.dev / Preview URLs 暴露面盤查程式、合成測試與僅 main 手動執行的受保護 Workflow。G1 Staging 唯讀 Run #40854101717 已實際 PASS；G5 真正 disposable D1 Remote Restore 仍未執行。此 PR 未實際向 Cloudflare API 查詢，且不構成 Cloudflare Access / G0 簽核。Production Workers 最新 main Build 回報 Success，但實際 Serving version、流量與 HTTP Fail-Closed 證據仍需人工核對；正式 Login/Write 持續 disabled。重整後 PR HEAD Hosted CI / Codex Review 待重新驗證，未授權不得 Merge。
 
 

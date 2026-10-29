@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"dd91d3380d23d5ee9aa278ac466f2915a4394a8cb215f5e7adc788b8ebe8c166"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-production-initialize-g5.yml":"4311da9ab25288e820149e1a66c8d0308495c177583599aa7c86244b9bf39eee",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
   ".github/workflows/verify.yml":"5fe5443aad6d62b183a1f78fdedfd8902789ea7a7173cac9aefb958a120ff296",
   ".github/workflows/d1-staging-migration.yml":"24171173e1030ef0bf15e7012f537300b1d2c335c71664da13b6e0383b2e3e98",
@@ -15,6 +16,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-prod-d1-init.mjs":"a8e3c2c00fa2d77869ce4551368d26c645360351bcf426a287b31d80fdee7fc2",
   "tools/cloudflare-staging-live-audit.mjs":"b705c0e267e2bdac7e4a2d8c3729515c53c8d490bfca185b032d5a589d7f9ceb",
   "package.json":"f7bda1324405bc207b0f5cea11c3e8d469b3503481343de9b09ceb40e859de79",
   "tools/backup.js":"cc97f66092ceaeaa369e36d389c0633b64f3d85c72e57f939900b57561cb4cfc",
@@ -36,6 +38,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "wrangler.production-initialize.jsonc":"00ac573c88506089f5927956a233089e743eab21ff6769a918b7877faf33a9d9",
+  "tests/cloudflare-prod-d1-init-g5.test.js":"18f206c4c246228d6490c62d48683f765c93f01ab053a75315b4c3331a78df6f",
   "tests/cloudflare-staging-live-readonly-g1.test.js":"146e717387d996760984235d79a2e3bb54c16dfd2041900a920825eb6e4807e6",
   "cloudflare/stocktake-write-internal.mjs":"1baad7bf400d2d1fa4abe8925908054383529120c8151547e325ac99796bde7b",
   "tests/cloudflare-d1-stocktake-write-internal.test.js":"98f5a17dc1c64d458fd52f5a605ebfcedf5d4e4ebcfcc58f5b9da67c5a09f024",

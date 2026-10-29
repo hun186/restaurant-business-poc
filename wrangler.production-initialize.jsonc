@@ -1,0 +1,12 @@
+{
+  "name": "restaurant-business-poc-prod-d1-initialization-only",
+  "compatibility_date": "2026-10-25",
+  "d1_databases": [
+    {
+      "binding": "PROD_DB",
+      "database_name": "restaurant-business-prod",
+      "database_id": "b882a6e8-0e56-49a6-bd41-1a6cadd726c9",
+      "migrations_dir": "cloudflare/migrations"
+    }
+  ]
+}

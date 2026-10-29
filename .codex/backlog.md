@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-29 P0 G5：Production D1 初次 Schema 安全流程程式開發（含獨立 read-only preflight / 人工簽核 apply）已提交本輪工作，**真實 Prod 仍空庫，沒有跑 Migration**。G1 Staging 遠端只讀子關卡 Run #40854101717 實際 PASS；G0/G2–G6 未整體通過。不得開放 login/write；實際 Production apply 另需使用者獨立授權及回復演練證據。
+
+
 > P0 #34 G1（2026-10-29）：新增手動 Cloudflare Staging D1 只讀遠端驗收 Workflow / 離線 Schema Guard；只有 code，尚未遠端執行。其他 G0 G2 G3 G4 G5 G6 尚未完成，不得開放正式登入。
 
 

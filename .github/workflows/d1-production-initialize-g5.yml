@@ -1,0 +1,190 @@
+name: G5 production D1 pristine preflight and gated initialization (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preflight (read-only) or apply (production mutation)'
+        required: true
+        type: choice
+        options:
+          - preflight
+          - apply
+      confirm:
+        description: 'PROD_D1_READONLY_CHECK or INITIALIZE_EMPTY_PROD_D1_V3_0001_0002'
+        required: true
+        type: string
+      expected_main_sha:
+        description: 'For apply only: paste the exact reviewed 40-char main SHA'
+        required: false
+        type: string
+      recovery_ack:
+        description: 'For apply only: type RECOVERY_REHEARSED_AND_APPROVED'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-production-d1-initialization
+  cancel-in-progress: false
+
+jobs:
+  readonly-preflight:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+      ((inputs.mode == 'preflight' && inputs.confirm == 'PROD_D1_READONLY_CHECK') ||
+       (inputs.mode == 'apply' && inputs.confirm == 'INITIALIZE_EMPTY_PROD_D1_V3_0001_0002')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-production-readonly
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Validate entire reviewed repository execution surface without secrets
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Validate immutable production-only DB target and migration source
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-prod-d1-init.mjs config
+      - name: Install pinned Wrangler with no credentials
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Read-only check production schema and database integrity
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$CLOUDFLARE_API_TOKEN" ]]
+          node tools/cloudflare-prod-d1-init.mjs config
+          snapshot="$RUNNER_TEMP/prod-d1-g5-preflight"
+          mkdir -m 700 "$snapshot"
+          trap 'rm -rf "$snapshot"' EXIT
+          query() {
+            npx --no-install wrangler d1 execute PROD_DB --remote --json --config wrangler.production-initialize.jsonc --command "$2" > "$snapshot/$1.json"
+          }
+          query objects "SELECT type,name,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name;"
+          query quick "PRAGMA quick_check;"
+          node tools/cloudflare-prod-d1-init.mjs preflight "$snapshot"
+          echo 'G5_PROD_D1_READONLY_PREFLIGHT_PASS; no production writes performed.'
+
+  initialize-production:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+      inputs.mode == 'apply' &&
+      inputs.confirm == 'INITIALIZE_EMPTY_PROD_D1_V3_0001_0002' &&
+      inputs.expected_main_sha == github.sha &&
+      inputs.recovery_ack == 'RECOVERY_REHEARSED_AND_APPROVED' }}
+    needs: readonly-preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: d1-production-migration
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Fail closed unless separately signed off for THIS commit and recovery drill
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ vars.PROD_D1_SCHEMA_APPLY_RELEASE }}
+          RESTORE_SIGNOFF: ${{ vars.PROD_D1_RESTORE_DRILL_SIGNED_OFF }}
+          G1_RUN_SIGNOFF: ${{ vars.PROD_D1_G1_REVIEWED_RUN }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" == "$EXPECTED_SHA" &&
+             "$RESTORE_SIGNOFF" == 'RECOVERY_REHEARSED_AND_APPROVED' &&
+             "$G1_RUN_SIGNOFF" == '40854101717' ]] || {
+            echo 'G5_RELEASE_GATE_CLOSED'
+            exit 1
+          }
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify reviewed SHA allowlist again (no credentials)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify fixed production-only D1 target
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-prod-d1-init.mjs config
+      - name: Install pinned Wrangler without Cloudflare token
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Repeat pristine check on production immediately before initialization
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_WRITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$CLOUDFLARE_API_TOKEN" ]]
+          snapshot="$RUNNER_TEMP/prod-d1-g5-apply-preflight"
+          mkdir -m 700 "$snapshot"
+          trap 'rm -rf "$snapshot"' EXIT
+          node tools/cloudflare-prod-d1-init.mjs config
+          query() {
+            npx --no-install wrangler d1 execute PROD_DB --remote --json --config wrangler.production-initialize.jsonc --command "$2" > "$snapshot/$1.json"
+          }
+          query objects "SELECT type,name,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name;"
+          query quick "PRAGMA quick_check;"
+          node tools/cloudflare-prod-d1-init.mjs preflight "$snapshot"
+      - name: Record current recoverable D1 bookmark without publishing it
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_WRITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          bookmark_log="$RUNNER_TEMP/prod-d1-before-migration-bookmark.log"
+          trap 'rm -f "$bookmark_log"' EXIT
+          npx --no-install wrangler d1 time-travel info PROD_DB --config wrangler.production-initialize.jsonc > "$bookmark_log"
+          grep -qi 'bookmark' "$bookmark_log"
+          echo 'G5_PROD_D1_RECOVERY_BOOKMARK_AVAILABLE; private local output deleted.'
+      - name: Apply ONLY the two reviewed migrations to pristine production D1
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_WRITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          node tools/cloudflare-prod-d1-init.mjs config
+          npx --no-install wrangler d1 migrations apply PROD_DB --remote --config wrangler.production-initialize.jsonc
+      - name: Read-only verify production D1 v3 schema/indexes and zero owner
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_WRITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          snapshot="$RUNNER_TEMP/prod-d1-g5-postflight"
+          mkdir -m 700 "$snapshot"
+          trap 'rm -rf "$snapshot"' EXIT
+          query() {
+            npx --no-install wrangler d1 execute PROD_DB --remote --json --config wrangler.production-initialize.jsonc --command "$2" > "$snapshot/$1.json"
+          }
+          query tables "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;"
+          query contract "SELECT contract_version FROM cloud_schema_contract WHERE id=1;"
+          query migrations "SELECT name FROM d1_migrations ORDER BY name;"
+          query indexes "SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name;"
+          query foreign_keys "PRAGMA foreign_key_check;"
+          query counts "SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM sessions) AS sessions, (SELECT COUNT(*) FROM locations) AS locations, (SELECT COUNT(*) FROM purchase_orders) AS purchase_orders, (SELECT COUNT(*) FROM stocktakes) AS stocktakes, (SELECT COUNT(*) FROM stock_moves) AS stock_moves, (SELECT COUNT(*) FROM audit_logs) AS audit_logs;"
+          query quick "PRAGMA quick_check;"
+          node tools/cloudflare-prod-d1-init.mjs postflight "$snapshot"
+          echo 'PROD_D1_SCHEMA_ONLY_VERIFIED; NO OWNER, NO LOGIN, NO OPERATIONS ENABLED.'

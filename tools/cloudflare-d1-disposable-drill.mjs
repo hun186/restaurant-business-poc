@@ -172,7 +172,9 @@ if(process.argv[1]&&path.resolve(process.argv[1])===current){
     need(process.env.G5_DRILL_CONFIRM==='RESTORE_DISPOSABLE_D1_ONLY'&&
       process.env.G5_DRILL_APPROVED_SHA===process.env.GITHUB_SHA&&
       process.env.G5_DRILL_APPROVED_ID===target.id&&
-      process.env.G5_DRILL_APPROVAL==='DISPOSABLE_RESTORE_AUTHORIZED');
+      process.env.G5_DRILL_APPROVAL==='DISPOSABLE_RESTORE_AUTHORIZED'&&
+      process.env.G5_DRILL_BINDINGS_ATTESTED==='NO_DISPOSABLE_D1_WORKER_BINDING'&&
+      process.env.G5_DRILL_EXCLUSIVE_ATTESTED==='DISPOSABLE_D1_NO_CONCURRENT_USERS');
     console.log(JSON.stringify(await runDisposableDrill(pin,
       (method,url,body)=>cloudflareRequest(pin,token,method,url,body))));
   }

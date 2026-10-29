@@ -153,6 +153,12 @@ test('manual workflow contains independent write Environment, release SHA and di
  assert.match(a,/G5_DRILL_RELEASE_SHA/);
  assert.match(a,/G5_DRILL_APPROVED_DB_ID/);
  assert.match(a,/DISPOSABLE_RESTORE_AUTHORIZED/);
+ assert.match(a,/binding_attestation:|G5_DRILL_BINDINGS_ATTESTED/);
+ assert.match(a,/exclusive_use_attestation:|G5_DRILL_EXCLUSIVE_ATTESTED/);
+ assert.match(a,/NO_DISPOSABLE_D1_WORKER_BINDING/);
+ assert.match(a,/DISPOSABLE_D1_NO_CONCURRENT_USERS/);
+ assert.match(a,/BINDING_ATTESTATION.*NO_DISPOSABLE_D1_WORKER_BINDING/);
+ assert.match(a,/EXCLUSIVE_ATTESTATION.*DISPOSABLE_D1_NO_CONCURRENT_USERS/);
  assert.match(a,/CLOUDFLARE_D1_DRILL_READ_TOKEN/);
  assert.match(a,/CLOUDFLARE_D1_DRILL_WRITE_TOKEN/);
  assert.doesNotMatch(a,/CLOUDFLARE_PROD_D1_WRITE_TOKEN|d1-production-migration|wrangler deploy|d1 migrations apply|d1 time-travel restore PROD_DB/);
@@ -171,4 +177,24 @@ test('without enrollment and direct GitHub manual authorization, CLI fails befor
  assert.match(p.stderr,/G5_DISPOSABLE_D1_RESTORE_CHECK_FAILED/);
  assert.equal(p.stdout,'');
  assert.doesNotMatch(p.stderr,/synthetic_mock_token|b882a6e8|2c355bed/);
+});
+
+test('destructive CLI fails locally without BOTH independent per-run isolation attestations',()=>{
+ const realPin=JSON.parse(fs.readFileSync(path.join(root,'cloudflare/recovery-drill-target.json'),'utf8'));
+ const baseEnv={...process.env,GITHUB_ACTIONS:'true',GITHUB_REF:'refs/heads/main',
+  GITHUB_SHA:'a'.repeat(40),CLOUDFLARE_ACCOUNT_ID:account,
+  CLOUDFLARE_API_TOKEN:'synthetic_mock_token_123456',
+  G5_DRILL_CONFIRM:'RESTORE_DISPOSABLE_D1_ONLY',
+  G5_DRILL_APPROVED_SHA:'a'.repeat(40),G5_DRILL_APPROVED_ID:realPin.database_id,
+  G5_DRILL_APPROVAL:'DISPOSABLE_RESTORE_AUTHORIZED'};
+ for(const env of [baseEnv,
+  {...baseEnv,G5_DRILL_BINDINGS_ATTESTED:'NO_DISPOSABLE_D1_WORKER_BINDING'},
+  {...baseEnv,G5_DRILL_EXCLUSIVE_ATTESTED:'DISPOSABLE_D1_NO_CONCURRENT_USERS'},
+  {...baseEnv,G5_DRILL_BINDINGS_ATTESTED:'incorrect',G5_DRILL_EXCLUSIVE_ATTESTED:'DISPOSABLE_D1_NO_CONCURRENT_USERS'}]){
+  const p=spawnSync(process.execPath,[script,'drill'],{cwd:root,encoding:'utf8',timeout:12000,env});
+  assert.equal(p.status,1);
+  assert.equal(p.stdout,'');
+  assert.match(p.stderr,/G5_DISPOSABLE_D1_RESTORE_CHECK_FAILED/);
+  assert.doesNotMatch(p.stderr,/synthetic_mock_token|cc3fe86d|b882a6e8|2c355bed/);
+ }
 });

@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> P0 #34（2026-10-29）：D1 單品項叫貨核准/驗收內部交易原型在 `cloudflare/order-write-internal.mjs`，**未接公開路由**；不包含多品項批次單驗收、進價/成本寫回或正式營運。`CLOUD_AUTH_PHASE=disabled` 的 Production `/api/command` 仍回 503，沒有開放真實登入或庫存異動。
+
 > 2026-10-29 P0 #34：D1 正式營運尚未開通。新增的 `cloudflare/task-write-internal.mjs` 僅供內部合成測試的稽核原子性實驗，**沒有連到公開 Worker**；`/api/command` 仍回 503。不可將其解讀為業主已可登入或寫入正式 D1。
 
 > **Cloudflare 上線現況（2026-10-29）**：業主要求先完成雲端正式營運（[P0 Issue #34](https://github.com/hun186/restaurant-business-poc/issues/34)）。現有 Cloudflare Production 仍僅虛構 Demo，登入/業務寫入未啟用。本開發增量只在 Preview 的既有 Session 保護下試行 D1 `/api/data` 唯讀查詢，不代表真實 Owner 已能登入或正式資料庫可用；不得輸入真實帳密／營運資料。

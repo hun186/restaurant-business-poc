@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29 P0 #34：已驗證 PR #36 Squash Merge，main `99450d54ba4a4114855bc8ed3c859543842281e0`；主線 Push CI #40793932322 5/5 PASS。下一增量為**不連接 public Worker**的 D1 單品項叫貨核准與收貨交易原型，必須 `CLOUD_AUTH_PHASE=preview-readonly` 且 `ORDER_WRITE_STAGE=internal-test-only`，使用合成資料測試權限、稽核、庫存流水和一次性驗收。整張多品項 POB 單拒絕逐行驗收；本增量不含進價/價格寫回、正式登入、D1 migration、真實 Cloudflare Access/Hosted CPU、業主 UAT。PR 未經使用者授權不得合併。
+
+
 - 2026-10-29：PR #35 已 Merge `436b10ea8088b31b7294efb4960b4d69201247f8`；新 P0 D1 內部 Task 狀態改動增量：服務不接公開 `/api/command`，以合成 DB 測試 role/store/own task、雙重 internal-only guard、CSRF/Origin、D1 batch audit+task atomicity、無效/重複/撤銷 session。需 Hosted CI 與正式 Codex 複審；雲端 Production 仍只有 Demo，正式業主登入/資料異動/Access/Hosted CPU/備份及現場 UAT 未完成，PR 未經授權不可 Merge。
 
 - 2026-10-29｜PR #35 首輪 Codex P2：非業主 SQL 過濾未排除停用門市（loadPrincipal 已排除，卻可透過剩餘 user_locations 讀取）。本次增量將 DB SQL scope、locations/staff_directory 統一只許 active 門市，新增已停用門市仍殘留 grant 的完整讀取回歸；更新 reviewed exact-byte hashes。新 HEAD CI/正式 Codex 複審待驗，尚未 Merge；正式環境維持 disabled，未操作 Cloudflare Production/D1。

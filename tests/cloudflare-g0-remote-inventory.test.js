@@ -27,7 +27,7 @@ function routes(){
    {...reply([]),result_info:{page:1,count:0,total_pages:1}},
   '/zones?account.id=31b409b04896d260ba0fadf6cc2bb305&page=1&per_page=50':
    {...reply([{id:ZONE}]),result_info:{page:1,count:1,total_pages:1}},
-  '/zones/'+ZONE+'/workers/routes':reply([]),
+  ['/zones/'+ZONE+'/workers/routes']:reply([]),
   '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-business-poc/subdomain':
    reply({enabled:true,previews_enabled:true}),
   '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-pbkdf2-hosted-cpu-staging-probe/subdomain':

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29 PR #41 HEAD `b600ec948f3dfa3d5bb97ee418e01a4c66e83f4c` Hosted CI Node Ubuntu FAIL（測試檔第 30 行 object literal 動態 Zone Route key 缺少 `[expression]`，SyntaxError；Cloudflare Workers Build 亦 FAIL）。已修正為 computed property、更新 test exact SHA256 allowlist，本輪新的 Hosted HEAD CI 與正式 Codex Review 待驗。既有 G1 remote D1 仍 NOT_RUN，G0 API 尚未執行，PR Open 未 Merge。
+
+
 - 2026-10-29 P0 #34 G0：PR #40 Squash Merge 82944f428cab6591c261273b821c00ff74479cd1；main push CI #40835511042 completed/success 5/5 PASS。G1 Staging 遠端唯讀 Workflow 已入 main，但最新查無 G1 manual workflow_dispatch Run，GitHub Connector 無 dispatch 能力，故 G1 NOT_RUN。新增手動、main-only、受保護 cloudflare-g0-readonly GitHub Environment 的 Cloudflare GET-only metadata inventory（Worker Scripts / Workers Domains / Zone Routes / workers.dev 與 Preview URLs）。需要獨立最小權限唯讀 Cloudflare API Token；輸出只有聚合旗標與數量，不列印實際網域/路由/Token/API 回應。即使全部旗標為 false，因未實地驗證 Access policy、Version/Deployment URLs 與 HTTP 路徑，本工具也永遠不認定 G0 PASS 或授權正式上線。本輪僅提交 code，**未執行 Cloudflare API**、未部署、Production CLOUD_AUTH_PHASE=disabled 與 /api/command 503 均保持不變。新 PR HEAD CI / Codex Review 待驗，未經使用者明確同意不 Merge。
 
 

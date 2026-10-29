@@ -22,6 +22,14 @@ on:
         required: false
         type: string
         description: 'drill only: approved disposable DB UUID; never production/staging'
+      binding_attestation:
+        required: false
+        type: string
+        description: 'drill only: type NO_DISPOSABLE_D1_WORKER_BINDING after independent Cloudflare bindings check'
+      exclusive_use_attestation:
+        required: false
+        type: string
+        description: 'drill only: type DISPOSABLE_D1_NO_CONCURRENT_USERS after exclusive-use check'
 
 permissions:
   contents: read
@@ -36,7 +44,9 @@ jobs:
       ${{ github.ref == 'refs/heads/main' &&
       ((inputs.mode == 'inspect' && inputs.confirm == 'CHECK_DISPOSABLE_D1_READONLY') ||
        (inputs.mode == 'drill' && inputs.confirm == 'RESTORE_DISPOSABLE_D1_ONLY' &&
-         inputs.expected_sha == github.sha)) }}
+         inputs.expected_sha == github.sha &&
+         inputs.binding_attestation == 'NO_DISPOSABLE_D1_WORKER_BINDING' &&
+         inputs.exclusive_use_attestation == 'DISPOSABLE_D1_NO_CONCURRENT_USERS')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     environment: d1-recovery-drill-readonly
@@ -60,7 +70,9 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' &&
       inputs.mode == 'drill' &&
       inputs.confirm == 'RESTORE_DISPOSABLE_D1_ONLY' &&
-      inputs.expected_sha == github.sha }}
+      inputs.expected_sha == github.sha &&
+      inputs.binding_attestation == 'NO_DISPOSABLE_D1_WORKER_BINDING' &&
+      inputs.exclusive_use_attestation == 'DISPOSABLE_D1_NO_CONCURRENT_USERS' }}
     needs: inspect
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -83,11 +95,15 @@ jobs:
           APPROVAL: ${{ vars.G5_DRILL_RESTORE_APPROVED }}
           INPUT_SHA: ${{ inputs.expected_sha }}
           INPUT_ID: ${{ inputs.expected_drill_id }}
+          BINDING_ATTESTATION: ${{ inputs.binding_attestation }}
+          EXCLUSIVE_ATTESTATION: ${{ inputs.exclusive_use_attestation }}
           BRANCH_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           [[ -n "$REVIEWED_SHA" && "$REVIEWED_SHA" == "$INPUT_SHA" && "$REVIEWED_SHA" == "$BRANCH_SHA" &&
              -n "$REVIEWED_ID" && "$REVIEWED_ID" == "$INPUT_ID" &&
+             "$BINDING_ATTESTATION" == "NO_DISPOSABLE_D1_WORKER_BINDING" &&
+             "$EXCLUSIVE_ATTESTATION" == "DISPOSABLE_D1_NO_CONCURRENT_USERS" &&
              "$APPROVAL" == 'DISPOSABLE_RESTORE_AUTHORIZED' ]] || {
             echo 'G5_DISPOSABLE_RESTORE_APPROVAL_CLOSED'
             exit 1
@@ -98,6 +114,8 @@ jobs:
           G5_DRILL_APPROVED_SHA: ${{ vars.G5_DRILL_RELEASE_SHA }}
           G5_DRILL_APPROVED_ID: ${{ vars.G5_DRILL_APPROVED_DB_ID }}
           G5_DRILL_APPROVAL: ${{ vars.G5_DRILL_RESTORE_APPROVED }}
+          G5_DRILL_BINDINGS_ATTESTED: ${{ inputs.binding_attestation }}
+          G5_DRILL_EXCLUSIVE_ATTESTED: ${{ inputs.exclusive_use_attestation }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_DRILL_WRITE_TOKEN }}
         run: node tools/cloudflare-d1-disposable-drill.mjs drill

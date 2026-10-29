@@ -8,7 +8,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/cloudflare-g0-readonly-inventory.yml":"3eae225c854c8ddc3184e096bcf2433efe2fe9de2d29becb683199b63440227d",
-  ".github/workflows/d1-disposable-restore-drill-g5.yml":"af0b79f44f868b24468c80fe3095fda2f6a0abe6e03c27dab2e23d689dc4fb4c",
+  ".github/workflows/d1-disposable-restore-drill-g5.yml":"92116a942506a18fe04569eb6cb813d9ea278e58079c1eda4e19a3f775d2ee78",
   ".github/workflows/d1-production-recovery-readonly-g5.yml":"938c1cacb3b88536b00a2d86a886b1e5f732040a632ed8fe6d6b12dbee0e9744",
   ".github/workflows/d1-production-initialize-g5.yml":"4311da9ab25288e820149e1a66c8d0308495c177583599aa7c86244b9bf39eee",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
@@ -20,7 +20,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-g0-remote-inventory.mjs":"a6c72cf276353f5ae37ec6e197712bffa759b8d4be5d432324a2a41d4813b992",
-  "tools/cloudflare-d1-disposable-drill.mjs":"1785887a703435d269cf2dc722e35cad8a408975bc1b86bbe9fd43cf006505ea",
+  "tools/cloudflare-d1-disposable-drill.mjs":"30e31cc736603807075f75bb587665e7f15fb6e15106596ec0ce595cbcac4f12",
   "tools/cloudflare-d1-recovery-readiness.mjs":"93805be3ea8b1c5b588362300984fb60e6b2ceff9d993c98893f63b7a8ce5954",
   "tools/cloudflare-prod-d1-init.mjs":"a8e3c2c00fa2d77869ce4551368d26c645360351bcf426a287b31d80fdee7fc2",
   "tools/cloudflare-staging-live-audit.mjs":"b705c0e267e2bdac7e4a2d8c3729515c53c8d490bfca185b032d5a589d7f9ceb",
@@ -46,7 +46,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-g0-remote-inventory.test.js":"740ac65ea758e75d74615b3c6423969dac1ed87bb46edee950a82743e14bb027",
   "cloudflare/recovery-drill-target.json":"f27c0945292ac39a2dd445cd6ececeb82229ce5409d5e1fe43858dff647ca09b",
-  "tests/cloudflare-d1-disposable-drill-g5.test.js":"f3faaf673bf46b500c6e3c67e71e7f601eef3e9b505ebc2fa0c63bf073f80e25",
+  "tests/cloudflare-d1-disposable-drill-g5.test.js":"39bd7ca5adedf84fb43209ac012ed8d4be3dc26a43d5f894d08e5a15491fcaf5",
   "tests/cloudflare-d1-recovery-readiness-g5.test.js":"bd790723ad6b6611a43dc3f8e708e208a8391c5ee35e60e718ab641aa0011272",
   "wrangler.production-initialize.jsonc":"00ac573c88506089f5927956a233089e743eab21ff6769a918b7877faf33a9d9",
   "tests/cloudflare-prod-d1-init-g5.test.js":"18f206c4c246228d6490c62d48683f765c93f01ab053a75315b4c3331a78df6f",

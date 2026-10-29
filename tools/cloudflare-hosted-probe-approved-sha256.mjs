@@ -45,8 +45,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-g0-remote-inventory.test.js":"740ac65ea758e75d74615b3c6423969dac1ed87bb46edee950a82743e14bb027",
-  "cloudflare/recovery-drill-target.json":"fa571c239c7c841a3009c2661376a3daf81fd95fca8617227ff1a3b0843d4bc4",
-  "tests/cloudflare-d1-disposable-drill-g5.test.js":"8ce58d5c16304a1445f36192fbb6bb7ecff9bddace482729342ba6737e051080",
+  "cloudflare/recovery-drill-target.json":"f27c0945292ac39a2dd445cd6ececeb82229ce5409d5e1fe43858dff647ca09b",
+  "tests/cloudflare-d1-disposable-drill-g5.test.js":"f3faaf673bf46b500c6e3c67e71e7f601eef3e9b505ebc2fa0c63bf073f80e25",
   "tests/cloudflare-d1-recovery-readiness-g5.test.js":"bd790723ad6b6611a43dc3f8e708e208a8391c5ee35e60e718ab641aa0011272",
   "wrangler.production-initialize.jsonc":"00ac573c88506089f5927956a233089e743eab21ff6769a918b7877faf33a9d9",
   "tests/cloudflare-prod-d1-init-g5.test.js":"18f206c4c246228d6490c62d48683f765c93f01ab053a75315b4c3331a78df6f",

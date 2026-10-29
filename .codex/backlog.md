@@ -1,6 +1,8 @@
 # Backlog
 
-> 2026-10-29 P0 G0 / PR #41（新主線重整）：新增只讀 Cloudflare Worker Scripts、Domain、Zone Routes、workers.dev / Preview URLs 暴露面盤查程式、合成測試與僅 main 手動執行的受保護 Workflow。G1 Staging 唯讀 Run #40854101717 已實際 PASS；G5 真正 disposable D1 Remote Restore 仍未執行。此 PR 未實際向 Cloudflare API 查詢，且不構成 Cloudflare Access / G0 簽核。Production Workers 最新 main Build 回報 Success，但實際 Serving version、流量與 HTTP Fail-Closed 證據仍需人工核對；正式 Login/Write 持續 disabled。重整後 PR HEAD Hosted CI / Codex Review 待重新驗證，未授權不得 Merge。
+> 2026-10-30 / PR #41 G0 整合至最新 main（已含 PR #47 的隔離式 D1 Pin UUID）：新增固定 Cloudflare GET only 的 Worker/Domain/Zone 公開暴露面盤點、主線人工 Protected Environment 工作流程、synthetic total_count/多頁 fail-closed 測試及 reviewed SHA-256 allowlist。PR #41 前一 HEAD 903d15d 已通過 Verify 5/5、Workers Build 與 Codex 無 Findings；本整合 HEAD 須重新 Hosted CI + 正式 Codex Review，未通過前不可 Squash Merge。PR #47 已合併，但**未對真正 Cloudflare D1 API 做 remote inspect 或 Restore**。G0 仍未實際運行，Access / 正式登入寫入不可宣稱開放。
+
+> 2026-10-30 / #46：G5 disposable D1 **Pin-ID PR 待審**：UUID 已由使用者提供，未經 Cloudflare API 唯讀核對；main 目前仍為 PENDING 占位，僅 PR 提議納入新 UUID。必須通過 Hosted CI / 正式 Codex Review 並由使用者另授權 Merge。然後人工先做唯讀 inspect；任何 remote drill/Production migration/login/write 都禁止提前執行。
 
 
 > G5 2026-10-29：Time Travel Read-only Live Run #40872307187 PASS。新增 **獨立 disposable D1 Restore 演練**的合成測試／安全 Workflow（code only），等待另建實際 Cloudflare 演練庫、PR 審查 Pin UUID、受保護 Environment、Token、人工 inspect 與 write/Restore 授權。Production / Staging 仍不得 Restore、Production Migration / 登入仍禁用。

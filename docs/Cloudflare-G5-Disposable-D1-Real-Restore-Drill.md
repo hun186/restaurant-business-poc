@@ -7,11 +7,11 @@
 
 ## 風險與策略
 Cloudflare 的 `POST /accounts/{account}/d1/database/{id}/time_travel/restore?bookmark=...` **會覆寫目標資料庫**，不是 Clone。只允許在與正式／既有 Staging 完全不同的**新建、可丟棄、沒有任何真實資料**的 D1 演練庫執行。禁止對 `restaurant-business-prod`、`restaurant-business-staging` 執行 Restore，也禁止對它們建立／刪除資料表。
-此 PR **新增演練程式與護欄，但沒有建立新的 Cloudflare 資料庫、沒有向任何遠端 D1 發出寫入或 Restore，也沒有配置 Token／Environment**。尚未取得復原演練實績或簽核。
+目前已由使用者提供新建的演練庫 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`，已提交獨立 Pin-ID 審查 PR；**尚未透過 Cloudflare 實際唯讀 API 驗證 UUID 與資料庫名稱、production backend、空庫狀態或 Worker 綁定**。這次 GitHub Pin 不會查詢／寫入遠端 D1，也沒有執行 Restore、設定 Token／Environment；遠端復原實績及簽核仍未取得。
 
 ## 階段 1：人工建立與 Pin，另走新的 Code Review
 1. 由 Cloudflare 帳戶管理員在 Dashboard 的 D1 中**手動建立**全新空白資料庫，名稱必須完全等於 `restaurant-business-g5-disposable-recovery-drill`，且沒有 Worker 綁定、沒有員工／菜單／正式業務資料。不要複製 Production 或 Staging 資料，也不要從現有資料庫還原或 fork。需確認此庫支持 Time Travel 的 `version=production` backend。
-2. 將新資料庫的 UUID 單獨放入 `cloudflare/recovery-drill-target.json` 中 `database_id`（目前刻意是 `PENDING_SEPARATE_REVIEWED_TARGET_PR`）。**必須另開 PR**，比較固定 Production/Staging IDs、確認名稱正確並經 Hosted CI + 正式 Codex Review + 使用者 Merge 授權後才能落入 main。在未完成此 Pin PR 前，所有 `inspect`、`drill` CLI 必定 Fail Closed。
+2. 新資料庫 UUID 已由使用者提供，Pin-ID PR 提議在 `cloudflare/recovery-drill-target.json` 設為 `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`。先核對 UUID 格式、不同於 Production/Staging，並完成 Hosted CI + 正式 Codex Review + 使用者**另行授權 Merge**；**不能只依提供的 UUID 就斷言 Cloudflare 已驗證資料庫身分或是空庫**。在 Pin PR 合併前 `main` 仍為拒絕執行的占位設定；合併後也只可由授權操作者先準備獨立的唯讀 Environment/Token，再執行 `inspect`，不可直接進入破壞性 `drill`。
 3. 另外建立受保護 GitHub Environments `d1-recovery-drill-readonly` 和 `d1-recovery-drill-write`，後者應要求不同的人工審批者。前者提供僅可讀取演練庫的 `CLOUDFLARE_D1_DRILL_READ_TOKEN` 及 `CLOUDFLARE_ACCOUNT_ID`；後者提供獨立最小必要權限的 `CLOUDFLARE_D1_DRILL_WRITE_TOKEN` 及帳戶 ID。Cloudflare 的 D1 Write Token 權限可能涵蓋帳戶多個資料庫；程式 UUID 防護並不等於平台強制的逐庫 IAM 隔離。若不能提供可接受的權限範圍，**不得允許演練寫入**。Secret 不得貼在 Issue/Chat/Log。
 
 ## 階段 2：正式執行前唯讀 Inspect

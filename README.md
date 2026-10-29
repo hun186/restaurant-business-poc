@@ -1,7 +1,8 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
-> 2026-10-29 P0 G0 / PR #41（新主線重整）：新增只讀 Cloudflare Worker Scripts、Domain、Zone Routes、workers.dev / Preview URLs 暴露面盤查程式、合成測試與僅 main 手動執行的受保護 Workflow。G1 Staging 唯讀 Run #40854101717 已實際 PASS；G5 真正 disposable D1 Remote Restore 仍未執行。此 PR 未實際向 Cloudflare API 查詢，且不構成 Cloudflare Access / G0 簽核。Production Workers 最新 main Build 回報 Success，但實際 Serving version、流量與 HTTP Fail-Closed 證據仍需人工核對；正式 Login/Write 持續 disabled。重整後 PR HEAD Hosted CI / Codex Review 待重新驗證，未授權不得 Merge。
+> 2026-10-30 / PR #41 G0 整合至最新 main（已含 PR #47 的隔離式 D1 Pin UUID）：新增固定 Cloudflare GET only 的 Worker/Domain/Zone 公開暴露面盤點、主線人工 Protected Environment 工作流程、synthetic total_count/多頁 fail-closed 測試及 reviewed SHA-256 allowlist。PR #41 前一 HEAD 903d15d 已通過 Verify 5/5、Workers Build 與 Codex 無 Findings；本整合 HEAD 須重新 Hosted CI + 正式 Codex Review，未通過前不可 Squash Merge。PR #47 已合併，但**未對真正 Cloudflare D1 API 做 remote inspect 或 Restore**。G0 仍未實際運行，Access / 正式登入寫入不可宣稱開放。
 
+> 2026-10-30 G5 #46：使用者提供 disposable D1 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`，已提出**獨立 Pin-ID PR**，只更新演練目標、封閉安全指紋及測試；尚未透過 Cloudflare API 驗證其真實身分/空庫，也未批准或執行任何 Restore。詳見 `docs/Cloudflare-G5-Disposable-D1-Real-Restore-Drill.md`。
 
 > 2026-10-29 G5：正式 Production Time Travel 唯讀能力已於 Run #40872307187 實證 PASS；另新增**全新 disposable D1** 的真實遠端 Restore 演練工具與人工雙環境授權工作流程。**尚未建立或核准演練資料庫 ID**，所有遠端操作預設拒絕；必須另開 Pin ID PR、CI/Review、受保護 Environment 和人工授權。這不表示已恢復正式資料或可以初始化 Production。詳見 `docs/Cloudflare-G5-Disposable-D1-Real-Restore-Drill.md`。
 

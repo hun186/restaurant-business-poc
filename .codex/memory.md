@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29｜PR #39 初輪 HEAD `0c8eeeec5dd26ffb755870d63a6a1c9882dce932` Hosted Ubuntu Node22/24 307/308 PASS、1 test assertion failure（`node:sqlite` 回傳 null prototype Row，deepStrictEqual 原型不一致，資料正確）。已修正測試使用欄位值比對而非 plain object deepStrictEqual，並更新 SHA-256 whitelist；新 HEAD CI 與正式 Codex Review 待複核，不得未經授權合併。
+
+
 - 2026-10-29 P0 #34：PR #38 已 Squash Merge `5a2daeb2a63395fcfe1e90ce2393ccbfd4fb91b3`；合併後 Main CI #40825398666 啟動，實際結論須重新向 GitHub 核對。下一增量：D1 **盤點確認＋差額庫存流水＋稽核**內部原型，雙守衛 `CLOUD_AUTH_PHASE=preview-readonly` / `STOCKTAKE_WRITE_STAGE=internal-test-only`，**未接公開 Worker**。在 D1.batch 內以 NOT NULL constraint 重驗有效 Session/角色/門市/食材、盤點 pending、帳面與 expected_qty 差異不得超過 1e-6、禁止已有相同盤點 adjustment。差額為零不建立 stock_moves；差額非零建立一筆 adjustment 並驗證 confirmed 結果與最終庫存。合成回歸包含過期、跨店、競態與各階段故障回滾；並不代表遠端 Cloudflare D1／正式 Login／Access／備份／UAT 完成。待新 HEAD Hosted CI 與正式 Codex Review；未經使用者同意不得 Merge。
 
 

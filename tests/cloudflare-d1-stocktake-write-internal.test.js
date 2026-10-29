@@ -84,7 +84,8 @@ test('manager confirms count 5 against ledger 8 with one -3 adjustment and audit
  const res=await command(f,'manager',f.ids.stocktake);
  assert.equal(res.status,200);
  assert.deepEqual((await res.json()).result,{id:f.ids.stocktake,status:'confirmed',delta:-3});
- assert.deepEqual(status(f,f.ids.stocktake),{status:'confirmed',confirmed_by:f.ids.manager});
+ assert.equal(status(f,f.ids.stocktake).status,'confirmed');
+ assert.equal(status(f,f.ids.stocktake).confirmed_by,f.ids.manager);
  assert.equal(balance(f,f.ids.storeA),5);
  assert.equal(adjustments(f).length,1);
  assert.equal(adjustments(f)[0].reference_id,f.ids.stocktake);

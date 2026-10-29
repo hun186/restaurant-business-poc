@@ -35,7 +35,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/stocktake-write-internal.mjs":"1baad7bf400d2d1fa4abe8925908054383529120c8151547e325ac99796bde7b",
-  "tests/cloudflare-d1-stocktake-write-internal.test.js":"0fa9dd6c13e1a3b76367210127e761bcfe14e3660401b8e0b17cdba3b083909a",
+  "tests/cloudflare-d1-stocktake-write-internal.test.js":"98f5a17dc1c64d458fd52f5a605ebfcedf5d4e4ebcfcc58f5b9da67c5a09f024",
   "cloudflare/group-order-write-internal.mjs":"4ae971139b4cfc4fa66b1692c9327c7a5bb20b059e201edf3df8b2f20a92b7f9",
   "tests/cloudflare-d1-group-order-write-internal.test.js":"b2796440bd3856278fb4308af8b04a98d6c62075377f08911bcc0d6bc03ec1c1",
   "cloudflare/order-write-internal.mjs":"5a09bc09ef7dc4d47834ada1278c1a495cdf9ec20216bc864075b9fd14ba380c",

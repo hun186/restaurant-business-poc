@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29｜P0 #34 G1：PR #39 Squash Merge 28cf72e4b899135deb7dff4dfaf41f902f2e10fd，main Hosted CI #40832201411 completed/success 5/5 PASS。新增僅 main 手動 workflow_dispatch 的 Cloudflare Staging D1 遠端唯讀 Schema/Migration/0002 Index/FK/Owner 聚合筆數驗收，固定 STAGING_DB 及專用帳號、d1-staging environment、與 migration 共用 concurrency，secret 僅限 query 步驟，RUNNER_TEMP 暫存清理，不查任何用戶明細或密碼/token，不觸碰 Production。附離線驗證工具、合成測試與 SHA-256 封閉清單。此 PR 本身未實際呼叫 Cloudflare，遠端驗收只在合併後人工觸發才可建立 G1 證據。Access/Hosted CPU/Production migration/備份/Owner UAT 全未實證，Production Login/Write 仍 503。最新 HEAD CI/Codex Review 待核實，未授權不得 Merge。
+
+
 - 2026-10-29｜PR #39 初輪 HEAD `0c8eeeec5dd26ffb755870d63a6a1c9882dce932` Hosted Ubuntu Node22/24 307/308 PASS、1 test assertion failure（`node:sqlite` 回傳 null prototype Row，deepStrictEqual 原型不一致，資料正確）。已修正測試使用欄位值比對而非 plain object deepStrictEqual，並更新 SHA-256 whitelist；新 HEAD CI 與正式 Codex Review 待複核，不得未經授權合併。
 
 

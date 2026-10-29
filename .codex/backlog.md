@@ -1,5 +1,8 @@
 # Backlog
 
+> P0 #34 G1（2026-10-29）：新增手動 Cloudflare Staging D1 只讀遠端驗收 Workflow / 離線 Schema Guard；只有 code，尚未遠端執行。其他 G0 G2 G3 G4 G5 G6 尚未完成，不得開放正式登入。
+
+
 > 2026-10-29 P0 #34：D1 盤點確認內部原型已提交開發分支（PR 與 CI/Review 須以 Hosted 最新狀態確認）。只有合成資料與未接線交易 API，不能視為正式 Cloudflare 生產寫入、Access、備份或 UAT 完成；RB-006 進階排班繼續後延。
 
 

@@ -1,0 +1,73 @@
+name: D1 staging G1 remote read-only snapshot (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_STAGING_G1_READONLY (no writes, never production)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+# Serialize against staging migration and owner bootstrap to avoid racing writes.
+concurrency:
+  group: restaurant-business-d1-staging-migrations
+  cancel-in-progress: false
+
+jobs:
+  verify-staging-g1:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_STAGING_G1_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-staging
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed before npm/npx or remote query
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify exact staging bindings and account (without API token)
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          node tools/cloudflare-staging-live-audit.mjs config
+      - name: Install pinned Wrangler with no Cloudflare credentials in scope
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Read only staging D1 metadata and aggregate counts
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "::error::G1 staging credentials not configured"
+            exit 1
+          fi
+          node tools/cloudflare-staging-live-audit.mjs config
+          snapshot="$RUNNER_TEMP/restaurant-g1-staging-readonly"
+          mkdir -m 700 "$snapshot"
+          trap 'rm -rf "$snapshot"' EXIT
+          query() {
+            npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.preview-migrations.jsonc --command "$2" > "$snapshot/$1.json"
+          }
+          query tables "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;"
+          query contract "SELECT contract_version FROM cloud_schema_contract WHERE id=1;"
+          query migrations "SELECT name FROM d1_migrations ORDER BY name;"
+          query indexes "SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name;"
+          query fk "PRAGMA foreign_key_check;"
+          query counts "SELECT (SELECT COUNT(*) FROM users) AS total_users, (SELECT COUNT(*) FROM users WHERE role='owner' AND active=1) AS active_owners, (SELECT COUNT(*) FROM users WHERE role='owner') AS total_owners, (SELECT COUNT(*) FROM sessions) AS sessions, (SELECT COUNT(*) FROM purchase_orders) AS purchase_orders, (SELECT COUNT(*) FROM stocktakes) AS stocktakes, (SELECT COUNT(*) FROM stock_moves) AS stock_moves;"
+          node tools/cloudflare-staging-live-audit.mjs verify "$snapshot"
+          echo 'STAGING_G1_REMOTE_READ_ONLY_PASS; no production D1, no mutation, no login or public API activation.'

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29 G5 Production Time Travel Read-only Run #40872307187 真實 PASS（metadata production backend/bookmark 與合成 SQLite），PR #44 Squash Merged main `468e64753db89be650def8a7dd735c67cdde93a9` 且 Postmerge CI #40870570004 success。**本次新階段**：新增只允許另經 PR 審核且固定 UUID 的全新 disposable Cloudflare D1 `restaurant-business-g5-disposable-recovery-drill` 執行的真正遠端 Restore 測試工具＋手動 Workflow＋合成 API 模擬測試。當前 `cloudflare/recovery-drill-target.json` 的 database_id 為 `PENDING_SEPARATE_REVIEWED_TARGET_PR`，全部遠端 inspect/drill 均 Fail Closed；使用者尚未建立新演練庫，也未授權任何 Remote D1 Restore。後續先人工建立獨立空庫、另開 PR Pin DB UUID 並 Review、設置分離的 `d1-recovery-drill-readonly` / `d1-recovery-drill-write` 受保護 Environments 與分離讀寫 Token，再手動 inspect 取得實際證據，最後需**另一次明確的演練庫 Restore 授權**才可跑 drill。Production/Staging DB ID 永遠被排除；沒有執行 Production Migration／還原／Owner/bootstrap，正式 Login/Write 繼續 disabled。獨立雲端演練也不能替代加密異地備份、RPO/RTO、Owner 恢復簽核。PR #41 G0 仍 Open、Issue #42 Cloudflare Workers Build 外部阻斷待單獨追蹤。新 PR CI/Codex 最新 HEAD 尚待核驗，沒有 Merge 授權。
+
+
 - 2026-10-29 P0 #34 G5：PR #43 已 Squash Merge `ee3a5cceef7c496ab650810f0fe6fc3b26d11e16`，合併後 Main Hosted CI #40862923071 5/5 PASS；G1 Staging 遠端讀取完整性 Run #40854101717 PASS，G5 Production 原始空庫只讀 preflight Run #40865818477 Attempt 3 completed/success，log 有 `PROD_D1_PRISTINE_READONLY_PASS`，初始化 job SKIPPED。Production D1 仍無業務 Schema，未建 Owner，沒有執行 Migration/Restore；G5 `PROD_D1_RESTORE_DRILL_SIGNED_OFF` 不可設定。本輪新增 **獨立 G5 recovery readiness**：人工 main-only `d1-production-recovery-readonly-g5.yml`，於現有受保護 `d1-production-readonly` Environment 用 D1 Read Token 以 Cloudflare 固定 GET API 只讀查詢 Production D1 backend version=production 和 current bookmark；不輸出 bookmark。另做完全隔離的合成 SQLite VACUUM INTO 快照與還原測試；**此非 Cloudflare 遠端 Restore 實證**，也非加密異地備份及 RTO/RPO 已驗證。仍須新建完全獨立的 disposable D1、授權實際 restore 演練、確定帳戶 Free 7d/Paid 30d retention、異地備份加密及 Owner 復原簽核，才可考慮 Production apply。新 PR CI/Codex 最新 HEAD 待核對；不得未授權 Merge。PR #41 G0 未合併、Issue #42 Assets 10013 狀態需各自追蹤，正式 Login/Write 維持禁用。
 
 

@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+- 2026-10-29：PR #35 已 Merge `436b10ea8088b31b7294efb4960b4d69201247f8`；新 P0 D1 內部 Task 狀態改動增量：服務不接公開 `/api/command`，以合成 DB 測試 role/store/own task、雙重 internal-only guard、CSRF/Origin、D1 batch audit+task atomicity、無效/重複/撤銷 session。需 Hosted CI 與正式 Codex 複審；雲端 Production 仍只有 Demo，正式業主登入/資料異動/Access/Hosted CPU/備份及現場 UAT 未完成，PR 未經授權不可 Merge。
+
 - 2026-10-29｜PR #35 首輪 Codex P2：非業主 SQL 過濾未排除停用門市（loadPrincipal 已排除，卻可透過剩餘 user_locations 讀取）。本次增量將 DB SQL scope、locations/staff_directory 統一只許 active 門市，新增已停用門市仍殘留 grant 的完整讀取回歸；更新 reviewed exact-byte hashes。新 HEAD CI/正式 Codex 複審待驗，尚未 Merge；正式環境維持 disabled，未操作 Cloudflare Production/D1。
 
 - 2026-10-29｜P0 Cloudflare 正式營運優先：使用者明確要求先完成 Cloudflare 正式部署及業主真實營運，暫緩排班月曆。main 已 Squash Merge PR #33 `976859cd851da6cb917cf1b17594c49c0e4bf63b`、Push Verify #40735901964 5/5 PASS。已開 Issue #34 P0 放行清單。本 PR 先提供 D1 Preview Authenticated Read-only `/api/data` 對 tasks/stock/ingredients/門市及部分營運主檔的 SQL 層 RBAC 隔離測試，Production Auth/業務異動繼續 fail-closed；現場 Access/Hosted CPU、D1 prod migration/備份、真實 Owner 登入與 UAT 均 NOT_DONE。不得未授權 Merge。

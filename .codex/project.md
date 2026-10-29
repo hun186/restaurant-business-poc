@@ -2,6 +2,8 @@
 
 ## Current State
 
+> 2026-10-29｜PR #35 已 Squash Merge，main `436b10ea8088b31b7294efb4960b4d69201247f8`；P0 Issue #34 下一步為 D1 任務狀態異動及稽核的受控內部增量。此 PR 僅新增**未連接公網 Worker 路由**的內部程式和合成回歸，需 `TASK_WRITE_STAGE=internal-test-only`、`CLOUD_AUTH_PHASE=preview-readonly` 雙重測試守衛。Production/Preview 公開 `/api/command` 仍 503；不涉及 production D1 migration、正式帳密及營運資料。等待最新 HEAD Hosted CI、正式 Codex Review 與使用者 Merge 授權；Cloudflare 實站 Access/CPU/資料備援/UAT 均未完成。
+
 > 2026-10-29｜P0 Cloudflare 正式營運優先：依業主要求，正式生產部署及 D1 實際業務操作優先於 RB-006 第二階段。main PR #33 Squash `976859cd851da6cb917cf1b17594c49c0e4bf63b`、Push Verify #40735901964 5/5 completed/success。Issue #34 為 Production 放行追蹤。本增量只新增 Preview D1 `/api/data` 白名單唯讀資料與 DB 內角色/門市過濾，不開啟雲端登入、不做 production D1 migration、不修改正式資料。Production 仍是 Demo-only、CLOUD_AUTH_PHASE=disabled。Owner 真實營運/Access/Hosted CPU/備份/UAT 仍待完成；本 PR 最新 Head CI/Codex 以 Hosted 實測為準。
 
 

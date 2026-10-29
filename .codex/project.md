@@ -2,6 +2,9 @@
 
 ## Current State
 
+> 2026-10-29 P0 #34/G5：真正 Staging G1 只讀 Run #40854101717 已完成 success，確認 schema v3、0001/0002、FK、單一測試 Owner（僅此子關卡 PASS）。Cloudflare Production D1 Studio 唯讀確認原始庫只有 `_cf_KV`，正式 Schema 尚不存在。新增 **Production D1 初始化防護流程**：main-only 手動 GitHub Actions 的 `preflight`（僅只讀）和 `apply`（需逐版40字 SHA、Environment 人工審批、復原演練簽核、G1 Run 审核、獨立最小權限 Token）模式，Production-only Wrangler config、不可與 Staging 混用、允許且固定 SHA 的 0001+0002 檔案、資料庫空庫與 quick_check 預檢、再次預檢、Time Travel bookmark 確認、postflight 驗證 22+1 表/3 indexes/0 user/0 stock/無 FK。現階段僅程式碼及合成回歸，未向 Production Cloudflare 發出任何 D1 查詢或 Migration、未實際驗證備份還原、未建立 Owner、不啟用 login/write。PR 待 HEAD Hosted CI/Codex Review、使用者明確 Merge 指令；Merge 不等於授權 Prod apply。PR #41 G0 Open 未 Merge、Cloudflare Workers Assets upload-session 10013 未確認解決（Issue #42）。
+
+
 > 2026-10-29｜P0 #34 G1：PR #39 Squash Merge 28cf72e4b899135deb7dff4dfaf41f902f2e10fd，main Hosted CI #40832201411 completed/success 5/5 PASS。新增僅 main 手動 workflow_dispatch 的 Cloudflare Staging D1 遠端唯讀 Schema/Migration/0002 Index/FK/Owner 聚合筆數驗收，固定 STAGING_DB 及專用帳號、d1-staging environment、與 migration 共用 concurrency，secret 僅限 query 步驟，RUNNER_TEMP 暫存清理，不查任何用戶明細或密碼/token，不觸碰 Production。附離線驗證工具、合成測試與 SHA-256 封閉清單。此 PR 本身未實際呼叫 Cloudflare，遠端驗收只在合併後人工觸發才可建立 G1 證據。Access/Hosted CPU/Production migration/備份/Owner UAT 全未實證，Production Login/Write 仍 503。最新 HEAD CI/Codex Review 待核實，未授權不得 Merge。
 
 

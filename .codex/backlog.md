@@ -1,6 +1,15 @@
 # Backlog
 
-> 2026-10-29 P0 G0：Cloudflare 曝露面唯讀盤點程式與手動 workflow（code only，未執行 Cloudflare API）；G1 Remote Staging D1 尚未執行，G0 URL / Access / Hosted CPU / G3–G6 不得標示通過。
+> 2026-10-29 P0 G0 / PR #41（新主線重整）：新增只讀 Cloudflare Worker Scripts、Domain、Zone Routes、workers.dev / Preview URLs 暴露面盤查程式、合成測試與僅 main 手動執行的受保護 Workflow。G1 Staging 唯讀 Run #40854101717 已實際 PASS；G5 真正 disposable D1 Remote Restore 仍未執行。此 PR 未實際向 Cloudflare API 查詢，且不構成 Cloudflare Access / G0 簽核。Production Workers 最新 main Build 回報 Success，但實際 Serving version、流量與 HTTP Fail-Closed 證據仍需人工核對；正式 Login/Write 持續 disabled。重整後 PR HEAD Hosted CI / Codex Review 待重新驗證，未授權不得 Merge。
+
+
+> G5 2026-10-29：Time Travel Read-only Live Run #40872307187 PASS。新增 **獨立 disposable D1 Restore 演練**的合成測試／安全 Workflow（code only），等待另建實際 Cloudflare 演練庫、PR 審查 Pin UUID、受保護 Environment、Token、人工 inspect 與 write/Restore 授權。Production / Staging 仍不得 Restore、Production Migration / 登入仍禁用。
+
+
+> 2026-10-29 G5：Production 空庫遠端唯讀 Run #40865818477 Attempt 3 PASS；本輪開發 Time Travel metadata/bookmark **read-only capability** + 完全隔離 SQLite 合成還原，尚未 Cloudflare 實際 Restore，未完成遠端演練/加密異地備份/RPO/RTO/簽核。Production Migration 仍禁止執行。
+
+
+> 2026-10-29 P0 G5：Production D1 初次 Schema 安全流程程式開發（含獨立 read-only preflight / 人工簽核 apply）已提交本輪工作，**真實 Prod 仍空庫，沒有跑 Migration**。G1 Staging 遠端只讀子關卡 Run #40854101717 實際 PASS；G0/G2–G6 未整體通過。不得開放 login/write；實際 Production apply 另需使用者獨立授權及回復演練證據。
 
 
 > P0 #34 G1（2026-10-29）：新增手動 Cloudflare Staging D1 只讀遠端驗收 Workflow / 離線 Schema Guard；只有 code，尚未遠端執行。其他 G0 G2 G3 G4 G5 G6 尚未完成，不得開放正式登入。

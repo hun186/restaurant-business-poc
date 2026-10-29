@@ -8,6 +8,9 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/cloudflare-g0-readonly-inventory.yml":"3eae225c854c8ddc3184e096bcf2433efe2fe9de2d29becb683199b63440227d",
+  ".github/workflows/d1-disposable-restore-drill-g5.yml":"af0b79f44f868b24468c80fe3095fda2f6a0abe6e03c27dab2e23d689dc4fb4c",
+  ".github/workflows/d1-production-recovery-readonly-g5.yml":"938c1cacb3b88536b00a2d86a886b1e5f732040a632ed8fe6d6b12dbee0e9744",
+  ".github/workflows/d1-production-initialize-g5.yml":"4311da9ab25288e820149e1a66c8d0308495c177583599aa7c86244b9bf39eee",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
   ".github/workflows/verify.yml":"5fe5443aad6d62b183a1f78fdedfd8902789ea7a7173cac9aefb958a120ff296",
   ".github/workflows/d1-staging-migration.yml":"24171173e1030ef0bf15e7012f537300b1d2c335c71664da13b6e0383b2e3e98",
@@ -17,6 +20,9 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-g0-remote-inventory.mjs":"72ab683391bceaaa6c31d4e95f2d9c7179f885918ce2e2c1757686ecb7fedf89",
+  "tools/cloudflare-d1-disposable-drill.mjs":"1785887a703435d269cf2dc722e35cad8a408975bc1b86bbe9fd43cf006505ea",
+  "tools/cloudflare-d1-recovery-readiness.mjs":"93805be3ea8b1c5b588362300984fb60e6b2ceff9d993c98893f63b7a8ce5954",
+  "tools/cloudflare-prod-d1-init.mjs":"a8e3c2c00fa2d77869ce4551368d26c645360351bcf426a287b31d80fdee7fc2",
   "tools/cloudflare-staging-live-audit.mjs":"b705c0e267e2bdac7e4a2d8c3729515c53c8d490bfca185b032d5a589d7f9ceb",
   "package.json":"f7bda1324405bc207b0f5cea11c3e8d469b3503481343de9b09ceb40e859de79",
   "tools/backup.js":"cc97f66092ceaeaa369e36d389c0633b64f3d85c72e57f939900b57561cb4cfc",
@@ -39,6 +45,11 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-g0-remote-inventory.test.js":"8fe226e5a40afd2cb418676d04bb6e28dd64f5158f418b3573592b0a2dd91bc8",
+  "cloudflare/recovery-drill-target.json":"fa571c239c7c841a3009c2661376a3daf81fd95fca8617227ff1a3b0843d4bc4",
+  "tests/cloudflare-d1-disposable-drill-g5.test.js":"8ce58d5c16304a1445f36192fbb6bb7ecff9bddace482729342ba6737e051080",
+  "tests/cloudflare-d1-recovery-readiness-g5.test.js":"bd790723ad6b6611a43dc3f8e708e208a8391c5ee35e60e718ab641aa0011272",
+  "wrangler.production-initialize.jsonc":"00ac573c88506089f5927956a233089e743eab21ff6769a918b7877faf33a9d9",
+  "tests/cloudflare-prod-d1-init-g5.test.js":"18f206c4c246228d6490c62d48683f765c93f01ab053a75315b4c3331a78df6f",
   "tests/cloudflare-staging-live-readonly-g1.test.js":"146e717387d996760984235d79a2e3bb54c16dfd2041900a920825eb6e4807e6",
   "cloudflare/stocktake-write-internal.mjs":"1baad7bf400d2d1fa4abe8925908054383529120c8151547e325ac99796bde7b",
   "tests/cloudflare-d1-stocktake-write-internal.test.js":"98f5a17dc1c64d458fd52f5a605ebfcedf5d4e4ebcfcc58f5b9da67c5a09f024",

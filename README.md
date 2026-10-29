@@ -1,6 +1,13 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
-> 2026-10-29 P0 G0：新增需人員確認及專用唯讀 Cloudflare Token 的 Worker 公開路由 metadata 清查流程，尚未實際呼叫 Cloudflare。輸出為分類與筆數，不代表所有網址和 Access policy 已安全通過。正式 Login／Writes 繼續禁用。
+> 2026-10-29 P0 G0 / PR #41（新主線重整）：新增只讀 Cloudflare Worker Scripts、Domain、Zone Routes、workers.dev / Preview URLs 暴露面盤查程式、合成測試與僅 main 手動執行的受保護 Workflow。G1 Staging 唯讀 Run #40854101717 已實際 PASS；G5 真正 disposable D1 Remote Restore 仍未執行。此 PR 未實際向 Cloudflare API 查詢，且不構成 Cloudflare Access / G0 簽核。Production Workers 最新 main Build 回報 Success，但實際 Serving version、流量與 HTTP Fail-Closed 證據仍需人工核對；正式 Login/Write 持續 disabled。重整後 PR HEAD Hosted CI / Codex Review 待重新驗證，未授權不得 Merge。
+
+
+> 2026-10-29 G5：正式 Production Time Travel 唯讀能力已於 Run #40872307187 實證 PASS；另新增**全新 disposable D1** 的真實遠端 Restore 演練工具與人工雙環境授權工作流程。**尚未建立或核准演練資料庫 ID**，所有遠端操作預設拒絕；必須另開 Pin ID PR、CI/Review、受保護 Environment 和人工授權。這不表示已恢復正式資料或可以初始化 Production。詳見 `docs/Cloudflare-G5-Disposable-D1-Real-Restore-Drill.md`。
+
+> 2026-10-29 P0 G5：新增 Production D1 Time Travel **唯讀**能力與 Bookmark 可取得性的手動檢查，以及無雲端憑證的隔離合成 SQLite Snapshot/Restore。這**不是** Cloudflare 遠端 Restore、加密異地備份或復原演練放行；正式 Migration、Owner 建立、登入與寫入均維持禁用。詳見 `docs/Cloudflare-G5-D1-Recovery-Readiness-and-Drill.md`。
+
+> 2026-10-29 P0 G5：新增 Production D1 空庫首次初始化的手動嚴格關卡（`d1-production-initialize-g5.yml`），含唯讀預檢、固定 DB 身分、`0001`/`0002` SHA 白名單、人工簽核及復原演練開關。**提交和合併不會自動執行 Production migration**；正式登入與業務寫入仍保持禁止。詳見 `docs/Cloudflare-G5-Production-D1-First-Init-Safety-Gates.md`。
 
 > 2026-10-29 P0 G1：新增手動遠端只讀驗收 .github/workflows/d1-staging-live-readonly-g1.yml，核對 Staging D1 v3 Schema、0001/0002 Migration、登入索引、外鍵、Owner 彙總；目前尚未實際觸發遠端執行。正式 Cloudflare Login／Writes 仍維持禁止。
 

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-30 P0 G5 / #46：使用者提供新建 disposable Cloudflare D1 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`。實際 main `32693574cdbc95838d5697e95a0ac76564ab23a2`，PR #45 已 Squash Merge，後續 Main CI #40906680916 completed/success 5/5 PASS，Workers Builds success。本次**獨立 Pin-ID PR** 僅改 `cloudflare/recovery-drill-target.json`、配套 tests、閉鎖 SHA-256 指紋與文件：固定新 UUID，防止 Production (`b882a6e8-0e56-49a6-bd41-1a6cadd726c9`) / Staging (`2c355bed-d9c3-449c-aa9b-1018f3bc1177`) 誤操作。**尚未由 Cloudflare API 實證名稱／UUID／後端／資料庫空白狀態**；GitHub PIN 驗證不代表遠端 inspect 成功。未建立或改動任何資料庫、未設定 Environments/Token、未執行 Restore/Migration/Owner/正式 login/write。PR Head Hosted CI/正式 Codex Review 尚待完成，使用者另需授權 Merge。下一步若 Merge，先配置保護的 `d1-recovery-drill-readonly` Environment 及獨立 Read Token，人工執行 `inspect`（`CHECK_DISPOSABLE_D1_READONLY`）；破壞性 `drill` 一律需不同 Write Environment、使用者另一明確授權。G5 Production 空庫 Run #40865818477 attempt 3 與 Time Travel Read-only Run #40872307187 均實證 PASS，但不是 Restore 實證。
+
+
 - 2026-10-29 G5 Production Time Travel Read-only Run #40872307187 真實 PASS（metadata production backend/bookmark 與合成 SQLite），PR #44 Squash Merged main `468e64753db89be650def8a7dd735c67cdde93a9` 且 Postmerge CI #40870570004 success。**本次新階段**：新增只允許另經 PR 審核且固定 UUID 的全新 disposable Cloudflare D1 `restaurant-business-g5-disposable-recovery-drill` 執行的真正遠端 Restore 測試工具＋手動 Workflow＋合成 API 模擬測試。當前 `cloudflare/recovery-drill-target.json` 的 database_id 為 `PENDING_SEPARATE_REVIEWED_TARGET_PR`，全部遠端 inspect/drill 均 Fail Closed；使用者尚未建立新演練庫，也未授權任何 Remote D1 Restore。後續先人工建立獨立空庫、另開 PR Pin DB UUID 並 Review、設置分離的 `d1-recovery-drill-readonly` / `d1-recovery-drill-write` 受保護 Environments 與分離讀寫 Token，再手動 inspect 取得實際證據，最後需**另一次明確的演練庫 Restore 授權**才可跑 drill。Production/Staging DB ID 永遠被排除；沒有執行 Production Migration／還原／Owner/bootstrap，正式 Login/Write 繼續 disabled。獨立雲端演練也不能替代加密異地備份、RPO/RTO、Owner 恢復簽核。PR #41 G0 仍 Open、Issue #42 Cloudflare Workers Build 外部阻斷待單獨追蹤。新 PR CI/Codex 最新 HEAD 尚待核驗，沒有 Merge 授權。
 
 

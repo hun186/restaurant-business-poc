@@ -1,0 +1,45 @@
+name: Cloudflare G0 Worker exposure inventory (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_G0_READONLY (metadata only; never deployment)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-cloudflare-g0-readonly-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_G0_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: cloudflare-g0-readonly
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed before running token-bearing code
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Query Cloudflare metadata using read-only token, never deploy
+        shell: bash
+        env:
+          G0_READONLY_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_G0_READONLY_TOKEN }}
+        run: |
+          set -euo pipefail
+          node tools/cloudflare-g0-remote-inventory.mjs inspect
+          echo 'G0_INVENTORY_COLLECTED_NOT_RELEASE_CERTIFIED'

@@ -2,6 +2,8 @@
 
 ## Current State
 
+> 2026-10-30 / PR #41 G0 整合至最新 main（已含 PR #47 的隔離式 D1 Pin UUID）：新增固定 Cloudflare GET only 的 Worker/Domain/Zone 公開暴露面盤點、主線人工 Protected Environment 工作流程、synthetic total_count/多頁 fail-closed 測試及 reviewed SHA-256 allowlist。PR #41 前一 HEAD 903d15d 已通過 Verify 5/5、Workers Build 與 Codex 無 Findings；本整合 HEAD 須重新 Hosted CI + 正式 Codex Review，未通過前不可 Squash Merge。PR #47 已合併，但**未對真正 Cloudflare D1 API 做 remote inspect 或 Restore**。G0 仍未實際運行，Access / 正式登入寫入不可宣稱開放。
+
 > 2026-10-30 P0 G5 / #46：使用者提供新建 disposable Cloudflare D1 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`。實際 main `32693574cdbc95838d5697e95a0ac76564ab23a2`，PR #45 已 Squash Merge，後續 Main CI #40906680916 completed/success 5/5 PASS，Workers Builds success。本次**獨立 Pin-ID PR** 僅改 `cloudflare/recovery-drill-target.json`、配套 tests、閉鎖 SHA-256 指紋與文件：固定新 UUID，防止 Production (`b882a6e8-0e56-49a6-bd41-1a6cadd726c9`) / Staging (`2c355bed-d9c3-449c-aa9b-1018f3bc1177`) 誤操作。**尚未由 Cloudflare API 實證名稱／UUID／後端／資料庫空白狀態**；GitHub PIN 驗證不代表遠端 inspect 成功。未建立或改動任何資料庫、未設定 Environments/Token、未執行 Restore/Migration/Owner/正式 login/write。PR Head Hosted CI/正式 Codex Review 尚待完成，使用者另需授權 Merge。下一步若 Merge，先配置保護的 `d1-recovery-drill-readonly` Environment 及獨立 Read Token，人工執行 `inspect`（`CHECK_DISPOSABLE_D1_READONLY`）；破壞性 `drill` 一律需不同 Write Environment、使用者另一明確授權。G5 Production 空庫 Run #40865818477 attempt 3 與 Time Travel Read-only Run #40872307187 均實證 PASS，但不是 Restore 實證。
 
 

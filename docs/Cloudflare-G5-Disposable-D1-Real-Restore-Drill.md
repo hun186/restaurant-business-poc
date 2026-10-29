@@ -17,9 +17,21 @@ Cloudflare 的 `POST /accounts/{account}/d1/database/{id}/time_travel/restore?bo
 ## 階段 2：正式執行前唯讀 Inspect
 從 GitHub Actions `G5 isolated disposable D1 Time Travel restore rehearsal (manual gated)` 選 branch `main`、mode=`inspect`、confirm=`CHECK_DISPOSABLE_D1_READONLY`，其餘兩欄空白。這只檢查 Metadata 固定 UUID／名稱／`production` backend、`sqlite_master` 只含 D1 保留 `_cf_KV`、`PRAGMA quick_check=ok`、Time Travel Bookmark 可取；唯讀 SQL 是透過 Cloudflare `/query` 的 POST API 發送，沒有 SQL 異動。執行成功才可記為 `G5_DISPOSABLE_D1_PRISTINE_READONLY_PASS`，仍**不是 Restore 通過**。
 
+## 2026-10-30｜G5 寫入前獨立人工隔離確認（本次尚未獲 Restore 授權）
+
+遠端唯讀 Inspect [Run #40914927490 Attempt 2](https://github.com/hun186/restaurant-business-poc/actions/runs/40914927490/attempts/2) **已實際 PASS**；Drill job skipped。這只能證明 D1 metadata、空白 Schema、quick_check、Bookmark，**不能**判定沒有 Worker D1 binding 或其他操作者，也不能當作 Restore PASS。
+
+新增兩項每次 `mode=drill` 都要人工輸入的 typed attestations。這是 **GitHub 流程保護，不是 Cloudflare 機器自動驗證**，必須由獨立審批人在 Cloudflare Dashboard 檢查並於私有變更單保留時間、審批人及查核證據：
+1. `binding_attestation=NO_DISPOSABLE_D1_WORKER_BINDING`：逐一確認此 disposable D1 未被任何正式／測試 Worker 或 Pages 服務、任何其他營運工具綁定；尤其檢查 Worker 的 D1 bindings、版本與環境，並確認無其他 script 正使用此 DB UUID。
+2. `exclusive_use_attestation=DISPOSABLE_D1_NO_CONCURRENT_USERS`：確認只有合成資料，沒有真實業務資料、使用者或並行 Cloudflare Console/API 編輯，並建立維護窗口與停止其他操作者的方式。
+
+缺任一字串，Inspect-for-drill 與 Write Job 的 job guard 都拒絕；即使流程被改變，Write Token 注入前的 approval gate 與 CLI 仍再次查驗。**Typed attestation 不會自動發現未知 Worker binding，因此沒有獨立的 Cloudflare 實證與人工審批時，不得填入這兩個值。**
+
+正式授權前，`G5_DRILL_RESTORE_APPROVED` 仍不得設定；不預先常駐放置 D1 Write Token。Account-scoped D1 Write Token 仍可能影響同帳戶其他資料庫；固定 UUID 是程式內安全界線，若需平台層強制隔離，改以獨立 Cloudflare 帳戶演練並另行 Pin UUID／Review。失敗或逾時不得重新觸發破壞性演練，先人工查明狀態。
+
 ## 階段 3：另行明確批准的破壞性演練
 **此階段絕不能因 PR Merge 或 inspect PASS 而自動執行**。確定新資料庫可以丟棄、其他操作者不會同時寫入、停損與證據保管責任人後，需使用者明確批准本次 `drill`。
-先在受保護的 `d1-recovery-drill-write` Environment 設定非秘密 Variables：`G5_DRILL_RELEASE_SHA` = 最新已審查 main 完整 SHA、`G5_DRILL_APPROVED_DB_ID` = 本次已在 pin PR 審核的新演練 DB UUID、`G5_DRILL_RESTORE_APPROVED` = `DISPOSABLE_RESTORE_AUTHORIZED`。GitHub Dispatch 選 `mode=drill`、`confirm=RESTORE_DISPOSABLE_D1_ONLY`、`expected_sha` 填同一完整 SHA、`expected_drill_id` 填同一演練 UUID。只有此工作流程的 `inspect` Job 先通過、受保護 Write Environment 審批、SHA 與雙方 UUID 完整一致，才可執行演練。需另核對 Github Action 時間、執行者、受控變更窗口。
+先在受保護的 `d1-recovery-drill-write` Environment 設定非秘密 Variables：`G5_DRILL_RELEASE_SHA` = 最新已審查 main 完整 SHA、`G5_DRILL_APPROVED_DB_ID` = 本次已在 pin PR 審核的新演練 DB UUID、`G5_DRILL_RESTORE_APPROVED` = `DISPOSABLE_RESTORE_AUTHORIZED`。GitHub Dispatch 選 `mode=drill`、`confirm=RESTORE_DISPOSABLE_D1_ONLY`、`expected_sha` 填同一完整 SHA、`expected_drill_id` 填同一演練 UUID，並在獨立查核完成後填寫 `binding_attestation` 與 `exclusive_use_attestation` 兩個指定字串。只有此工作流程的 `inspect` Job 先通過、受保護 Write Environment 審批、SHA 與雙方 UUID 完整一致，才可執行演練。需另核對 Github Action 時間、執行者、受控變更窗口。
 演練程式再次查驗 DB Metadata、空庫與 quick_check，**只在此新演練庫**建立固定的 `g5_disposable_probe` 虛構資料表及基準資料，取當下 Bookmark 後改寫資料、加入第二筆虛構資料，透過 Cloudflare Restore API 還原至 Bookmark，最後驗證基準資料保留、變更消失及 quick_check OK。只回報狀態及此次 Restore+Verify 毫秒；**不回傳或記錄 Bookmark、資料庫 UUID、API 錯誤內容或原始 SQL rows**。
 任一步失敗時會 Fail Closed，**不自動 Retry、不清空演練庫、不自動回退**。人工保存 GitHub Run 與 Cloudflare 控制台證據，依獨立停損流程判定演練庫狀態；如果該庫已寫入合成資料，不可重跑空庫演練，需另建全新經審查 Pin 的資料庫。
 

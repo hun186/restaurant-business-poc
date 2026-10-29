@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> 2026-10-29 P0 G0：新增需人員確認及專用唯讀 Cloudflare Token 的 Worker 公開路由 metadata 清查流程，尚未實際呼叫 Cloudflare。輸出為分類與筆數，不代表所有網址和 Access policy 已安全通過。正式 Login／Writes 繼續禁用。
+
 > 2026-10-29 P0 G1：新增手動遠端只讀驗收 .github/workflows/d1-staging-live-readonly-g1.yml，核對 Staging D1 v3 Schema、0001/0002 Migration、登入索引、外鍵、Owner 彙總；目前尚未實際觸發遠端執行。正式 Cloudflare Login／Writes 仍維持禁止。
 
 > 2026-10-29 P0 #34：新增 `cloudflare/stocktake-write-internal.mjs` 的 D1 盤點確認內部原型，支援校驗帳面庫存、原子性調整流水與稽核（合成資料測試）。**尚未接入公開 Cloudflare Worker**；正式 `/api/command` 仍回 503，不能輸入正式營運資料。

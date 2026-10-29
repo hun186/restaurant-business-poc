@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"dd91d3380d23d5ee9aa278ac466f2915a4394a8cb215f5e7adc788b8ebe8c166"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/cloudflare-g0-readonly-inventory.yml":"3eae225c854c8ddc3184e096bcf2433efe2fe9de2d29becb683199b63440227d",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
   ".github/workflows/verify.yml":"5fe5443aad6d62b183a1f78fdedfd8902789ea7a7173cac9aefb958a120ff296",
   ".github/workflows/d1-staging-migration.yml":"24171173e1030ef0bf15e7012f537300b1d2c335c71664da13b6e0383b2e3e98",
@@ -15,6 +16,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-g0-remote-inventory.mjs":"72ab683391bceaaa6c31d4e95f2d9c7179f885918ce2e2c1757686ecb7fedf89",
   "tools/cloudflare-staging-live-audit.mjs":"b705c0e267e2bdac7e4a2d8c3729515c53c8d490bfca185b032d5a589d7f9ceb",
   "package.json":"f7bda1324405bc207b0f5cea11c3e8d469b3503481343de9b09ceb40e859de79",
   "tools/backup.js":"cc97f66092ceaeaa369e36d389c0633b64f3d85c72e57f939900b57561cb4cfc",
@@ -36,6 +38,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-g0-remote-inventory.test.js":"8b0fa49161410352be1f453f343f0ce9bcbe09257ca133d1752dd93668fd9a92",
   "tests/cloudflare-staging-live-readonly-g1.test.js":"146e717387d996760984235d79a2e3bb54c16dfd2041900a920825eb6e4807e6",
   "cloudflare/stocktake-write-internal.mjs":"1baad7bf400d2d1fa4abe8925908054383529120c8151547e325ac99796bde7b",
   "tests/cloudflare-d1-stocktake-write-internal.test.js":"98f5a17dc1c64d458fd52f5a605ebfcedf5d4e4ebcfcc58f5b9da67c5a09f024",

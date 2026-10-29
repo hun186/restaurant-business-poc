@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-29 P0 G0：Cloudflare 曝露面唯讀盤點程式與手動 workflow（code only，未執行 Cloudflare API）；G1 Remote Staging D1 尚未執行，G0 URL / Access / Hosted CPU / G3–G6 不得標示通過。
+
+
 > P0 #34 G1（2026-10-29）：新增手動 Cloudflare Staging D1 只讀遠端驗收 Workflow / 離線 Schema Guard；只有 code，尚未遠端執行。其他 G0 G2 G3 G4 G5 G6 尚未完成，不得開放正式登入。
 
 

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29 P0 #34：PR #38 已 Squash Merge `5a2daeb2a63395fcfe1e90ce2393ccbfd4fb91b3`；合併後 Main CI #40825398666 啟動，實際結論須重新向 GitHub 核對。下一增量：D1 **盤點確認＋差額庫存流水＋稽核**內部原型，雙守衛 `CLOUD_AUTH_PHASE=preview-readonly` / `STOCKTAKE_WRITE_STAGE=internal-test-only`，**未接公開 Worker**。在 D1.batch 內以 NOT NULL constraint 重驗有效 Session/角色/門市/食材、盤點 pending、帳面與 expected_qty 差異不得超過 1e-6、禁止已有相同盤點 adjustment。差額為零不建立 stock_moves；差額非零建立一筆 adjustment 並驗證 confirmed 結果與最終庫存。合成回歸包含過期、跨店、競態與各階段故障回滾；並不代表遠端 Cloudflare D1／正式 Login／Access／備份／UAT 完成。待新 HEAD Hosted CI 與正式 Codex Review；未經使用者同意不得 Merge。
+
+
 - 2026-10-29｜P0 #34：PR #37 Squash Merge `6b02c8a7b701ed2b1900f9ceb24afde7da5e3938`，合併後 Main CI #40813298768 5/5 PASS。本輪新增未接上公開 Worker 的 D1 多品項單據整張核准／收貨內部原型：由 SQL NOT NULL constraint 在 batch 交易內檢查完整品項、連號、同一門市與廠商、授權／Session、既有 stock_moves，任何異常必須觸發整批 SQL 交易回滾；收貨使用一個 INSERT…SELECT 全項入帳並檢查狀態，原則上避免 D1 0-row 不回滾缺陷。`GROUP_ORDER_WRITE_STAGE=internal-test-only` 與 `CLOUD_AUTH_PHASE=preview-readonly` 雙守衛。僅測合成資料、未操作 Cloudflare Remote D1，Production `/api/command` 仍 503。最新 HEAD CI／正式 Codex Review 和 Merge 待驗證／授權。
 
 

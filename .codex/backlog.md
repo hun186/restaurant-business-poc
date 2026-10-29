@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-29 G5：Production 空庫遠端唯讀 Run #40865818477 Attempt 3 PASS；本輪開發 Time Travel metadata/bookmark **read-only capability** + 完全隔離 SQLite 合成還原，尚未 Cloudflare 實際 Restore，未完成遠端演練/加密異地備份/RPO/RTO/簽核。Production Migration 仍禁止執行。
+
+
 > 2026-10-29 P0 G5：Production D1 初次 Schema 安全流程程式開發（含獨立 read-only preflight / 人工簽核 apply）已提交本輪工作，**真實 Prod 仍空庫，沒有跑 Migration**。G1 Staging 遠端只讀子關卡 Run #40854101717 實際 PASS；G0/G2–G6 未整體通過。不得開放 login/write；實際 Production apply 另需使用者獨立授權及回復演練證據。
 
 

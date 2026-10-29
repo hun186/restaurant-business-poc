@@ -1,0 +1,53 @@
+name: G5 Production D1 Time Travel capability and isolated synthetic restore (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_PROD_D1_RECOVERY_READONLY (NO Production restore)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Serialize against the Production initialization workflow even for read-only inspection.
+concurrency:
+  group: restaurant-business-production-d1-initialization
+  cancel-in-progress: false
+
+jobs:
+  recovery-readonly:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_PROD_D1_RECOVERY_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: d1-production-readonly
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify reviewed scripts and workflow against closed SHA-256 inventory
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Isolated synthetic SQLite snapshot and restore (no Cloudflare credentials)
+        run: node tools/cloudflare-d1-recovery-readiness.mjs synthetic
+      - name: Verify fixed Production database identity before API token is available
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-prod-d1-init.mjs config
+      - name: Read-only Cloudflare API backend and current Time Travel bookmark
+        shell: bash
+        env:
+          G5_RECOVERY_READONLY_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$CLOUDFLARE_API_TOKEN" ]]
+          node tools/cloudflare-d1-recovery-readiness.mjs remote
+          echo 'G5_TIME_TRAVEL_METADATA_READONLY_PASS; remote restore and offsite backup NOT verified.'

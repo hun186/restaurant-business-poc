@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-30 / #46：G5 disposable D1 **Pin-ID PR 待審**：UUID 已由使用者提供，未經 Cloudflare API 唯讀核對；main 目前仍為 PENDING 占位，僅 PR 提議納入新 UUID。必須通過 Hosted CI / 正式 Codex Review 並由使用者另授權 Merge。然後人工先做唯讀 inspect；任何 remote drill/Production migration/login/write 都禁止提前執行。
+
+
 > G5 2026-10-29：Time Travel Read-only Live Run #40872307187 PASS。新增 **獨立 disposable D1 Restore 演練**的合成測試／安全 Workflow（code only），等待另建實際 Cloudflare 演練庫、PR 審查 Pin UUID、受保護 Environment、Token、人工 inspect 與 write/Restore 授權。Production / Staging 仍不得 Restore、Production Migration / 登入仍禁用。
 
 

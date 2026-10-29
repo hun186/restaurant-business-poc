@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29｜P0 #34：PR #37 Squash Merge `6b02c8a7b701ed2b1900f9ceb24afde7da5e3938`，合併後 Main CI #40813298768 5/5 PASS。本輪新增未接上公開 Worker 的 D1 多品項單據整張核准／收貨內部原型：由 SQL NOT NULL constraint 在 batch 交易內檢查完整品項、連號、同一門市與廠商、授權／Session、既有 stock_moves，任何異常必須觸發整批 SQL 交易回滾；收貨使用一個 INSERT…SELECT 全項入帳並檢查狀態，原則上避免 D1 0-row 不回滾缺陷。`GROUP_ORDER_WRITE_STAGE=internal-test-only` 與 `CLOUD_AUTH_PHASE=preview-readonly` 雙守衛。僅測合成資料、未操作 Cloudflare Remote D1，Production `/api/command` 仍 503。最新 HEAD CI／正式 Codex Review 和 Merge 待驗證／授權。
+
+
 - 2026-10-29｜PR #37 HEAD `508248f166739288355739c82082b1d3a2d0b912` 首輪正式 Codex Review Completed，P2：Session 於批次建構時過期，兩次 condition() 採不同到期時間，D1.batch 將稽核/庫存記入但最終狀態更新 0 筆，卻已 Commit。本增量改用單一 `expiryCutoff` 傳至所有 SQL 述句；新增 Controlled Clock 模擬到期邊界，要求 audit + stock + status 全數同步成功；同步封閉 SHA 清單。修正後最新 HEAD Hosted CI 和正式 Codex 複審待驗，PR Open 未合併；正式 Cloudflare API 仍 503。
 
 

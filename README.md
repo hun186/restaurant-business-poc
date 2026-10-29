@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> 2026-10-29 P0 #34：多品項叫貨整張核准／驗收入庫的內部 D1 原型在 `cloudflare/group-order-write-internal.mjs`，**未匯入公開 Worker 或啟用正式登入／寫入**。僅透過合成 SQLite/D1 測試；仍缺真正 Access、Production D1、備份／還原與業主 UAT。
+
 > P0 #34（2026-10-29）：D1 單品項叫貨核准/驗收內部交易原型在 `cloudflare/order-write-internal.mjs`，**未接公開路由**；不包含多品項批次單驗收、進價/成本寫回或正式營運。`CLOUD_AUTH_PHASE=disabled` 的 Production `/api/command` 仍回 503，沒有開放真實登入或庫存異動。
 
 > 2026-10-29 P0 #34：D1 正式營運尚未開通。新增的 `cloudflare/task-write-internal.mjs` 僅供內部合成測試的稽核原子性實驗，**沒有連到公開 Worker**；`/api/command` 仍回 503。不可將其解讀為業主已可登入或寫入正式 D1。

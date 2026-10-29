@@ -2,6 +2,9 @@
 
 ## Current State
 
+> 2026-10-29｜P0 #34：PR #37 Squash Merge `6b02c8a7b701ed2b1900f9ceb24afde7da5e3938`，合併後 Main CI #40813298768 5/5 PASS。本輪新增未接上公開 Worker 的 D1 多品項單據整張核准／收貨內部原型：由 SQL NOT NULL constraint 在 batch 交易內檢查完整品項、連號、同一門市與廠商、授權／Session、既有 stock_moves，任何異常必須觸發整批 SQL 交易回滾；收貨使用一個 INSERT…SELECT 全項入帳並檢查狀態，原則上避免 D1 0-row 不回滾缺陷。`GROUP_ORDER_WRITE_STAGE=internal-test-only` 與 `CLOUD_AUTH_PHASE=preview-readonly` 雙守衛。僅測合成資料、未操作 Cloudflare Remote D1，Production `/api/command` 仍 503。最新 HEAD CI／正式 Codex Review 和 Merge 待驗證／授權。
+
+
 > 2026-10-29 P0 #34：已驗證 PR #36 Squash Merge，main `99450d54ba4a4114855bc8ed3c859543842281e0`；主線 Push CI #40793932322 5/5 PASS。下一增量為**不連接 public Worker**的 D1 單品項叫貨核准與收貨交易原型，必須 `CLOUD_AUTH_PHASE=preview-readonly` 且 `ORDER_WRITE_STAGE=internal-test-only`，使用合成資料測試權限、稽核、庫存流水和一次性驗收。整張多品項 POB 單拒絕逐行驗收；本增量不含進價/價格寫回、正式登入、D1 migration、真實 Cloudflare Access/Hosted CPU、業主 UAT。PR 未經使用者授權不得合併。
 
 

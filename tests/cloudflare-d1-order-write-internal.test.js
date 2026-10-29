@@ -204,6 +204,39 @@ test('role revocation or store shutdown between preliminary read and D1 batch fa
   }
 });
 
+test('one session-expiry cutoff across audit, stock movement and received status predicates',async t=>{
+  const f=await fixture(t);
+  f.db.prepare("UPDATE purchase_orders SET status='approved' WHERE id=?").run(f.ids.orderA);
+  const RealDate=global.Date;
+  const point=RealDate.now();
+  // Session starts valid but expires between two Date() reads. Prior code
+  // sampled Date separately in each condition() and committed a partial
+  // audit + stock credit while leaving the order approved.
+  f.db.prepare('UPDATE sessions SET expires_at=? WHERE user_id=?')
+    .run(new RealDate(point+1000).toISOString(),f.ids.manager);
+  let calls=0;
+  class AdvancingClock extends RealDate{
+    constructor(...args){
+      if(args.length) super(...args);
+      else super(++calls<=2 ? point : point+60000);
+    }
+    static now(){return point;}
+  }
+  let result;
+  try {
+    global.Date=AdvancingClock;
+    result=await request(f,'manager','order.receive',f.ids.orderA);
+  } finally {
+    global.Date=RealDate;
+  }
+  assert.equal(result.status,200,'receipt must not commit ledger without changing order state');
+  assert.equal(state(f,f.ids.orderA),'received');
+  assert.equal(moves(f).length,1);
+  assert.equal(audit(f).length,1);
+  assert.deepEqual(audit(f).map(a=>a.action),['order.receive']);
+  assert.equal(calls,2,'one principal validation and one shared transaction cutoff');
+});
+
 test('schema incompatible and changed order number before batch cannot cause partial receive',async t=>{
   const f=await fixture(t);
   f.db.prepare('DELETE FROM cloud_schema_contract').run();

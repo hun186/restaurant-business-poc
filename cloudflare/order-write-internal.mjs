@@ -34,14 +34,14 @@ async function parse(request) {
 // This SQL is repeated in every statement in a D1.batch transaction.
 // The database, not a browser role flag, rechecks the live user, session,
 // store grant, active store/ingredient and precise prior order state.
-function condition(principal,expected,{noLedger=false}={}) {
+function condition(principal,expected,expiryCutoff,{noLedger=false}={}) {
   let sql="o.id=? AND o.status=? AND o.qty>0 AND o.number NOT LIKE 'POB-%' "+
     'AND EXISTS (SELECT 1 FROM locations l JOIN ingredients i ON i.id=o.ingredient_id '+
     'WHERE l.id=o.location_id AND l.active=1 AND i.active=1) '+
     'AND EXISTS (SELECT 1 FROM users u JOIN sessions s ON s.user_id=u.id '+
     "WHERE u.id=? AND u.active=1 AND u.role=? AND u.role IN ('owner','manager') "+
     'AND s.token_hash=? AND s.expires_at>?)';
-  const args=[principal.id,principal.role,principal.token_hash,new Date().toISOString()];
+  const args=[principal.id,principal.role,principal.token_hash,expiryCutoff];
   if(principal.role!=='owner'){
     sql+=' AND EXISTS (SELECT 1 FROM user_locations ul JOIN locations l '+
       'ON l.id=ul.location_id WHERE ul.user_id=? AND ul.location_id=o.location_id AND l.active=1)';
@@ -79,7 +79,11 @@ export async function internalOrderMutation(request,env) {
     if(o.number.startsWith('POB-')) return response(409,{code:'E_GROUP_ORDER_REQUIRED'});
     if(o.status!==expected) return response(409,{code:'E_ORDER_STATE'});
     const isReceive=cmd.action==='order.receive';
-    const guard=condition(p,expected,{noLedger:isReceive});
+    // Capture the session-validity cutoff ONCE for every statement in this
+    // D1 batch. Otherwise expiry between statement construction may commit
+    // stock/audit writes while the final status update affects zero rows.
+    const expiryCutoff=new Date().toISOString();
+    const guard=condition(p,expected,expiryCutoff,{noLedger:isReceive});
     const params=[cmd.id,expected,...guard.args];
     const auditId=crypto.randomUUID();
     const detail=JSON.stringify({from:expected,to:isReceive?'received':'approved'});
@@ -104,7 +108,7 @@ export async function internalOrderMutation(request,env) {
       "SELECT ?,o.ingredient_id,o.location_id,o.qty,'purchase',o.id,?,? "+
       'FROM purchase_orders o WHERE '+guard.sql
     ).bind(moveId,'叫貨單驗收入庫',p.id,...params);
-    const after=condition(p,expected);
+    const after=condition(p,expected,expiryCutoff);
     const update=env.DB.prepare(
       "UPDATE purchase_orders AS o SET status='received',received_at=CURRENT_TIMESTAMP "+
       'WHERE '+after.sql+

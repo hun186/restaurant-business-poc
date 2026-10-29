@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+- 2026-10-29｜PR #37 HEAD `508248f166739288355739c82082b1d3a2d0b912` 首輪正式 Codex Review Completed，P2：Session 於批次建構時過期，兩次 condition() 採不同到期時間，D1.batch 將稽核/庫存記入但最終狀態更新 0 筆，卻已 Commit。本增量改用單一 `expiryCutoff` 傳至所有 SQL 述句；新增 Controlled Clock 模擬到期邊界，要求 audit + stock + status 全數同步成功；同步封閉 SHA 清單。修正後最新 HEAD Hosted CI 和正式 Codex 複審待驗，PR Open 未合併；正式 Cloudflare API 仍 503。
+
+
 - 2026-10-29 P0 #34：已驗證 PR #36 Squash Merge，main `99450d54ba4a4114855bc8ed3c859543842281e0`；主線 Push CI #40793932322 5/5 PASS。下一增量為**不連接 public Worker**的 D1 單品項叫貨核准與收貨交易原型，必須 `CLOUD_AUTH_PHASE=preview-readonly` 且 `ORDER_WRITE_STAGE=internal-test-only`，使用合成資料測試權限、稽核、庫存流水和一次性驗收。整張多品項 POB 單拒絕逐行驗收；本增量不含進價/價格寫回、正式登入、D1 migration、真實 Cloudflare Access/Hosted CPU、業主 UAT。PR 未經使用者授權不得合併。
 
 

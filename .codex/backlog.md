@@ -1,5 +1,8 @@
 # Backlog
 
+> G5 2026-10-29：Time Travel Read-only Live Run #40872307187 PASS。新增 **獨立 disposable D1 Restore 演練**的合成測試／安全 Workflow（code only），等待另建實際 Cloudflare 演練庫、PR 審查 Pin UUID、受保護 Environment、Token、人工 inspect 與 write/Restore 授權。Production / Staging 仍不得 Restore、Production Migration / 登入仍禁用。
+
+
 > 2026-10-29 G5：Production 空庫遠端唯讀 Run #40865818477 Attempt 3 PASS；本輪開發 Time Travel metadata/bookmark **read-only capability** + 完全隔離 SQLite 合成還原，尚未 Cloudflare 實際 Restore，未完成遠端演練/加密異地備份/RPO/RTO/簽核。Production Migration 仍禁止執行。
 
 

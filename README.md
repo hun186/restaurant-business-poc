@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> 2026-10-29 G5：正式 Production Time Travel 唯讀能力已於 Run #40872307187 實證 PASS；另新增**全新 disposable D1** 的真實遠端 Restore 演練工具與人工雙環境授權工作流程。**尚未建立或核准演練資料庫 ID**，所有遠端操作預設拒絕；必須另開 Pin ID PR、CI/Review、受保護 Environment 和人工授權。這不表示已恢復正式資料或可以初始化 Production。詳見 `docs/Cloudflare-G5-Disposable-D1-Real-Restore-Drill.md`。
+
 > 2026-10-29 P0 G5：新增 Production D1 Time Travel **唯讀**能力與 Bookmark 可取得性的手動檢查，以及無雲端憑證的隔離合成 SQLite Snapshot/Restore。這**不是** Cloudflare 遠端 Restore、加密異地備份或復原演練放行；正式 Migration、Owner 建立、登入與寫入均維持禁用。詳見 `docs/Cloudflare-G5-D1-Recovery-Readiness-and-Drill.md`。
 
 > 2026-10-29 P0 G5：新增 Production D1 空庫首次初始化的手動嚴格關卡（`d1-production-initialize-g5.yml`），含唯讀預檢、固定 DB 身分、`0001`/`0002` SHA 白名單、人工簽核及復原演練開關。**提交和合併不會自動執行 Production migration**；正式登入與業務寫入仍保持禁止。詳見 `docs/Cloudflare-G5-Production-D1-First-Init-Safety-Gates.md`。

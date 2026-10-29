@@ -1,0 +1,103 @@
+name: G5 isolated disposable D1 Time Travel restore rehearsal (manual gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        required: true
+        type: choice
+        description: 'inspect is read-only; drill destroys ONLY the enrolled disposable database'
+        options:
+          - inspect
+          - drill
+      confirm:
+        required: true
+        type: string
+        description: 'CHECK_DISPOSABLE_D1_READONLY or RESTORE_DISPOSABLE_D1_ONLY'
+      expected_sha:
+        required: false
+        type: string
+        description: 'drill only: exact reviewed 40-hex main SHA'
+      expected_drill_id:
+        required: false
+        type: string
+        description: 'drill only: approved disposable DB UUID; never production/staging'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-g5-disposable-d1-recovery
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+      ((inputs.mode == 'inspect' && inputs.confirm == 'CHECK_DISPOSABLE_D1_READONLY') ||
+       (inputs.mode == 'drill' && inputs.confirm == 'RESTORE_DISPOSABLE_D1_ONLY' &&
+         inputs.expected_sha == github.sha)) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: d1-recovery-drill-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed on unreviewed repository workflow, source or target change
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Inspect only approved new disposable D1
+        env:
+          G5_DRILL_CONFIRM: CHECK_DISPOSABLE_D1_READONLY
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_DRILL_READ_TOKEN }}
+        run: node tools/cloudflare-d1-disposable-drill.mjs inspect
+  drill:
+    if: ${{ github.ref == 'refs/heads/main' &&
+      inputs.mode == 'drill' &&
+      inputs.confirm == 'RESTORE_DISPOSABLE_D1_ONLY' &&
+      inputs.expected_sha == github.sha }}
+    needs: inspect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-recovery-drill-write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Independently verify reviewed source and immutable target
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Fail closed before any Cloudflare Write token is present
+        shell: bash
+        env:
+          REVIEWED_SHA: ${{ vars.G5_DRILL_RELEASE_SHA }}
+          REVIEWED_ID: ${{ vars.G5_DRILL_APPROVED_DB_ID }}
+          APPROVAL: ${{ vars.G5_DRILL_RESTORE_APPROVED }}
+          INPUT_SHA: ${{ inputs.expected_sha }}
+          INPUT_ID: ${{ inputs.expected_drill_id }}
+          BRANCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ -n "$REVIEWED_SHA" && "$REVIEWED_SHA" == "$INPUT_SHA" && "$REVIEWED_SHA" == "$BRANCH_SHA" &&
+             -n "$REVIEWED_ID" && "$REVIEWED_ID" == "$INPUT_ID" &&
+             "$APPROVAL" == 'DISPOSABLE_RESTORE_AUTHORIZED' ]] || {
+            echo 'G5_DISPOSABLE_RESTORE_APPROVAL_CLOSED'
+            exit 1
+          }
+      - name: Destructive restore only against pinned disposable database
+        env:
+          G5_DRILL_CONFIRM: ${{ inputs.confirm }}
+          G5_DRILL_APPROVED_SHA: ${{ vars.G5_DRILL_RELEASE_SHA }}
+          G5_DRILL_APPROVED_ID: ${{ vars.G5_DRILL_APPROVED_DB_ID }}
+          G5_DRILL_APPROVAL: ${{ vars.G5_DRILL_RESTORE_APPROVED }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_DRILL_WRITE_TOKEN }}
+        run: node tools/cloudflare-d1-disposable-drill.mjs drill

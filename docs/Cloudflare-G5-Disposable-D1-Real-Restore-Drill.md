@@ -7,7 +7,7 @@
 
 ## 風險與策略
 Cloudflare 的 `POST /accounts/{account}/d1/database/{id}/time_travel/restore?bookmark=...` **會覆寫目標資料庫**，不是 Clone。只允許在與正式／既有 Staging 完全不同的**新建、可丟棄、沒有任何真實資料**的 D1 演練庫執行。禁止對 `restaurant-business-prod`、`restaurant-business-staging` 執行 Restore，也禁止對它們建立／刪除資料表。
-目前已由使用者提供新建的演練庫 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`，已提交獨立 Pin-ID 審查 PR；**尚未透過 Cloudflare 實際唯讀 API 驗證 UUID 與資料庫名稱、production backend、空庫狀態或 Worker 綁定**。這次 GitHub Pin 不會查詢／寫入遠端 D1，也沒有執行 Restore、設定 Token／Environment；遠端復原實績及簽核仍未取得。
+新建演練庫 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198` 已透過獨立 PR #47 鎖定至 main。**2026-10-29 遠端唯讀 Inspect Run #40914927490 Attempt 2 真實 PASS**，已核對 Cloudflare D1 UUID、名稱、production backend、空白 Schema、quick_check 與 Bookmark；但它**無法驗證 Worker Binding、其他操作者或遠端 Restore**，也未執行任何 Cloudflare 寫入。Write Environment 配置、Token 寫入權限、遠端恢復及簽核仍未取得實證。
 
 ## 階段 1：人工建立與 Pin，另走新的 Code Review
 1. 由 Cloudflare 帳戶管理員在 Dashboard 的 D1 中**手動建立**全新空白資料庫，名稱必須完全等於 `restaurant-business-g5-disposable-recovery-drill`，且沒有 Worker 綁定、沒有員工／菜單／正式業務資料。不要複製 Production 或 Staging 資料，也不要從現有資料庫還原或 fork。需確認此庫支持 Time Travel 的 `version=production` backend。

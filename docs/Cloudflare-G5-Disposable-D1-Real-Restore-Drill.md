@@ -157,3 +157,14 @@ GitHub main `019b74b30b582e630aa4ee78aac6a969d1790676`（PR #54 合併，Postmer
 官方 [Pages List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 表示 `result_info.total_pages` 為 optional number，並不明示 nullable。基於其僅是可選的「總頁數提示」，本 PR 對其進行**窄幅相容**：只有 **undefined 或 null** 才會視為沒有可用提示，不使用它決定掃描頁數；實際預期最後頁始終以已**嚴格驗證**之 `result_info.total_count`（<=500）及 `per_page`（正整數 1..100）計算。若另提供 `total_pages`，必須是數字型別、正安全整數並與計算結果相同。錯誤型別拒絕並新增不洩露值的固定 `PAGE_TOTAL_PAGES_TYPE_INVALID`，非正整數仍為 `PAGE_TOTAL_PAGES_INVALID`，數字不一致仍為 `PAGE_TOTAL_PAGES_MISMATCH`。不接受字串數字、不做無條件忽略、不增加 GET 路徑或 Cloudflare Token scope。
 
 原有 GET-only `?page=N`、`page/count/per_page/total_count` 必填、跨頁總筆數與頁大小不變、每頁項目總數精確符合 total_count、缺頁、重複／不合法專案名稱、500 項上限與正式 Pages 部署版本 Binding 未驗證時的 Fail Closed 均保持。已新增單頁、零筆、兩頁、混合 nullable/undefined/正確值、缺少後頁、跨頁筆數變動、錯誤型別/值/重複專案名的合成回歸。SHA-256 manifest、.`codex` project memory/backlog 更新。**本 PR 尚未合併或遠端實測**；只有在最新 HEAD Hosted CI 5/5 PASS、正式 Codex Review 完成且無未解決 Findings、獲得使用者另一次 Merge 授權後，才能於最新 `main` 建立新的 Cloudflare G5 GET-only Run。若仍有 `PAGE_TOTAL_PAGES_TYPE_INVALID` 等，依下一次實際證據再處理；絕不能以測試過關宣稱 D1 Binding 安全、Pages 已部署版本完整或 Restore 可執行。禁止 D1 Restore、Production Migration／寫入及擴權。
+
+
+### 2026-10-30｜合併後最新 G5 仍失敗：僅空清單允許 total_pages=0
+
+最新 `main=233a1c1b58c3865884456d95b8f321764ec35aa5`（PR #57 授權 Squash Merged，[Postmerge Verify #41027139504](https://github.com/hun186/restaurant-business-poc/actions/runs/41027139504) completed/success）。新的真人觸發 Cloudflare GET-only [G5 Run #41027408751](https://github.com/hun186/restaurant-business-poc/actions/runs/41027408751) 使用相同 SHA、run_attempt=1，靜態預檢 PASS，但 **`G5_BINDINGS_READONLY_FAILED stage=PAGES_LIST reason=VALIDATION_FAILED validation_code=PAGE_TOTAL_PAGES_INVALID`**。PR #57 已將 null/undefined 視為缺少選填提示，其他型別則回傳不同的 `PAGE_TOTAL_PAGES_TYPE_INVALID`；這次同一錯誤代表資料在既有檢查中屬 **number 但不是非零正安全整數**（例如 0、負數或小數）。API 原始值未輸出，因此**不能斷言實際回傳是零，也不能斷言帳號沒有 Pages 專案**。
+
+Cloudflare 官方 [Pages Projects List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 將 `result_info.total_pages` 定為 optional number，但未保證空清單以零表達。出於數學上「總項目數零對應總頁數零」與空集合處理相容性，本次採**窄幅、有條件**修正：只在已通過檢查的 `page=1`、`total_count=0`、`count=0`、`result=[]`、合法 `per_page` 同時成立時接受 `total_pages=0`；不會跳過第一頁 GET。若 `total_count>0`、結果非空、非第一頁或 `count` 不符，任何 `total_pages=0` 仍 Fail Closed（`PAGE_TOTAL_PAGES_MISMATCH` 或既有頁數／筆數錯誤）。所有負數、小數、錯誤型別及與 `ceil(total_count/per_page)` 不一致的正整數都拒絕；null/undefined 仍由已嚴格驗證的 total_count/per_page 驅動逐頁掃描。
+
+保留 Pages GET-only `?page=N`、總數 max 500、必填 `result_info.page/per_page/count/total_count`、跨頁總數及單頁大小一致、精確數量與無重複項目、Worker Versions 不變，還有 **Pages configured bindings 不是已部署版本直接綁定的證據**的原有保守狀態。合成測試驗證空清單接受零、非空/跨頁零拒絕、錯誤型別/負數/小數/矛盾計數拒絕，並更新 manifest SHA-256、memory/backlog。
+
+此次修正屬**假設性相容性修補**而非已證實的 Cloudflare 回應值；必須完成最新 HEAD Hosted Verify + 正式 Codex Review、經使用者再次明確授權 Merge、再以最新 `main` 開新的 GET-only G5 Run 才能知道真正遠端結果。不得操作 Restore、D1 寫入、正式 Production Migration 或擴大 Cloudflare Token 權限。

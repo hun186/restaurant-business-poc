@@ -141,15 +141,25 @@ export async function collectBindingInventory(pin,get){
   need(obj(p)&&p.name===name);
   bindingsFound+=checkPagesConfig(p,id);
  }
+ // Current Pages deployment_configs are NOT the immutable bindings of
+ // already-serving Pages deployments. A project can have no *current* D1
+ // binding while a deployed Functions version still uses the disposable D1.
+ // Cloudflare Pages Read does not establish effective per-deployment binding
+ // coverage here: never emit a "no direct binding" result when ANY Pages
+ // project exists. Manual deployed-version evidence is a separate gate.
+ const pagesDeploymentsVerified=projectNames.length===0;
+ const noDirectBindingDetected=bindingsFound===0&&pagesDeploymentsVerified;
  return Object.freeze({
   status:bindingsFound?'G5_DISPOSABLE_D1_DIRECT_BINDING_FOUND':
+   !pagesDeploymentsVerified?'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED':
    'G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED',
   worker_scripts_checked:names.length,
   worker_versions_checked:versionsChecked,
   pages_projects_checked:projectNames.length,
+  pages_deployment_bindings_verified:pagesDeploymentsVerified,
   direct_binding_matches:bindingsFound,
-  no_direct_binding_detected:bindingsFound===0,
-  direct_binding_inventory_collected:true,
+  no_direct_binding_detected:noDirectBindingDetected,
+  direct_binding_inventory_collected:pagesDeploymentsVerified,
   no_indirect_service_access_certified:false,
   independent_human_attestation_completed:false,
   exclusive_use_verified:false,

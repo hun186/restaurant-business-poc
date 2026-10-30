@@ -20,7 +20,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
-  "tools/cloudflare-g5-binding-inventory.mjs":"71028ad817e54f56110b80043be5e7fc5f9ea5e8431a91b3f978a2f02b7cb6b3",
+  "tools/cloudflare-g5-binding-inventory.mjs":"eea0ed20d1599aba2ed009b9e64418b19e71eb80c78579ad65815155b6cec860",
   "tools/cloudflare-g0-remote-inventory.mjs":"a6c72cf276353f5ae37ec6e197712bffa759b8d4be5d432324a2a41d4813b992",
   "tools/cloudflare-d1-disposable-drill.mjs":"30e31cc736603807075f75bb587665e7f15fb6e15106596ec0ce595cbcac4f12",
   "tools/cloudflare-d1-recovery-readiness.mjs":"93805be3ea8b1c5b588362300984fb60e6b2ceff9d993c98893f63b7a8ce5954",

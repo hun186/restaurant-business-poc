@@ -47,6 +47,33 @@ function httpReason(status){
 }
 function need(ok){if(!ok)fail();}
 function obj(x){return x!==null&&typeof x==='object'&&!Array.isArray(x);}
+// Diagnostic ONLY: one extra Pages List GET without query parameters if and
+// only if the first paginated request fails with HTTP 400. The bare response
+// must never be used as a substitute for strict, complete pagination.
+// Returned categories are hard-coded and disclose no API response content.
+const BARE_PAGES_PATH='/accounts/'+ACCOUNT_ID+'/pages/projects';
+const FIRST_PAGED_PAGES_PATH=BARE_PAGES_PATH+'?page=1&per_page='+PAGES_PAGE;
+export async function probeBarePagesProjects(get){
+ need(typeof get==='function');
+ try{
+  const response=await get(BARE_PAGES_PATH);
+  if(!obj(response)||response.success!==true)
+   return obj(response)&&response.success===false?'API_DECLINED':'BODY_INVALID';
+  return Array.isArray(response.result)?'OK':'BODY_INVALID';
+ }catch(err){
+  return SAFE_REASONS.has(err?.g5Reason)?err.g5Reason:'VALIDATION_FAILED';
+ }
+}
+export async function readWithPagesDifferential(get,p,record){
+ need(typeof get==='function'&&typeof record==='function');
+ try{return await get(p);}catch(err){
+  if(p===FIRST_PAGED_PAGES_PATH&&err?.g5Reason==='HTTP_BAD_REQUEST'){
+   const outcome=await probeBarePagesProjects(get);
+   record(outcome);
+  }
+  throw err; // Always fail closed; a successful bare GET is NOT a full scan.
+ }
+}
 function result(r){need(obj(r)&&r.success===true&&r.result!==null&&typeof r.result==='object');return r.result;}
 function pagination(r,page,perPage,count){
  const i=r.result_info;
@@ -224,7 +251,7 @@ export async function cloudflareReadOnlyGET(p,token,fetchImpl=fetch){
 }
 const file=fileURLToPath(import.meta.url);
 if(process.argv[1]&&path.resolve(process.argv[1])===file){
- let stage='PRECONDITIONS',reason='VALIDATION_FAILED';
+ let stage='PRECONDITIONS',reason='VALIDATION_FAILED',bareProbe=null;
  try{
   need(process.argv.length===3&&process.argv[2]==='inspect'&&
    process.env.GITHUB_ACTIONS==='true'&&process.env.GITHUB_REF==='refs/heads/main'&&
@@ -237,7 +264,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===file){
    stage=safeRequestStage(p);
    reason='VALIDATION_FAILED';
    try{
-    const r=await cloudflareReadOnlyGET(p,token);
+    const r=await readWithPagesDifferential(
+     q=>cloudflareReadOnlyGET(q,token),p,outcome=>{bareProbe=outcome;});
     if(r?.success!==true)reason='API_DECLINED';
     return r;
    }catch(err){
@@ -246,7 +274,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===file){
    }
   })));
  }catch{
-  console.error('G5_BINDINGS_READONLY_FAILED stage='+stage+' reason='+reason);
+  console.error('G5_BINDINGS_READONLY_FAILED stage='+stage+' reason='+reason+
+   (bareProbe===null?'':' bare_probe='+bareProbe));
   process.exitCode=1;
  }
 }

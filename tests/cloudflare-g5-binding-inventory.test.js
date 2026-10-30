@@ -181,6 +181,80 @@ test('Cloudflare Pages can omit optional total_pages on both pages with exact co
   await assert.rejects(()=>inventory(broken),undefined,label);
  }
 });
+test('Pages nullable total_pages hint still needs complete totals on single and empty pages',async()=>{
+ const first=base+'/pages/projects?page=1';
+ for(const empty of [false,true]){
+  const data=routes();
+  data[first].result_info.total_pages=null;
+  if(empty){
+   data[first].result=[];
+   data[first].result_info.count=0;
+   data[first].result_info.total_count=0;
+   delete data[base+'/pages/projects/pages-poc'];
+  }
+  const {result,used}=await inventory(data);
+  assert.equal(result.pages_projects_checked,empty?0:1);
+  assert.equal(result.no_direct_binding_detected,empty);
+  assert.ok(used.includes(first));
+  assert.ok(!used.includes(base+'/pages/projects?page=2'));
+  for(const change of [
+   d=>{d[first].result_info.total_count+=1;},
+   d=>{d[first].result_info.count+=1;}
+  ]){
+   const broken=structuredClone(data);change(broken);
+   await assert.rejects(()=>inventory(broken),/E_G5_BINDING_READONLY_INVENTORY/);
+  }
+ }
+});
+test('Pages nullable total_pages on both/mixed pages cannot hide missing or drifting data',async()=>{
+ const first=base+'/pages/projects?page=1',second=base+'/pages/projects?page=2';
+ function fixture(){
+  const data=routes();
+  data[first]={...reply([{name:'pages-poc'}]),result_info:{
+   page:1,per_page:1,count:1,total_count:2,total_pages:null
+  }};
+  data[second]={...reply([{name:'pages-second'}]),result_info:{
+   page:2,per_page:1,count:1,total_count:2,total_pages:null
+  }};
+  data[base+'/pages/projects/pages-second']=reply({name:'pages-second',
+   deployment_configs:{
+    production:{d1_databases:{}},preview:{d1_databases:{}}
+   }
+  });
+  return data;
+ }
+ for(const secondPages of [null,undefined,2]){
+  const d=fixture();
+  if(secondPages===undefined)delete d[second].result_info.total_pages;
+  else d[second].result_info.total_pages=secondPages;
+  const {result,used}=await inventory(d);
+  assert.equal(result.pages_projects_checked,2);
+  assert.equal(result.no_direct_binding_detected,false);
+  assert.ok(used.includes(second));
+  assert.ok(!used.includes(base+'/pages/projects?page=3'));
+ }
+ const badCases=[
+  ['PAGE_INCOMPLETE',d=>{
+   d[second].result=[];d[second].result_info.count=0;
+  }],
+  ['PAGE_TOTAL_CHANGED',d=>{d[second].result_info.total_count=3;}],
+  ['PAGE_SIZE_CHANGED',d=>{d[second].result_info.per_page=2;}],
+  ['PAGE_COUNT_MISMATCH',d=>{d[second].result_info.count=0;}],
+  ['PAGE_NUMBER_MISMATCH',d=>{d[second].result_info.page=1;}],
+  ['PAGE_PROJECT_NAME_DUPLICATE',d=>{
+   d[second].result=[{name:'pages-poc'}];
+  }]
+ ];
+ for(const [expected,change] of badCases){
+  const d=fixture();change(d);
+  await assert.rejects(()=>inventory(d),e=>
+   e?.message==='E_G5_BINDING_READONLY_INVENTORY'&&
+   (expected==='PAGE_PROJECT_NAME_DUPLICATE'?e?.g5Validation===expected:e?.g5Validation===expected),
+   expected);
+ }
+ const missing=fixture();delete missing[second];
+ await assert.rejects(()=>inventory(missing),/Unexpected request/);
+});
 test('Cloudflare Pages optional total_pages must agree when present, including later pages',async()=>{
  const first=base+'/pages/projects?page=1',second=base+'/pages/projects?page=2';
  const data=routes();
@@ -195,9 +269,16 @@ test('Cloudflare Pages optional total_pages must agree when present, including l
  }});
  const {result}=await inventory(data);
  assert.equal(result.pages_projects_checked,2);
- for(const [value,code] of [[null,'PAGE_TOTAL_PAGES_INVALID'],
-  ['2','PAGE_TOTAL_PAGES_INVALID'],[0,'PAGE_TOTAL_PAGES_INVALID'],
-  [3,'PAGE_TOTAL_PAGES_MISMATCH']]){
+ for(const [value,code] of [
+  ['2','PAGE_TOTAL_PAGES_TYPE_INVALID'],
+  [true,'PAGE_TOTAL_PAGES_TYPE_INVALID'],
+  [{n:2},'PAGE_TOTAL_PAGES_TYPE_INVALID'],
+  [[2],'PAGE_TOTAL_PAGES_TYPE_INVALID'],
+  [0,'PAGE_TOTAL_PAGES_INVALID'],
+  [-1,'PAGE_TOTAL_PAGES_INVALID'],
+  [1.5,'PAGE_TOTAL_PAGES_INVALID'],
+  [3,'PAGE_TOTAL_PAGES_MISMATCH']
+ ]){
   const broken=structuredClone(data);
   broken[second].result_info.total_pages=value;
   await assert.rejects(()=>inventory(broken),e=>
@@ -218,7 +299,8 @@ test('Pages validation failures emit only fixed field categories, never Cloudfla
   ['PAGE_COUNT_MISMATCH',d=>{d[first].result_info.count=0;}],
   ['PAGE_TOTAL_INVALID',d=>{d[first].result_info.total_count='1';}],
   ['PAGE_TOTAL_EXCEEDS_LIMIT',d=>{d[first].result_info.total_count=501;}],
-  ['PAGE_TOTAL_PAGES_INVALID',d=>{d[first].result_info.total_pages=null;}],
+  ['PAGE_TOTAL_PAGES_TYPE_INVALID',d=>{d[first].result_info.total_pages='1';}],
+  ['PAGE_TOTAL_PAGES_INVALID',d=>{d[first].result_info.total_pages=0;}],
   ['PAGE_TOTAL_PAGES_MISMATCH',d=>{d[first].result_info.total_pages=2;}],
   ['PAGE_TOTAL_OVERFLOW',d=>{d[first].result_info.total_count=0;}],
   ['PAGE_PROJECT_NAME_INVALID',d=>{d[first].result[0].name='SENSITIVE NAME INVALID!';}],

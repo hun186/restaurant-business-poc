@@ -92,3 +92,17 @@ Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部�
 原版共用 `per_page=50`，包含 Pages Projects List。Cloudflare [Pages Projects List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 文件示例使用 `per_page=20`，而 Pages 另一份歷史分頁實作曾有每頁 25 限制的回報；不能直接假定兩種端點現行上限相同。本 PR **僅改 Pages Projects List** 使用獨立 `per_page=20`，保留 Workers Versions 的 `per_page=50` 與 Pages 清單 `result_info` 的 `count/page/per_page/total_count/total_pages` 完整性驗證，並新增跨頁 21 筆與缺頁／metadata 不一致的合成測試。HTTP 400 另外歸為固定安全原因 `HTTP_BAD_REQUEST`，不輸出實際回應、URL、Pages 名稱、UUID、Token 或 Cloudflare 錯誤本文。
 
 **這仍屬待驗證的相容性修正，而非已確認根因。** PR 須另行完成 Hosted CI、正式 Codex Review 和使用者批准 Merge；其後以最新 `main` 開新 `workflow_dispatch` 才能再次實測。若仍在 `PAGES_LIST` 回報 400 或其他錯誤，繼續釐清 Cloudflare 請求／權限，而不是放寬檢查或擴大 Token 權限。Cloudflare Restore／Production Write 繼續禁止。
+
+### 2026-10-30｜Pages HTTP 400：GET 對照診斷（新增，尚未實測）
+
+在 [Run #40998874342](https://github.com/hun186/restaurant-business-poc/actions/runs/40998874342)（正式 main `111f302ad2f8c68102f3ab792ddc000f1a99f060`）中，Pages `GET /accounts/{id}/pages/projects?page=1&per_page=20` 實際回覆 **HTTP 400**，日誌為 `G5_BINDINGS_READONLY_FAILED stage=PAGES_LIST reason=HTTP_BAD_REQUEST`；前次改為 20 筆仍未解決。Cloudflare [Pages Projects List 官方 API 文件](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 明確指出 `page`、`per_page` 是**選填**，因此本次改為取得更具鑑別力的唯讀實證，而非繼續猜測限制或擴大 Token 權限。
+
+當且僅當**第一頁** paged Pages GET 失敗並被分類為 `HTTP_BAD_REQUEST` 時，額外執行一次**同一帳戶、同一 API Token 的不帶 query GET**（`/pages/projects`）。結果只記錄固定列舉字串，例如：
+
+- `stage=PAGES_LIST reason=HTTP_BAD_REQUEST bare_probe=OK`：無 query 的 API 回覆有效 Pages list envelope；可以推論兩種 GET 行為不同，但**仍未取得完整盤點證據**。
+- `bare_probe=HTTP_BAD_REQUEST`：無 query 也回覆 400，應往帳戶/API 授權、Cloudflare 服務條件等原因進一步核對，不能認定是分頁參數。
+- `bare_probe=HTTP_AUTH`、`HTTP_RATE_LIMIT`、`HTTP_SERVICE`、`NETWORK_ERROR`、`BODY_INVALID`、`API_DECLINED` 等：只說明這個唯讀對照的類別，仍不得宣稱根因確立。
+
+任何 `bare_probe` 結果都**一律重新拋出原始 paged HTTP 400**，Workflow 必須以 exit 1 Fail Closed 結束；不會改用 bare GET 結果當作完整專案清單，也不會跳過嚴格 `total_count/total_pages`、Worker/Pages 部署有效綁定或人工驗證。額外請求上限 1 次，只能 GET、不允許 redirect、沿用原本 15 秒逾時與原文 2 MB 上限；無 HTTP response body、API URL、專案名稱、D1 UUID、Token 或堆疊輸出。
+
+合成測試涵蓋 bare GET 有效／失敗／格式異常、第一頁 HTTP 400 觸發一次、其他錯誤及後續頁不得觸發、原始錯誤物件不被取代、永不產生完成盤點的假結論。這項 PR 需 **Hosted CI、正式 Codex Review、另一次使用者明確 Merge 授權**；合併後從最新 `main` 手動發起**全新**唯讀 Run 才能取得真實 `bare_probe` 結果，不應 Re-run 舊 Run。Remote Restore / Production Migration / D1 Write 繼續禁止。

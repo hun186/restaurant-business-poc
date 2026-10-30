@@ -120,3 +120,13 @@ Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部�
 每項只回傳固定字串 `OK`、`HTTP_BAD_REQUEST`、`HTTP_AUTH`、`HTTP_NOT_FOUND`、`HTTP_RATE_LIMIT`、`HTTP_SERVICE`、`HTTP_OTHER`、`NETWORK_ERROR`、`BODY_INVALID`、`API_DECLINED`、`VALIDATION_FAILED`；不輸出錯誤本文、Token、URL、帳戶或資源識別碼、堆疊。每次 GET 都維持 15 秒逾時、最多 2 MB 回應、redirect 禁止。即使 3 個 GET 全成功，**仍會原樣拋出原始分頁 GET 的 HTTP 400，Workflow Exit 1**，不可將這些對照讀取內容當成完整項目清單、不可繞過原本完整分頁 metadata、Pages 目前/已部署版本綁定及獨立人工檢查。其他錯誤、後續頁、成功的 paged GET 均不觸發額外對照。
 
 本 PR 合成回歸檢查：三種 query 形態分離、總請求上限、原始錯誤不被覆寫、不同 HTTP 回應的固定代碼、只用 GET、不跟隨 redirect、不洩露敏感資料，且不得製造盤點成功。須最新 HEAD Hosted CI 5/5、正式 Codex Review 完成、使用者**另行**批准 Merge 後，才從最新 `main` 開啟新 `workflow_dispatch` 實測；不擴大 Cloudflare Token、**不**執行 D1 Restore / Production Write。
+
+### 2026-10-30｜G5 Pages GET `per_page` 造成 400：改為 page-only 嚴格清單（PR 待審）
+
+已在最新 main `62e43fce4ef8439c9039579ba8e12817cd5bc462` 的 [G5 Run #41009848022](https://github.com/hun186/restaurant-business-poc/actions/runs/41009848022) 實測：`stage=PAGES_LIST reason=HTTP_BAD_REQUEST bare_probe=OK page_probe=OK per_page_probe=HTTP_BAD_REQUEST`，和較早的 Run #41009437869 一致。實際 GET 結果明確顯示 **含 `per_page=20` 的請求得到 400**，而無 query 或僅 `page=1` 得到有效列表回應；先前只調整 `per_page=50`→20 仍然失敗。Cloudflare 官方 [Pages Projects List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 雖公開定義 `page`／`per_page` 為選填，但此帳戶真實行為不一致，並不代表應該提高 Token 權限。既有診斷未讀取回應原文，不能宣稱 400 的服務端根因已完全查明。
+
+本 PR 把**正式 Pages Projects 清單**改為 `GET .../pages/projects?page=N`，不發出 `per_page` query；每一頁均嚴格要求 Cloudflare `result_info` 的 `page`、`per_page`、`count`、`total_count`、`total_pages` 合法且互相一致。由**伺服器回傳的 `per_page`** 推得完整頁數（上限 100），同次掃描任何頁的 `per_page`、`total_count` 變動、少頁／缺頁、數量不符、無效型別都 fail closed；列舉總專案數上限仍為 500，不能因單一 GET 成功就視為完整盤點。Worker Script Versions 仍走其原本獨立 `per_page=50` 流程。
+
+原本的三種安全對照診斷保留作為舊版 `?page=1&per_page=20` 行為的函式測試，但正式清單不再呼叫會觸發它的 URL。已新增實際 Pages page-only 路徑、動態 server page size=10 / 20、21 筆跨頁、total_count/page/per_page 不一致、缺頁和上限拒絕的合成回歸。保留原本 **Pages Deployment 有任何專案即不得視為已完成有效部署 Binding 全覆蓋** 的判定；若 Pages 清單／詳情仍不可信，一律回報失敗而不是假 `NO_DIRECT_BINDING`。
+
+程式與測試需重新鎖定 SHA-256 並完成最新 HEAD Hosted CI + 正式 Codex Review；**沒有使用者明確 Merge 授權不能合併**。此 PR 不會觸發 Cloudflare 新 Run，也沒有 Cloudflare 變更權限、恢復、Migration 或 Production 寫入；只能在批准合併後由使用者手動在最新 `main` 新建 GET-only Workflow Run，才能確認遠端完整性。

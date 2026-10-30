@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-30 G5/#46 CURRENT（PR #51 merged 後）：最新 main `111f302ad2f8c68102f3ab792ddc000f1a99f060`，正式 GET-only Cloudflare Pages 盤點 #40998874342 明確 HTTP 400（`PAGES_LIST / HTTP_BAD_REQUEST`），尚未驗收、不可宣稱無直接綁定。下一步提交第一頁 paged 400 的**一次性無 query GET** 安全對照診斷（固定 `bare_probe`、永遠原錯誤 Fail Closed）；完成獨立 PR／CI／Codex Review 後才徵求 Merge 授權，再新開 main workflow_dispatch。任何 Remote Restore／Production migration、登入或寫入不在本階段授權內。
+
 > 2026-10-30 G5/#46 NEXT：在 main `0dd0484889f3332e9a84b4b9dfde97d5b6aa0326` 上開發 read-only Worker/Pages D1 binding inventory PR。`d1-recovery-drill-write` 的 Branch main-only/Variables 由使用者回報完成，GitHub Connector 無 API 證明；無 Collaborator 無法設定 Required reviewers。新 GET-only 工具與 workflow 必須先完成 Hosted CI／正式 Codex Review 並取得另一次 Merge 授權，然後配置 `d1-recovery-drill-binding-readonly` Environment 和 Worker Scripts Read + Pages Read 專用 token，才可人工發起唯讀 GET 盤點。`G5_DRILL_RESTORE_APPROVED` 與 Write Token 仍不啟用，真實 Restore、offsite backup、RPO/RTO 及 Production Ready 仍 NOT_DONE。
 
 > 2026-10-30 G5/#46：以最新 main `938805ac0fa53fe7c0aa462b23e9b0292e8e5fcc` 為基底的安全加固分支新增每次執行都須確認的 Cloudflare 無 Worker Binding 與無並行使用者雙重 typed attestations；Workflow job guard、注入 Write Token 前 approval gate 與 CLI 三層 Fail Closed，增加未授權拒絕回歸與 SHA-256 閉鎖清單。已驗證 disposable 唯讀 Inspect #40914927490 Attempt 2 成功；遠端 Restore、Write Environment 實際保護與最小權限、加密異地備份、RPO/RTO、Production Login 仍未驗收；本分支 CI/Codex/合併另待核對，不得自行執行 Restore 或 Merge。

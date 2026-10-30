@@ -230,6 +230,125 @@ test('safe diagnostic reports only fixed stage names without exposing resource I
   assert.doesNotMatch(stage,/restaurant|pages-poc|[0-9a-f]{32}/i);
  }
 });
+test('bare Pages list is a single bounded diagnostic probe, not inventory evidence',async()=>{
+ const m=await mod,seen=[],bare=base+'/pages/projects';
+ const get=async path=>{
+  seen.push(path);
+  return reply([{name:'pages-poc'}]); // No result_info: still only diagnostic.
+ };
+ assert.equal(await m.probeBarePagesProjects(get),'OK');
+ assert.deepEqual(seen,[bare]);
+ assert.equal(await m.probeBarePagesProjects(async()=>reply({items:[]})),
+  'BODY_INVALID');
+ assert.equal(await m.probeBarePagesProjects(async()=>({success:false,result:[]})),
+  'API_DECLINED');
+ assert.equal(await m.probeBarePagesProjects(async()=>({success:true,result:null})),
+  'BODY_INVALID');
+ for(const reason of ['HTTP_AUTH','HTTP_BAD_REQUEST','HTTP_SERVICE','NETWORK_ERROR']){
+  const error=new Error('SENSITIVE_HTTP_BODY_AND_TOKEN');
+  error.g5Reason=reason;
+  assert.equal(await m.probeBarePagesProjects(async()=>{throw error;}),reason);
+ }
+ assert.equal(await m.probeBarePagesProjects(async()=>{
+  throw new Error('SENSITIVE_USER_DATA');
+ }),'VALIDATION_FAILED');
+});
+test('first paginated Pages 400 compares bare GET once and ALWAYS fails closed',async()=>{
+ const m=await mod,seen=[],outcomes=[];
+ const paged=base+'/pages/projects?page=1&per_page=20';
+ const bare=base+'/pages/projects';
+ const original=new Error('E_G5_BINDING_READONLY_INVENTORY');
+ original.g5Reason='HTTP_BAD_REQUEST';
+ const get=async p=>{
+  seen.push(p);
+  if(p===paged)throw original;
+  if(p===bare)return reply([]);
+  assert.fail('unexpected GET');
+ };
+ await assert.rejects(
+  ()=>m.readWithPagesDifferential(get,paged,v=>outcomes.push(v)),
+  e=>e===original
+ );
+ assert.deepEqual(seen,[paged,bare]);
+ assert.deepEqual(outcomes,['OK']);
+ // A successful bare GET never becomes a completed, trusted inventory.
+ await assert.rejects(
+  ()=>m.collectBindingInventory(pin,async p=>{
+   if(p===base+'/workers/scripts')return reply([{id:'restaurant-business-poc'}]);
+   if(p===script+'/settings')return reply({bindings:[]});
+   if(p===script+'/versions?page=1&per_page=50')return reply({items:[{id:version}]});
+   if(p===script+'/versions/'+version)
+    return reply({id:version,resources:{bindings:[]}});
+   return m.readWithPagesDifferential(get,p,()=>{});
+  }),e=>e===original
+ );
+});
+test('bare Pages diagnostic keeps original paged HTTP 400 even if bare GET fails',async()=>{
+ const m=await mod;
+ const paged=base+'/pages/projects?page=1&per_page=20';
+ const bare=base+'/pages/projects';
+ const outcomes=[],calls=[];
+ const original=new Error('ORIGINAL_PAGED_FAILURE');original.g5Reason='HTTP_BAD_REQUEST';
+ const get=async p=>{
+  calls.push(p);
+  if(p===paged)throw original;
+  if(p===bare){
+   const err=new Error('SECRET_ERROR_BODY');err.g5Reason='HTTP_AUTH';throw err;
+  }
+  assert.fail('unexpected call');
+ };
+ await assert.rejects(
+  ()=>m.readWithPagesDifferential(get,paged,v=>outcomes.push(v)),
+  e=>e===original
+ );
+ assert.deepEqual(calls,[paged,bare]);
+ assert.deepEqual(outcomes,['HTTP_AUTH']);
+});
+test('Pages bare probe is NOT triggered for success, other errors, or later pages',async()=>{
+ const m=await mod,first=base+'/pages/projects?page=1&per_page=20',
+  second=base+'/pages/projects?page=2&per_page=20';
+ const calls=[],outcomes=[];
+ const get=async p=>{calls.push(p);return reply([{name:'pages-poc'}]);};
+ const result=await m.readWithPagesDifferential(get,first,v=>outcomes.push(v));
+ assert.deepEqual(result,reply([{name:'pages-poc'}]));
+ assert.deepEqual(calls,[first]);
+ assert.deepEqual(outcomes,[]);
+ for(const [path,why] of [
+  [first,'HTTP_AUTH'],[first,'HTTP_RATE_LIMIT'],
+  [second,'HTTP_BAD_REQUEST'],[script+'/settings','HTTP_BAD_REQUEST']
+ ]){
+  const orig=new Error('E_G5_BINDING_READONLY_INVENTORY');orig.g5Reason=why;
+  const requests=[],seen=[];
+  await assert.rejects(
+   ()=>m.readWithPagesDifferential(async p=>{
+    requests.push(p);throw orig;
+   },path,v=>seen.push(v)),e=>e===orig
+  );
+  assert.deepEqual(requests,[path]);
+  assert.deepEqual(seen,[]);
+ }
+});
+test('Pages differential GET never uses other methods, follows redirects or leaks body',async()=>{
+ const m=await mod,paged=base+'/pages/projects?page=1&per_page=20';
+ const paths=[],methods=[],outcomes=[];
+ const get=async p=>m.cloudflareReadOnlyGET(p,'TEST_TOKEN_123456789',
+  async(url,opts)=>{
+   paths.push(url);methods.push([opts.method,opts.redirect]);
+   if(url.endsWith('?page=1&per_page=20')){
+    return {ok:false,status:400,text:async()=>{throw Error('SENSITIVE_BODY');}};
+   }
+   return {ok:true,text:async()=>JSON.stringify(reply([]))};
+  });
+ await assert.rejects(
+  ()=>m.readWithPagesDifferential(get,paged,v=>outcomes.push(v)),
+  e=>e.g5Reason==='HTTP_BAD_REQUEST'&&!String(e).includes('SENSITIVE_BODY')
+ );
+ assert.equal(paths.length,2);
+ assert.deepEqual(methods,[['GET','error'],['GET','error']]);
+ assert.ok(paths[0].endsWith('/pages/projects?page=1&per_page=20'));
+ assert.ok(paths[1].endsWith('/pages/projects'));
+ assert.deepEqual(outcomes,['OK']);
+});
 test('read-only transport failures yield fixed categories, never response body',async()=>{
  const m=await mod;
  for(const [status,reason] of [

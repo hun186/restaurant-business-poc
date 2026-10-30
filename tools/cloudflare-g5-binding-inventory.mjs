@@ -41,6 +41,39 @@ async function paged(get,path,extract,max){
  }
  fail();
 }
+// Worker Script Versions response uses {result:{items:[...]}} and does NOT
+// document result_info. Enumerate page/per_page until a short page appears.
+// Full-page final boundaries require another request. Duplicates, exhaustion,
+// missing pages and inconsistent optional version numbers fail closed.
+// Without total_count this cannot prove consistency under concurrent changes.
+async function workerVersions(get,base){
+ const versions=[],ids=new Set();
+ let lastNumber=null;
+ for(let page=1;page<=Math.ceil(MAX_VERSIONS/PAGE)+1;page++){
+  const response=await get(base+'/versions?page='+page+'&per_page='+PAGE);
+  const data=result(response);
+  need(obj(data)&&Array.isArray(data.items)&&data.items.length<=PAGE);
+  const list=data.items;
+  need(page!==1||list.length>0);
+  for(const item of list){
+   need(obj(item)&&typeof item.id==='string'&&UUID.test(item.id)&&
+    !ids.has(item.id));
+   ids.add(item.id);
+   if(item.number!==undefined){
+    need(Number.isSafeInteger(item.number)&&item.number>=1&&
+      (lastNumber===null||lastNumber>item.number));
+    lastNumber=item.number;
+   } else {
+    // Optional version numbers cannot establish page stability.
+    lastNumber=null;
+   }
+   versions.push(item);
+  }
+  need(versions.length<=MAX_VERSIONS);
+  if(list.length<PAGE)return versions;
+ }
+ fail();
+}
 function checkBindings(bindings,id){
  need(Array.isArray(bindings));
  let found=0;
@@ -90,10 +123,7 @@ export async function collectBindingInventory(pin,get){
   const settings=result(await get(base+'/settings'));
   need(obj(settings));
   bindingsFound+=checkBindings(settings.bindings,id);
-  const versions=await paged(get,base+'/versions',r=>{
-    need(obj(r));return r.items;
-  },MAX_VERSIONS);
-  need(new Set(versions.map(v=>v?.id)).size===versions.length);
+  const versions=await workerVersions(get,base);
   for(const v of versions){
     need(obj(v)&&typeof v.id==='string'&&UUID.test(v.id));
     const detail=result(await get(base+'/versions/'+v.id));

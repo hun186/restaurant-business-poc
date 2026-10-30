@@ -65,3 +65,6 @@ Cloudflare 官方唯讀 API：
 - https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/get/
 - https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/
 - https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/get/
+
+### Worker Versions 分頁格式與驗證限制（P2 修正）
+Cloudflare `GET /accounts/{account}/workers/scripts/{script}/versions` 官方回應為 `{success:true,result:{items:[...]}}`，**不保證提供頂層 `result_info`**。不同於 Pages Projects 清單，Worker Versions 採獨立的 `page/per_page=50` 逐頁列舉：只有取得少於 50 筆的終端頁才結束；剛好 50 筆的整頁必須再要求下一頁（可能為空頁）；總量上限 500，超出或缺頁、重複版本 ID、回應格式不可信、權限不足均 Fail Closed。這個沒有總筆數的 API 不能保證遠端同時新增／刪除版本時仍為一致快照，因此 `NO_DIRECT_BINDING_DETECTED` 仍不等同安全簽核；要求人工在變更窗口重新核對。

@@ -179,6 +179,58 @@ test('invalid pinned target and Cloudflare identity rejected',async()=>{
  assert.throws(()=>m.approvedBindingTarget({...pin,secret:'extra'}),/E_G5/);
  assert.throws(()=>m.approvedBindingTarget(pin,'f'.repeat(32)),/E_G5/);
 });
+test('safe diagnostic reports only fixed stage names without exposing resource IDs',async()=>{
+ const m=await mod;
+ const items=[
+  [base+'/workers/scripts','WORKER_LIST'],
+  [script+'/settings','WORKER_SETTINGS'],
+  [script+'/versions?page=1&per_page=50','WORKER_VERSION_LIST'],
+  [script+'/versions/'+version,'WORKER_VERSION_DETAIL'],
+  [base+'/pages/projects?page=1&per_page=50','PAGES_LIST'],
+  [base+'/pages/projects/pages-poc','PAGES_PROJECT_DETAIL'],
+  ['/unapproved/path','UNKNOWN']
+ ];
+ for(const [url,stage] of items){
+  assert.equal(m.safeRequestStage(url),stage);
+  assert.doesNotMatch(stage,/restaurant|pages-poc|[0-9a-f]{32}/i);
+ }
+});
+test('read-only transport failures yield fixed categories, never response body',async()=>{
+ const m=await mod;
+ for(const [status,reason] of [
+  [401,'HTTP_AUTH'],[403,'HTTP_AUTH'],[404,'HTTP_NOT_FOUND'],
+  [429,'HTTP_RATE_LIMIT'],[503,'HTTP_SERVICE'],[400,'HTTP_OTHER']
+ ]){
+  await assert.rejects(
+   ()=>m.cloudflareReadOnlyGET(base+'/workers/scripts','TEST_TOKEN_123456789',
+    async()=>({ok:false,status,text:async()=>{throw Error('SENSITIVE_RESPONSE_BODY');}})),
+   err=>err.g5Reason===reason&&
+    !String(err.message).includes('SENSITIVE_RESPONSE_BODY')
+  );
+ }
+ await assert.rejects(
+  ()=>m.cloudflareReadOnlyGET(base+'/workers/scripts','TEST_TOKEN_123456789',
+   async()=>{throw Error('SECRET_NETWORK_STACK_12345');}),
+  err=>err.g5Reason==='NETWORK_ERROR'&&!String(err).includes('SECRET_NETWORK_STACK')
+ );
+ await assert.rejects(
+  ()=>m.cloudflareReadOnlyGET(base+'/workers/scripts','TEST_TOKEN_123456789',
+   async()=>({ok:true,text:async()=>'{BAD_TOKEN_VALUE_12345'})),
+  err=>err.g5Reason==='BODY_INVALID'&&!String(err).includes('BAD_TOKEN_VALUE')
+ );
+});
+test('CLI preconditions errors use sanitized stage and fixed reason',()=>{
+ const out=spawnSync(process.execPath,[source,'inspect'],{
+  cwd:root,encoding:'utf8',timeout:10000,
+  env:{...process.env,GITHUB_ACTIONS:'false',GITHUB_REF:'refs/heads/main',
+   G5_BINDINGS_READ_CONFIRM:'CHECK_G5_BINDINGS_READONLY',
+   CLOUDFLARE_ACCOUNT_ID:acc,CLOUDFLARE_API_TOKEN:'SENSITIVE_TOKEN_123456789'}
+ });
+ assert.equal(out.status,1);
+ assert.equal(out.stdout,'');
+ assert.match(out.stderr,/G5_BINDINGS_READONLY_FAILED stage=PRECONDITIONS reason=VALIDATION_FAILED/);
+ assert.doesNotMatch(out.stderr,/SENSITIVE_TOKEN|\/(accounts|workers)\//);
+});
 test('network client sends GET only and does not follow redirects',async()=>{
  const m=await mod,calls=[];
  const ret=await m.cloudflareReadOnlyGET(base+'/workers/scripts','TEST_TOKEN_123456789',async(url,opts)=>{

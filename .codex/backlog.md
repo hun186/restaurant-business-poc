@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-30 G5/#46 NEXT：PR #52 已合併，main `8fa3600c6a7586cdf598810db8d3a8dd98ac83df`，Postmerge Verify #41002428857 PASS。真實手動唯讀 Run #41002452609 回報 `PAGES_LIST / HTTP_BAD_REQUEST bare_probe=OK`；帶 page+per_page 400，無 query 成功，**仍未有完整 Pages D1 Binding 覆蓋證據**。本分支以額外 2 次 GET 對照 page-only / per_page-only（連既有 bare 上限 3 次）追查 query 支援情形；需 Hosted CI、Codex Review 與獨立使用者 Merge 授權，之後由 main 新開唯讀工作流程取證。絕不可將對照 GET 結果當作 no direct binding PASS。D1 Restore、Production migration/login/write、offsite recovery sign-off 仍未完成。
+
 > 2026-10-30 G5/#46 CURRENT（PR #51 merged 後）：最新 main `111f302ad2f8c68102f3ab792ddc000f1a99f060`，正式 GET-only Cloudflare Pages 盤點 #40998874342 明確 HTTP 400（`PAGES_LIST / HTTP_BAD_REQUEST`），尚未驗收、不可宣稱無直接綁定。下一步提交第一頁 paged 400 的**一次性無 query GET** 安全對照診斷（固定 `bare_probe`、永遠原錯誤 Fail Closed）；完成獨立 PR／CI／Codex Review 後才徵求 Merge 授權，再新開 main workflow_dispatch。任何 Remote Restore／Production migration、登入或寫入不在本階段授權內。
 
 > 2026-10-30 G5/#46 NEXT：在 main `0dd0484889f3332e9a84b4b9dfde97d5b6aa0326` 上開發 read-only Worker/Pages D1 binding inventory PR。`d1-recovery-drill-write` 的 Branch main-only/Variables 由使用者回報完成，GitHub Connector 無 API 證明；無 Collaborator 無法設定 Required reviewers。新 GET-only 工具與 workflow 必須先完成 Hosted CI／正式 Codex Review 並取得另一次 Merge 授權，然後配置 `d1-recovery-drill-binding-readonly` Environment 和 Worker Scripts Read + Pages Read 專用 token，才可人工發起唯讀 GET 盤點。`G5_DRILL_RESTORE_APPROVED` 與 Write Token 仍不啟用，真實 Restore、offsite backup、RPO/RTO 及 Production Ready 仍 NOT_DONE。

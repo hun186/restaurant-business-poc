@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+- 2026-10-30 G5/#46：最新 main `8fa3600c6a7586cdf598810db8d3a8dd98ac83df`（PR #52 Squash Merged，Postmerge Verify #41002428857 PASS）。新真實 Cloudflare GET-only Run #41002452609 **FAIL**，明確取得 `stage=PAGES_LIST reason=HTTP_BAD_REQUEST bare_probe=OK`。與同 Token 不帶 query GET 可成功對照，推進本分支**僅當第一頁 `?page=1&per_page=20` 400** 時，依序用 GET 對照無 query、`?page=1`、`?per_page=20`，固定回報 `bare_probe/page_probe/per_page_probe` 安全代碼，但**一律拋出原始 400 並保留未完成狀態**。原分頁完整性與 Pages deployed binding 人工關卡不放寬，新增合成測試、SHA256、文件。此分支 Hosted CI、Codex review、Merge 尚未完成；Restore / D1 Write / Production 啟用仍禁止。
+
 - 2026-10-30 G5/#46：PR #51 已經 Codex 0 findings、CI 5/5 後 Squash Merge，main `111f302ad2f8c68102f3ab792ddc000f1a99f060`，Postmerge Verify #40998752737 PASS。正式 Cloudflare 唯讀 Run #40998874342 **FAIL**：`stage=PAGES_LIST reason=HTTP_BAD_REQUEST`；20 筆每頁仍失敗，未找到根因。本分支新增僅在 **Pages 第 1 頁 HTTP 400** 時一次 GET `/pages/projects`（無分頁參數）並只輸出固定 `bare_probe` 代碼；原始 paged 400 仍 Fail Closed，不以 bare GET 取代完整分頁，不洩露 HTTP 本文或 Token。同步測試、文件、SHA256 Manifest；Hosted CI／正式 Review／Merge 均仍待完成，使用者需另外明確授權 Merge。G5 Remote Restore、Production D1 及正式服務一律未核准。
 
 - 2026-10-30 G5 #46：PR #50 已 Squash Merge main `5219b1259117b430cee0103dd44666790c949e59`，主線 Verify #40996277530 PASS；新手動 GET-only Cloudflare 盤點 Run #40997303708 **失敗**：`stage=PAGES_LIST reason=HTTP_OTHER`，此前 Worker 盤點未報錯但不代表最終完整通過。程式原本對 Pages Projects List 使用 `per_page=50`；本分支改用符合 Cloudflare 官方 API 範例的獨立 `per_page=20`、保留嚴格 total_count 分頁驗證、單獨辨識 HTTP 400、加多頁/缺頁合成測試及 SHA-256 閉鎖檔。**HTTP_OTHER 實際狀態碼不明，20 筆是待實測修正，不宣稱根因已查明**；未經 Hosted CI+正式 Codex Review 不得 Merge，且需使用者授權。未實際恢復、部署、移轉或寫入 D1，`G5_DRILL_RESTORE_APPROVED` 繼續關閉。

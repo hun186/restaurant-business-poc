@@ -39,8 +39,10 @@ async function inventory(map){
 }
 test('full GET-only worker versions + Pages inventory is NOT independent signoff',async()=>{
  const {result,used}=await inventory(routes());
- assert.deepEqual(result.status,'G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED');
- assert.equal(result.no_direct_binding_detected,true);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.pages_deployment_bindings_verified,false);
+ assert.equal(result.direct_binding_inventory_collected,false);
  assert.equal(result.direct_binding_matches,0);
  assert.equal(result.worker_scripts_checked,1);
  assert.equal(result.worker_versions_checked,1);
@@ -49,6 +51,34 @@ test('full GET-only worker versions + Pages inventory is NOT independent signoff
  assert.equal(result.exclusive_use_verified,false);
  assert.equal(result.remote_restore_performed,false);
  assert.equal(used.length,6);
+});
+test('old Pages deployment may retain pinned D1 after project config has changed',async()=>{
+ // Current settings have NO matching binding, but historic deployments may
+ // still serve Functions with the prior D1 ID. No effective deployment
+ // binding proof => fail closed instead of declaring no direct bindings.
+ const data=routes();
+ data[base+'/pages/projects/pages-poc'].result.deployment_configs={
+  production:{d1_databases:{}},preview:{d1_databases:{}}
+ };
+ const {result}=await inventory(data);
+ assert.equal(result.direct_binding_matches,0);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.pages_deployment_bindings_verified,false);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+ assert.equal(result.independent_human_attestation_completed,false);
+});
+test('no Pages projects can complete Pages deployment coverage without deployments',async()=>{
+ const data=routes();
+ const url=base+'/pages/projects?page=1&per_page=50';
+ data[url]={...reply([]),result_info:pag([])};
+ delete data[base+'/pages/projects/pages-poc'];
+ const {result,used}=await inventory(data);
+ assert.equal(result.pages_projects_checked,0);
+ assert.equal(result.pages_deployment_bindings_verified,true);
+ assert.equal(result.no_direct_binding_detected,true);
+ assert.equal(result.direct_binding_inventory_collected,true);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED');
+ assert.ok(!used.includes(base+'/pages/projects/pages-poc'));
 });
 test('D1 binding on current Worker, older/preview version, or Pages phase fails no-binding claim',async()=>{
  for(const edit of [
@@ -84,7 +114,8 @@ test('Cloudflare documented Worker Versions envelope has no result_info',async()
  assert.equal(Object.hasOwn(data[script+'/versions?page=1&per_page=50'],'result_info'),false);
  const {result}=await inventory(data);
  assert.equal(result.worker_versions_checked,1);
- assert.equal(result.no_direct_binding_detected,true);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
 });
 test('Worker Versions full 50-item page requires a second page and checks an older binding',async()=>{
  const data=routes(),items=[];

@@ -106,3 +106,17 @@ Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部�
 任何 `bare_probe` 結果都**一律重新拋出原始 paged HTTP 400**，Workflow 必須以 exit 1 Fail Closed 結束；不會改用 bare GET 結果當作完整專案清單，也不會跳過嚴格 `total_count/total_pages`、Worker/Pages 部署有效綁定或人工驗證。額外請求上限 1 次，只能 GET、不允許 redirect、沿用原本 15 秒逾時與原文 2 MB 上限；無 HTTP response body、API URL、專案名稱、D1 UUID、Token 或堆疊輸出。
 
 合成測試涵蓋 bare GET 有效／失敗／格式異常、第一頁 HTTP 400 觸發一次、其他錯誤及後續頁不得觸發、原始錯誤物件不被取代、永不產生完成盤點的假結論。這項 PR 需 **Hosted CI、正式 Codex Review、另一次使用者明確 Merge 授權**；合併後從最新 `main` 手動發起**全新**唯讀 Run 才能取得真實 `bare_probe` 結果，不應 Re-run 舊 Run。Remote Restore / Production Migration / D1 Write 繼續禁止。
+
+### 2026-10-30｜Pages 清單 HTTP 400：分別測試 page 與 per_page（待實測）
+
+原本 [Run #41002452609](https://github.com/hun186/restaurant-business-poc/actions/runs/41002452609)，在 `main=8fa3600c6a7586cdf598810db8d3a8dd98ac83df`，實際回報 **`G5_BINDINGS_READONLY_FAILED stage=PAGES_LIST reason=HTTP_BAD_REQUEST bare_probe=OK`**。同一帳戶同一 Token 的不帶 query GET 成功回傳 `success:true` 與 `result:array`，但帶 `?page=1&per_page=20` 回傳 HTTP 400；**仍無完整 Pages/Worker 綁定盤點或 Restore 放行證據**。Cloudflare [官方 Pages Projects List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 將 `page`、`per_page` 列為選填數值參數，實際失敗原因尚需隔離。
+
+本 PR 只在**第一頁、`?page=1&per_page=20` 的 GET 回覆 HTTP 400** 時，用相同唯讀 Token 再執行固定上限 **3 次額外 GET**，依序比較：
+
+1. 不帶 query：`/pages/projects` → `bare_probe`；
+2. 只帶 `page=1` → `page_probe`；
+3. 只帶 `per_page=20` → `per_page_probe`。
+
+每項只回傳固定字串 `OK`、`HTTP_BAD_REQUEST`、`HTTP_AUTH`、`HTTP_NOT_FOUND`、`HTTP_RATE_LIMIT`、`HTTP_SERVICE`、`HTTP_OTHER`、`NETWORK_ERROR`、`BODY_INVALID`、`API_DECLINED`、`VALIDATION_FAILED`；不輸出錯誤本文、Token、URL、帳戶或資源識別碼、堆疊。每次 GET 都維持 15 秒逾時、最多 2 MB 回應、redirect 禁止。即使 3 個 GET 全成功，**仍會原樣拋出原始分頁 GET 的 HTTP 400，Workflow Exit 1**，不可將這些對照讀取內容當成完整項目清單、不可繞過原本完整分頁 metadata、Pages 目前/已部署版本綁定及獨立人工檢查。其他錯誤、後續頁、成功的 paged GET 均不觸發額外對照。
+
+本 PR 合成回歸檢查：三種 query 形態分離、總請求上限、原始錯誤不被覆寫、不同 HTTP 回應的固定代碼、只用 GET、不跟隨 redirect、不洩露敏感資料，且不得製造盤點成功。須最新 HEAD Hosted CI 5/5、正式 Codex Review 完成、使用者**另行**批准 Merge 後，才從最新 `main` 開啟新 `workflow_dispatch` 實測；不擴大 Cloudflare Token、**不**執行 D1 Restore / Production Write。

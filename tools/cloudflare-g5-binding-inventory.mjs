@@ -237,7 +237,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===file){
     if(r?.success!==true)reason='API_DECLINED';
     return r;
    }catch(err){
-    reason=SAFE_REASONS.has(err?.g5Reason)?err.g5Reason:'NETWORK_ERROR';
+    reason=SAFE_REASONS.has(err?.g5Reason)?err.g5Reason:'VALIDATION_FAILED';
     throw err;
    }
   })));

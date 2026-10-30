@@ -52,7 +52,8 @@ const PAGE_VALIDATION_CODES=new Set([
  'PAGE_INPUT_INVALID','PAGE_RESPONSE_INVALID','PAGE_METADATA_MISSING',
  'PAGE_SIZE_INVALID','PAGE_SIZE_CHANGED','PAGE_SIZE_EXCEEDED',
  'PAGE_NUMBER_MISMATCH','PAGE_COUNT_MISMATCH','PAGE_TOTAL_INVALID',
- 'PAGE_TOTAL_PAGES_INVALID','PAGE_TOTAL_PAGES_MISMATCH',
+ 'PAGE_TOTAL_PAGES_INVALID','PAGE_TOTAL_PAGES_TYPE_INVALID',
+ 'PAGE_TOTAL_PAGES_MISMATCH',
  'PAGE_TOTAL_EXCEEDS_LIMIT','PAGE_TOTAL_CHANGED','PAGE_TOTAL_OVERFLOW',
  'PAGE_INCOMPLETE','PAGE_LIMIT_REACHED','PAGE_PROJECT_NAME_INVALID',
  'PAGE_PROJECT_NAME_DUPLICATE'
@@ -134,13 +135,17 @@ async function pagedPages(get,path,extract,max){
    'PAGE_TOTAL_INVALID');
   pagesNeed(info.total_count<=max,'PAGE_TOTAL_EXCEEDS_LIMIT');
   const expectedPages=Math.max(1,Math.ceil(info.total_count/perPage));
-  // Cloudflare documents result_info.total_pages as optional; only treat
-  // absence (undefined) as omitted. Null, invalid and contradictory supplied
-  // values remain hard failures, never a shortcut to inventory completion.
-  if(info.total_pages!==undefined){
-   pagesNeed(Number.isSafeInteger(info.total_pages)&&info.total_pages>=1,
+  // Total pages is an optional *hint*, not the source of completeness:
+  // count/per_page/page metadata and the exact number of entries drive
+  // enumeration. Cloudflare may serialize an absent optional hint as null;
+  // only null/undefined are ignored. Other supplied types or out-of-range
+  // values remain errors, and valid numbers must equal expectedPages.
+  const declaredPages=info.total_pages;
+  if(declaredPages!==undefined&&declaredPages!==null){
+   pagesNeed(typeof declaredPages==='number','PAGE_TOTAL_PAGES_TYPE_INVALID');
+   pagesNeed(Number.isSafeInteger(declaredPages)&&declaredPages>=1,
     'PAGE_TOTAL_PAGES_INVALID');
-   pagesNeed(info.total_pages===expectedPages,'PAGE_TOTAL_PAGES_MISMATCH');
+   pagesNeed(declaredPages===expectedPages,'PAGE_TOTAL_PAGES_MISMATCH');
   }
   pagesNeed(total===null||total===info.total_count,'PAGE_TOTAL_CHANGED');
   total=info.total_count;

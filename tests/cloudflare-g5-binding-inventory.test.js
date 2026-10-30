@@ -21,7 +21,7 @@ function routes(){
   [script+'/settings']:reply({bindings:[{name:'DB',type:'d1',database_id:other}]}),
   [script+'/versions?page=1&per_page=50']:reply({items:vers}),
   [script+'/versions/'+version]:reply({id:version,resources:{bindings:[{name:'DB',type:'d1',database_id:other}]}}),
-  [base+'/pages/projects?page=1&per_page=20']:{...reply(projects),result_info:pag(projects)},
+  [base+'/pages/projects?page=1']:{...reply(projects),result_info:pag(projects)},
   [base+'/pages/projects/pages-poc']:reply({name:'pages-poc',deployment_configs:{
    production:{d1_databases:{DB:{id:other}}},preview:{d1_databases:{}}
   }})
@@ -69,7 +69,7 @@ test('old Pages deployment may retain pinned D1 after project config has changed
 });
 test('no Pages projects can complete Pages deployment coverage without deployments',async()=>{
  const data=routes();
- const url=base+'/pages/projects?page=1&per_page=20';
+ const url=base+'/pages/projects?page=1';
  data[url]={...reply([]),result_info:pag([])};
  delete data[base+'/pages/projects/pages-poc'];
  const {result,used}=await inventory(data);
@@ -80,17 +80,18 @@ test('no Pages projects can complete Pages deployment coverage without deploymen
  assert.equal(result.status,'G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED');
  assert.ok(!used.includes(base+'/pages/projects/pages-poc'));
 });
-test('Pages projects use 20 per page; Worker versions keep their own 50 per page',async()=>{
+test('Pages list uses only page numbers and server per_page; Worker versions remain at 50',async()=>{
  const {result,used}=await inventory(routes());
- assert.ok(used.includes(base+'/pages/projects?page=1&per_page=20'));
+ assert.ok(used.includes(base+'/pages/projects?page=1'));
  assert.ok(used.includes(script+'/versions?page=1&per_page=50'));
- assert.ok(!used.some(x=>x.startsWith(base+'/pages/projects?')&&x.includes('per_page=50')));
+ assert.ok(!used.some(x=>x.startsWith(base+'/pages/projects?')&&x.includes('per_page=')));
+ assert.ok(!used.includes(base+'/pages/projects'));
  assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
 });
 test('21 Pages projects require both Pages listing pages with exact metadata',async()=>{
  const data=routes(),pages=Array.from({length:21},(_,i)=>({name:'pages-poc-'+i}));
- const url1=base+'/pages/projects?page=1&per_page=20';
- const url2=base+'/pages/projects?page=2&per_page=20';
+ const url1=base+'/pages/projects?page=1';
+ const url2=base+'/pages/projects?page=2';
  data[url1]={...reply(pages.slice(0,20)),result_info:{
   page:1,per_page:20,count:20,total_count:21,total_pages:2
  }};
@@ -115,6 +116,51 @@ test('21 Pages projects require both Pages listing pages with exact metadata',as
  drift[url2].result_info.total_count=22;
  await assert.rejects(()=>inventory(drift),/E_G5_BINDING_READONLY_INVENTORY/);
 });
+test('server Pages per_page is validated, consistent and bounded; never infer completion',async()=>{
+ const prefix=base+'/pages/projects?page=1';
+ for(const edit of [
+  x=>{delete x[prefix].result_info;},
+  x=>{delete x[prefix].result_info.per_page;},
+  x=>{x[prefix].result_info.per_page=0;},
+  x=>{x[prefix].result_info.per_page=101;},
+  x=>{x[prefix].result_info.per_page='20';},
+  x=>{x[prefix].result_info.page=2;},
+  x=>{x[prefix].result_info.count=0;},
+  x=>{x[prefix].result_info.total_pages=2;},
+  x=>{x[prefix].result_info.total_count=0;}
+ ]){
+  const data=routes();edit(data);
+  await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
+ }
+});
+test('server per_page=10 and 11 Pages projects require exact two-page metadata',async()=>{
+ const data=routes(),pages=Array.from({length:11},(_,i)=>({name:'pages-project-'+i}));
+ const p1=base+'/pages/projects?page=1',p2=base+'/pages/projects?page=2';
+ data[p1]={...reply(pages.slice(0,10)),result_info:{
+  page:1,per_page:10,count:10,total_count:11,total_pages:2
+ }};
+ data[p2]={...reply(pages.slice(10)),result_info:{
+  page:2,per_page:10,count:1,total_count:11,total_pages:2
+ }};
+ for(const x of pages)data[base+'/pages/projects/'+x.name]=reply({
+  name:x.name,deployment_configs:{
+   production:{d1_databases:{}},preview:{d1_databases:{}}
+  }
+ });
+ delete data[base+'/pages/projects/pages-poc'];
+ const {result,used}=await inventory(data);
+ assert.equal(result.pages_projects_checked,11);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.ok(used.includes(p2));
+ assert.ok(!used.some(x=>x.includes('per_page=')
+   &&x.includes('/pages/projects?')));
+ const drift=structuredClone(data);
+ drift[p2].result_info.per_page=20;
+ await assert.rejects(()=>inventory(drift),/E_G5_BINDING_READONLY_INVENTORY/);
+ const missing=structuredClone(data);
+ delete missing[p2];
+ await assert.rejects(()=>inventory(missing),/Unexpected request/);
+});
 test('D1 binding on current Worker, older/preview version, or Pages phase fails no-binding claim',async()=>{
  for(const edit of [
   d=>{d[script+'/settings'].result.bindings[0].database_id=db;},
@@ -132,8 +178,8 @@ test('missing pages permission, incomplete pagination, unknown bindings, and hid
  for(const edit of [
   d=>{delete d[script+'/versions?page=1&per_page=50'].result.items;},
   d=>{d[script+'/versions?page=1&per_page=50'].result.items=[];},
-  d=>{d[base+'/pages/projects?page=1&per_page=20'].success=false;},
-  d=>{d[base+'/pages/projects?page=1&per_page=20'].result_info.total_count=2;},
+  d=>{d[base+'/pages/projects?page=1'].success=false;},
+  d=>{d[base+'/pages/projects?page=1'].result_info.total_count=2;},
   d=>{delete d[base+'/pages/projects/pages-poc'].result.deployment_configs.preview;},
   d=>{d[script+'/settings'].result.bindings=[{type:'d1',name:'DB'}];},
   d=>{d[script+'/versions/'+version].result.resources.bindings=null;},
@@ -221,7 +267,7 @@ test('safe diagnostic reports only fixed stage names without exposing resource I
   [script+'/settings','WORKER_SETTINGS'],
   [script+'/versions?page=1&per_page=50','WORKER_VERSION_LIST'],
   [script+'/versions/'+version,'WORKER_VERSION_DETAIL'],
-  [base+'/pages/projects?page=1&per_page=20','PAGES_LIST'],
+  [base+'/pages/projects?page=1','PAGES_LIST'],
   [base+'/pages/projects/pages-poc','PAGES_PROJECT_DETAIL'],
   ['/unapproved/path','UNKNOWN']
  ];

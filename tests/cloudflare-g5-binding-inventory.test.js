@@ -19,7 +19,7 @@ function routes(){
  return {
   [base+'/workers/scripts']:reply([{id:'restaurant-business-poc'}]),
   [script+'/settings']:reply({bindings:[{name:'DB',type:'d1',database_id:other}]}),
-  [script+'/versions?page=1&per_page=50']:{...reply({items:vers}),result_info:pag(vers)},
+  [script+'/versions?page=1&per_page=50']:reply({items:vers}),
   [script+'/versions/'+version]:reply({id:version,resources:{bindings:[{name:'DB',type:'d1',database_id:other}]}}),
   [base+'/pages/projects?page=1&per_page=50']:{...reply(projects),result_info:pag(projects)},
   [base+'/pages/projects/pages-poc']:reply({name:'pages-poc',deployment_configs:{
@@ -65,7 +65,8 @@ test('D1 binding on current Worker, older/preview version, or Pages phase fails 
 });
 test('missing pages permission, incomplete pagination, unknown bindings, and hidden versions fail closed',async()=>{
  for(const edit of [
-  d=>{delete d[script+'/versions?page=1&per_page=50'].result_info;},
+  d=>{delete d[script+'/versions?page=1&per_page=50'].result.items;},
+  d=>{d[script+'/versions?page=1&per_page=50'].result.items=[];},
   d=>{d[base+'/pages/projects?page=1&per_page=50'].success=false;},
   d=>{d[base+'/pages/projects?page=1&per_page=50'].result_info.total_count=2;},
   d=>{delete d[base+'/pages/projects/pages-poc'].result.deployment_configs.preview;},
@@ -77,6 +78,69 @@ test('missing pages permission, incomplete pagination, unknown bindings, and hid
   const data=routes();edit(data);
   await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
  }
+});
+test('Cloudflare documented Worker Versions envelope has no result_info',async()=>{
+ const data=routes();
+ assert.equal(Object.hasOwn(data[script+'/versions?page=1&per_page=50'],'result_info'),false);
+ const {result}=await inventory(data);
+ assert.equal(result.worker_versions_checked,1);
+ assert.equal(result.no_direct_binding_detected,true);
+});
+test('Worker Versions full 50-item page requires a second page and checks an older binding',async()=>{
+ const data=routes(),items=[];
+ for(let i=0;i<50;i++){
+  const id='a'+i.toString(16).padStart(7,'0')+'-1111-2222-3333-444444444444';
+  items.push({id,number:51-i});
+  data[script+'/versions/'+id]=reply({id,resources:{
+   bindings:[{type:'d1',name:'DB',database_id:i===49?db:other}]
+  }});
+ }
+ const older='b0000000-1111-2222-3333-444444444444';
+ items[0].id=version; // original first fixture version detail remains valid
+ items[0].number=51;
+ delete data[script+'/versions/'+items[1].id]; // replaced below as a regression check
+ data[script+'/versions/'+items[1].id]=reply({id:items[1].id,resources:{
+  bindings:[{type:'d1',name:'DB',database_id:other}]
+ }});
+ data[script+'/versions?page=1&per_page=50']=reply({items});
+ data[script+'/versions?page=2&per_page=50']=reply({items:[{id:older,number:1}]});
+ data[script+'/versions/'+older]=reply({id:older,resources:{
+  bindings:[{type:'d1',name:'DB',database_id:other}]
+ }});
+ const {result,used}=await inventory(data);
+ assert.equal(result.worker_versions_checked,51);
+ assert.equal(result.direct_binding_matches,1);
+ assert.ok(used.includes(script+'/versions?page=2&per_page=50'));
+});
+test('exact 50-version boundary must request empty next page, and missing next page fails',async()=>{
+ const data=routes(),items=[];
+ for(let i=0;i<50;i++){
+  const id='c'+i.toString(16).padStart(7,'0')+'-1111-2222-3333-444444444444';
+  items.push({id,number:50-i});
+  data[script+'/versions/'+id]=reply({id,resources:{bindings:[]}});
+ }
+ data[script+'/versions?page=1&per_page=50']=reply({items});
+ await assert.rejects(()=>inventory(data),/Unexpected request/);
+ data[script+'/versions?page=2&per_page=50']=reply({items:[]});
+ const {result}=await inventory(data);
+ assert.equal(result.worker_versions_checked,50);
+});
+test('Worker Versions repeated items, malformed UUIDs and unbounded pages fail closed',async()=>{
+ const data=routes();
+ data[script+'/versions?page=1&per_page=50'].result.items=[{id:version},{id:version}];
+ await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
+ const invalid=routes();
+ invalid[script+'/versions?page=1&per_page=50'].result.items=[{id:'bad'}];
+ await assert.rejects(()=>inventory(invalid),/E_G5_BINDING_READONLY_INVENTORY/);
+ const full=routes(),items=[];
+ for(let i=0;i<50;i++){
+  const id='d'+i.toString(16).padStart(7,'0')+'-1111-2222-3333-444444444444';
+  items.push({id});
+  full[script+'/versions/'+id]=reply({id,resources:{bindings:[]}});
+ }
+ full[script+'/versions?page=1&per_page=50']=reply({items});
+ full[script+'/versions?page=2&per_page=50']=reply({items}); // replayed page
+ await assert.rejects(()=>inventory(full),/E_G5_BINDING_READONLY_INVENTORY/);
 });
 test('invalid pinned target and Cloudflare identity rejected',async()=>{
  const m=await mod;

@@ -137,15 +137,21 @@ async function pagedPages(get,path,extract,max){
   const expectedPages=Math.max(1,Math.ceil(info.total_count/perPage));
   // Total pages is an optional *hint*, not the source of completeness:
   // count/per_page/page metadata and the exact number of entries drive
-  // enumeration. Cloudflare may serialize an absent optional hint as null;
-  // only null/undefined are ignored. Other supplied types or out-of-range
-  // values remain errors, and valid numbers must equal expectedPages.
+  // enumeration. A truly empty result set may report zero total pages;
+  // this is only acceptable with a verified total_count/count of zero and
+  // an actually empty first page. We still issue GET page=1 to prove it.
+  // Any nonempty data must report the exact positive expectedPages.
   const declaredPages=info.total_pages;
   if(declaredPages!==undefined&&declaredPages!==null){
    pagesNeed(typeof declaredPages==='number','PAGE_TOTAL_PAGES_TYPE_INVALID');
-   pagesNeed(Number.isSafeInteger(declaredPages)&&declaredPages>=1,
+   pagesNeed(Number.isSafeInteger(declaredPages)&&declaredPages>=0,
     'PAGE_TOTAL_PAGES_INVALID');
-   pagesNeed(declaredPages===expectedPages,'PAGE_TOTAL_PAGES_MISMATCH');
+   if(declaredPages===0){
+    pagesNeed(page===1&&info.total_count===0&&
+     info.count===0&&entries.length===0,'PAGE_TOTAL_PAGES_MISMATCH');
+   }else{
+    pagesNeed(declaredPages===expectedPages,'PAGE_TOTAL_PAGES_MISMATCH');
+   }
   }
   pagesNeed(total===null||total===info.total_count,'PAGE_TOTAL_CHANGED');
   total=info.total_count;

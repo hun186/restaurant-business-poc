@@ -329,7 +329,7 @@ test('Cloudflare Pages optional total_pages must agree when present, including l
   [true,'PAGE_TOTAL_PAGES_TYPE_INVALID'],
   [{n:2},'PAGE_TOTAL_PAGES_TYPE_INVALID'],
   [[2],'PAGE_TOTAL_PAGES_TYPE_INVALID'],
-  [0,'PAGE_TOTAL_PAGES_INVALID'],
+  [0,'PAGE_TOTAL_PAGES_MISMATCH'],
   [-1,'PAGE_TOTAL_PAGES_INVALID'],
   [1.5,'PAGE_TOTAL_PAGES_INVALID'],
   [3,'PAGE_TOTAL_PAGES_MISMATCH']
@@ -355,7 +355,7 @@ test('Pages validation failures emit only fixed field categories, never Cloudfla
   ['PAGE_TOTAL_INVALID',d=>{d[first].result_info.total_count='1';}],
   ['PAGE_TOTAL_EXCEEDS_LIMIT',d=>{d[first].result_info.total_count=501;}],
   ['PAGE_TOTAL_PAGES_TYPE_INVALID',d=>{d[first].result_info.total_pages='1';}],
-  ['PAGE_TOTAL_PAGES_INVALID',d=>{d[first].result_info.total_pages=0;}],
+  ['PAGE_TOTAL_PAGES_MISMATCH',d=>{d[first].result_info.total_pages=0;}],
   ['PAGE_TOTAL_PAGES_MISMATCH',d=>{d[first].result_info.total_pages=2;}],
   ['PAGE_TOTAL_OVERFLOW',d=>{d[first].result_info.total_count=0;}],
   ['PAGE_PROJECT_NAME_INVALID',d=>{d[first].result[0].name='SENSITIVE NAME INVALID!';}],

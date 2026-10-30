@@ -249,7 +249,7 @@ test('Pages nullable total_pages on both/mixed pages cannot hide missing or drif
   const d=fixture();change(d);
   await assert.rejects(()=>inventory(d),e=>
    e?.message==='E_G5_BINDING_READONLY_INVENTORY'&&
-   (expected==='PAGE_PROJECT_NAME_DUPLICATE'?e?.g5Validation===expected:e?.g5Validation===expected),
+   e?.g5Validation===expected,
    expected);
  }
  const missing=fixture();delete missing[second];

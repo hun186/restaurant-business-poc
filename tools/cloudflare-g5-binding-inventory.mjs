@@ -46,6 +46,23 @@ function httpReason(status){
  return 'HTTP_OTHER';
 }
 function need(ok){if(!ok)fail();}
+// Internal validation detail is limited to immutable, reviewed codes.
+// Never log an actual API response, item name, ID, value or request URL.
+const PAGE_VALIDATION_CODES=new Set([
+ 'PAGE_INPUT_INVALID','PAGE_RESPONSE_INVALID','PAGE_METADATA_MISSING',
+ 'PAGE_SIZE_INVALID','PAGE_SIZE_CHANGED','PAGE_SIZE_EXCEEDED',
+ 'PAGE_NUMBER_MISMATCH','PAGE_COUNT_MISMATCH','PAGE_TOTAL_INVALID',
+ 'PAGE_TOTAL_PAGES_INVALID','PAGE_TOTAL_PAGES_MISMATCH',
+ 'PAGE_TOTAL_EXCEEDS_LIMIT','PAGE_TOTAL_CHANGED','PAGE_TOTAL_OVERFLOW',
+ 'PAGE_INCOMPLETE','PAGE_LIMIT_REACHED','PAGE_PROJECT_NAME_INVALID',
+ 'PAGE_PROJECT_NAME_DUPLICATE'
+]);
+function pagesNeed(ok,code){
+ if(ok)return;
+ const err=new Error('E_G5_BINDING_READONLY_INVENTORY');
+ err.g5Validation=PAGE_VALIDATION_CODES.has(code)?code:'PAGE_INPUT_INVALID';
+ throw err;
+}
 function obj(x){return x!==null&&typeof x==='object'&&!Array.isArray(x);}
 // Diagnostic ONLY: bounded comparison after the FIRST paginated Pages GET
 // fails HTTP 400. Never use any probe as complete inventory or bypass strict
@@ -99,27 +116,44 @@ function pagination(r,page,perPage,count){
 // validate the SERVER-REPORTED page size, total_count and total_pages on
 // every page. Fail closed if metadata changes or completeness is uncertain.
 async function pagedPages(get,path,extract,max){
- need(typeof get==='function'&&typeof path==='string'&&typeof extract==='function');
+ pagesNeed(typeof get==='function'&&typeof path==='string'&&
+  typeof extract==='function'&&Number.isSafeInteger(max)&&max>0,
+  'PAGE_INPUT_INVALID');
  let all=[],total=null,serverPerPage=null;
  for(let page=1;page<=max;page++){
   const r=await get(path+'?page='+page);
-  const entries=extract(result(r));
-  need(Array.isArray(entries));
-  const perPage=r.result_info?.per_page;
-  need(Number.isSafeInteger(perPage)&&perPage>=1&&
-   perPage<=MAX_SERVER_PAGES_PAGE&&
-   (serverPerPage===null||serverPerPage===perPage));
+  pagesNeed(obj(r)&&r.success===true&&Array.isArray(r.result),
+   'PAGE_RESPONSE_INVALID');
+  const entries=extract(r.result);
+  pagesNeed(Array.isArray(entries),'PAGE_RESPONSE_INVALID');
+  pagesNeed(obj(r.result_info),'PAGE_METADATA_MISSING');
+  const info=r.result_info,perPage=info.per_page;
+  pagesNeed(Number.isSafeInteger(perPage)&&perPage>=1&&
+   perPage<=MAX_SERVER_PAGES_PAGE,'PAGE_SIZE_INVALID');
+  pagesNeed(serverPerPage===null||serverPerPage===perPage,'PAGE_SIZE_CHANGED');
   serverPerPage=perPage;
-  need(entries.length<=perPage&&all.length+entries.length<=max);
-  const info=pagination(r,page,perPage,entries.length);
-  need(total===null||total===info.total_count);
+  pagesNeed(entries.length<=perPage&&all.length+entries.length<=max,
+   'PAGE_SIZE_EXCEEDED');
+  pagesNeed(info.page===page,'PAGE_NUMBER_MISMATCH');
+  pagesNeed(info.count===entries.length,'PAGE_COUNT_MISMATCH');
+  pagesNeed(Number.isSafeInteger(info.total_count)&&info.total_count>=0,
+   'PAGE_TOTAL_INVALID');
+  pagesNeed(info.total_count<=max,'PAGE_TOTAL_EXCEEDS_LIMIT');
+  pagesNeed(Number.isSafeInteger(info.total_pages)&&info.total_pages>=1,
+   'PAGE_TOTAL_PAGES_INVALID');
+  pagesNeed(info.total_pages===Math.max(1,Math.ceil(info.total_count/perPage)),
+   'PAGE_TOTAL_PAGES_MISMATCH');
+  pagesNeed(total===null||total===info.total_count,'PAGE_TOTAL_CHANGED');
   total=info.total_count;
   all.push(...entries);
-  need(all.length<=total);
-  if(page===info.total_pages){need(all.length===total);return all;}
-  need(all.length<total);
+  pagesNeed(all.length<=total,'PAGE_TOTAL_OVERFLOW');
+  if(page===info.total_pages){
+   pagesNeed(all.length===total,'PAGE_INCOMPLETE');
+   return all;
+  }
+  pagesNeed(all.length<total,'PAGE_INCOMPLETE');
  }
- fail();
+ pagesNeed(false,'PAGE_LIMIT_REACHED');
 }
 // Worker Script Versions response uses {result:{items:[...]}} and does NOT
 // document result_info. Enumerate page/per_page until a short page appears.
@@ -216,8 +250,10 @@ export async function collectBindingInventory(pin,get){
  // GET with only page=N and validate authoritative result_info on each page.
  const projects=await pagedPages(get,prefix+'/pages/projects',r=>r,MAX_PROJECTS);
  const projectNames=projects.map(p=>p?.name);
- need(projectNames.every(n=>typeof n==='string'&&NAME_RE.test(n))&&
-  new Set(projectNames).size===projectNames.length);
+ pagesNeed(projectNames.every(n=>typeof n==='string'&&NAME_RE.test(n)),
+  'PAGE_PROJECT_NAME_INVALID');
+ pagesNeed(new Set(projectNames).size===projectNames.length,
+  'PAGE_PROJECT_NAME_DUPLICATE');
  for(const name of projectNames){
   const p=result(await get(prefix+'/pages/projects/'+name));
   need(obj(p)&&p.name===name);
@@ -295,8 +331,11 @@ if(process.argv[1]&&path.resolve(process.argv[1])===file){
     throw err;
    }
   })));
- }catch{
+ }catch(err){
+  const validation=PAGE_VALIDATION_CODES.has(err?.g5Validation)?err.g5Validation:null;
   console.error('G5_BINDINGS_READONLY_FAILED stage='+stage+' reason='+reason+
+   (validation!==null&&stage==='PAGES_LIST'&&reason==='VALIDATION_FAILED'?
+    ' validation_code='+validation:'')+
    (bareProbe===null?'':' bare_probe='+bareProbe+
     ' page_probe='+pageProbe+' per_page_probe='+perPageProbe));
   process.exitCode=1;

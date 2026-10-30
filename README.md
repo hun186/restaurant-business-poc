@@ -24,6 +24,12 @@
 
 以 [水電好管家](https://github.com/hun186/plumber-business-poc) 的繁體中文深藍／青綠管理介面為視覺參考，針對餐飲業另建的**獨立程式**。本版本具備可執行的 Node.js + SQLite 後端、三層級帳號權限及基本營運工作流程，不是靜態空殼。**狀態：可供本機 PoC 驗證，尚未通過生產環境安全驗收。**
 
+## Cloudflare Staging D1 開發進度（2026-10-30，新 PR，尚未 Merge）
+
+新增 `GET /api/overview` 的真正 D1 聚合讀取，僅在 Worker `CLOUD_AUTH_PHASE=preview-readonly`、D1 v3 Contract、有效 Session 及角色／門市查核同時成立時回傳 `open_tasks`、`pending_orders`、`open_repairs`、`low_stock` 四項統計。Staff 的待辦與單據限本人分派／建立，Manager 限授權且啟用的門市，Owner 看所有啟用門市；低庫存以 `stock_moves` 流水彙總，不讀取偽造的 `on_hand`。未登入、缺 Schema、SQL 錯誤均不會外洩資料；未知查詢參數、寫入方法拒絕。
+
+此 PR 只是下一步真正 D1 串接的**第一個可驗證的 Staging 唯讀 API 增量**；沒有在 Cloudflare 遠端新建立帳號或實際登入、沒有啟用 `/api/login` 或 `/api/command`，沒有修改 Cloudflare Production D1，Production 的 `CLOUD_AUTH_PHASE=disabled` 及 `demo_only`、正式寫入 503 持續保留。即使 Hosted CI 通過，仍需後續取得受 Cloudflare Access 保護的測試環境與真實 Staging API 執行證據，才可宣稱雲端功能可供使用。詳見 [Staging D1 唯讀 Overview 契約](docs/Cloudflare-Staging-D1-Overview-API.md)。
+
 ## 現有功能
 
 | 模組 | 目前可執行的功能 | 限制 |

@@ -60,7 +60,7 @@ function checkPagesConfig(project,id){
  for(const phase of ['production','preview']){
   const c=project.deployment_configs[phase];
   need(obj(c));
-  const map=c.d1_databases??{};
+  const map=c.d1_databases===undefined?{}:c.d1_databases;
   need(obj(map));
   for(const entry of Object.values(map)){
    need(obj(entry)&&typeof entry.id==='string'&&UUID.test(entry.id));
@@ -89,7 +89,7 @@ export async function collectBindingInventory(pin,get){
   const base=prefix+'/workers/scripts/'+script;
   const settings=result(await get(base+'/settings'));
   need(obj(settings));
-  bindingsFound+=checkBindings(settings.bindings??[],id);
+  bindingsFound+=checkBindings(settings.bindings,id);
   const versions=await paged(get,base+'/versions',r=>{
     need(obj(r));return r.items;
   },MAX_VERSIONS);
@@ -98,7 +98,7 @@ export async function collectBindingInventory(pin,get){
     need(obj(v)&&typeof v.id==='string'&&UUID.test(v.id));
     const detail=result(await get(base+'/versions/'+v.id));
     need(obj(detail)&&detail.id===v.id&&obj(detail.resources));
-    bindingsFound+=checkBindings(detail.resources.bindings??[],id);
+    bindingsFound+=checkBindings(detail.resources.bindings,id);
     versionsChecked++;
   }
  }

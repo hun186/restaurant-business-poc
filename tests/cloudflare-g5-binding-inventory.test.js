@@ -317,17 +317,11 @@ test('first paginated Pages 400 compares bare GET once and ALWAYS fails closed',
  );
  assert.deepEqual(seen,[paged,bare,bare+'?page=1',bare+'?per_page=20']);
  assert.deepEqual(outcomes,['OK']);
- // A successful bare GET never becomes a completed, trusted inventory.
- await assert.rejects(
-  ()=>m.collectBindingInventory(pin,async p=>{
-   if(p===base+'/workers/scripts')return reply([{id:'restaurant-business-poc'}]);
-   if(p===script+'/settings')return reply({bindings:[]});
-   if(p===script+'/versions?page=1&per_page=50')return reply({items:[{id:version}]});
-   if(p===script+'/versions/'+version)
-    return reply({id:version,resources:{bindings:[]}});
-   return m.readWithPagesDifferential(get,p,()=>{});
-  }),e=>e===original
- );
+ // Bare GET from the legacy diagnostic cannot substitute for a page-only
+ // inventory response that is missing authoritative result_info metadata.
+ const data=routes();
+ data[base+'/pages/projects?page=1']=reply([]);
+ await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
 });
 test('bare Pages diagnostic keeps original paged HTTP 400 even if bare GET fails',async()=>{
  const m=await mod;
@@ -466,26 +460,23 @@ test('all Pages variants retain strict GET-only transport, no redirects or raw b
  ]);
  assert.deepEqual(codes,[['OK','HTTP_BAD_REQUEST','OK']]);
 });
-test('Pages query variants are read-only diagnostics and never allow inventory success',async()=>{
+test('page-only inventory HTTP 400 never falls back to bare or per_page diagnostics',async()=>{
  const m=await mod,original=new Error('ORIGINAL_HTTP_400');
  original.g5Reason='HTTP_BAD_REQUEST';
- let probeCalls=0;
+ const seen=[],recorded=[];
  const get=async p=>{
+  seen.push(p);
   if(p===base+'/workers/scripts')return reply([{id:'restaurant-business-poc'}]);
   if(p===script+'/settings')return reply({bindings:[]});
   if(p===script+'/versions?page=1&per_page=50')return reply({items:[{id:version}]});
   if(p===script+'/versions/'+version)return reply({id:version,resources:{bindings:[]}});
-  if(p===base+'/pages/projects?page=1&per_page=20')throw original;
-  if([base+'/pages/projects',base+'/pages/projects?page=1',
-      base+'/pages/projects?per_page=20'].includes(p)){
-   probeCalls++;
-   return {...reply([]),result_info:pag([])};
-  }
-  assert.fail('unexpected request');
+  if(p===base+'/pages/projects?page=1')throw original;
+  assert.fail('unexpected diagnostic/fallback request');
  };
  await assert.rejects(()=>m.collectBindingInventory(pin,
-  p=>m.readWithPagesDifferential(get,p,()=>{})),e=>e===original);
- assert.equal(probeCalls,3);
+  p=>m.readWithPagesDifferential(get,p,(...v)=>recorded.push(v))),e=>e===original);
+ assert.deepEqual(recorded,[]);
+ assert.deepEqual(seen.filter(p=>p.includes('/pages/projects')),[base+'/pages/projects?page=1']);
 });
 test('read-only transport failures yield fixed categories, never response body',async()=>{
  const m=await mod;

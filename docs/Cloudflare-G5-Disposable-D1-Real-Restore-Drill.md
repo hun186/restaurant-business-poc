@@ -68,3 +68,11 @@ Cloudflare 官方唯讀 API：
 
 ### Worker Versions 分頁格式與驗證限制（P2 修正）
 Cloudflare `GET /accounts/{account}/workers/scripts/{script}/versions` 官方回應為 `{success:true,result:{items:[...]}}`，**不保證提供頂層 `result_info`**。不同於 Pages Projects 清單，Worker Versions 採獨立的 `page/per_page=50` 逐頁列舉：只有取得少於 50 筆的終端頁才結束；剛好 50 筆的整頁必須再要求下一頁（可能為空頁）；總量上限 500，超出或缺頁、重複版本 ID、回應格式不可信、權限不足均 Fail Closed。這個沒有總筆數的 API 不能保證遠端同時新增／刪除版本時仍為一致快照，因此 `NO_DIRECT_BINDING_DETECTED` 仍不等同安全簽核；要求人工在變更窗口重新核對。
+
+### 2026-10-30｜Codex P2：Pages 已部署版本不能由目前專案設定代替（Fail Closed）
+
+Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部署**才會生效。僅檢查 Projects API 的 `deployment_configs.production/preview` 會漏掉仍由舊版部署使用的 D1，即使現在設定已移除 Binding 亦然（[Cloudflare 官方 Pages D1 Bindings](https://developers.cloudflare.com/pages/functions/bindings/#d1-databases)）。
+
+本次採用**保守拒絕安全結論**的修正策略：若該 Cloudflare 帳戶有**任何 Pages Project**，本工具仍可盤點當前設定中的直接 D1 Binding，但**不會**宣稱已核實「沒有直接 Binding」；當當前設定未命中且存在 Pages 專案時，狀態為 `G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED`，且 `no_direct_binding_detected=false`、`pages_deployment_bindings_verified=false`、`direct_binding_inventory_collected=false`。只有在完整分頁確認帳戶中**沒有 Pages Project**，又沒有 Worker D1 Binding 命中時，才會輸出原本的 `NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`；即使如此仍需獨立人為確認間接存取與其他操作者。若發現任一直接綁定，繼續回報 `DIRECT_BINDING_FOUND`，禁止演練。
+
+這是刻意保留的**未完成關卡**，不是自動檢查每個 Pages 實際部署版本。若要關閉此缺口，需另外設計可取得有效部署 Binding 版本與完整清單的可驗證唯讀證據，並獨立人工核對。現階段不可因 Pages Projects 當前 `d1_databases` 是空的就設定 `NO_DISPOSABLE_D1_WORKER_BINDING` 或啟用 Restore 審批。

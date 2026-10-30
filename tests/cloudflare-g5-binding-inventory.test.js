@@ -372,6 +372,17 @@ test('first paginated 400 isolates bare, page-only and per-page-only as exactly 
  assert.deepEqual(seen,[paged,bare,page,perPage]);
  assert.deepEqual(outcomes,[['OK','HTTP_BAD_REQUEST','OK']]);
 });
+test('diagnostic recording exception cannot replace original Pages 400',async()=>{
+ const m=await mod,paged=base+'/pages/projects?page=1&per_page=20';
+ const original=new Error('ORIGINAL_400');original.g5Reason='HTTP_BAD_REQUEST';
+ let count=0;
+ await assert.rejects(()=>m.readWithPagesDifferential(async p=>{
+  count++;
+  if(p===paged)throw original;
+  return reply([]);
+ },paged,()=>{throw new Error('SENSITIVE_RECORDING_FAILURE');}),e=>e===original);
+ assert.equal(count,4);
+});
 test('Pages individual-query probe failures are sanitized and cannot mask first 400',async()=>{
  const m=await mod,seen=[],outcomes=[],paged=base+'/pages/projects?page=1&per_page=20';
  const original=new Error('ORIGINAL_400');original.g5Reason='HTTP_BAD_REQUEST';

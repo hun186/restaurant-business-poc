@@ -1,5 +1,30 @@
 # P0 G5｜獨立 Cloudflare D1 真實 Time Travel Restore 演練
 
+## 2026-10-30｜G5 唯讀盤點 PASS 後的獨立人工隔離簽核（目前仍 BLOCKED）
+
+> **狀態：機器盤點已實證成功；人工隔離確認、獨占使用、Write Environment 保護與獨立授權尚未完成。** 本節只彙整可核對的 GitHub 證據並提供人工查核交接，不代表任何一名人員已完成 Cloudflare Dashboard 審核。未經使用者另行明確授權，**禁止** `mode=drill`、Restore、D1 Write、Production Migration / Login / Write、擴權或設定放行變數。
+
+### 目前已能確認的客觀證據
+
+- [x] PR #58 經正式 Codex Review 0 Findings、Hosted CI 5/5 PASS 並依使用者授權 Squash Merge，最新 main SHA `61912fb594173e61ae140c56914bf40c2fc20688`；[Postmerge Verify #41039593794](https://github.com/hun186/restaurant-business-poc/actions/runs/41039593794) completed/success。
+- [x] 2026-10-30 10:31Z [G5 Worker／Pages GET-only 真實盤點 #41041385954](https://github.com/hun186/restaurant-business-poc/actions/runs/41041385954)，同一 main SHA、completed/success。日誌標記 `G5_BINDINGS_INVENTORY_COLLECTED_HUMAN_REVIEW_REQUIRED`；JSON 統計：`worker_scripts_checked=1`、`worker_versions_checked=47`、`pages_projects_checked=0`、`direct_binding_matches=0`、`no_direct_binding_detected=true`、`direct_binding_inventory_collected=true`、`pages_deployment_bindings_verified=true`。`pages_deployment_bindings_verified=true` 在此係 **0 Pages 專案的空集合**，不可延伸為完整的部署外部存取能力證明。
+- [x] 曾在 2026-10-29 16:51Z [D1 disposable 唯讀 Inspect #40914927490 Attempt 2](https://github.com/hun186/restaurant-business-poc/actions/runs/40914927490/attempts/2) 回報 `G5_DISPOSABLE_D1_PRISTINE_READONLY_PASS`，檢查固定 UUID／名稱／後端、`sqlite_master` 可接受物件、`PRAGMA quick_check` 與 Time Travel Bookmark；`drill` job skipped。**這是當時的快照**，無法證明 10/30 仍為空或不存在並行使用者。
+- [x] 已審閱 `.github/workflows/d1-disposable-restore-drill-g5.yml` 與 `tools/cloudflare-d1-disposable-drill.mjs`：`drill` 原始碼具 main SHA／固定演練 DB UUID／兩項 typed attestations／protected write environment／`G5_DRILL_RESTORE_APPROVED` 四組護欄，CLI 再檢查；這是**程式定義**，不代表 GitHub Environment 的實際保護規則或 Secret 配置已獨立核對。固定 Pin 為 `cloudflare/recovery-drill-target.json` 的 `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`（非 Production 或 Staging UUID）。
+
+### 人工查核工作單：只有真的查驗才可打勾
+
+- [ ] **A｜Cloudflare 獨立綁定覆核：** 由不同於執行者的審核人於正確帳戶的 **Workers & Pages**，檢查所有現行/已部署 Worker、各環境與可服務版本的 D1 bindings；Pages 專案、Functions 目前與已部署設定；間接 Service Bindings、其他服務代理與跨帳戶/API 操作的可能性。核對目標固定 UUID，不只依賴 `0` 命中數字。**無法觀察的間接路徑要註記風險，不能自行聲稱不存在。**
+- [ ] **B｜當下資料庫狀態：** 管理員核對 **D1 → 選取固定演練庫** 的名稱、UUID、Backend 與資料/Schema；不要匯入真實人事、菜單、訂單或顧客資料。再次從 [G5 Restore workflow](https://github.com/hun186/restaurant-business-poc/actions/workflows/d1-disposable-restore-drill-g5.yml) 選最新 `main`、`mode=inspect`、`confirm=CHECK_DISPOSABLE_D1_READONLY`；其餘 `drill` 欄位不填。此 Inspect 仍只證明執行當下空庫與基本完整性，**不是變更窗口的獨占使用確認**。
+- [ ] **C｜無並行使用者：** 在 Cloudflare **Manage Account → Audit Logs** 檢查相關時段是否有目標 D1、Worker／Pages Binding、Token 或部署變更；檢視 Cloudflare 帳戶成員、現有可寫 Token、排程／外部自動化與其他 Console/API 操作者。取得明確變更窗口並由負責人確認此時無其他寫入者；**Audit Logs 沒有事件不等於能證明沒有未知連線或未來寫入**。保存必要的**私有**查核紀錄（不貼 Email/IP/Token/SQL 原始資料於公開 GitHub）。
+- [ ] **D｜GitHub Write Environment：** 管理員在 [Settings → Environments](https://github.com/hun186/restaurant-business-poc/settings/environments) 確認 `d1-recovery-drill-write` 僅允許 `main`、有真正不同於觸發者且具讀取權限的 Required reviewer、Prevent self-review、禁止管理員 bypass（依方案與可用性）；人工核對 `G5_DRILL_RELEASE_SHA` 未沿用過期 SHA、`G5_DRILL_APPROVED_DB_ID` 符合 Pin。現階段應確認 `G5_DRILL_RESTORE_APPROVED` **未設定**，`CLOUDFLARE_D1_DRILL_WRITE_TOKEN` **未預先放置**。只限單一維護者、不能真正實施獨立 reviewer 時，**此項 BLOCKED；不得用 Wait timer 冒充雙人審核**。
+- [ ] **E｜獨立簽核：** 由具適當權限的審核人記錄 A–D 的時間、結果與必要私有證據位置，明確說明剩餘風險；由操作者另確認變更窗口與停損方式。只有全部滿足後，才可**另行詢問使用者是否授權**破壞性 disposable `mode=drill`。不得因本紀錄已建立就自行填寫 `NO_DISPOSABLE_D1_WORKER_BINDING` 或 `DISPOSABLE_D1_NO_CONCURRENT_USERS`。
+
+**人工簽核欄位（不得預填 PASS）：** 審核人／可確認的獨立身分：PENDING；Cloudflare 帳戶與固定演練庫：需現場確認；查核時段（含時區）：PENDING；A 綁定與間接路徑：PENDING；B 新 Inspect Run：PENDING；C Audit Logs／使用者／排程與排他窗口：PENDING；D GitHub Environment／無常駐 Write Token：PENDING；未解除風險：PENDING；私有證據索引：PENDING；最終授權：**NOT GRANTED**。
+
+參考官方操作說明：[Cloudflare Workers D1 綁定](https://developers.cloudflare.com/d1/best-practices/remote-development/)、[Pages Functions D1 綁定](https://developers.cloudflare.com/pages/functions/bindings/)、[Cloudflare Audit Logs v2](https://developers.cloudflare.com/fundamentals/account/account-security/audit-logs/)、[GitHub Environment 保護](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)。
+
+---
+
 ## 目前進度與真實證據
 - 2026-10-29：G1 Staging 遠端唯讀 [#40854101717](https://github.com/hun186/restaurant-business-poc/actions/runs/40854101717) SUCCESS。
 - G5 Production 空庫唯讀 [#40865818477 Attempt 3](https://github.com/hun186/restaurant-business-poc/actions/runs/40865818477/attempts/3) SUCCESS，Production 沒有業務 Schema、沒有 Owner、`apply` SKIPPED。

@@ -3,6 +3,38 @@
 const EXPECTED_SUFFIX = '-restaurant-business-poc.hungyuan-chen.workers.dev';
 const DEFAULT_TIMEOUT = 10000;
 function fail() { throw new Error('E_STAGING_HTTP_READONLY_CHECK'); }
+const MAX_RESPONSE_BYTES = 4096;
+
+// Never buffer an unbounded/chunked body with Response.text(). Count actual
+// UTF-8 bytes during streaming, canceling on the first over-limit chunk.
+async function readLimitedUtf8(response) {
+  const reader = response.body?.getReader();
+  if (!reader) fail();
+  const chunks = [];
+  let bytes = 0, done = false;
+  try {
+    for (;;) {
+      const item = await reader.read();
+      if (item.done) { done = true; break; }
+      if (!(item.value instanceof Uint8Array)) fail();
+      bytes += item.value.byteLength;
+      if (bytes > MAX_RESPONSE_BYTES) fail();
+      chunks.push(item.value);
+    }
+  } finally {
+    if (!done) await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+  const body = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  // Reject malformed UTF-8 rather than silently replacing bytes.
+  return new TextDecoder('utf-8', {fatal: true}).decode(body);
+}
+
 export function previewOrigin(input) {
   if (typeof input !== 'string' || input.length > 256) fail();
   let url;
@@ -24,16 +56,18 @@ async function requestJson(origin, pathname, expectedStatus, fetcher) {
     referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(DEFAULT_TIMEOUT)
   };
   const response = await fetcher(origin + pathname, options);
+  const directives = (response?.headers.get('cache-control') || '')
+    .split(',').map(item => item.trim().toLowerCase());
+  // Require the exact directive token. "x-no-store" and quoted values do not count.
   if (!response || response.status !== expectedStatus ||
       response.redirected || response.headers.get('location') ||
       response.headers.get('set-cookie') ||
       !/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') || '') ||
-      !/\bno-store\b/i.test(response.headers.get('cache-control') || '') ||
+      !directives.includes('no-store') || directives.includes('public') ||
       response.headers.get('x-content-type-options') !== 'nosniff') fail();
   const size = response.headers.get('content-length');
-  if (size !== null && (!/^\d+$/.test(size) || Number(size) > 4096)) fail();
-  const bodyText = await response.text();
-  if (bodyText.length > 4096) fail();
+  if (size !== null && (!/^\d+$/.test(size) || Number(size) > MAX_RESPONSE_BYTES)) fail();
+  const bodyText = await readLimitedUtf8(response);
   let body;
   try { body = JSON.parse(bodyText); } catch { fail(); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) fail();

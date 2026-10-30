@@ -82,6 +82,52 @@ test('fail closed on missing D1 contract, wrong phase, unexpected sensitive data
     await assert.rejects(checkStagingAnonymousHttp(preview,f.fetcher));
   }
 });
+test('rejects multibyte JSON above 4,096 UTF-8 bytes even when text length is shorter',async()=>{
+  const large = {status:'demo_only', api:'not_implemented',
+    database:'schema_only', production_ready:false, padding:'中'.repeat(2000)};
+  assert.ok(JSON.stringify(large).length < 4096);
+  assert.ok(new TextEncoder().encode(JSON.stringify(large)).byteLength > 4096);
+  const f=cases({'/api/health':large});
+  await assert.rejects(checkStagingAnonymousHttp(preview,f.fetcher));
+});
+
+test('cancels an oversized streamed body before reading an unbounded tail',async()=>{
+  let cancelled = false, pulled = 0;
+  const stream=new ReadableStream({
+    pull(controller) {
+      pulled++;
+      controller.enqueue(new Uint8Array(3000).fill(32));
+    },
+    cancel() { cancelled = true; }
+  }, {highWaterMark:0});
+  const {fetcher:valid}=cases();
+  const fetcher=async (url,options)=> {
+    if (new URL(url).pathname==='/api/health') {
+      return new Response(stream,{status:200,headers});
+    }
+    return valid(url,options);
+  };
+  await assert.rejects(checkStagingAnonymousHttp(preview,fetcher));
+  assert.equal(cancelled,true);
+  assert.ok(pulled <= 3);
+});
+
+test('requires an actual no-store directive, not a substring or quoted lookalike',async()=>{
+  for(const cacheControl of [
+    'public, max-age=3600, x-no-store',
+    'private, "no-store"',
+    'no-store=1',
+    'no-store-other',
+    'public, no-store'
+  ]){
+    const f=cases({}, {headers:{'cache-control':cacheControl}});
+    await assert.rejects(checkStagingAnonymousHttp(preview,f.fetcher),cacheControl);
+  }
+  const f=cases({}, {headers:{'cache-control':'private, NO-STORE'}});
+  assert.equal((await checkStagingAnonymousHttp(preview,f.fetcher)).status,
+    'STAGING_HTTP_GET_ONLY_ANONYMOUS_PASS');
+});
+
 test('redirect or network failure never counts as a successful hosted check',async()=>{
   const redirect = async()=>new Response('',{status:302,headers:{location:'https://login.example.org'}});
   await assert.rejects(checkStagingAnonymousHttp(preview,redirect));

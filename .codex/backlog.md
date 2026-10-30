@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-30 G5/#46 NEXT：最新 main `62e43fce4ef8439c9039579ba8e12817cd5bc462`，正式 GET-only Run #41009848022 回報 `PAGES_LIST / HTTP_BAD_REQUEST bare_probe=OK page_probe=OK per_page_probe=HTTP_BAD_REQUEST`；確認 `per_page=20` 參數觸發 HTTP 400，`page=1` 有效，但還不能宣稱完整 Pages D1 Binding 盤點 PASS。現在開發只用 `page=N` 清單、依遠端 `result_info.per_page` 的嚴格分頁；不能用單頁成功繞過全量/已部署 Pages 綁定驗證。完成 Hosted CI + 最新正式 Codex Review、獨立 Merge 授權才新開 main 手動讀取。不得提前跑 Restore、Production Migration／登入／寫入或擴大 token scopes。
+
 > 2026-10-30 G5/#46 NEXT：PR #52 已合併，main `8fa3600c6a7586cdf598810db8d3a8dd98ac83df`，Postmerge Verify #41002428857 PASS。真實手動唯讀 Run #41002452609 回報 `PAGES_LIST / HTTP_BAD_REQUEST bare_probe=OK`；帶 page+per_page 400，無 query 成功，**仍未有完整 Pages D1 Binding 覆蓋證據**。本分支以額外 2 次 GET 對照 page-only / per_page-only（連既有 bare 上限 3 次）追查 query 支援情形；需 Hosted CI、Codex Review 與獨立使用者 Merge 授權，之後由 main 新開唯讀工作流程取證。絕不可將對照 GET 結果當作 no direct binding PASS。D1 Restore、Production migration/login/write、offsite recovery sign-off 仍未完成。
 
 > 2026-10-30 G5/#46 CURRENT（PR #51 merged 後）：最新 main `111f302ad2f8c68102f3ab792ddc000f1a99f060`，正式 GET-only Cloudflare Pages 盤點 #40998874342 明確 HTTP 400（`PAGES_LIST / HTTP_BAD_REQUEST`），尚未驗收、不可宣稱無直接綁定。下一步提交第一頁 paged 400 的**一次性無 query GET** 安全對照診斷（固定 `bare_probe`、永遠原錯誤 Fail Closed）；完成獨立 PR／CI／Codex Review 後才徵求 Merge 授權，再新開 main workflow_dispatch。任何 Remote Restore／Production migration、登入或寫入不在本階段授權內。

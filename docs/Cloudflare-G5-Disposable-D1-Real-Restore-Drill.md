@@ -11,6 +11,18 @@
 - [x] 曾在 2026-10-29 16:51Z [D1 disposable 唯讀 Inspect #40914927490 Attempt 2](https://github.com/hun186/restaurant-business-poc/actions/runs/40914927490/attempts/2) 回報 `G5_DISPOSABLE_D1_PRISTINE_READONLY_PASS`，檢查固定 UUID／名稱／後端、`sqlite_master` 可接受物件、`PRAGMA quick_check` 與 Time Travel Bookmark；`drill` job skipped。**這是當時的快照**，無法證明 10/30 仍為空或不存在並行使用者。
 - [x] 已審閱 `.github/workflows/d1-disposable-restore-drill-g5.yml` 與 `tools/cloudflare-d1-disposable-drill.mjs`：`drill` 原始碼具 main SHA／固定演練 DB UUID／兩項 typed attestations／protected write environment／`G5_DRILL_RESTORE_APPROVED` 四組護欄，CLI 再檢查；這是**程式定義**，不代表 GitHub Environment 的實際保護規則或 Secret 配置已獨立核對。固定 Pin 為 `cloudflare/recovery-drill-target.json` 的 `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`（非 Production 或 Staging UUID）。
 
+### 下一個安全決策：沒有獨立審核人時保持阻擋
+
+2026-10-30 PR #59 已依使用者授權合併，最新 `main=4df4a1cf2b48e1bba3f30b5eed7d3b2a51d07dd1`，[Postmerge Verify #41048404867](https://github.com/hun186/restaurant-business-poc/actions/runs/41048404867) completed/success。前述 G5 綁定盤點 #41041385954 和 D1 Inspect #41046807367 的機器證據均真實成功，但仍是過去時間點的唯讀查核，不代表簽核完成，且文件更新的 main 不是重新遠端盤點的證據。
+
+**可行處理路徑（目前未選定、均不得自動授權 drill）：**
+
+1. 若可以邀請真正獨立且可信任的審核人：先由 Repo 管理員確認 GitHub Public Repo 的 `d1-recovery-drill-write` **Required reviewers** 可以選擇這位具備 Repo Read 權限的不同人員，啟用 **Prevent self-review**、僅允許 `main`、防管理員 bypass；核對 Cloudflare 側審核權限，再完成 A–E 並保存**私有**證據。只完成這些前置條件，不設定批准 Restore 的 Variable／Write Token。
+2. 如果只有一位管理員，不能形成獨立第二人審核：**維持 BLOCKED，不得把 Wait timer、自填 typed attestations、一次性的 GET-only PASS 當成獨立審查**。若仍須進行演練，必須重新設計以**另一個隔離 Cloudflare 帳戶**、全新可丟棄 D1／另行 PR Pin UUID／源碼與權限審核／受保護環境為前提的後續方案，降低 Write Token 誤及正式帳戶的後果；這是未批准的架構選項，不可沿用目前的 Pin UUID 或帳戶常數直接執行。
+3. 若無法執行以上安全隔離：保持真正遠端 Restore **NOT DONE**，繼續先推進不需要生產寫入的加密異地備份、RPO/RTO 需求研究及其他唯讀查核，Production Ready 持續為 false。
+
+**Cloudflare Audit Logs v2 的證據限制：** 官方目前記載 Dashboard 路徑為 **Manage Account → Audit Logs**；v2 顯示近 90 天、長期資料可經 API/Logpush 存取，且涵蓋率非 100%，部分讀取動作與端點並不完整。檢查時需依實際變更窗口篩選 D1／Workers／Pages／Token／帳戶設定及 actor，對不能看到的事件明確標註 **UNKNOWN**。**沒有事件不是不存在其他寫入者的證明**；不得在公開 Issue 張貼可識別個人的 Log、Token 或完整 API 回應。官方來源：https://developers.cloudflare.com/fundamentals/account/account-security/audit-logs/ 與 https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments 。
+
 ### 人工查核工作單：只有真的查驗才可打勾
 
 - [ ] **A｜Cloudflare 獨立綁定覆核：** 由不同於執行者的審核人於正確帳戶的 **Workers & Pages**，檢查所有現行/已部署 Worker、各環境與可服務版本的 D1 bindings；Pages 專案、Functions 目前與已部署設定；間接 Service Bindings、其他服務代理與跨帳戶/API 操作的可能性。核對目標固定 UUID，不只依賴 `0` 命中數字。**無法觀察的間接路徑要註記風險，不能自行聲稱不存在。**

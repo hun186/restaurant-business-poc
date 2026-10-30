@@ -139,3 +139,12 @@ GitHub main `019b74b30b582e630aa4ee78aac6a969d1790676`（PR #54 合併，Postmer
 本 PR 只在 **Pages 清單驗證失敗**時補充一個由原始碼固定白名單產生的 `validation_code=...`，例如 `PAGE_RESPONSE_INVALID`、`PAGE_METADATA_MISSING`、`PAGE_SIZE_INVALID`、`PAGE_SIZE_CHANGED`、`PAGE_NUMBER_MISMATCH`、`PAGE_COUNT_MISMATCH`、`PAGE_TOTAL_INVALID`、`PAGE_TOTAL_PAGES_INVALID`、`PAGE_TOTAL_PAGES_MISMATCH`、`PAGE_TOTAL_CHANGED`、`PAGE_INCOMPLETE`、`PAGE_PROJECT_NAME_INVALID`、`PAGE_PROJECT_NAME_DUPLICATE`。不輸出實際欄位值、頁面數值、完整 URL、Cloudflare response/body、專案名稱、D1 UUID、Token、stack 或例外原文。所有錯誤仍使用原有 `VALIDATION_FAILED` 和非零 exit code；不可將診斷代碼視為成功的盤點證據。
 
 維持 500 專案的上限、伺服器 `per_page` 1..100、全頁數量、total_count/total_pages 一致、無重複專案與 Pages 已部署版本綁定無法由 current config 單獨驗證的保護。新增合成 regression 逐一證明固定錯誤類別、不洩露回傳值及合法跨頁資料仍正確；SHA-256 Manifest 和 `.codex` 記憶更新。PR 須先最新 HEAD Hosted CI 5/5 PASS、正式 Codex Review、獨立使用者 Merge 授權；合併後才由使用者啟動最新 `main` 的全新 GET-only Run，取得真正 `validation_code`。不提升權限、不執行 Restore、Migration 或 D1 寫入。
+
+
+### 2026-10-30｜Pages result_info.total_pages 可省略：保留完整分頁驗證
+
+最新 main `77db23f3e49b108c8246682546febcb35d2e6f9d`（PR #55 已授權 Squash Merge、Postmerge Verify #41019351188 PASS）的實際 Cloudflare GET-only [Run #41020107558](https://github.com/hun186/restaurant-business-poc/actions/runs/41020107558) 通過靜態預檢，但正式 G5 盤點 **FAIL**，且精確回報 `G5_BINDINGS_READONLY_FAILED stage=PAGES_LIST reason=VALIDATION_FAILED validation_code=PAGE_TOTAL_PAGES_INVALID`。此代碼僅能證明 `total_pages` 不符合「正整數」的既有規則（可能是省略、null、字串或不合規數字）；不會透露實際 Cloudflare 欄位原文。官方 [Pages List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 明確將 `result_info.total_pages` 宣告為 **optional**，因此原程式將它視為必填不符合 API 契約。
+
+本 PR 做**最小相容修正**：正式 Pages 清單仍只發 `GET .../pages/projects?page=N`（不發 `per_page`），仍必須確認完整的 `result_info` 以及 `page`、`per_page`（1～100）、`count`、`total_count`（不超過 500）；從 `max(1, ceil(total_count/per_page))` 計算**預期最後一頁**。唯有 `total_pages` 確實**省略**（undefined）時，才可依已核實的兩個必要欄位推算；若該欄位存在，仍必須是正整數且等於計算結果（`null`、字串、零、錯誤整數一律 Fail Closed）。每頁累計項目必須與 `total_count` 精確吻合，跨頁 `per_page`、`total_count` 不可漂移，缺頁、少筆、不合法項目／重複專案名稱仍拒絕。只有限制內完整列舉才會進入 Pages 詳情的 D1 綁定檢查，**Pages 有部署時依然不可推論已查完所有有效部署版本的 D1 Binding**，不得因此准許 G5 Restore。
+
+合成回歸包括缺少 `total_pages` 的單頁、空清單、兩頁，混合「缺少／提供正確 total_pages」的兩頁，仍拒絕提供錯誤 total_pages、缺頁、total_count 變動、per_page 變動、缺少其他必要 metadata；SHA-256 安全 Manifest 與 .codex 專案記憶同步。此為程式修正，**尚未遠端實測**；需 Hosted CI 與正式 Codex Review、使用者再次明確 Merge 授權，合併後從最新 `main` 發起新的人工 GET-only G5 workflow 才能確認下階段結果。不得擴增 Cloudflare Token 權限、不可執行 D1 Restore／Production Migration／資料庫寫入。

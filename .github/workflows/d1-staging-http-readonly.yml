@@ -1,0 +1,40 @@
+name: Staging Preview D1 anonymous HTTP GET-only smoke (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_STAGING_HTTP_ANONYMOUS (GET-only, no credentials or writes)'
+        required: true
+        type: string
+      preview_url:
+        description: 'Exact https://<preview>-restaurant-business-poc.hungyuan-chen.workers.dev origin'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-staging-http-get-only
+  cancel-in-progress: false
+
+jobs:
+  staging-preview-http:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_STAGING_HTTP_ANONYMOUS' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Closed executable inventory preflight (no credentials)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Anonymous GET-only Preview HTTP checks (no secrets or D1 mutation)
+        env:
+          STAGING_PREVIEW_URL: ${{ inputs.preview_url }}
+        run: node tools/cloudflare-staging-http-readonly.mjs "$STAGING_PREVIEW_URL"

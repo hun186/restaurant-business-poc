@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"dd91d3380d23d5ee9aa278ac466f2915a4394a8cb215f5e7adc788b8ebe8c166"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-staging-http-readonly.yml":"eaef2b273bb09ec19cf99ea4c951af4c763fe7ba40eb948941fe5f358b095133",
   ".github/workflows/d1-disposable-binding-inventory-g5.yml":"f2fb6c8d1ab28a268280fd7b0a87b7acd0a71eb4aa342deb50168d91c3faf8e3",
   ".github/workflows/cloudflare-g0-readonly-inventory.yml":"3eae225c854c8ddc3184e096bcf2433efe2fe9de2d29becb683199b63440227d",
   ".github/workflows/d1-disposable-restore-drill-g5.yml":"92116a942506a18fe04569eb6cb813d9ea278e58079c1eda4e19a3f775d2ee78",
@@ -20,6 +21,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-staging-http-readonly.mjs":"4d16dbe7abf616438497f21181eb35795913b563c6b40de67c106a78668a25f1",
   "tools/cloudflare-g5-binding-inventory.mjs":"b0c2a26e636806b3c53c6318c2ea67bd82729ee32646996d8fb82d43e2085f80",
   "tools/cloudflare-g0-remote-inventory.mjs":"a6c72cf276353f5ae37ec6e197712bffa759b8d4be5d432324a2a41d4813b992",
   "tools/cloudflare-d1-disposable-drill.mjs":"30e31cc736603807075f75bb587665e7f15fb6e15106596ec0ce595cbcac4f12",
@@ -46,6 +48,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-staging-http-readonly.test.js":"e5d7ada524414148e35b792634bb1fe2143582e04c0173c07594077eaf297e40",
   "tests/cloudflare-g5-binding-inventory.test.js":"561d8405e8a83b92f3a2e26e26a456a9c06df85f24a05fe8033d873c456308a8",
   "tests/cloudflare-g0-remote-inventory.test.js":"740ac65ea758e75d74615b3c6423969dac1ed87bb46edee950a82743e14bb027",
   "cloudflare/recovery-drill-target.json":"f27c0945292ac39a2dd445cd6ececeb82229ce5409d5e1fe43858dff647ca09b",

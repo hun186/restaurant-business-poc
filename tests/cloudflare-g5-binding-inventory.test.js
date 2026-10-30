@@ -183,7 +183,9 @@ test('Pages metadata drift and incomplete multi-page enumeration have fixed safe
  }
  const cases=[
   ['PAGE_SIZE_CHANGED',d=>{d[second].result_info.per_page=2;}],
-  ['PAGE_TOTAL_CHANGED',d=>{d[second].result_info.total_count=1;}],
+  ['PAGE_TOTAL_CHANGED',d=>{
+   d[second].result_info.total_count=3;d[second].result_info.total_pages=3;
+  }],
   ['PAGE_INCOMPLETE',d=>{
    d[second].result=[];d[second].result_info.count=0;
   }]

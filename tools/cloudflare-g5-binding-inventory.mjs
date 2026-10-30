@@ -4,7 +4,7 @@
 import {fileURLToPath} from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
-import {ACCOUNT_ID} from './check-cloudflare-staging.mjs';
+import {ACCOUNT_ID,PROD_ID,STAGING_ID} from './check-cloudflare-staging.mjs';
 
 const API='https://api.cloudflare.com/client/v4';
 const TARGET='cloudflare/recovery-drill-target.json';
@@ -71,7 +71,8 @@ function checkPagesConfig(project,id){
 }
 export function approvedBindingTarget(pin,account=ACCOUNT_ID){
  need(obj(pin)&&Object.keys(pin).sort().join(',')==='database_id,database_name'&&
-  pin.database_name===NAME&&UUID.test(pin.database_id)&&account===ACCOUNT_ID);
+  pin.database_name===NAME&&UUID.test(pin.database_id)&&account===ACCOUNT_ID&&
+  pin.database_id!==PROD_ID&&pin.database_id!==STAGING_ID);
  return pin.database_id;
 }
 export async function collectBindingInventory(pin,get){
@@ -92,6 +93,7 @@ export async function collectBindingInventory(pin,get){
   const versions=await paged(get,base+'/versions',r=>{
     need(obj(r));return r.items;
   },MAX_VERSIONS);
+  need(new Set(versions.map(v=>v?.id)).size===versions.length);
   for(const v of versions){
     need(obj(v)&&typeof v.id==='string'&&UUID.test(v.id));
     const detail=result(await get(base+'/versions/'+v.id));

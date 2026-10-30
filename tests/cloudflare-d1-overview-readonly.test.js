@@ -101,6 +101,17 @@ test('inactive/grant changes and user deactivation immediately revoke overview v
   const outsider=await get(f,'outsider');
   assert.deepEqual((await outsider.json()).metrics,{open_tasks:0,pending_orders:0,open_repairs:0,low_stock:0});
 });
+test('low stock includes active ingredients with zero stock-move records',async t=>{
+  const f=await fixture(t);
+  f.db.prepare('INSERT INTO ingredients(id,sku,name,unit,min_stock) VALUES(?,?,?,?,?)')
+    .run('ing-zero','SZ','虛構缺貨食材','kg',2);
+  const owner=await (await get(f,'owner')).json();
+  const manager=await (await get(f,'manager')).json();
+  const outsider=await (await get(f,'outsider')).json();
+  assert.equal(owner.metrics.low_stock,3); // store-a existing low + ing-zero at two active stores
+  assert.equal(manager.metrics.low_stock,2);
+  assert.equal(outsider.metrics.low_stock,1);
+});
 test('production and anonymous requests fail closed; unsupported methods and queries rejected',async t=>{
   const f=await fixture(t);
   for(const phase of ['disabled',undefined,'staging-write']){
@@ -123,6 +134,6 @@ test('missing schema or D1 failures return generic error without SQL disclosure'
   f.db.exec('DROP TABLE repairs');
   r=await get(f,'owner');
   assert.equal(r.status,503);
-  assert.equal((await r.json()).code,'E_OVERVIEW_UNAVAILABLE');
+  assert.equal((await r.clone().json()).code,'E_OVERVIEW_UNAVAILABLE');
   assert.doesNotMatch(await r.text(),/SQLite|no such table|SELECT|store-a/i);
 });

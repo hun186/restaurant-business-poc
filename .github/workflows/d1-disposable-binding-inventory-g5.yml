@@ -1,0 +1,41 @@
+name: G5 disposable D1 Worker and Pages binding inventory (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        required: true
+        type: string
+        description: 'Type CHECK_G5_BINDINGS_READONLY; Cloudflare GET-only inspection, not Restore'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-g5-disposable-binding-readonly
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_G5_BINDINGS_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-recovery-drill-binding-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed on unreviewed source, workflow or dependency changes
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Inspect Worker versions and Pages D1 bindings using GET-only token
+        env:
+          G5_BINDINGS_READ_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_G5_BINDINGS_READ_TOKEN }}
+        run: |
+          node tools/cloudflare-g5-binding-inventory.mjs inspect
+          echo 'G5_BINDINGS_INVENTORY_COLLECTED_HUMAN_REVIEW_REQUIRED'

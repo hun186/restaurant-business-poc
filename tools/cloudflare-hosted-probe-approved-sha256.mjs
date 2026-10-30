@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"dd91d3380d23d5ee9aa278ac466f2915a4394a8cb215f5e7adc788b8ebe8c166"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-disposable-binding-inventory-g5.yml":"f2fb6c8d1ab28a268280fd7b0a87b7acd0a71eb4aa342deb50168d91c3faf8e3",
   ".github/workflows/cloudflare-g0-readonly-inventory.yml":"3eae225c854c8ddc3184e096bcf2433efe2fe9de2d29becb683199b63440227d",
   ".github/workflows/d1-disposable-restore-drill-g5.yml":"92116a942506a18fe04569eb6cb813d9ea278e58079c1eda4e19a3f775d2ee78",
   ".github/workflows/d1-production-recovery-readonly-g5.yml":"938c1cacb3b88536b00a2d86a886b1e5f732040a632ed8fe6d6b12dbee0e9744",
@@ -19,6 +20,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-g5-binding-inventory.mjs":"e160a48e381336a7ec1c3fdefa665528861e247b8909f57977123b8eb7c3c8e6",
   "tools/cloudflare-g0-remote-inventory.mjs":"a6c72cf276353f5ae37ec6e197712bffa759b8d4be5d432324a2a41d4813b992",
   "tools/cloudflare-d1-disposable-drill.mjs":"30e31cc736603807075f75bb587665e7f15fb6e15106596ec0ce595cbcac4f12",
   "tools/cloudflare-d1-recovery-readiness.mjs":"93805be3ea8b1c5b588362300984fb60e6b2ceff9d993c98893f63b7a8ce5954",
@@ -44,6 +46,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-g5-binding-inventory.test.js":"0e1337c4d706868712bc7b6e5228f7b239576f88e4e9a7734e8ec4308a7e6cf7",
   "tests/cloudflare-g0-remote-inventory.test.js":"740ac65ea758e75d74615b3c6423969dac1ed87bb46edee950a82743e14bb027",
   "cloudflare/recovery-drill-target.json":"f27c0945292ac39a2dd445cd6ececeb82229ce5409d5e1fe43858dff647ca09b",
   "tests/cloudflare-d1-disposable-drill-g5.test.js":"39bd7ca5adedf84fb43209ac012ed8d4be3dc26a43d5f894d08e5a15491fcaf5",

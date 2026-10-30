@@ -46,3 +46,33 @@ Cloudflare 的 `POST /accounts/{account}/d1/database/{id}/time_travel/restore?bo
 - https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/
 - https://developers.cloudflare.com/api/resources/d1/subresources/database/subresources/time_travel/methods/get_bookmark/
 - https://developers.cloudflare.com/api/resources/d1/subresources/database/subresources/time_travel/methods/restore/
+
+## 2026-10-30｜G5 Worker／Pages D1 綁定唯讀盤點（新增，尚未對遠端執行）
+
+使用者回報已設定 `d1-recovery-drill-write` 的非敏感 Variables 與 `main` 分支限制；GitHub Connector 無法直接查閱 Environment 規則，屬**使用者已設定／API 未獨立驗證**。因為只有一位 Repo 維護者，**Required reviewers 無法形成雙人審核**；不能將 Wait timer 當成第二位審核者。正式 Restore 仍未取得獨立授權。
+
+新增手動 GitHub Actions `G5 disposable D1 Worker and Pages binding inventory (manual read-only)`，只用 Cloudflare GET API 盤點同帳戶可見 Worker scripts（當前 settings 與分頁歷史 versions 的 D1 bindings）及 Pages Projects（production / preview deployment configs 的 D1 bindings）。檢查目標固定為 `cloudflare/recovery-drill-target.json` 中已 Pin 的可丟棄演練庫；不輸出 Worker 名稱、版本 ID、D1 UUID、Binding 名稱、路由、Domain 或 Cloudflare 原始 JSON。
+
+**首次設置**：在 GitHub Settings → Environments 建立 `d1-recovery-drill-binding-readonly`，Deployment branches 只允許 `main`。建立僅具 Cloudflare **Workers Scripts Read**（至少可讀 Worker versions/settings）及 **Pages Read** 的獨立專用 API Token，設定此環境的 Secrets `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_G5_BINDINGS_READ_TOKEN`。不要沿用 D1 Write Token；不應把 Token 寫到 Issue/Chat。**本 PR 沒有建立 Environment、Secrets、執行 Remote API 或寫入資料庫。**
+
+PR 合併且人工設定後，GitHub Actions 選擇 `main`、輸入 `confirm=CHECK_G5_BINDINGS_READONLY`，執行此獨立 READONLY Workflow。若 API 權限不足、缺 Worker/Pages 可見性、版本列表無法完整分頁、任何回應不可信或存在不明 D1 binding，程式 Fail Closed；不把無資料誤判為沒有綁定。報告分成 `G5_DISPOSABLE_D1_DIRECT_BINDING_FOUND` 或 `G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`，並有檢查數量與 `direct_binding_matches`。此工具**不能證明無間接 Service Binding、無帳戶外資源、無並行寫入者，亦不能代替人為獨立確認**；正式 `binding_attestation` / `exclusive_use_attestation` 仍維持人工簽核。
+
+若此唯讀盤點結果顯示 `direct_binding_matches>0`，**不得執行 Drill**，須先查明來源、解除使用演練庫的綁定並重新查核（不得自動修改任何 Cloudflare 資源）。即使 `direct_binding_matches=0`，`G5_DRILL_RESTORE_APPROVED` 繼續未設定，Write Token 仍不得預置。
+
+Cloudflare 官方唯讀 API：
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/script_and_version_settings/methods/get/
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/list/
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/get/
+- https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/
+- https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/get/
+
+### Worker Versions 分頁格式與驗證限制（P2 修正）
+Cloudflare `GET /accounts/{account}/workers/scripts/{script}/versions` 官方回應為 `{success:true,result:{items:[...]}}`，**不保證提供頂層 `result_info`**。不同於 Pages Projects 清單，Worker Versions 採獨立的 `page/per_page=50` 逐頁列舉：只有取得少於 50 筆的終端頁才結束；剛好 50 筆的整頁必須再要求下一頁（可能為空頁）；總量上限 500，超出或缺頁、重複版本 ID、回應格式不可信、權限不足均 Fail Closed。這個沒有總筆數的 API 不能保證遠端同時新增／刪除版本時仍為一致快照，因此 `NO_DIRECT_BINDING_DETECTED` 仍不等同安全簽核；要求人工在變更窗口重新核對。
+
+### 2026-10-30｜Codex P2：Pages 已部署版本不能由目前專案設定代替（Fail Closed）
+
+Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部署**才會生效。僅檢查 Projects API 的 `deployment_configs.production/preview` 會漏掉仍由舊版部署使用的 D1，即使現在設定已移除 Binding 亦然（[Cloudflare 官方 Pages D1 Bindings](https://developers.cloudflare.com/pages/functions/bindings/#d1-databases)）。
+
+本次採用**保守拒絕安全結論**的修正策略：若該 Cloudflare 帳戶有**任何 Pages Project**，本工具仍可盤點當前設定中的直接 D1 Binding，但**不會**宣稱已核實「沒有直接 Binding」；當當前設定未命中且存在 Pages 專案時，狀態為 `G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED`，且 `no_direct_binding_detected=false`、`pages_deployment_bindings_verified=false`、`direct_binding_inventory_collected=false`。只有在完整分頁確認帳戶中**沒有 Pages Project**，又沒有 Worker D1 Binding 命中時，才會輸出原本的 `NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`；即使如此仍需獨立人為確認間接存取與其他操作者。若發現任一直接綁定，繼續回報 `DIRECT_BINDING_FOUND`，禁止演練。
+
+這是刻意保留的**未完成關卡**，不是自動檢查每個 Pages 實際部署版本。若要關閉此缺口，需另外設計可取得有效部署 Binding 版本與完整清單的可驗證唯讀證據，並獨立人工核對。現階段不可因 Pages Projects 當前 `d1_databases` 是空的就設定 `NO_DISPOSABLE_D1_WORKER_BINDING` 或啟用 Restore 審批。

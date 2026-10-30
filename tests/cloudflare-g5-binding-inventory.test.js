@@ -1,0 +1,213 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const {spawnSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..');
+const source=path.join(root,'tools/cloudflare-g5-binding-inventory.mjs');
+const workflow=path.join(root,'.github/workflows/d1-disposable-binding-inventory-g5.yml');
+const mod=import('../tools/cloudflare-g5-binding-inventory.mjs');
+const acc='31b409b04896d260ba0fadf6cc2bb305';
+const db='cc3fe86d-1c46-4c2f-a399-0ec3c46d5198';
+const other='b882a6e8-0e56-49a6-bd41-1a6cadd726c9';
+const version='a0000000-1111-2222-3333-444444444444';
+const base='/accounts/'+acc,script=base+'/workers/scripts/restaurant-business-poc';
+const pin={database_name:'restaurant-business-g5-disposable-recovery-drill',database_id:db};
+const pag=(rows)=>({page:1,per_page:50,count:rows.length,total_count:rows.length,total_pages:1});
+const reply=result=>({success:true,result});
+function routes(){
+ const projects=[{name:'pages-poc'}],vers=[{id:version}];
+ return {
+  [base+'/workers/scripts']:reply([{id:'restaurant-business-poc'}]),
+  [script+'/settings']:reply({bindings:[{name:'DB',type:'d1',database_id:other}]}),
+  [script+'/versions?page=1&per_page=50']:reply({items:vers}),
+  [script+'/versions/'+version]:reply({id:version,resources:{bindings:[{name:'DB',type:'d1',database_id:other}]}}),
+  [base+'/pages/projects?page=1&per_page=50']:{...reply(projects),result_info:pag(projects)},
+  [base+'/pages/projects/pages-poc']:reply({name:'pages-poc',deployment_configs:{
+   production:{d1_databases:{DB:{id:other}}},preview:{d1_databases:{}}
+  }})
+ };
+}
+async function inventory(map){
+ const m=await mod;
+ const used=[];
+ const result=await m.collectBindingInventory(pin,async url=>{
+  used.push(url);
+  assert.ok(Object.hasOwn(map,url),'Unexpected request '+url);
+  return structuredClone(map[url]);
+ });
+ return {result,used};
+}
+test('full GET-only worker versions + Pages inventory is NOT independent signoff',async()=>{
+ const {result,used}=await inventory(routes());
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.pages_deployment_bindings_verified,false);
+ assert.equal(result.direct_binding_inventory_collected,false);
+ assert.equal(result.direct_binding_matches,0);
+ assert.equal(result.worker_scripts_checked,1);
+ assert.equal(result.worker_versions_checked,1);
+ assert.equal(result.pages_projects_checked,1);
+ assert.equal(result.independent_human_attestation_completed,false);
+ assert.equal(result.exclusive_use_verified,false);
+ assert.equal(result.remote_restore_performed,false);
+ assert.equal(used.length,6);
+});
+test('old Pages deployment may retain pinned D1 after project config has changed',async()=>{
+ // Current settings have NO matching binding, but historic deployments may
+ // still serve Functions with the prior D1 ID. No effective deployment
+ // binding proof => fail closed instead of declaring no direct bindings.
+ const data=routes();
+ data[base+'/pages/projects/pages-poc'].result.deployment_configs={
+  production:{d1_databases:{}},preview:{d1_databases:{}}
+ };
+ const {result}=await inventory(data);
+ assert.equal(result.direct_binding_matches,0);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.pages_deployment_bindings_verified,false);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+ assert.equal(result.independent_human_attestation_completed,false);
+});
+test('no Pages projects can complete Pages deployment coverage without deployments',async()=>{
+ const data=routes();
+ const url=base+'/pages/projects?page=1&per_page=50';
+ data[url]={...reply([]),result_info:pag([])};
+ delete data[base+'/pages/projects/pages-poc'];
+ const {result,used}=await inventory(data);
+ assert.equal(result.pages_projects_checked,0);
+ assert.equal(result.pages_deployment_bindings_verified,true);
+ assert.equal(result.no_direct_binding_detected,true);
+ assert.equal(result.direct_binding_inventory_collected,true);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED');
+ assert.ok(!used.includes(base+'/pages/projects/pages-poc'));
+});
+test('D1 binding on current Worker, older/preview version, or Pages phase fails no-binding claim',async()=>{
+ for(const edit of [
+  d=>{d[script+'/settings'].result.bindings[0].database_id=db;},
+  d=>{d[script+'/versions/'+version].result.resources.bindings[0].database_id=db;},
+  d=>{d[base+'/pages/projects/pages-poc'].result.deployment_configs.preview.d1_databases={DB:{id:db}};}
+ ]){
+  const data=routes();edit(data);
+  const {result}=await inventory(data);
+  assert.equal(result.no_direct_binding_detected,false);
+  assert.equal(result.direct_binding_matches,1);
+  assert.equal(result.status,'G5_DISPOSABLE_D1_DIRECT_BINDING_FOUND');
+ }
+});
+test('missing pages permission, incomplete pagination, unknown bindings, and hidden versions fail closed',async()=>{
+ for(const edit of [
+  d=>{delete d[script+'/versions?page=1&per_page=50'].result.items;},
+  d=>{d[script+'/versions?page=1&per_page=50'].result.items=[];},
+  d=>{d[base+'/pages/projects?page=1&per_page=50'].success=false;},
+  d=>{d[base+'/pages/projects?page=1&per_page=50'].result_info.total_count=2;},
+  d=>{delete d[base+'/pages/projects/pages-poc'].result.deployment_configs.preview;},
+  d=>{d[script+'/settings'].result.bindings=[{type:'d1',name:'DB'}];},
+  d=>{d[script+'/versions/'+version].result.resources.bindings=null;},
+  d=>{d[base+'/workers/scripts'].result=[];},
+  d=>{d[script+'/versions?page=1&per_page=50'].result.items.push({id:version});}
+ ]){
+  const data=routes();edit(data);
+  await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
+ }
+});
+test('Cloudflare documented Worker Versions envelope has no result_info',async()=>{
+ const data=routes();
+ assert.equal(Object.hasOwn(data[script+'/versions?page=1&per_page=50'],'result_info'),false);
+ const {result}=await inventory(data);
+ assert.equal(result.worker_versions_checked,1);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+});
+test('Worker Versions full 50-item page requires a second page and checks an older binding',async()=>{
+ const data=routes(),items=[];
+ for(let i=0;i<50;i++){
+  const id='a'+i.toString(16).padStart(7,'0')+'-1111-2222-3333-444444444444';
+  items.push({id,number:51-i});
+  data[script+'/versions/'+id]=reply({id,resources:{
+   bindings:[{type:'d1',name:'DB',database_id:i===49?db:other}]
+  }});
+ }
+ const older='b0000000-1111-2222-3333-444444444444';
+ items[0].id=version; // original first fixture version detail remains valid
+ items[0].number=51;
+ delete data[script+'/versions/'+items[1].id]; // replaced below as a regression check
+ data[script+'/versions/'+items[1].id]=reply({id:items[1].id,resources:{
+  bindings:[{type:'d1',name:'DB',database_id:other}]
+ }});
+ data[script+'/versions?page=1&per_page=50']=reply({items});
+ data[script+'/versions?page=2&per_page=50']=reply({items:[{id:older,number:1}]});
+ data[script+'/versions/'+older]=reply({id:older,resources:{
+  bindings:[{type:'d1',name:'DB',database_id:other}]
+ }});
+ const {result,used}=await inventory(data);
+ assert.equal(result.worker_versions_checked,51);
+ assert.equal(result.direct_binding_matches,1);
+ assert.ok(used.includes(script+'/versions?page=2&per_page=50'));
+});
+test('exact 50-version boundary must request empty next page, and missing next page fails',async()=>{
+ const data=routes(),items=[];
+ for(let i=0;i<50;i++){
+  const id='c'+i.toString(16).padStart(7,'0')+'-1111-2222-3333-444444444444';
+  items.push({id,number:50-i});
+  data[script+'/versions/'+id]=reply({id,resources:{bindings:[]}});
+ }
+ data[script+'/versions?page=1&per_page=50']=reply({items});
+ await assert.rejects(()=>inventory(data),/Unexpected request/);
+ data[script+'/versions?page=2&per_page=50']=reply({items:[]});
+ const {result}=await inventory(data);
+ assert.equal(result.worker_versions_checked,50);
+});
+test('Worker Versions repeated items, malformed UUIDs and unbounded pages fail closed',async()=>{
+ const data=routes();
+ data[script+'/versions?page=1&per_page=50'].result.items=[{id:version},{id:version}];
+ await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
+ const invalid=routes();
+ invalid[script+'/versions?page=1&per_page=50'].result.items=[{id:'bad'}];
+ await assert.rejects(()=>inventory(invalid),/E_G5_BINDING_READONLY_INVENTORY/);
+ const full=routes(),items=[];
+ for(let i=0;i<50;i++){
+  const id='d'+i.toString(16).padStart(7,'0')+'-1111-2222-3333-444444444444';
+  items.push({id});
+  full[script+'/versions/'+id]=reply({id,resources:{bindings:[]}});
+ }
+ full[script+'/versions?page=1&per_page=50']=reply({items});
+ full[script+'/versions?page=2&per_page=50']=reply({items}); // replayed page
+ await assert.rejects(()=>inventory(full),/E_G5_BINDING_READONLY_INVENTORY/);
+});
+test('invalid pinned target and Cloudflare identity rejected',async()=>{
+ const m=await mod;
+ assert.throws(()=>m.approvedBindingTarget({...pin,database_id:'not-a-uuid'}),/E_G5/);
+ assert.throws(()=>m.approvedBindingTarget({...pin,secret:'extra'}),/E_G5/);
+ assert.throws(()=>m.approvedBindingTarget(pin,'f'.repeat(32)),/E_G5/);
+});
+test('network client sends GET only and does not follow redirects',async()=>{
+ const m=await mod,calls=[];
+ const ret=await m.cloudflareReadOnlyGET(base+'/workers/scripts','TEST_TOKEN_123456789',async(url,opts)=>{
+  calls.push([url,opts]);return {ok:true,text:async()=>JSON.stringify(reply([]))};
+ });
+ assert.deepEqual(ret,reply([]));
+ assert.equal(calls[0][1].method,'GET');
+ assert.equal(calls[0][1].redirect,'error');
+ await assert.rejects(()=>m.cloudflareReadOnlyGET('/wrong','TEST_TOKEN_123456789',()=>{}),/E_G5/);
+});
+test('CLI and manual workflow reject missing authorization and cannot write',()=>{
+ const wf=fs.readFileSync(workflow,'utf8');
+ const src=fs.readFileSync(source,'utf8');
+ assert.match(wf,/workflow_dispatch:/);
+ assert.match(wf,/github\.ref == 'refs\/heads\/main'/);
+ assert.match(wf,/CHECK_G5_BINDINGS_READONLY/);
+ assert.match(wf,/environment: d1-recovery-drill-binding-readonly/);
+ assert.match(wf,/cloudflare-hosted-probe-preflight\.mjs/);
+ assert.doesNotMatch(wf,/(?:^|\n)\s*(?:push|schedule|pull_request):|restore|wrangler deploy|d1 migrations/);
+ assert.match(src,/method:'GET',redirect:'error'/);
+ assert.doesNotMatch(src,/method:'POST'|method:'PUT'|method:'DELETE'/);
+ const out=spawnSync(process.execPath,[source,'inspect'],{
+  cwd:root,encoding:'utf8',timeout:10000,
+  env:{...process.env,GITHUB_ACTIONS:'false',GITHUB_REF:'refs/heads/main',
+   G5_BINDINGS_READ_CONFIRM:'CHECK_G5_BINDINGS_READONLY',
+   CLOUDFLARE_ACCOUNT_ID:acc,CLOUDFLARE_API_TOKEN:'TEST_TOKEN_123456789'}
+ });
+ assert.equal(out.status,1);
+ assert.equal(out.stdout,'');
+ assert.match(out.stderr,/G5_BINDINGS_READONLY_FAILED/);
+ assert.doesNotMatch(out.stderr,/TEST_TOKEN_123456789/);
+});

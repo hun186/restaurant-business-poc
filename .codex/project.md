@@ -2,6 +2,8 @@
 
 ## Current State
 
+> 2026-10-30 P0 G5/#46：使用者表示已完成 `d1-recovery-drill-write` 的 `main` 分支限制及非敏感 Variables；GitHub Connector 不支援 Environment 設定讀取，屬人工回報、非 API 驗證。Repo 無協作者，Required reviewers 雙人審核不可用。主線 PR #48 已 Squash Merge `0dd0484889f3332e9a84b4b9dfde97d5b6aa0326`、Postmerge CI #40973179539 5/5 PASS。現在新增獨立 G5 唯讀 Cloudflare Worker Versions／Pages Project D1 Binding 盤點工具（手動 main-only workflow、合成失敗封閉測試、SHA-256 指紋），只在新 PR 審核；**未呼叫 Cloudflare、未實證無綁定、未授權 Restore**。需人工配置單獨 Read Token/Environment；`G5_DRILL_RESTORE_APPROVED` 必須保持未設定、Write Token 不預置。正式 Production Migration／登入／業務寫入、加密異地備份、RPO/RTO 繼續未完成。
+
 > 2026-10-30 G5/#46：以最新 main `938805ac0fa53fe7c0aa462b23e9b0292e8e5fcc` 為基底的安全加固分支新增每次執行都須確認的 Cloudflare 無 Worker Binding 與無並行使用者雙重 typed attestations；Workflow job guard、注入 Write Token 前 approval gate 與 CLI 三層 Fail Closed，增加未授權拒絕回歸與 SHA-256 閉鎖清單。已驗證 disposable 唯讀 Inspect #40914927490 Attempt 2 成功；遠端 Restore、Write Environment 實際保護與最小權限、加密異地備份、RPO/RTO、Production Login 仍未驗收；本分支 CI/Codex/合併另待核對，不得自行執行 Restore 或 Merge。
 
 > 2026-10-30 / PR #41 G0 整合至最新 main（已含 PR #47 的隔離式 D1 Pin UUID）：新增固定 Cloudflare GET only 的 Worker/Domain/Zone 公開暴露面盤點、主線人工 Protected Environment 工作流程、synthetic total_count/多頁 fail-closed 測試及 reviewed SHA-256 allowlist。PR #41 前一 HEAD 903d15d 已通過 Verify 5/5、Workers Build 與 Codex 無 Findings；本整合 HEAD 須重新 Hosted CI + 正式 Codex Review，未通過前不可 Squash Merge。PR #47 已合併，但**未對真正 Cloudflare D1 API 做 remote inspect 或 Restore**。G0 仍未實際運行，Access / 正式登入寫入不可宣稱開放。

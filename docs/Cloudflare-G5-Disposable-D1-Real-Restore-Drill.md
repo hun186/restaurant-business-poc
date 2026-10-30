@@ -76,3 +76,11 @@ Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部�
 本次採用**保守拒絕安全結論**的修正策略：若該 Cloudflare 帳戶有**任何 Pages Project**，本工具仍可盤點當前設定中的直接 D1 Binding，但**不會**宣稱已核實「沒有直接 Binding」；當當前設定未命中且存在 Pages 專案時，狀態為 `G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED`，且 `no_direct_binding_detected=false`、`pages_deployment_bindings_verified=false`、`direct_binding_inventory_collected=false`。只有在完整分頁確認帳戶中**沒有 Pages Project**，又沒有 Worker D1 Binding 命中時，才會輸出原本的 `NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`；即使如此仍需獨立人為確認間接存取與其他操作者。若發現任一直接綁定，繼續回報 `DIRECT_BINDING_FOUND`，禁止演練。
 
 這是刻意保留的**未完成關卡**，不是自動檢查每個 Pages 實際部署版本。若要關閉此缺口，需另外設計可取得有效部署 Binding 版本與完整清單的可驗證唯讀證據，並獨立人工核對。現階段不可因 Pages Projects 當前 `d1_databases` 是空的就設定 `NO_DISPOSABLE_D1_WORKER_BINDING` 或啟用 Restore 審批。
+
+### 2026-10-30｜遠端唯讀盤點首次失敗與隱私保護診斷
+
+第一次實際手動 [Run #40995372182](https://github.com/hun186/restaurant-business-poc/actions/runs/40995372182)（2026-10-30 03:05 UTC）**completed/failure**；checkout、Node、SHA-256 preflight **PASS**，盤點步驟歷時約 9 秒後輸出 `G5_BINDINGS_READONLY_FAILED`。該 Run Secrets 有 GitHub 遮蔽紀錄，但**不能證明 Token 有效、具有所需 Workers Scripts Read / Pages Read 權限，或 Cloudflare API 確實回傳正確內容**。目前無法從該 Run 確認具體失敗端點或原因；不得宣稱盤點已完成，也不建議在未知原因時直接擴大 Token 權限。
+
+此 PR 新增**固定字串分類**，預計下次同一唯讀 Workflow 只顯示如 `G5_BINDINGS_READONLY_FAILED stage=WORKER_VERSION_LIST reason=HTTP_AUTH`，用於定位錯誤，不顯示 HTTP 原文、Cloudflare API 錯誤內容、D1 ID、Worker/Pages 名稱、API URL、Token 或堆疊。Stage 限於 `PRECONDITIONS`、`WORKER_LIST`、`WORKER_SETTINGS`、`WORKER_VERSION_LIST`、`WORKER_VERSION_DETAIL`、`PAGES_LIST`、`PAGES_PROJECT_DETAIL`、`UNKNOWN`。Reason 限於 `VALIDATION_FAILED`、`API_DECLINED`、`HTTP_AUTH`（401/403）、`HTTP_NOT_FOUND`（404）、`HTTP_RATE_LIMIT`（429）、`HTTP_SERVICE`（5xx）、`HTTP_OTHER`、`NETWORK_ERROR` 與 `BODY_INVALID`。成功回應解析後仍採原本 Fail Closed 規則；偵錯分類本身**不是**安全驗收通過。
+
+只在新 PR 取得 Hosted CI、最新正式 Codex Review、使用者授權合併後，才重新在 `main` 執行 `CHECK_G5_BINDINGS_READONLY`；**不**建立或套用 Write Token、**不**觸發 Restore。

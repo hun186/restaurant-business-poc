@@ -103,14 +103,6 @@ export async function readWithPagesDifferential(get,p,record){
  }
 }
 function result(r){need(obj(r)&&r.success===true&&r.result!==null&&typeof r.result==='object');return r.result;}
-function pagination(r,page,perPage,count){
- const i=r.result_info;
- need(obj(i)&&i.page===page&&i.per_page===perPage&&i.count===count&&
-  Number.isSafeInteger(i.total_count)&&i.total_count>=0&&
-  Number.isSafeInteger(i.total_pages)&&i.total_pages>=1&&
-  i.total_pages===Math.max(1,Math.ceil(i.total_count/perPage)));
- return i;
-}
 // Pages Projects: remote evidence shows ?page=1 works while ANY per_page
 // query causes HTTP 400. Use page-only GETs, but never trust a single page:
 // validate the SERVER-REPORTED page size, total_count and total_pages on

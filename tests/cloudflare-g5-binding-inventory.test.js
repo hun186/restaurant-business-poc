@@ -133,6 +133,75 @@ test('server Pages per_page is validated, consistent and bounded; never infer co
   await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
  }
 });
+test('Pages validation failures emit only fixed field categories, never Cloudflare values',async()=>{
+ const first=base+'/pages/projects?page=1';
+ const cases=[
+  ['PAGE_RESPONSE_INVALID',d=>{d[first].success=false;}],
+  ['PAGE_RESPONSE_INVALID',d=>{d[first].result={items:[]};}],
+  ['PAGE_METADATA_MISSING',d=>{delete d[first].result_info;}],
+  ['PAGE_SIZE_INVALID',d=>{d[first].result_info.per_page='20';}],
+  ['PAGE_SIZE_INVALID',d=>{d[first].result_info.per_page=0;}],
+  ['PAGE_SIZE_EXCEEDED',d=>{d[first].result=Array.from({length:21},()=>({name:'example'}));}],
+  ['PAGE_NUMBER_MISMATCH',d=>{d[first].result_info.page=2;}],
+  ['PAGE_COUNT_MISMATCH',d=>{d[first].result_info.count=0;}],
+  ['PAGE_TOTAL_INVALID',d=>{d[first].result_info.total_count='1';}],
+  ['PAGE_TOTAL_EXCEEDS_LIMIT',d=>{d[first].result_info.total_count=501;}],
+  ['PAGE_TOTAL_PAGES_INVALID',d=>{d[first].result_info.total_pages=null;}],
+  ['PAGE_TOTAL_PAGES_MISMATCH',d=>{d[first].result_info.total_pages=2;}],
+  ['PAGE_TOTAL_OVERFLOW',d=>{d[first].result_info.total_count=0;}],
+  ['PAGE_PROJECT_NAME_INVALID',d=>{d[first].result[0].name='SENSITIVE NAME INVALID!';}],
+  ['PAGE_PROJECT_NAME_DUPLICATE',d=>{
+   d[first].result.push({name:'pages-poc'});
+   d[first].result_info.count=2;d[first].result_info.total_count=2;
+  }]
+ ];
+ for(const [expected,edit] of cases){
+  const data=routes();edit(data);
+  await assert.rejects(()=>inventory(data),err=>{
+   assert.equal(err.message,'E_G5_BINDING_READONLY_INVENTORY');
+   assert.equal(err.g5Validation,expected);
+   assert.ok(!String(err).includes('SENSITIVE'));
+   assert.ok(!JSON.stringify(err).includes('pages-poc'));
+   return true;
+  },expected);
+ }
+});
+test('Pages metadata drift and incomplete multi-page enumeration have fixed safe codes',async()=>{
+ const first=base+'/pages/projects?page=1',second=base+'/pages/projects?page=2';
+ function twoPage(){
+  const d=routes();
+  d[first]={...reply([{name:'pages-poc'}]),result_info:{
+   page:1,per_page:1,count:1,total_count:2,total_pages:2
+  }};
+  d[second]={...reply([{name:'pages-second'}]),result_info:{
+   page:2,per_page:1,count:1,total_count:2,total_pages:2
+  }};
+  d[base+'/pages/projects/pages-second']=reply({name:'pages-second',
+   deployment_configs:{production:{d1_databases:{}},preview:{d1_databases:{}}}
+  });
+  return d;
+ }
+ const cases=[
+  ['PAGE_SIZE_CHANGED',d=>{d[second].result_info.per_page=2;}],
+  ['PAGE_TOTAL_CHANGED',d=>{
+   d[second].result_info.total_count=3;d[second].result_info.total_pages=3;
+  }],
+  ['PAGE_INCOMPLETE',d=>{
+   d[second].result=[];d[second].result_info.count=0;
+  }]
+ ];
+ for(const [expected,edit] of cases){
+  const d=twoPage();edit(d);
+  await assert.rejects(()=>inventory(d),err=>
+   err.message==='E_G5_BINDING_READONLY_INVENTORY'&&err.g5Validation===expected
+  ,expected);
+ }
+ const healthy=twoPage();
+ const {result,used}=await inventory(healthy);
+ assert.equal(result.pages_projects_checked,2);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.ok(used.includes(second));
+});
 test('server per_page=10 and 11 Pages projects require exact two-page metadata',async()=>{
  const data=routes(),pages=Array.from({length:11},(_,i)=>({name:'pages-project-'+i}));
  const p1=base+'/pages/projects?page=1',p2=base+'/pages/projects?page=2';

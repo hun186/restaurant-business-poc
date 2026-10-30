@@ -262,14 +262,14 @@ test('first paginated Pages 400 compares bare GET once and ALWAYS fails closed',
  const get=async p=>{
   seen.push(p);
   if(p===paged)throw original;
-  if(p===bare)return reply([]);
+  if([bare,bare+'?page=1',bare+'?per_page=20'].includes(p))return reply([]);
   assert.fail('unexpected GET');
  };
  await assert.rejects(
   ()=>m.readWithPagesDifferential(get,paged,v=>outcomes.push(v)),
   e=>e===original
  );
- assert.deepEqual(seen,[paged,bare]);
+ assert.deepEqual(seen,[paged,bare,bare+'?page=1',bare+'?per_page=20']);
  assert.deepEqual(outcomes,['OK']);
  // A successful bare GET never becomes a completed, trusted inventory.
  await assert.rejects(
@@ -295,13 +295,15 @@ test('bare Pages diagnostic keeps original paged HTTP 400 even if bare GET fails
   if(p===bare){
    const err=new Error('SECRET_ERROR_BODY');err.g5Reason='HTTP_AUTH';throw err;
   }
+  if(p===bare+'?page=1')return reply([]);
+  if(p===bare+'?per_page=20')return reply([]);
   assert.fail('unexpected call');
  };
  await assert.rejects(
   ()=>m.readWithPagesDifferential(get,paged,v=>outcomes.push(v)),
   e=>e===original
  );
- assert.deepEqual(calls,[paged,bare]);
+ assert.deepEqual(calls,[paged,bare,bare+'?page=1',bare+'?per_page=20']);
  assert.deepEqual(outcomes,['HTTP_AUTH']);
 });
 test('Pages bare probe is NOT triggered for success, other errors, or later pages',async()=>{
@@ -343,10 +345,12 @@ test('Pages differential GET never uses other methods, follows redirects or leak
   ()=>m.readWithPagesDifferential(get,paged,v=>outcomes.push(v)),
   e=>e.g5Reason==='HTTP_BAD_REQUEST'&&!String(e).includes('SENSITIVE_BODY')
  );
- assert.equal(paths.length,2);
- assert.deepEqual(methods,[['GET','error'],['GET','error']]);
+ assert.equal(paths.length,4);
+ assert.deepEqual(methods,Array(4).fill(['GET','error']));
  assert.ok(paths[0].endsWith('/pages/projects?page=1&per_page=20'));
  assert.ok(paths[1].endsWith('/pages/projects'));
+ assert.ok(paths[2].endsWith('/pages/projects?page=1'));
+ assert.ok(paths[3].endsWith('/pages/projects?per_page=20'));
  assert.deepEqual(outcomes,['OK']);
 });
 test('first paginated 400 isolates bare, page-only and per-page-only as exactly 3 bounded GETs',async()=>{

@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+- 2026-10-30 G5 #46：PR #50 已 Squash Merge main `5219b1259117b430cee0103dd44666790c949e59`，主線 Verify #40996277530 PASS；新手動 GET-only Cloudflare 盤點 Run #40997303708 **失敗**：`stage=PAGES_LIST reason=HTTP_OTHER`，此前 Worker 盤點未報錯但不代表最終完整通過。程式原本對 Pages Projects List 使用 `per_page=50`；本分支改用符合 Cloudflare 官方 API 範例的獨立 `per_page=20`、保留嚴格 total_count 分頁驗證、單獨辨識 HTTP 400、加多頁/缺頁合成測試及 SHA-256 閉鎖檔。**HTTP_OTHER 實際狀態碼不明，20 筆是待實測修正，不宣稱根因已查明**；未經 Hosted CI+正式 Codex Review 不得 Merge，且需使用者授權。未實際恢復、部署、移轉或寫入 D1，`G5_DRILL_RESTORE_APPROVED` 繼續關閉。
+
 - 2026-10-30 P0 G5/#46：main= `0dd0484889f3332e9a84b4b9dfde97d5b6aa0326`（PR #48 merged，Postmerge CI #40973179539 PASS）。使用者回報 `d1-recovery-drill-write` 的非敏感 Variables 及 main-only 限制已設定，但不能由 Connector 驗證；單人維護，Required reviewers 不能作獨立雙人簽核。本分支新增 G5 Cloudflare Workers Script/Versions 與 Pages production/preview D1 Binding GET-only 盤點工具、main-only 手動環境、合成回歸、封閉 SHA-256 清單；PR Head Hosted CI/Codex 待核對，不擅自 Merge。新流程還需額外 GET-only Token／Environment，尚未實際遠端執行。未批准破壞性 Restore，無任何 D1 Write／Migration。
 
 - 2026-10-30 G5/#46：以最新 main `938805ac0fa53fe7c0aa462b23e9b0292e8e5fcc` 為基底的安全加固分支新增每次執行都須確認的 Cloudflare 無 Worker Binding 與無並行使用者雙重 typed attestations；Workflow job guard、注入 Write Token 前 approval gate 與 CLI 三層 Fail Closed，增加未授權拒絕回歸與 SHA-256 閉鎖清單。已驗證 disposable 唯讀 Inspect #40914927490 Attempt 2 成功；遠端 Restore、Write Environment 實際保護與最小權限、加密異地備份、RPO/RTO、Production Login 仍未驗收；本分支 CI/Codex/合併另待核對，不得自行執行 Restore 或 Merge。

@@ -84,3 +84,11 @@ Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部�
 此 PR 新增**固定字串分類**，預計下次同一唯讀 Workflow 只顯示如 `G5_BINDINGS_READONLY_FAILED stage=WORKER_VERSION_LIST reason=HTTP_AUTH`，用於定位錯誤，不顯示 HTTP 原文、Cloudflare API 錯誤內容、D1 ID、Worker/Pages 名稱、API URL、Token 或堆疊。Stage 限於 `PRECONDITIONS`、`WORKER_LIST`、`WORKER_SETTINGS`、`WORKER_VERSION_LIST`、`WORKER_VERSION_DETAIL`、`PAGES_LIST`、`PAGES_PROJECT_DETAIL`、`UNKNOWN`。Reason 限於 `VALIDATION_FAILED`、`API_DECLINED`、`HTTP_AUTH`（401/403）、`HTTP_NOT_FOUND`（404）、`HTTP_RATE_LIMIT`（429）、`HTTP_SERVICE`（5xx）、`HTTP_OTHER`、`NETWORK_ERROR` 與 `BODY_INVALID`。成功回應解析後仍採原本 Fail Closed 規則；偵錯分類本身**不是**安全驗收通過。
 
 只在新 PR 取得 Hosted CI、最新正式 Codex Review、使用者授權合併後，才重新在 `main` 執行 `CHECK_G5_BINDINGS_READONLY`；**不**建立或套用 Write Token、**不**觸發 Restore。
+
+### 2026-10-30｜G5 Pages Projects API 分頁相容性（Run #40997303708）
+
+真正的手動唯讀 [Run #40997303708](https://github.com/hun186/restaurant-business-poc/actions/runs/40997303708) 使用 `main=5219b1259117b430cee0103dd44666790c949e59`，`HOSTED_PROBE_STATIC_PREFLIGHT_PASS`；後續回報 **`G5_BINDINGS_READONLY_FAILED stage=PAGES_LIST reason=HTTP_OTHER`**。可確定失敗發生在 GET Pages projects list 階段，且不是當時程式識別的 401/403/404/429/5xx/網路錯誤；但原診斷**無法確認是 HTTP 400 還是其他未分類 HTTP 狀態**，不能宣稱帳戶權限問題，也不能宣稱遠端無直接綁定。
+
+原版共用 `per_page=50`，包含 Pages Projects List。Cloudflare [Pages Projects List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 文件示例使用 `per_page=20`，而 Pages 另一份歷史分頁實作曾有每頁 25 限制的回報；不能直接假定兩種端點現行上限相同。本 PR **僅改 Pages Projects List** 使用獨立 `per_page=20`，保留 Workers Versions 的 `per_page=50` 與 Pages 清單 `result_info` 的 `count/page/per_page/total_count/total_pages` 完整性驗證，並新增跨頁 21 筆與缺頁／metadata 不一致的合成測試。HTTP 400 另外歸為固定安全原因 `HTTP_BAD_REQUEST`，不輸出實際回應、URL、Pages 名稱、UUID、Token 或 Cloudflare 錯誤本文。
+
+**這仍屬待驗證的相容性修正，而非已確認根因。** PR 須另行完成 Hosted CI、正式 Codex Review 和使用者批准 Merge；其後以最新 `main` 開新 `workflow_dispatch` 才能再次實測。若仍在 `PAGES_LIST` 回報 400 或其他錯誤，繼續釐清 Cloudflare 請求／權限，而不是放寬檢查或擴大 Token 權限。Cloudflare Restore／Production Write 繼續禁止。

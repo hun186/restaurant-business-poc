@@ -12,7 +12,7 @@ const other='b882a6e8-0e56-49a6-bd41-1a6cadd726c9';
 const version='a0000000-1111-2222-3333-444444444444';
 const base='/accounts/'+acc,script=base+'/workers/scripts/restaurant-business-poc';
 const pin={database_name:'restaurant-business-g5-disposable-recovery-drill',database_id:db};
-const pag=(rows)=>({page:1,per_page:50,count:rows.length,total_count:rows.length,total_pages:1});
+const pag=(rows)=>({page:1,per_page:20,count:rows.length,total_count:rows.length,total_pages:1});
 const reply=result=>({success:true,result});
 function routes(){
  const projects=[{name:'pages-poc'}],vers=[{id:version}];
@@ -21,7 +21,7 @@ function routes(){
   [script+'/settings']:reply({bindings:[{name:'DB',type:'d1',database_id:other}]}),
   [script+'/versions?page=1&per_page=50']:reply({items:vers}),
   [script+'/versions/'+version]:reply({id:version,resources:{bindings:[{name:'DB',type:'d1',database_id:other}]}}),
-  [base+'/pages/projects?page=1&per_page=50']:{...reply(projects),result_info:pag(projects)},
+  [base+'/pages/projects?page=1&per_page=20']:{...reply(projects),result_info:pag(projects)},
   [base+'/pages/projects/pages-poc']:reply({name:'pages-poc',deployment_configs:{
    production:{d1_databases:{DB:{id:other}}},preview:{d1_databases:{}}
   }})
@@ -69,7 +69,7 @@ test('old Pages deployment may retain pinned D1 after project config has changed
 });
 test('no Pages projects can complete Pages deployment coverage without deployments',async()=>{
  const data=routes();
- const url=base+'/pages/projects?page=1&per_page=50';
+ const url=base+'/pages/projects?page=1&per_page=20';
  data[url]={...reply([]),result_info:pag([])};
  delete data[base+'/pages/projects/pages-poc'];
  const {result,used}=await inventory(data);
@@ -79,6 +79,41 @@ test('no Pages projects can complete Pages deployment coverage without deploymen
  assert.equal(result.direct_binding_inventory_collected,true);
  assert.equal(result.status,'G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED');
  assert.ok(!used.includes(base+'/pages/projects/pages-poc'));
+});
+test('Pages projects use 20 per page; Worker versions keep their own 50 per page',async()=>{
+ const {result,used}=await inventory(routes());
+ assert.ok(used.includes(base+'/pages/projects?page=1&per_page=20'));
+ assert.ok(used.includes(script+'/versions?page=1&per_page=50'));
+ assert.ok(!used.some(x=>x.startsWith(base+'/pages/projects?')&&x.includes('per_page=50')));
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+});
+test('21 Pages projects require both Pages listing pages with exact metadata',async()=>{
+ const data=routes(),pages=Array.from({length:21},(_,i)=>({name:'pages-poc-'+i}));
+ const url1=base+'/pages/projects?page=1&per_page=20';
+ const url2=base+'/pages/projects?page=2&per_page=20';
+ data[url1]={...reply(pages.slice(0,20)),result_info:{
+  page:1,per_page:20,count:20,total_count:21,total_pages:2
+ }};
+ data[url2]={...reply(pages.slice(20)),result_info:{
+  page:2,per_page:20,count:1,total_count:21,total_pages:2
+ }};
+ for(const item of pages)data[base+'/pages/projects/'+item.name]=reply({
+  name:item.name,deployment_configs:{
+   production:{d1_databases:{}},preview:{d1_databases:{}}
+  }
+ });
+ delete data[base+'/pages/projects/pages-poc'];
+ const {result,used}=await inventory(data);
+ assert.equal(result.pages_projects_checked,21);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.equal(result.status,'G5_DISPOSABLE_D1_PAGES_DEPLOYMENTS_UNVERIFIED');
+ assert.ok(used.includes(url2));
+ const missing=structuredClone(data);
+ delete missing[url2];
+ await assert.rejects(()=>inventory(missing),/Unexpected request/);
+ const drift=structuredClone(data);
+ drift[url2].result_info.total_count=22;
+ await assert.rejects(()=>inventory(drift),/E_G5_BINDING_READONLY_INVENTORY/);
 });
 test('D1 binding on current Worker, older/preview version, or Pages phase fails no-binding claim',async()=>{
  for(const edit of [
@@ -97,8 +132,8 @@ test('missing pages permission, incomplete pagination, unknown bindings, and hid
  for(const edit of [
   d=>{delete d[script+'/versions?page=1&per_page=50'].result.items;},
   d=>{d[script+'/versions?page=1&per_page=50'].result.items=[];},
-  d=>{d[base+'/pages/projects?page=1&per_page=50'].success=false;},
-  d=>{d[base+'/pages/projects?page=1&per_page=50'].result_info.total_count=2;},
+  d=>{d[base+'/pages/projects?page=1&per_page=20'].success=false;},
+  d=>{d[base+'/pages/projects?page=1&per_page=20'].result_info.total_count=2;},
   d=>{delete d[base+'/pages/projects/pages-poc'].result.deployment_configs.preview;},
   d=>{d[script+'/settings'].result.bindings=[{type:'d1',name:'DB'}];},
   d=>{d[script+'/versions/'+version].result.resources.bindings=null;},
@@ -186,7 +221,7 @@ test('safe diagnostic reports only fixed stage names without exposing resource I
   [script+'/settings','WORKER_SETTINGS'],
   [script+'/versions?page=1&per_page=50','WORKER_VERSION_LIST'],
   [script+'/versions/'+version,'WORKER_VERSION_DETAIL'],
-  [base+'/pages/projects?page=1&per_page=50','PAGES_LIST'],
+  [base+'/pages/projects?page=1&per_page=20','PAGES_LIST'],
   [base+'/pages/projects/pages-poc','PAGES_PROJECT_DETAIL'],
   ['/unapproved/path','UNKNOWN']
  ];
@@ -199,7 +234,7 @@ test('read-only transport failures yield fixed categories, never response body',
  const m=await mod;
  for(const [status,reason] of [
   [401,'HTTP_AUTH'],[403,'HTTP_AUTH'],[404,'HTTP_NOT_FOUND'],
-  [429,'HTTP_RATE_LIMIT'],[503,'HTTP_SERVICE'],[400,'HTTP_OTHER']
+  [429,'HTTP_RATE_LIMIT'],[503,'HTTP_SERVICE'],[400,'HTTP_BAD_REQUEST'],[418,'HTTP_OTHER']
  ]){
   await assert.rejects(
    ()=>m.cloudflareReadOnlyGET(base+'/workers/scripts','TEST_TOKEN_123456789',

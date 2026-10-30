@@ -11,12 +11,12 @@ const TARGET='cloudflare/recovery-drill-target.json';
 const NAME='restaurant-business-g5-disposable-recovery-drill';
 const NAME_RE=/^[a-zA-Z0-9_-]{1,120}$/;
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
-const MAX_SCRIPTS=100, MAX_VERSIONS=500, MAX_PROJECTS=500, PAGE=50;
+const MAX_SCRIPTS=100, MAX_VERSIONS=500, MAX_PROJECTS=500, PAGE=50, PAGES_PAGE=20;
 const fail=()=>{throw Error('E_G5_BINDING_READONLY_INVENTORY');};
 // Diagnostic codes are intentionally fixed strings: never emit HTTP response
 // bodies, request URLs, Worker names, database IDs, credentials or exceptions.
 const SAFE_REASONS=new Set([
- 'VALIDATION_FAILED','API_DECLINED','HTTP_AUTH','HTTP_NOT_FOUND',
+ 'VALIDATION_FAILED','API_DECLINED','HTTP_AUTH','HTTP_BAD_REQUEST','HTTP_NOT_FOUND',
  'HTTP_RATE_LIMIT','HTTP_SERVICE','HTTP_OTHER','NETWORK_ERROR','BODY_INVALID'
 ]);
 export function safeRequestStage(p){
@@ -38,6 +38,7 @@ function safeTransportFailure(reason){
  throw err;
 }
 function httpReason(status){
+ if(status===400)return 'HTTP_BAD_REQUEST';
  if(status===401||status===403)return 'HTTP_AUTH';
  if(status===404)return 'HTTP_NOT_FOUND';
  if(status===429)return 'HTTP_RATE_LIMIT';
@@ -55,14 +56,15 @@ function pagination(r,page,perPage,count){
   i.total_pages===Math.max(1,Math.ceil(i.total_count/perPage)));
  return i;
 }
-async function paged(get,path,extract,max){
+async function paged(get,path,extract,max,perPage=PAGE){
+ need(Number.isSafeInteger(perPage)&&perPage>=1&&perPage<=PAGE);
  let all=[],total=null;
- for(let page=1;page<=Math.ceil(max/PAGE);page++){
-  const r=await get(path+'?page='+page+'&per_page='+PAGE);
+ for(let page=1;page<=Math.ceil(max/perPage);page++){
+  const r=await get(path+'?page='+page+'&per_page='+perPage);
   const entries=extract(result(r));
-  need(Array.isArray(entries)&&entries.length<=PAGE&&
+  need(Array.isArray(entries)&&entries.length<=perPage&&
    all.length+entries.length<=max);
-  const info=pagination(r,page,PAGE,entries.length);
+  const info=pagination(r,page,perPage,entries.length);
   need(total===null||total===info.total_count);
   total=info.total_count;
   all.push(...entries);
@@ -163,7 +165,9 @@ export async function collectBindingInventory(pin,get){
     versionsChecked++;
   }
  }
- const projects=await paged(get,prefix+'/pages/projects',r=>r,MAX_PROJECTS);
+ // Cloudflare Pages project pagination is independent of Workers Versions.
+ // Use the documented 20-item Pages response shape instead of requesting 50.
+ const projects=await paged(get,prefix+'/pages/projects',r=>r,MAX_PROJECTS,PAGES_PAGE);
  const projectNames=projects.map(p=>p?.name);
  need(projectNames.every(n=>typeof n==='string'&&NAME_RE.test(n))&&
   new Set(projectNames).size===projectNames.length);

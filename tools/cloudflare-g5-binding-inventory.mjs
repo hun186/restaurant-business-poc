@@ -103,10 +103,12 @@ export async function readWithPagesDifferential(get,p,record){
  }
 }
 function result(r){need(obj(r)&&r.success===true&&r.result!==null&&typeof r.result==='object');return r.result;}
-// Pages Projects: remote evidence shows ?page=1 works while ANY per_page
-// query causes HTTP 400. Use page-only GETs, but never trust a single page:
-// validate the SERVER-REPORTED page size, total_count and total_pages on
-// every page. Fail closed if metadata changes or completeness is uncertain.
+// Pages Projects: Cloudflare rejects per_page query for this account.
+// Use page-only GETs. The documented total_pages field is optional: derive
+// the expected last page from required total_count and per_page instead.
+// Validate every actual page, and any supplied total_pages, strictly.
+// Missing total_count/per_page/count/page, contradictory metadata, or
+// incomplete enumeration always fails closed.
 async function pagedPages(get,path,extract,max){
  pagesNeed(typeof get==='function'&&typeof path==='string'&&
   typeof extract==='function'&&Number.isSafeInteger(max)&&max>0,
@@ -131,15 +133,20 @@ async function pagedPages(get,path,extract,max){
   pagesNeed(Number.isSafeInteger(info.total_count)&&info.total_count>=0,
    'PAGE_TOTAL_INVALID');
   pagesNeed(info.total_count<=max,'PAGE_TOTAL_EXCEEDS_LIMIT');
-  pagesNeed(Number.isSafeInteger(info.total_pages)&&info.total_pages>=1,
-   'PAGE_TOTAL_PAGES_INVALID');
-  pagesNeed(info.total_pages===Math.max(1,Math.ceil(info.total_count/perPage)),
-   'PAGE_TOTAL_PAGES_MISMATCH');
+  const expectedPages=Math.max(1,Math.ceil(info.total_count/perPage));
+  // Cloudflare documents result_info.total_pages as optional; only treat
+  // absence (undefined) as omitted. Null, invalid and contradictory supplied
+  // values remain hard failures, never a shortcut to inventory completion.
+  if(info.total_pages!==undefined){
+   pagesNeed(Number.isSafeInteger(info.total_pages)&&info.total_pages>=1,
+    'PAGE_TOTAL_PAGES_INVALID');
+   pagesNeed(info.total_pages===expectedPages,'PAGE_TOTAL_PAGES_MISMATCH');
+  }
   pagesNeed(total===null||total===info.total_count,'PAGE_TOTAL_CHANGED');
   total=info.total_count;
   all.push(...entries);
   pagesNeed(all.length<=total,'PAGE_TOTAL_OVERFLOW');
-  if(page===info.total_pages){
+  if(page===expectedPages){
    pagesNeed(all.length===total,'PAGE_INCOMPLETE');
    return all;
   }

@@ -13,6 +13,37 @@ const NAME_RE=/^[a-zA-Z0-9_-]{1,120}$/;
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const MAX_SCRIPTS=100, MAX_VERSIONS=500, MAX_PROJECTS=500, PAGE=50;
 const fail=()=>{throw Error('E_G5_BINDING_READONLY_INVENTORY');};
+// Diagnostic codes are intentionally fixed strings: never emit HTTP response
+// bodies, request URLs, Worker names, database IDs, credentials or exceptions.
+const SAFE_REASONS=new Set([
+ 'VALIDATION_FAILED','API_DECLINED','HTTP_AUTH','HTTP_NOT_FOUND',
+ 'HTTP_RATE_LIMIT','HTTP_SERVICE','HTTP_OTHER','NETWORK_ERROR','BODY_INVALID'
+]);
+export function safeRequestStage(p){
+ if(typeof p!=='string')return 'UNKNOWN';
+ const prefix='/accounts/'+ACCOUNT_ID+'/';
+ if(!p.startsWith(prefix))return 'UNKNOWN';
+ const suffix=p.slice(prefix.length);
+ if(suffix==='workers/scripts')return 'WORKER_LIST';
+ if(/^workers\/scripts\/[^/?]+\/settings$/.test(suffix))return 'WORKER_SETTINGS';
+ if(/^workers\/scripts\/[^/?]+\/versions\?page=[0-9]+&per_page=[0-9]+$/.test(suffix))return 'WORKER_VERSION_LIST';
+ if(/^workers\/scripts\/[^/?]+\/versions\/[^/?]+$/.test(suffix))return 'WORKER_VERSION_DETAIL';
+ if(/^pages\/projects\?page=[0-9]+&per_page=[0-9]+$/.test(suffix))return 'PAGES_LIST';
+ if(/^pages\/projects\/[^/?]+$/.test(suffix))return 'PAGES_PROJECT_DETAIL';
+ return 'UNKNOWN';
+}
+function safeTransportFailure(reason){
+ const err=new Error('E_G5_BINDING_READONLY_INVENTORY');
+ err.g5Reason=SAFE_REASONS.has(reason)?reason:'HTTP_OTHER';
+ throw err;
+}
+function httpReason(status){
+ if(status===401||status===403)return 'HTTP_AUTH';
+ if(status===404)return 'HTTP_NOT_FOUND';
+ if(status===429)return 'HTTP_RATE_LIMIT';
+ if(Number.isInteger(status)&&status>=500)return 'HTTP_SERVICE';
+ return 'HTTP_OTHER';
+}
 function need(ok){if(!ok)fail();}
 function obj(x){return x!==null&&typeof x==='object'&&!Array.isArray(x);}
 function result(r){need(obj(r)&&r.success===true&&r.result!==null&&typeof r.result==='object');return r.result;}
@@ -172,18 +203,24 @@ export async function cloudflareReadOnlyGET(p,token,fetchImpl=fetch){
  need(typeof token==='string'&&token.length>12&&typeof fetchImpl==='function'&&
   p.startsWith('/accounts/'+ACCOUNT_ID+'/')&&!p.includes('..')&&
   !/[\\#\s]/.test(p));
- const response=await fetchImpl(API+p,{
-  method:'GET',redirect:'error',
-  headers:{Authorization:'Bearer '+token,Accept:'application/json'},
-  signal:AbortSignal.timeout(15000)
- });
- need(response?.ok===true);
- const raw=await response.text();
- need(typeof raw==='string'&&raw.length>0&&raw.length<=2*1024*1024);
- try{return JSON.parse(raw);}catch{fail();}
+ let response;
+ try{
+  response=await fetchImpl(API+p,{
+   method:'GET',redirect:'error',
+   headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+   signal:AbortSignal.timeout(15000)
+  });
+ }catch{safeTransportFailure('NETWORK_ERROR');}
+ if(response?.ok!==true)safeTransportFailure(httpReason(response?.status));
+ let raw;
+ try{raw=await response.text();}catch{safeTransportFailure('NETWORK_ERROR');}
+ if(typeof raw!=='string'||raw.length===0||raw.length>2*1024*1024)
+  safeTransportFailure('BODY_INVALID');
+ try{return JSON.parse(raw);}catch{safeTransportFailure('BODY_INVALID');}
 }
 const file=fileURLToPath(import.meta.url);
 if(process.argv[1]&&path.resolve(process.argv[1])===file){
+ let stage='PRECONDITIONS',reason='VALIDATION_FAILED';
  try{
   need(process.argv.length===3&&process.argv[2]==='inspect'&&
    process.env.GITHUB_ACTIONS==='true'&&process.env.GITHUB_REF==='refs/heads/main'&&
@@ -192,10 +229,20 @@ if(process.argv[1]&&path.resolve(process.argv[1])===file){
   const token=process.env.CLOUDFLARE_API_TOKEN;
   need(typeof token==='string'&&token.length>12);
   const pin=JSON.parse(fs.readFileSync(TARGET,'utf8'));
-  console.log(JSON.stringify(await collectBindingInventory(pin,
-   p=>cloudflareReadOnlyGET(p,token))));
+  console.log(JSON.stringify(await collectBindingInventory(pin,async p=>{
+   stage=safeRequestStage(p);
+   reason='VALIDATION_FAILED';
+   try{
+    const r=await cloudflareReadOnlyGET(p,token);
+    if(r?.success!==true)reason='API_DECLINED';
+    return r;
+   }catch(err){
+    reason=SAFE_REASONS.has(err?.g5Reason)?err.g5Reason:'NETWORK_ERROR';
+    throw err;
+   }
+  })));
  }catch{
-  console.error('G5_BINDINGS_READONLY_FAILED');
+  console.error('G5_BINDINGS_READONLY_FAILED stage='+stage+' reason='+reason);
   process.exitCode=1;
  }
 }

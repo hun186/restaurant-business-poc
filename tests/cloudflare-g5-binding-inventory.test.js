@@ -133,6 +133,78 @@ test('server Pages per_page is validated, consistent and bounded; never infer co
   await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
  }
 });
+test('Cloudflare Pages can omit optional total_pages on a complete single or empty page',async()=>{
+ const first=base+'/pages/projects?page=1';
+ for(const empty of [false,true]){
+  const data=routes();
+  if(empty){
+   data[first]={...reply([]),result_info:{
+    page:1,per_page:20,count:0,total_count:0
+   }};
+   delete data[base+'/pages/projects/pages-poc'];
+  }else{
+   delete data[first].result_info.total_pages;
+  }
+  const {result,used}=await inventory(data);
+  assert.equal(result.pages_projects_checked,empty?0:1);
+  assert.equal(result.no_direct_binding_detected,empty);
+  assert.ok(used.includes(first));
+  assert.ok(!used.includes(base+'/pages/projects?page=2'));
+ }
+});
+test('Cloudflare Pages can omit optional total_pages on both pages with exact count coverage',async()=>{
+ const first=base+'/pages/projects?page=1',second=base+'/pages/projects?page=2';
+ const data=routes();
+ data[first]={...reply([{name:'pages-poc'}]),result_info:{
+  page:1,per_page:1,count:1,total_count:2
+ }};
+ data[second]={...reply([{name:'pages-two'}]),result_info:{
+  page:2,per_page:1,count:1,total_count:2
+ }};
+ data[base+'/pages/projects/pages-two']=reply({name:'pages-two',deployment_configs:{
+  production:{d1_databases:{}},preview:{d1_databases:{}}
+ }});
+ const {result,used}=await inventory(data);
+ assert.equal(result.pages_projects_checked,2);
+ assert.equal(result.no_direct_binding_detected,false);
+ assert.ok(used.includes(second));
+ assert.equal(used.filter(x=>x.startsWith(base+'/pages/projects?')).length,2);
+ for(const [label,mutate] of [
+  ['missing second page',d=>{delete d[second];}],
+  ['missing required total_count',d=>{delete d[second].result_info.total_count;}],
+  ['changed total_count',d=>{d[second].result_info.total_count=3;}],
+  ['changed per_page',d=>{d[second].result_info.per_page=2;}],
+  ['changed page',d=>{d[second].result_info.page=1;}],
+  ['incomplete last page',d=>{d[second].result=[];d[second].result_info.count=0;}]
+ ]){
+  const broken=structuredClone(data);mutate(broken);
+  await assert.rejects(()=>inventory(broken),undefined,label);
+ }
+});
+test('Cloudflare Pages optional total_pages must agree when present, including later pages',async()=>{
+ const first=base+'/pages/projects?page=1',second=base+'/pages/projects?page=2';
+ const data=routes();
+ data[first]={...reply([{name:'pages-poc'}]),result_info:{
+  page:1,per_page:1,count:1,total_count:2
+ }};
+ data[second]={...reply([{name:'pages-two'}]),result_info:{
+  page:2,per_page:1,count:1,total_count:2,total_pages:2
+ }};
+ data[base+'/pages/projects/pages-two']=reply({name:'pages-two',deployment_configs:{
+  production:{d1_databases:{}},preview:{d1_databases:{}}
+ }});
+ const {result}=await inventory(data);
+ assert.equal(result.pages_projects_checked,2);
+ for(const [value,code] of [[null,'PAGE_TOTAL_PAGES_INVALID'],
+  ['2','PAGE_TOTAL_PAGES_INVALID'],[0,'PAGE_TOTAL_PAGES_INVALID'],
+  [3,'PAGE_TOTAL_PAGES_MISMATCH']]){
+  const broken=structuredClone(data);
+  broken[second].result_info.total_pages=value;
+  await assert.rejects(()=>inventory(broken),e=>
+   e?.message==='E_G5_BINDING_READONLY_INVENTORY'&&e?.g5Validation===code
+  );
+ }
+});
 test('Pages validation failures emit only fixed field categories, never Cloudflare values',async()=>{
  const first=base+'/pages/projects?page=1';
  const cases=[

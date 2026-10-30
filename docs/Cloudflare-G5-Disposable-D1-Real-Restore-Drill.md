@@ -130,3 +130,12 @@ Cloudflare Pages 官方文件指出：更改 D1 Binding 後，必須**重新部�
 原本的三種安全對照診斷保留作為舊版 `?page=1&per_page=20` 行為的函式測試，但正式清單不再呼叫會觸發它的 URL。已新增實際 Pages page-only 路徑、動態 server page size=10 / 20、21 筆跨頁、total_count/page/per_page 不一致、缺頁和上限拒絕的合成回歸。保留原本 **Pages Deployment 有任何專案即不得視為已完成有效部署 Binding 全覆蓋** 的判定；若 Pages 清單／詳情仍不可信，一律回報失敗而不是假 `NO_DIRECT_BINDING`。
 
 程式與測試需重新鎖定 SHA-256 並完成最新 HEAD Hosted CI + 正式 Codex Review；**沒有使用者明確 Merge 授權不能合併**。此 PR 不會觸發 Cloudflare 新 Run，也沒有 Cloudflare 變更權限、恢復、Migration 或 Production 寫入；只能在批准合併後由使用者手動在最新 `main` 新建 GET-only Workflow Run，才能確認遠端完整性。
+
+
+### 2026-10-30｜Pages page-only HTTP 正常後仍 VALIDATION_FAILED：固定類別診斷（待遠端實測）
+
+GitHub main `019b74b30b582e630aa4ee78aac6a969d1790676`（PR #54 合併，Postmerge Verify #41015489859 5/5 PASS）的新 GET-only Cloudflare [Run #41016132258](https://github.com/hun186/restaurant-business-poc/actions/runs/41016132258) 和 [#41016228381](https://github.com/hun186/restaurant-business-poc/actions/runs/41016228381) 都是 **`G5_BINDINGS_READONLY_FAILED stage=PAGES_LIST reason=VALIDATION_FAILED`**。先前失敗原因為帶 `per_page` 時 HTTP 400；改成 `?page=N` 後沒有再報 HTTP 400，但現有日誌無法辨識是 Pages API 回傳的選填 `result_info` 欄位不足、頁數/總筆數不一致、還是專案名稱/重複資料等。Cloudflare 官方 [Pages Projects List API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/) 的 `result_info` / 部分欄位在 schema 上為 optional，因此不可逕自推論根因或把缺漏當作清單完整。
+
+本 PR 只在 **Pages 清單驗證失敗**時補充一個由原始碼固定白名單產生的 `validation_code=...`，例如 `PAGE_RESPONSE_INVALID`、`PAGE_METADATA_MISSING`、`PAGE_SIZE_INVALID`、`PAGE_SIZE_CHANGED`、`PAGE_NUMBER_MISMATCH`、`PAGE_COUNT_MISMATCH`、`PAGE_TOTAL_INVALID`、`PAGE_TOTAL_PAGES_INVALID`、`PAGE_TOTAL_PAGES_MISMATCH`、`PAGE_TOTAL_CHANGED`、`PAGE_INCOMPLETE`、`PAGE_PROJECT_NAME_INVALID`、`PAGE_PROJECT_NAME_DUPLICATE`。不輸出實際欄位值、頁面數值、完整 URL、Cloudflare response/body、專案名稱、D1 UUID、Token、stack 或例外原文。所有錯誤仍使用原有 `VALIDATION_FAILED` 和非零 exit code；不可將診斷代碼視為成功的盤點證據。
+
+維持 500 專案的上限、伺服器 `per_page` 1..100、全頁數量、total_count/total_pages 一致、無重複專案與 Pages 已部署版本綁定無法由 current config 單獨驗證的保護。新增合成 regression 逐一證明固定錯誤類別、不洩露回傳值及合法跨頁資料仍正確；SHA-256 Manifest 和 `.codex` 記憶更新。PR 須先最新 HEAD Hosted CI 5/5 PASS、正式 Codex Review、獨立使用者 Merge 授權；合併後才由使用者啟動最新 `main` 的全新 GET-only Run，取得真正 `validation_code`。不提升權限、不執行 Restore、Migration 或 D1 寫入。

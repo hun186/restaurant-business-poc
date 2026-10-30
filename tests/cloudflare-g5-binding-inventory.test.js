@@ -133,6 +133,61 @@ test('server Pages per_page is validated, consistent and bounded; never infer co
   await assert.rejects(()=>inventory(data),/E_G5_BINDING_READONLY_INVENTORY/);
  }
 });
+test('Pages total_pages=0 is permitted ONLY for a fully verified empty first page',async()=>{
+ const first=base+'/pages/projects?page=1',data=routes();
+ data[first]={...reply([]),result_info:{
+  page:1,per_page:20,count:0,total_count:0,total_pages:0
+ }};
+ delete data[base+'/pages/projects/pages-poc'];
+ const {result,used}=await inventory(data);
+ assert.equal(result.pages_projects_checked,0);
+ assert.equal(result.no_direct_binding_detected,true);
+ assert.equal(result.direct_binding_inventory_collected,true);
+ assert.equal(result.pages_deployment_bindings_verified,true);
+ assert.ok(used.includes(first));
+ assert.ok(!used.some(p=>p===base+'/pages/projects?page=2'));
+ const cases=[
+  ['PAGE_TOTAL_PAGES_MISMATCH',d=>{d[first].result_info.total_count=1;}],
+  ['PAGE_TOTAL_PAGES_MISMATCH',d=>{
+   d[first].result=[{name:'pages-poc'}];
+   d[first].result_info.count=1;d[first].result_info.total_count=1;
+  }],
+  ['PAGE_COUNT_MISMATCH',d=>{
+   d[first].result=[{name:'pages-poc'}];
+  }],
+  ['PAGE_TOTAL_PAGES_INVALID',d=>{d[first].result_info.total_pages=-1;}],
+  ['PAGE_TOTAL_PAGES_INVALID',d=>{d[first].result_info.total_pages=0.5;}],
+  ['PAGE_TOTAL_PAGES_TYPE_INVALID',d=>{d[first].result_info.total_pages='0';}],
+  ['PAGE_TOTAL_PAGES_TYPE_INVALID',d=>{d[first].result_info.total_pages=false;}]
+ ];
+ for(const [code,mutate] of cases){
+  const broken=structuredClone(data);mutate(broken);
+  await assert.rejects(()=>inventory(broken),e=>
+   e?.message==='E_G5_BINDING_READONLY_INVENTORY'&&e?.g5Validation===code,
+   code);
+ }
+});
+test('Pages total_pages=0 never masks a nonempty or second-page result',async()=>{
+ const first=base+'/pages/projects?page=1',second=base+'/pages/projects?page=2';
+ const data=routes();
+ data[first]={...reply([{name:'pages-poc'}]),result_info:{
+  page:1,per_page:1,count:1,total_count:2,total_pages:2
+ }};
+ data[second]={...reply([{name:'pages-two'}]),result_info:{
+  page:2,per_page:1,count:1,total_count:2,total_pages:0
+ }};
+ data[base+'/pages/projects/pages-two']=reply({name:'pages-two',
+  deployment_configs:{production:{d1_databases:{}},preview:{d1_databases:{}}}
+ });
+ await assert.rejects(()=>inventory(data),e=>
+  e?.message==='E_G5_BINDING_READONLY_INVENTORY'&&
+  e?.g5Validation==='PAGE_TOTAL_PAGES_MISMATCH');
+ data[first].result_info.total_pages=0;
+ data[second].result_info.total_pages=2;
+ await assert.rejects(()=>inventory(data),e=>
+  e?.message==='E_G5_BINDING_READONLY_INVENTORY'&&
+  e?.g5Validation==='PAGE_TOTAL_PAGES_MISMATCH');
+});
 test('Cloudflare Pages can omit optional total_pages on a complete single or empty page',async()=>{
  const first=base+'/pages/projects?page=1';
  for(const empty of [false,true]){

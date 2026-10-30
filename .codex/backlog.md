@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-30 G5/#46 NEXT：最新 `main=70a07aab4f034ccf184385c5f53e0654f17a80ca`、Postmerge Verify #41023736114 PASS；實際新 G5 GET-only #41023956018 **FAIL** `PAGES_LIST / VALIDATION_FAILED / PAGE_TOTAL_PAGES_INVALID`。核對證實不是舊 SHA；因日誌不含原始值，不能假設是 null。新分支只把 **null/undefined** 當作無可用選填 `total_pages` 提示，完整性仍嚴格以必填 `total_count/per_page/page/count`、跨頁總筆數/唯一專案驗證，提供的非數字型別加固定安全 `PAGE_TOTAL_PAGES_TYPE_INVALID`，不合法數字仍拒絕。CI + 正式 Codex Review + 新 Merge 授權後再開新 GET-only main G5 Run。所有 Restore、Production Write、權限擴增仍禁止。
+
 > 2026-10-30 G5/#46 NEXT：最新 `main=77db23f3e49b108c8246682546febcb35d2e6f9d`，合併後 Verify #41019351188 5/5 PASS；真正 G5 GET-only #41020107558 失敗於 `PAGES_LIST / VALIDATION_FAILED / PAGE_TOTAL_PAGES_INVALID`。根據 Cloudflare 官方 Pages List Schema 的 optional total_pages，將 total_pages 省略情形改成從**必填並嚴格核對**的 `total_count` 與 `per_page` 計算總頁數，null／錯誤型別／不一致仍拒絕；維持完整資料累積、跨頁一致性和 Pages 已部署版本確認的 Fail Closed。完成新 PR Hosted CI＋正式 Codex Review，需使用者明確 Merge 才能從最新 main 另行執行 GET-only G5 Run。**不得將程式測試通過寫成遠端 G5 盤點成功，Restore／Production Migration／寫入尚未核准。**
 
 > 2026-10-30 G5/#46 NEXT：latest main `019b74b30b582e630aa4ee78aac6a969d1790676`，PR #54 postmerge Verify #41015489859 5/5 PASS；正式 Cloudflare GET-only #41016132258/#41016228381 都在 PAGES_LIST `VALIDATION_FAILED`。準備診斷 PR：保留所有分頁完整性檢查，僅增加固定 `validation_code` 分辨伺服器回覆缺漏、頁數/計數不一致、專案名稱驗證，**不輸出任何 API 欄位值/名稱/Token**。最新 HEAD 必須 Hosted CI、正式 Codex Review，再獲使用者新 Merge 授權，合併後新開唯讀 `main` Run 才能判定實際原因。任何 Restore、Production migration/login/write 仍禁止。

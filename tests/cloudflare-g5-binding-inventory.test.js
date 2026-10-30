@@ -92,7 +92,7 @@ test('network client sends GET only and does not follow redirects',async()=>{
  assert.deepEqual(ret,reply([]));
  assert.equal(calls[0][1].method,'GET');
  assert.equal(calls[0][1].redirect,'error');
- assert.throws(()=>m.cloudflareReadOnlyGET('/wrong','TEST_TOKEN_123456789',()=>{}),/E_G5/);
+ await assert.rejects(()=>m.cloudflareReadOnlyGET('/wrong','TEST_TOKEN_123456789',()=>{}),/E_G5/);
 });
 test('CLI and manual workflow reject missing authorization and cannot write',()=>{
  const wf=fs.readFileSync(workflow,'utf8');

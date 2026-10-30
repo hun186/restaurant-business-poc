@@ -11,7 +11,7 @@ const TARGET='cloudflare/recovery-drill-target.json';
 const NAME='restaurant-business-g5-disposable-recovery-drill';
 const NAME_RE=/^[a-zA-Z0-9_-]{1,120}$/;
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
-const MAX_SCRIPTS=100, MAX_VERSIONS=500, MAX_PROJECTS=500, PAGE=50, PAGES_PAGE=20;
+const MAX_SCRIPTS=100, MAX_VERSIONS=500, MAX_PROJECTS=500, PAGE=50, PAGES_PAGE=20, MAX_SERVER_PAGES_PAGE=100;
 const fail=()=>{throw Error('E_G5_BINDING_READONLY_INVENTORY');};
 // Diagnostic codes are intentionally fixed strings: never emit HTTP response
 // bodies, request URLs, Worker names, database IDs, credentials or exceptions.
@@ -28,7 +28,7 @@ export function safeRequestStage(p){
  if(/^workers\/scripts\/[^/?]+\/settings$/.test(suffix))return 'WORKER_SETTINGS';
  if(/^workers\/scripts\/[^/?]+\/versions\?page=[0-9]+&per_page=[0-9]+$/.test(suffix))return 'WORKER_VERSION_LIST';
  if(/^workers\/scripts\/[^/?]+\/versions\/[^/?]+$/.test(suffix))return 'WORKER_VERSION_DETAIL';
- if(/^pages\/projects\?page=[0-9]+&per_page=[0-9]+$/.test(suffix))return 'PAGES_LIST';
+ if(/^pages\/projects\?page=[0-9]+(?:&per_page=[0-9]+)?$/.test(suffix))return 'PAGES_LIST';
  if(/^pages\/projects\/[^/?]+$/.test(suffix))return 'PAGES_PROJECT_DETAIL';
  return 'UNKNOWN';
 }
@@ -94,14 +94,23 @@ function pagination(r,page,perPage,count){
   i.total_pages===Math.max(1,Math.ceil(i.total_count/perPage)));
  return i;
 }
-async function paged(get,path,extract,max,perPage=PAGE){
- need(Number.isSafeInteger(perPage)&&perPage>=1&&perPage<=PAGE);
- let all=[],total=null;
- for(let page=1;page<=Math.ceil(max/perPage);page++){
-  const r=await get(path+'?page='+page+'&per_page='+perPage);
+// Pages Projects: remote evidence shows ?page=1 works while ANY per_page
+// query causes HTTP 400. Use page-only GETs, but never trust a single page:
+// validate the SERVER-REPORTED page size, total_count and total_pages on
+// every page. Fail closed if metadata changes or completeness is uncertain.
+async function pagedPages(get,path,extract,max){
+ need(typeof get==='function'&&typeof path==='string'&&typeof extract==='function');
+ let all=[],total=null,serverPerPage=null;
+ for(let page=1;page<=max;page++){
+  const r=await get(path+'?page='+page);
   const entries=extract(result(r));
-  need(Array.isArray(entries)&&entries.length<=perPage&&
-   all.length+entries.length<=max);
+  need(Array.isArray(entries));
+  const perPage=r.result_info?.per_page;
+  need(Number.isSafeInteger(perPage)&&perPage>=1&&
+   perPage<=MAX_SERVER_PAGES_PAGE&&
+   (serverPerPage===null||serverPerPage===perPage));
+  serverPerPage=perPage;
+  need(entries.length<=perPage&&all.length+entries.length<=max);
   const info=pagination(r,page,perPage,entries.length);
   need(total===null||total===info.total_count);
   total=info.total_count;
@@ -203,9 +212,9 @@ export async function collectBindingInventory(pin,get){
     versionsChecked++;
   }
  }
- // Cloudflare Pages project pagination is independent of Workers Versions.
- // Use the documented 20-item Pages response shape instead of requesting 50.
- const projects=await paged(get,prefix+'/pages/projects',r=>r,MAX_PROJECTS,PAGES_PAGE);
+ // Pages project-list pagination is independent from Worker Versions;
+ // GET with only page=N and validate authoritative result_info on each page.
+ const projects=await pagedPages(get,prefix+'/pages/projects',r=>r,MAX_PROJECTS);
  const projectNames=projects.map(p=>p?.name);
  need(projectNames.every(n=>typeof n==='string'&&NAME_RE.test(n))&&
   new Set(projectNames).size===projectNames.length);

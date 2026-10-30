@@ -46,3 +46,22 @@ Cloudflare 的 `POST /accounts/{account}/d1/database/{id}/time_travel/restore?bo
 - https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/
 - https://developers.cloudflare.com/api/resources/d1/subresources/database/subresources/time_travel/methods/get_bookmark/
 - https://developers.cloudflare.com/api/resources/d1/subresources/database/subresources/time_travel/methods/restore/
+
+## 2026-10-30｜G5 Worker／Pages D1 綁定唯讀盤點（新增，尚未對遠端執行）
+
+使用者回報已設定 `d1-recovery-drill-write` 的非敏感 Variables 與 `main` 分支限制；GitHub Connector 無法直接查閱 Environment 規則，屬**使用者已設定／API 未獨立驗證**。因為只有一位 Repo 維護者，**Required reviewers 無法形成雙人審核**；不能將 Wait timer 當成第二位審核者。正式 Restore 仍未取得獨立授權。
+
+新增手動 GitHub Actions `G5 disposable D1 Worker and Pages binding inventory (manual read-only)`，只用 Cloudflare GET API 盤點同帳戶可見 Worker scripts（當前 settings 與分頁歷史 versions 的 D1 bindings）及 Pages Projects（production / preview deployment configs 的 D1 bindings）。檢查目標固定為 `cloudflare/recovery-drill-target.json` 中已 Pin 的可丟棄演練庫；不輸出 Worker 名稱、版本 ID、D1 UUID、Binding 名稱、路由、Domain 或 Cloudflare 原始 JSON。
+
+**首次設置**：在 GitHub Settings → Environments 建立 `d1-recovery-drill-binding-readonly`，Deployment branches 只允許 `main`。建立僅具 Cloudflare **Workers Scripts Read**（至少可讀 Worker versions/settings）及 **Pages Read** 的獨立專用 API Token，設定此環境的 Secrets `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_G5_BINDINGS_READ_TOKEN`。不要沿用 D1 Write Token；不應把 Token 寫到 Issue/Chat。**本 PR 沒有建立 Environment、Secrets、執行 Remote API 或寫入資料庫。**
+
+PR 合併且人工設定後，GitHub Actions 選擇 `main`、輸入 `confirm=CHECK_G5_BINDINGS_READONLY`，執行此獨立 READONLY Workflow。若 API 權限不足、缺 Worker/Pages 可見性、版本列表無法完整分頁、任何回應不可信或存在不明 D1 binding，程式 Fail Closed；不把無資料誤判為沒有綁定。報告分成 `G5_DISPOSABLE_D1_DIRECT_BINDING_FOUND` 或 `G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`，並有檢查數量與 `direct_binding_matches`。此工具**不能證明無間接 Service Binding、無帳戶外資源、無並行寫入者，亦不能代替人為獨立確認**；正式 `binding_attestation` / `exclusive_use_attestation` 仍維持人工簽核。
+
+若此唯讀盤點結果顯示 `direct_binding_matches>0`，**不得執行 Drill**，須先查明來源、解除使用演練庫的綁定並重新查核（不得自動修改任何 Cloudflare 資源）。即使 `direct_binding_matches=0`，`G5_DRILL_RESTORE_APPROVED` 繼續未設定，Write Token 仍不得預置。
+
+Cloudflare 官方唯讀 API：
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/script_and_version_settings/methods/get/
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/list/
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/get/
+- https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/list/
+- https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/get/

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+
+> 2026-10-31 P0 #34 新增量（PR #68 已 Squash Merge main `aa0f13c189eab863ab1f5e921c212401a904ca39`，Postmerge Verify #41169668388 Completed/SUCCESS 5/5）：分支 `feat/staging-0003-isolated-migration-config-20261031` 僅建立 staging UUID 鎖定的獨立 `wrangler.staging-access-0003.jsonc` 與單檔 `cloudflare/migrations-access-0003/0003_access_identity_links.sql`，保持既有 0001/0002 目錄與手動工作流程不變；新增 offline v3/0002 SQLite 合成回歸及閉鎖 SHA256 allowlist。**最新 PR Head Hosted CI/Codex Review 待驗證，未 Merge，未執行任何遠端 D1 Migration 或 Access 身分啟用**。下一階段才是獨立 main-only Staging 0003 preflight/apply/postflight 審核流程；遠端 apply 額外需要 Cloudflare 權限與備份/可回復證據。
+
 > 2026-10-31 P0 #34｜PR #67 已 Squash Merge `14a184af02d55b2249ce9adb233b843c5984aeac`，Postmerge Verify #41169303453 completed/success 5/5；正式 signed Access→D1 使用者唯讀映射程式已 Merge，**現有 Staging D1 沒有 access_identity_links table，故仍不能使用登入**。本次新增 `cloudflare/migration-proposals/0003_access_identity_links.sql`，只是**隔離版加法 Schema 提案**，active 預設 0、issuer/audience/subject/DB User 唯一約束、FK、合成 SQLite 規則測試（本地使用合成 v3 stand-in 6/6 PASS）。為避免破壞現有 `verifyLocal0002` 封閉 Migration inventory，沒有修改 `cloudflare/migrations/` 或實際 Migration workflows，未連 Cloudflare、未修改 Staging/Prod DB。最新 PR HEAD Hosted CI／正式 Codex Review Pending；未完成時不得宣稱合併或部署。後續須獨立 staging-only migration 安全流程 + 人工受控身份註冊/核准。
 
 > 2026-10-31 P0 #34 CONTINUATION｜PR #66 已 Squash Merge main `3a66e99ab9c4b7287cfe86d7e07237a841cc1186`; postmerge Verify #41165785965 completed/success 5/5，且現時無 Open PR。新分支 `feat/staging-access-d1-principal-readonly-20261031` 建立獨立內部 Access signed subject→D1 角色/門市讀取映射，嚴格 issuer+audience+subject 明確連結，active 使用者與門市、合成 SQLite 測試、缺少 link table 保守拒絕；**尚無正式 D1 link table/migration，未建立 Owner、無公開 Worker route/Session/登入或資料庫寫入**。本地 D1 映射合成測試 6/6 PASS（以相容身份驗證替身驗證映射），正式完整模組需 GitHub Hosted CI/正式 Codex Review。下一個 PR 需先設計審核過的 Migration 與身份註冊授權；不得視為 Staging Login 已完成。

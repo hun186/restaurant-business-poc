@@ -20,9 +20,9 @@ const ddl=source=>source.slice(source.indexOf('CREATE TABLE access_identity_link
 const sorted=(root,dir)=>fs.readdirSync(path.join(root,dir)).sort();
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const INDEXES=Object.freeze([
-  ['idx_login_attempts_at',/^CREATE INDEX\\s+idx_login_attempts_at\\s+ON\\s+login_attempts\\s*\\(\\s*at\\s*,\\s*id\\s*\\)$/i],
-  ['idx_login_attempts_ip_hash_at',/^CREATE INDEX\\s+idx_login_attempts_ip_hash_at\\s+ON\\s+login_attempts\\s*\\(\\s*ip_hash\\s*,\\s*at\\s*\\)$/i],
-  ['idx_login_attempts_username_nocase_at',/^CREATE INDEX\\s+idx_login_attempts_username_nocase_at\\s+ON\\s+login_attempts\\s*\\(\\s*username\\s+COLLATE\\s+NOCASE\\s*,\\s*at\\s*\\)$/i]
+  ['idx_login_attempts_at',/^CREATE INDEX\s+idx_login_attempts_at\s+ON\s+login_attempts\s*\(\s*at\s*,\s*id\s*\)$/i],
+  ['idx_login_attempts_ip_hash_at',/^CREATE INDEX\s+idx_login_attempts_ip_hash_at\s+ON\s+login_attempts\s*\(\s*ip_hash\s*,\s*at\s*\)$/i],
+  ['idx_login_attempts_username_nocase_at',/^CREATE INDEX\s+idx_login_attempts_username_nocase_at\s+ON\s+login_attempts\s*\(\s*username\s+COLLATE\s+NOCASE\s*,\s*at\s*\)$/i]
 ]);
 export function verify0003ReadOnlyConfig(root,accountId) {
   if(accountId!==ACCOUNT_ID)error('ACCOUNT');
@@ -71,7 +71,7 @@ export function inspect0003ReadOnly(data,expectedDdl){
   // Match the full 0001 table inventory (+ Wrangler ledger / optional 0003)
   // and all three exact 0002 login-rate-limit indexes before reporting READY.
   const base=fs.readFileSync(path.join(ROOT,ACTIVE,'0001_initial_v3.sql'),'utf8');
-  const baseTables=[...base.matchAll(/CREATE TABLE\\s+([A-Za-z_][A-Za-z_0-9]*)\\s*\\(/g)].map(x=>x[1]);
+  const baseTables=[...base.matchAll(/CREATE TABLE\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(/g)].map(x=>x[1]);
   if(baseTables.length!==22||new Set(baseTables).size!==22)error('BASELINE_CONTRACT');
   const expectedTableNames=[...baseTables,'d1_migrations',...(applied?['access_identity_links']:[])].sort();
   const existingTables=rows(data,'tables');

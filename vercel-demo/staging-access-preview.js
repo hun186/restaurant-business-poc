@@ -70,23 +70,28 @@ function taskAction(item){
      desired===item.status)return;
   if(!window.confirm('這會變更 Staging D1 的工作狀態並新增稽核紀錄。\\n確定要更新嗎？'))return;
   mutationInFlight=true;
-  const atSeq=seq;
-  for(const button of document.querySelectorAll('.preview-task-action button'))
-   button.disabled=true;
+  ++seq;
+  if(controller)controller.abort();
+  clear();
   status('正在更新 Staging 工作狀態；請勿重複送出…');
+  let error=null;
   try{
    await client.changeTaskStatus(item.id,desired);
-   if(atSeq===seq&&view==='tasks')refresh();
-  }catch(error){
-   // A failed network response might still follow a committed transaction:
-   // never retry automatically, or display stale prior data as current.
-   if(atSeq===seq){
-    clear();
-    status((error?.message||'工作狀態更新結果無法確認。')+
-     ' 請先重新整理確認最新狀態，不要直接重複送出。','error');
-   }
+  }catch(e){
+   error=e;
   }finally{
    mutationInFlight=false;
+  }
+  // Never trust a GET obtained while the POST was in flight. Even if the
+  // operator clicked reload or switched views, invalidate that read.
+  if(error){
+   ++seq;
+   if(controller)controller.abort();
+   clear();
+   status((error?.message||'工作狀態更新結果無法確認。')+
+    ' 請先重新整理確認最新狀態，不要直接重複送出。','error');
+  }else{
+   refresh();
   }
  });
  cell.append(select,submit);
@@ -127,7 +132,12 @@ async function refresh(){
  if(controller)controller.abort();
  controller=new AbortController();
  const signal=controller.signal;
- clear();status('正在確認 Cloudflare Access 身分及 D1 授權…');
+ clear();
+ if(mutationInFlight){
+  status('工作狀態更新尚未完成；完成後會自動重新查詢目前頁面。');
+  return;
+ }
+ status('正在確認 Cloudflare Access 身分及 D1 授權…');
  try{
   const identity=await client.me(signal);
   if(current!==seq)return;

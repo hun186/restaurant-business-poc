@@ -57,7 +57,8 @@ export async function buildProductionOwnerSql(password) {
  if(!/^[0-9a-f]{32}$/.test(v.password_salt)||
     !/^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/.test(v.password_hash))fail();
  const id=randomUUID();
- if(!/^[0-9a-f-]{36}$/.test(id))fail();
+ const auditId=randomUUID();
+ if(!/^[0-9a-f-]{36}$/.test(id) || !/^[0-9a-f-]{36}$/.test(auditId))fail();
  const precondition=[
   '(SELECT contract_version FROM cloud_schema_contract WHERE id=1)=3',
   '(SELECT COUNT(*) FROM d1_migrations)=2',
@@ -68,6 +69,12 @@ export async function buildProductionOwnerSql(password) {
  return `INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active)
 SELECT '${id}','owner','餐廳業主','owner','${v.password_salt}','${v.password_hash}',1
 WHERE ${precondition};
+-- The audit row records only the privileged enrollment, never a password or token.
+-- changes() prevents an audit entry if the guarded Owner INSERT changed no rows.
+INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,detail)
+SELECT '${auditId}','production-bootstrap','auth.owner_bootstrap','users','${id}',
+       '{"hash_version":"pbkdf2-sha256$100000"}'
+WHERE changes()=1 AND EXISTS (SELECT 1 FROM users WHERE id='${id}' AND username='owner');
 `;
 }
 export function savePrivateOwnerSql(file,content,runnerTemp) {
@@ -79,11 +86,12 @@ export function savePrivateOwnerSql(file,content,runnerTemp) {
 }
 export function verifyProductionOwnerPostflight(payload,fk) {
  const row=exactlyOne(payload);
- const expected=['contract_version','migration_total','users','owners','sessions','login_attempts','audit_logs'];
+ const expected=['contract_version','migration_total','users','owners','sessions','login_attempts','audit_logs','owner_enrollment_audits'];
  if(JSON.stringify(Object.keys(row).sort())!==JSON.stringify(expected.sort()))fail();
  if(count(row.contract_version)!==3||count(row.migration_total)!==2||
    count(row.users)!==1||count(row.owners)!==1||count(row.sessions)!==0||
-   count(row.login_attempts)!==0||count(row.audit_logs)!==0||getRows(fk).length!==0)fail();
+   count(row.login_attempts)!==0||count(row.audit_logs)!==1||
+   count(row.owner_enrollment_audits)!==1||getRows(fk).length!==0)fail();
  return true;
 }
 export function postflightSql(){
@@ -94,7 +102,11 @@ export function postflightSql(){
  "AND password_hash LIKE 'pbkdf2-sha256$100000$%' AND length(password_hash)=85 AND length(password_salt)=32) AS owners, "+
  "(SELECT COUNT(*) FROM sessions) AS sessions, "+
  "(SELECT COUNT(*) FROM login_attempts) AS login_attempts, "+
- "(SELECT COUNT(*) FROM audit_logs) AS audit_logs;";
+ "(SELECT COUNT(*) FROM audit_logs) AS audit_logs, "+
+ "(SELECT COUNT(*) FROM audit_logs WHERE actor_name='production-bootstrap' "+
+ "AND action='auth.owner_bootstrap' AND entity='users' "+
+ "AND detail='{\\\"hash_version\\\":\\\"pbkdf2-sha256$100000\\\"}' "+
+ "AND entity_id=(SELECT id FROM users WHERE username='owner' AND role='owner' AND active=1)) AS owner_enrollment_audits;";
 }
 function config(){
  const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));

@@ -31,7 +31,7 @@ export async function verifyAccessJwtAssertion(assertion, { audience, issuer, jw
   try {
     if (typeof assertion !== 'string' || assertion.length > MAX_JWT_BYTES ||
         !/^[A-Za-z0-9_.-]+$/.test(assertion) ||
-        typeof audience !== 'string' || !/^[0-9a-f]{32}$/i.test(audience) ||
+        typeof audience !== 'string' || !/^[0-9a-f]{64}$/i.test(audience) ||
         typeof issuer !== 'string' ||
         !/^https:\/\/[a-z0-9][a-z0-9-]{0,62}\.cloudflareaccess\.com$/.test(issuer) ||
         !Number.isSafeInteger(nowSeconds) || nowSeconds <= 0 ||

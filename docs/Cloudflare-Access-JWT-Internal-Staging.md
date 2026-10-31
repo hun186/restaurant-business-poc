@@ -43,3 +43,7 @@
 - 僅在受信任公鑰載入成功後，才交由已審查的 `verifyAccessJwtAssertion` 檢查真實 RSA-SHA256 簽章及完整 JWT Claims；只有全部通過才回傳經驗證 `subject`，未驗證、過期、異常來源皆不返回身分。
 - 合成 RSA 私鑰只在測試中當場產生，mock JWKS Response，不呼叫 Cloudflare，不修改公開 Worker／routes／config、D1、登入或 Production。
 - 尚需後續單獨設計 Staging 僅 Preview 的真實 Cloudflare Access 政策、受控 D1 subject-user 映射、角色／門市 RBAC、Session/CSRF/Rate limit、CPU 與真實 E2E。不可將本串接視為正式登入 Ready。
+
+### PR #66 Codex P2 修正
+
+在取得 JWKS 前先檢查 Token 三段的 canonical Base64url、Payload 有效 JSON 物件與 Signature 長度；此階段不解讀未驗證 claims 的任何授權意義。所有不合法結構一律 `null` 且不觸發遠端 JWKS Fetch；新增合成回歸，本地 4/4 PASS。仍待最新 HEAD CI 與正式複審。

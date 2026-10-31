@@ -137,3 +137,13 @@ PR #73 已在 main 合併且主線 CI #41184285149 為 success 5/5。本次新�
 - Browser 發 `GET` 時使用同源 Cookie（由瀏覽器保管 Cloudflare Access Cookie）；不讀取、傳出或保存 Access JWT；不接受使用者可輸入的 URL/Host、角色、Token、帳密。禁止重新導向自動跟隨，拒絕非 JSON 與錯誤格式；切換頁面會清除上一頁資料，過期或撤權時立即擦除畫面，並使用請求序號阻止較晚回來的舊資料覆蓋新頁。
 - 前端使用 `textContent` 顯示 D1 資料、不使用 `innerHTML`，加 CSP、`no-referrer` 與 `noindex`；不提供編輯、叫貨核准、個資查詢、Excel 匯出或正式營運功能。Vercel 公開 Demo 可能也包含該靜態頁，**但不含可用的 Access API；不能當作登入示範**。
 - 真正的 Cloudflare Preview Access Policy/0003 Migration/issuer/audience/subject link/Gate/有效的 Staging E2E 仍待另外批准與實證，不能將靜態頁發布或 CI PASS 視為登入完成。
+
+## 2026-10-31 Access 身分的 Staging 工作狀態交易（預設關閉）
+
+新增 `POST /api/access/task-status`：**程式碼完成不代表遠端已啟用。** 只有同時具有 `CLOUD_AUTH_PHASE=preview-readonly`、`CLOUD_ACCESS_IDENTITY_GATE=staging-get-only`、`CLOUD_ACCESS_TASK_WRITE_GATE=staging-task-status-only`，且配置可信的 Access Issuer／Audience、經 RS256 驗簽的 `Cf-Access-Jwt-Assertion`、active D1 身分連結、授權角色和門市，才能嘗試更新單一工作狀態。後者寫入 Gate 在 `wrangler.jsonc` **不存在且本 PR 不設定**，Production 仍 `disabled`。
+
+請求必須由 HTTPS **同源**瀏覽器發起，`Origin` 等於 Request Origin、`Sec-Fetch-Site: same-origin`，且含 `X-Staging-Intent: task.status`；Content-Type JSON，Body 最多 4096 bytes，格式限定 `{"action":"task.status","data":{"id":"UUID","status":"todo|doing|done"}}`。沒有萬用 CORS 或 Cookie/Session 的應用程式產生。所有參數入 SQL `bind`，不接受 Request 指定角色、門市或 user_id。
+
+交易 `D1.batch` 在**每一個關鍵 SQL** 確認 live `access_identity_links` active、user active/role、active store、user_locations 和 staff assignment；先新增稽核，再更新工作狀態，最後在同筆交易驗證；若更新失敗或驗證不一致，透過 NOT NULL constraint fail-closed **ROLLBACK**；D1 changes 必須三筆皆為 1 才回傳 200。重複狀態 409、越權或停用門市拒絕、失效 JWT 401、異常 D1 503 且不回傳 SQL、JWT 或帳密。使用合成 JWT、in-memory SQLite 模擬授權、跨店、撤權競態、失敗批次原子性。尚未經 Cloudflare 真實 D1 寫入測試；不可把合成證據寫成實站 PASS。
+
+安全順序：管理員另行核准 Staging 0003 Migration、Cloudflare Preview Access 完整覆蓋、受信任 issuer/audience、人工核准的 subject-user 授權，才可再單獨審查是否啟用這個**僅限 Staging 工作狀態**的獨立 Write Gate。這不提供叫貨、盤點或 Production 寫入，既有 Staging 頁面仍是唯讀，不會自動發出 POST。正式業務寫入/啟用前仍須真正的遠端 D1 transaction + 權限 + CSRF UAT。

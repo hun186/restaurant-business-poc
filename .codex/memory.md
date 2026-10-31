@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜已核對 main `c44a29fc814efb27b3c68fd58025b6b6009e0f01`（PR #75 Merge、main Verify #41186205299 completed/success 5/5）、無 Open PR。新 branch `feat/staging-access-task-status-20261031` 將先前僅限內部 Session 的工作狀態 D1 寫入概念，擴充為**預設關閉**的 signed Access JWT + D1 link、live role/store + transaction audit 的單動作 Staging `POST /api/access/task-status`。要求獨立、未配置的 `CLOUD_ACCESS_TASK_WRITE_GATE=staging-task-status-only`，同源 HTTPS/Fetch-Metadata/意圖標頭，沒有 Production 寫入。合成多角色/跨店/失效 JWT/禁用身份/事前撤權/批次原子性驗證，SHA256 封閉清單+CI/Codex 待最新 HEAD 檢查。本 PR 尚未 Merge；遠端 0003 Migration、真正 Access Policy/Enrollment、Gate 啟用、D1 live mutation 沒執行，Production `disabled`。
+
+
 > 2026-10-31 P0 #34｜main `56f4cbe89e8688732a635d51a55365d352bba279`（PR #74 Squash Merge、主線 Verify #41185073412 completed/success 5/5），無 open PR。新 branch `feat/staging-access-preview-ui-20261031` 增加與 Demo 完全獨立的 `/staging-access-preview.html`，使用已合併、但預設關閉的 `/api/access/me|data|overview` 顯示 D1 身分/門市業務/首頁統計；純同源 GET、Browser-managed Access Cookie、CSP、無帳密/Token 操作或 storage，API 合約/撤權後清除/舊請求競態防護合成測試。Closed SHA256 inventory、Hosted CI/正式 Codex Review 此 PR 仍待驗證，尚未 Merge。沒有設定真正的 Cloudflare Access Policy、Preview Gate/可信 issuer/audience、0003 遠端 migration、身分綁定或 Production Login；實站 E2E 仍需操作員另行授權。
 
 

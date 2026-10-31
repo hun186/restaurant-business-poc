@@ -88,7 +88,7 @@ export function createAccessPreviewClient(fetchImpl=fetch){
   if(!response||response.type==='opaqueredirect'||!Number.isSafeInteger(response.status))
    throw new AccessPreviewError('E_TASK_WRITE_UNAVAILABLE',0);
   const mime=response.headers?.get('content-type')||'';
-  if(!/^application\\/json(?:\\s*;|$)/i.test(mime))
+  if(!/^application\/json(?:\s*;|$)/i.test(mime))
    throw new AccessPreviewError('E_INVALID_RESPONSE',response.status);
   let json;
   try{json=await response.json();}catch{

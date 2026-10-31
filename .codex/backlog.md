@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-10-31 #34 CURRENT VERIFIED：** GitHub `main=0eab4ddf8968f7565342b7d08cdc6c3952c519bb`，#79 merged，postmerge Verify #41196915018 PASS 5/5。真正遠端 Staging D1 0003 Migration [Run #41198456616](https://github.com/hun186/restaurant-business-poc/actions/runs/41198456616) completed/success，Wrangler 在固定 Staging UUID 上 `0003_access_identity_links.sql ✅`，有完整 before/after Postflight `STAGING_0003_SCHEMA_ONLY_APPLIED_AND_VERIFIED`。下一優先：Cloudflare Access **Previews only** 的實站保護、核實 AUD/Issuer/JWT `sub`、受控 Operator Staging Owner Link 的獨立批准、Preview GET E2E。**尚未完成** Owner Enrollment/Access Policy/Preview Gate/真實 Access E2E/Production。新工作分支 `docs/staging-access-live-0003-handoff-20261031` 僅文件與交接更新，最新 PR/CI/Codex/Merge 尚待檢查，不執行遠端設定。請依 `docs/Staging-Access-0003-live-operator-runbook.md` 續作，舊分段 `0003 尚未套用` 為歷史快照。
+
+
 > 2026-10-31 P0 #34 CURRENT｜Live Staging 0003 READONLY Run #41195806621 at main `2db12d459471e99f72ec8b412a6931d6683f6bd8` completed/success and reported `STAGING_0003_READONLY_READY` (not applied). PR #78 already Merged; postmerge Verify #41190237606 5/5 PASS. Current branch `fix/staging-owner-enroll-toctou-20261031` only strengthens dormant enrollment SQL (re-check full 22-table pristine counts before each stage) and adds synthetic race tests. Remote Staging 0003 apply/Owner enrollment/Access Policy and all Production actions remain unexecuted and require separately approved operator action. Current branch CI/Codex/Merge still pending.
 
 

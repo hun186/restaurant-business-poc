@@ -187,3 +187,18 @@ test('production and preview /api/login and /api/logout remain 503, no SQL write
     assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM login_attempts').get().n,0);
   }finally{f.db.close();}
 });
+
+// 600k legacy credentials were created on Node before Hosted WebCrypto's 100k cap was found.
+// The Worker must refuse them rather than silently downgrade or throw a costly runtime error.
+test('PBKDF2 100k new hash is versioned; legacy 600k needs explicit reset',async()=>{
+  const auth=await authPromise;
+  const salt=Uint8Array.from('0123456789abcdef1032547698badcfe'.match(/../g),x=>parseInt(x,16));
+  const current=await auth.hashWorkerPassword('synthetic-benchmark-only-no-user',salt);
+  assert.equal(auth.PBKDF2_ITERATIONS,100000);
+  assert.equal(current.password_hash,'pbkdf2-sha256$100000$6fc785d4473d0393ccb8894ef9f2c0832eb3929d1f6f1340479beb05c3780277');
+  assert.equal(await auth.verifyWorkerPassword('synthetic-benchmark-only-no-user',current.password_salt,current.password_hash),true);
+  assert.equal(await auth.verifyWorkerPassword('synthetic-benchmark-only-wrong',current.password_salt,current.password_hash),false);
+  const legacy='pbkdf2-sha256$600000$b23b9c54fc3759972294fb04e48f49a9e4e8ad6f04e4df2734fb7566567031ac';
+  assert.equal(await auth.verifyWorkerPassword('synthetic-benchmark-only-no-user',current.password_salt,legacy),false);
+  assert.equal(await auth.verifyWorkerPassword('synthetic-benchmark-only-no-user',current.password_salt,'scrypt:legacy'),false);
+});

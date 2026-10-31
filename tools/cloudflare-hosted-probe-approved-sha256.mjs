@@ -184,7 +184,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "src/request-ip.js":"5127c470a065e4ceddde47cd0762bc18bd2e110a569a13f427eb02cc15abb800",
   "src/security.js":"7ed9547085a65205b2f174fcd942780f18f6bc49a4d9ad874f9ec159c60f2ee5",
   "src/service.js":"43eb8d0c6c49761964496c6255f4e2715b6916bba342ac47505933801c50edef",
-  "cloudflare/auth-core.mjs":"deb6569cdbaaeca79f11b760b174e6627dfad3ce7b948196709da76722e840e1",
+  "cloudflare/auth-core.mjs":"de298a3bcd7e0b21a3921eef7fc1c562492999075bad595c17fe74797830a0d7",
   "cloudflare/d1-readiness.mjs":"76c2c9be11d3ed4e7b689d883382a0189e29a8bacbb4679e05fecd9bc714e593",
   "cloudflare/identity.mjs":"36b3e99c4596398f39022ac4498f35d1271aacdad27368c41812e01383473b40",
   "cloudflare/client-ip.mjs":"d8b76231629430f081059fb9211d9c0aa58c494476ef985d305c4cb32c0466e8",

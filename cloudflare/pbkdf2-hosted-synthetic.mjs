@@ -6,7 +6,7 @@ const PASSWORD='synthetic-benchmark-only-no-user';
 const WRONG='synthetic-benchmark-only-wrong';
 const SALT_HEX='0123456789abcdef1032547698badcfe';
 const SALT=Uint8Array.from(SALT_HEX.match(/../g), h=>Number.parseInt(h,16));
-const HASH='pbkdf2-sha256$600000$b23b9c54fc3759972294fb04e48f49a9e4e8ad6f04e4df2734fb7566567031ac';
+const HASH='pbkdf2-sha256$100000$6fc785d4473d0393ccb8894ef9f2c0832eb3929d1f6f1340479beb05c3780277';
 export const HOSTED_OPERATIONS=Object.freeze(['hash','verify-correct','verify-wrong']);
 export async function runHostedSyntheticOperation(operation){
   if(!HOSTED_OPERATIONS.includes(operation))throw new Error('E_SYNTHETIC_OPERATION');

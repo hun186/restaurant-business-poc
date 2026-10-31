@@ -26,3 +26,11 @@
 4. Production `CLOUD_AUTH_PHASE=disabled`、`/api/login` 與 `/api/command` 503 維持不變；未執行 D1 Migration、Staging／Production D1 寫入、Access 政策修改或 Restore。
 
 變更必須通過最新 SHA 的 Hosted CI 與正式 Codex Review，再取得使用者明確 Merge 授權；不得以合成 PASS 代替真正 Cloudflare Access 驗收。
+
+## 下一獨立增量：JWKS 可信載入器（尚未接入公開路由）
+
+- `cloudflare/access-jwks-internal.mjs` 是**僅供未來審查的內部**元件，固定由可信伺服器 `issuer` 產生 `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`，不接受 Request/JWT 自選 JWKS URL；不更動 Worker 或 Cloudflare Access 政策。
+- 僅 GET、HTTPS、拒絕 redirect、無 Cookie/憑證、嚴格核對回應 URL 與 JSON、64 KiB 實際讀取上限及逾時取消；任何錯誤只回傳固定 `ACCESS_JWKS_UNAVAILABLE`，絕不回傳遠端內容。
+- 公鑰限制 RSA/RS256/signature/exponent，拒絕重複 kid 與私鑰欄位；每個 Loader 隔離五分鐘 cache，過期時不得使用舊 key，未知 kid 最快每 30 秒嘗試輪換，並行請求共用一次讀取。
+- `tests/cloudflare-access-jwks-internal.test.js` 使用合成 RSA 公鑰與假 HTTPS Response，無真實 Cloudflare 呼叫、無 Token 或人員資料。這不是 Cloudflare Access 正式政策驗收，也尚未建立可用的登入鏈。
+- 在正式整合前仍需完成信任設定私有保存、Access Previews-only 覆蓋範圍實證、JWKS 與 signed JWT 串接、CPU 測試、D1 身分映射、Session/CSRF/節流與活體 Staging E2E。

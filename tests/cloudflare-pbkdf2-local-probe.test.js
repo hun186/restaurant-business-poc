@@ -16,7 +16,7 @@ const workerPromise=import('../cloudflare/pbkdf2-local-probe-worker.mjs');
 const probePromise=import('../cloudflare/pbkdf2-local-probe.mjs');
 const url='http://127.0.0.1:18786';
 
-test('synthetic only: 100k production PBKDF2 auth-core functions match correctly, no credentials in output',async()=>{
+test('synthetic only: 100k staging PBKDF2 auth-core functions match correctly, no credentials in output',async()=>{
   const probe=await probePromise;
   const result=await probe.runSyntheticPbkdf2Probe();
   assert.equal(result.kind,'synthetic_local_workerd_wall_ms_not_cpu');

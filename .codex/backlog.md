@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-31 P0 #34｜已核對 PR #64 Squash Merge `db2e208e0af6680b6f0fd4d833ccc3f0185a862a`、合併後 Verify #41164519699 5/5 PASS；接續小型內部 JWKS 公鑰載入器，針對固定 HTTPS team cert endpoint、redirect/size/timeout/key rotation/cache 以合成測試護欄驗證，尚未對接公開 Worker 或 Cloudflare 遠端。Local 6/6 PASS，PR Head Hosted CI／正式 Codex Review Pending，禁止宣稱 Login/Production D1 Ready；需依已授權 Auto-Merge Gate 核對後才能合併。
+
 > 2026-10-31 P0 #34｜PR #63 Squash Merge main `5663f604ec1a98dee99097d4c7bb47b2287aad22`，合併後 Verify #41107287991 success 5/5，真實 HTTP GET-only Staging Preview #41162137307 `STAGING_HTTP_GET_ONLY_ANONYMOUS_PASS`、D1 `schema_only`。下一增量新增**未接公開路由**的 Cloudflare Access JWT WebCrypto RS256 驗證器、實際 RSA 合成簽章正負測試、關閉的 SHA-256 Allowlist；由於目前 Worker 使用 Static Assets，Cloudflare 的 `ctx.access` 不會傳給 Worker，未來必須驗證已簽章的 `Cf-Access-Jwt-Assertion` 並從可信 team 取得 JWKS。**尚未開通真正登入、未驗證 Access policy / JWKS 可信載入 / Hosted PBKDF2 CPU，Production disabled、沒有 D1 遠端寫入。** 此增量需最新 HEAD Hosted CI 與 Codex 正式 Review；Merge 另需使用者同意。
 
 > 2026-10-31 P0 #34 | PR #62 已授權 Squash Merge main `1927555bd7e82b02d269069d2d0153a4849aa87d`，postmerge Verify #41097660277 completed/success 5/5。後續增量只新增 main-only 人工 Staging Preview GET-only 匿名 HTTP smoke（固定 Cloudflare Workers Preview hostname、禁止 redirect/credentials、預期 401/400/503，health D1 schema_only）、合成負面測試與 SHA256 關閉清單；尚未執行新的真實遠端 HTTP 驗收、沒有實際登入/資料寫入，也不代表 Cloudflare Access 驗收。需最新 PR Head Hosted CI、正式 Codex Review 與使用者 Merge 授權，Production disabled，G5 Restore 仍暫緩。

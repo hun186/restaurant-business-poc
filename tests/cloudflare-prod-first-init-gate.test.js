@@ -87,3 +87,16 @@ test('workflow preserves legacy restore-gated path while first-init has independ
  assert.match(f,/PROD_D1_SCHEMA_ONLY_VERIFIED; NO OWNER, NO LOGIN, NO OPERATIONS ENABLED/);
  assert.doesNotMatch(f,/time-travel restore|wrangler deploy|STAGING_OWNER_PASSWORD/);
 });
+
+test('first-init gate runs only after checkout and SHA preflight, before Cloudflare write token',()=>{
+ const wf=fs.readFileSync(path.join(root,'.github/workflows/d1-production-initialize-g5.yml'),'utf8');
+ const begin=wf.indexOf('  initialize-production:');
+ assert.notEqual(begin,-1);
+ const job=wf.slice(begin);
+ const checkout=job.indexOf('      - uses: actions/checkout@v5');
+ const safety=job.indexOf('      - name: Verify reviewed SHA allowlist again (no credentials)');
+ const gate=job.indexOf('      - name: Validate one-time pristine first-init release (before write token)');
+ const write=job.indexOf('CLOUDFLARE_PROD_D1_WRITE_TOKEN');
+ assert.ok(checkout>=0 && safety>checkout && gate>safety && write>gate);
+ assert.ok(job.indexOf("if: ${{ inputs.mode == 'first-init' }}")>safety);
+});

@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-31 P0 #34｜PR #65 初次 Hosted Verify #41164764670 **5/5 PASS**，正式 Codex Review 對原 HEAD `bc8873cdcc38174d54ec916523aafd33553ea13e` 指出 2 個有效 P2：（1）無有效 cache 時 fetch 失敗未節流；（2）未命中 kid 刷新會阻塞可用的快取 kid。已修改 JWKS Loader 先回傳仍有效、相符的 cache，再加入 pending；所有刷新失敗均遵守 30 秒節流；新增合成回歸 Local **8/8 PASS**、exact Git Blob 核對並更新 SHA256 Manifest。**新 HEAD Hosted CI／Codex 複審待驗證，PR 未合併**；無公開路由、登入或 Cloudflare 遠端寫入，Production disabled。
+
 > 2026-10-31 P0 #34｜已核對 PR #64 Squash Merge `db2e208e0af6680b6f0fd4d833ccc3f0185a862a`、合併後 Verify #41164519699 5/5 PASS；接續小型內部 JWKS 公鑰載入器，針對固定 HTTPS team cert endpoint、redirect/size/timeout/key rotation/cache 以合成測試護欄驗證，尚未對接公開 Worker 或 Cloudflare 遠端。Local 6/6 PASS，PR Head Hosted CI／正式 Codex Review Pending，禁止宣稱 Login/Production D1 Ready；需依已授權 Auto-Merge Gate 核對後才能合併。
 
 > 2026-10-31 P0 #34｜PR #63 Squash Merge main `5663f604ec1a98dee99097d4c7bb47b2287aad22`，合併後 Verify #41107287991 success 5/5，真實 HTTP GET-only Staging Preview #41162137307 `STAGING_HTTP_GET_ONLY_ANONYMOUS_PASS`、D1 `schema_only`。下一增量新增**未接公開路由**的 Cloudflare Access JWT WebCrypto RS256 驗證器、實際 RSA 合成簽章正負測試、關閉的 SHA-256 Allowlist；由於目前 Worker 使用 Static Assets，Cloudflare 的 `ctx.access` 不會傳給 Worker，未來必須驗證已簽章的 `Cf-Access-Jwt-Assertion` 並從可信 team 取得 JWKS。**尚未開通真正登入、未驗證 Access policy / JWKS 可信載入 / Hosted PBKDF2 CPU，Production disabled、沒有 D1 遠端寫入。** 此增量需最新 HEAD Hosted CI 與 Codex 正式 Review；Merge 另需使用者同意。

@@ -53,6 +53,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-access-me-readonly.test.js":"2c4f7d3cf619fd479b38532e7b617d7d57fa49ccf9b0d80fd3ac0cbc20865422",
+  "cloudflare/access-me-readonly.mjs":"3bebb35ff816c203c72196ec8d8e1ebd843dd5404393c5df923cfc473024745f",
   "tests/cloudflare-staging-0003-apply-gate.test.js":"22373469ca88d67580f3b75412a22e67b1843c88d11f25f2c3de5daf7e7c3a44",
   "tests/cloudflare-staging-0003-transition-evidence.test.js":"e21bd97d77917b3adb175b2325b1358ae9585965400bad7fa3f30a15b50c5ac3",
   "tests/cloudflare-staging-0003-readonly.test.js":"a39a681a80bb7cf6a2e0bc8c524374ec7cee412ba70fb722b89f1b9cbb676ac3",
@@ -177,7 +179,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/migrations/0002_login_attempts_window_indexes.sql":"d97cec3593c69e60614554f95d36a7cfa14bf509f8e7c5961bcdc59550d12592",
   "cloudflare/pbkdf2-local-probe-worker.mjs":"b6a5f61d552def61ab39b968c6cad5f9441c44718992ceb03915295cadbabc84",
   "cloudflare/pbkdf2-local-probe.mjs":"cd363b2ac17a184b0f2a0660899f3aaaa6a546ed9f50178c5304041e06c7469a",
-  "cloudflare/worker.mjs":"e21431f71a77818a4b0113aa4581e8d82710df4a0e0e5abf76acc0a14e098243",
+  "cloudflare/worker.mjs":"9b771cff27d169a38c18dda314919f19af4d46c78ea91f10a87525b7148e9c74",
   "cloudflare/wrangler.d1.example.jsonc":"b6db7434a57a81a31d7700c9e93560da301655aba2a41af127d11f994e0aa06b",
   "cloudflare/wrangler.preview-migrations.example.jsonc":"3e4a8feb7459c9bcfa08a2a36f8d7b4e45bac1a1dbbfe020bf8466b22d2b2f67",
   "db/backup.sql":"2823994610ca8373e11d342358392144532f1414570ad5fdbc95b470891d53ce",

@@ -68,19 +68,29 @@ test('100k password hash creates exactly one Owner; any business row blocks the 
   assert.equal(owner.username,'owner');assert.equal(owner.role,'owner');assert.equal(owner.active,1);
   assert.match(owner.password_hash,/^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/);
   assert.equal(await auth.verifyWorkerPassword(password,owner.password_salt,owner.password_hash),true);
+  const logs=db.prepare('SELECT actor_name,action,entity,entity_id,detail FROM audit_logs').all();
+  assert.equal(logs.length,1);
+  assert.equal(logs[0].actor_name,'production-bootstrap');
+  assert.equal(logs[0].action,'auth.owner_bootstrap');
+  assert.equal(logs[0].entity,'users');
+  assert.equal(logs[0].entity_id,db.prepare('SELECT id FROM users WHERE username=?').get('owner').id);
+  assert.deepEqual(JSON.parse(logs[0].detail),{hash_version:'pbkdf2-sha256$100000'});
+  assert.doesNotMatch(JSON.stringify(logs),/test-only-owner-password-123|[a-f0-9]{64}/);
+  assert.equal(m.verifyProductionOwnerPostflight(wrap([db.prepare(m.postflightSql()).get()]),wrap([])),true);
  }finally{db.close();}
  const second=initDb();
  try{
   second.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('x','測試門市');
   second.exec(sql);
   assert.equal(second.prepare('SELECT COUNT(*) AS n FROM users').get().n,0);
+  assert.equal(second.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n,0);
  }finally{second.close();}
  for(const p of ['short','x'.repeat(257),'x'.repeat(16)+'\n'])
   await assert.rejects(()=>m.buildProductionOwnerSql(p),/E_PROD_OWNER_ENROLL/);
 });
-test('postflight requires exact active Owner with 0 attempts/sessions/audit and FK OK',async()=>{
+test('postflight requires exactly one audited active Owner with 0 attempts/sessions and FK OK',async()=>{
  const m=await modulePromise;
- const input=()=>({contract_version:3,migration_total:2,users:1,owners:1,sessions:0,login_attempts:0,audit_logs:0});
+ const input=()=>({contract_version:3,migration_total:2,users:1,owners:1,sessions:0,login_attempts:0,audit_logs:1,owner_enrollment_audits:1});
  assert.equal(m.verifyProductionOwnerPostflight(wrap([input()]),wrap([])),true);
  for(const key of Object.keys(input())){
   const row=input();row[key]=row[key]===0?1:0;

@@ -33,7 +33,11 @@ test('valid RSA-signed assertion with fetched trusted JWKS produces only subject
 });
 test('missing and malformed assertions never initiate a remote JWKS fetch',async()=>{
   const h=loader();
-  for(const assertion of [undefined,'garbage','a.b.c','x'.repeat(16385),token({}, {alg:'none'}),token({}, {kid:'bad/kid'})])
+  const [validHeader,validPayload,validSignature]=token().split('.');
+  for(const assertion of [undefined,'garbage','a.b.c','x'.repeat(16385),token({}, {alg:'none'}),token({}, {kid:'bad/kid'}),
+    validHeader+'..',validHeader+'.!.'+validSignature,validHeader+'.'+validPayload+'.bad',
+    validHeader+'.'+Buffer.from('invalid-json').toString('base64url')+'.'+validSignature,
+    validHeader+'.'+validPayload+'.'])
     assert.equal(await h.verify.verify(request(assertion)),null);
   assert.equal(h.calls,0);
 });

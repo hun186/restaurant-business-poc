@@ -2,7 +2,10 @@
 // The live login endpoint stays disabled until a separate, reviewed rollout.
 const encoder = new TextEncoder();
 const SALT_BYTES = 16;
-export const PBKDF2_ITERATIONS = 600000;
+// Hosted 600k WebCrypto was rejected in the isolated staging probe.
+// 100k is a Staging compatibility value, below OWASP's PBKDF2-SHA256 recommendation.
+// Existing 600k hashes require separately approved reset, never silent rehash.
+export const PBKDF2_ITERATIONS = 100000;
 export const SESSION_COOKIE = '__Host-restaurant_session';
 const ROLES = Object.freeze({ staff: 1, manager: 2, owner: 3 });
 
@@ -26,16 +29,16 @@ export async function hashWorkerPassword(password, saltInput = crypto.getRandomV
   if (typeof password !== 'string' || password.length < 12 || password.length > 256) throw new Error('E_PASSWORD_LENGTH');
   const salt = saltInput instanceof Uint8Array ? saltInput : null;
   if (!salt || salt.length !== SALT_BYTES) throw new Error('E_PASSWORD_SALT');
-  return { password_salt: toHex(salt), password_hash: 'pbkdf2-sha256$600000$' + toHex(await derive(password, salt)) };
+  return { password_salt: toHex(salt), password_hash: 'pbkdf2-sha256$100000$' + toHex(await derive(password, salt)) };
 }
 export async function verifyWorkerPassword(password, saltHex, stored) {
   // This format is distinct from the existing Node.js scrypt hash; no silent migration.
   if (typeof password !== 'string' || password.length < 12 || password.length > 256) return false;
-  if (typeof stored !== 'string' || !/^pbkdf2-sha256\$600000\$[0-9a-f]{64}$/i.test(stored)) return false;
+  if (typeof stored !== 'string' || !/^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/i.test(stored)) return false;
   const salt = fromHex(saltHex);
   if (!salt || salt.length !== SALT_BYTES) return false;
   const actual = await derive(password, salt);
-  return timingSafeEqual(actual, fromHex(stored.slice('pbkdf2-sha256$600000$'.length)));
+  return timingSafeEqual(actual, fromHex(stored.slice('pbkdf2-sha256$100000$'.length)));
 }
 export function freshSessionToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));

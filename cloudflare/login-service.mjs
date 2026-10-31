@@ -9,7 +9,7 @@ import { canonicalCloudflareClientIp } from './client-ip.mjs';
 
 const utf8 = new TextEncoder();
 const DUMMY_SALT = '00'.repeat(16);
-const DUMMY_HASH = 'pbkdf2-sha256$600000$' + '00'.repeat(32);
+const DUMMY_HASH = 'pbkdf2-sha256$100000$' + '00'.repeat(32);
 export const LOGIN_LIMITS = Object.freeze({ perUser: 8, perSource: 32, windowMinutes: 15, sessionHours: 8 });
 export const LOGIN_ATTEMPTS_RETENTION_DAYS = 7;
 export const LOGIN_CLEANUP_BATCH_SIZE = 500;
@@ -95,7 +95,8 @@ export async function authenticateD1(db, { username, password, ipHash }) {
     ).bind(username).first();
     // Unknown/inactive users still execute the expensive KDF to avoid existence timing leaks.
     const isModern = !!user && /^[0-9a-f]{32}$/i.test(user.password_salt || '') &&
-      /^pbkdf2-sha256\$600000\$[0-9a-f]{64}$/i.test(user.password_hash || '');
+      /^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/i.test(user.password_hash || '');
+    // Legacy 600k hashes are NOT verified/downgraded on Hosted workerd: they need a separately approved reset.
     const salt = isModern ? user.password_salt : DUMMY_SALT;
     const stored = isModern ? user.password_hash : DUMMY_HASH;
     const matches = await verifyWorkerPassword(password, salt, stored);

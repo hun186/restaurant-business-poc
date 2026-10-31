@@ -51,7 +51,7 @@ test('Generated owner insert has only a derived hash and is one-time even if run
   assert.doesNotMatch(sql,/test-pass-12|STAGING_OWNER_PASSWORD|BEGIN TRANSACTION/);
   assert.match(sql,/INSERT INTO users\(/);
   assert.match(sql,/NOT EXISTS \(SELECT 1 FROM users\)/);
-  assert.match(sql,/pbkdf2-sha256\$600000\$/);
+  assert.match(sql,/pbkdf2-sha256\$100000\$/);
   assert.match(sql,/contract_version/);
   await assert.rejects(()=>m.buildOwnerSql('a'.repeat(8)),/12 to 256/);
   await assert.rejects(()=>m.buildOwnerSql('a'.repeat(11)),/12 to 256/);
@@ -70,7 +70,7 @@ test('Generated owner insert has only a derived hash and is one-time even if run
     assert.equal(owner.role,'owner');
     assert.equal(owner.username,'owner');
     assert.equal(owner.active,1);
-    assert.match(owner.password_hash,/^pbkdf2-sha256\$600000\$[a-f0-9]{64}$/);
+    assert.match(owner.password_hash,/^pbkdf2-sha256\$100000\$[a-f0-9]{64}$/);
     assert.match(owner.password_salt,/^[a-f0-9]{32}$/);
     assert.equal((await import('../cloudflare/auth-core.mjs')).verifyWorkerPassword!==undefined,true);
     assert.equal(await (await import('../cloudflare/auth-core.mjs')).verifyWorkerPassword(password,owner.password_salt,owner.password_hash),true);

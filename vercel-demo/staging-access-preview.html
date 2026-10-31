@@ -7,21 +7,21 @@
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#102f43">
-<title>餐廳好管家｜Staging Access 唯讀驗收</title>
+<title>餐廳好管家｜Staging Access 營運驗收</title>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/staging-access-preview.css">
 <script type="module" src="/staging-access-preview.js"></script>
 </head>
 <body>
 <div class="demo-banner">
- <strong>Staging Access 唯讀預覽 · 非公開 Demo、非正式營運系統</strong>
- <span>僅在 Cloudflare 受保護的 Preview 上驗收。此頁不提供登入表單、不接受帳密、不儲存資料，也不能核准、編輯或匯出資料。</span>
+ <strong>Staging Access 受控驗收 · 非公開 Demo、非正式營運系統</strong>
+ <span>僅在 Cloudflare 受保護的 Preview 上驗收。此頁不提供登入表單、不接受帳密、不儲存資料，除獨立授權的 Staging 工作狀態驗收外，其他資料均唯讀，不提供核准叫貨、員工管理或匯出。</span>
 </div>
 <div class="shell">
  <aside class="sidebar">
-  <div class="brand"><span class="brand-mark">♜</span><span><strong>餐廳好管家</strong><small>Staging 唯讀驗收</small></span></div>
+  <div class="brand"><span class="brand-mark">♜</span><span><strong>餐廳好管家</strong><small>Staging 營運驗收</small></span></div>
   <div class="nav-label">營運資料</div>
-  <nav id="preview-nav" aria-label="Staging 唯讀檢視">
+  <nav id="preview-nav" aria-label="Staging 授權檢視">
    <button type="button" data-view="overview" class="active">▦ <span>今日總覽</span></button>
    <button type="button" data-view="tasks">☑ <span>今日工作</span></button>
    <button type="button" data-view="purchase_orders">▤ <span>叫貨單</span></button>
@@ -33,7 +33,7 @@
    <button type="button" data-view="training_courses">▥ <span>訓練課程</span></button>
   </nav>
   <div class="side-bottom">
-   <div class="mode-label">唯讀 · 無寫入 / Session 建立</div>
+   <div class="mode-label">預設唯讀 · 工作寫入另需人工啟用</div>
    <p>Access 權限由 Cloudflare 與 D1 身分映射決定；非從本頁切換角色。</p>
   </div>
  </aside>
@@ -53,7 +53,7 @@
    <div id="preview-status" class="preview-status" role="status" aria-live="polite">準備驗證 Staging Access…</div>
    <section id="preview-content" aria-label="授權營運資料" hidden></section>
   </main>
-  <footer>Staging 專用唯讀檢視 · 不會顯示 Vercel 模擬資料 · 沒有密碼登入或業務寫入</footer>
+  <footer>Staging 受控驗收 · 不顯示 Vercel 模擬資料 · 不提供密碼登入；只有明確授權後可變更工作狀態</footer>
  </div>
 </div>
 </body>

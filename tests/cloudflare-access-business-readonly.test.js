@@ -106,10 +106,13 @@ test('signed Access overview preserves scoped metric queries and grants',async t
  const manager=await (await h.handle(f.req('/api/access/overview','manager-sub'),f.env)).json();
  assert.deepEqual(manager.metrics,{open_tasks:2,pending_orders:1,open_repairs:0,low_stock:1});
  f.db.exec("UPDATE locations SET active=0 WHERE id='store-a'");
- const after=await (await h.handle(f.req('/api/access/overview','manager-sub'),f.env)).json();
- assert.deepEqual(after.metrics,{open_tasks:0,pending_orders:0,open_repairs:0,low_stock:0});
- const stock=await (await h.handle(f.req('/api/access/data?entity=stock','manager-sub'),f.env)).json();
- assert.deepEqual(stock.rows,[]);
+ // The only authorized store is disabled; the principal is intentionally
+ // denied entirely rather than leaking a usable principal with zero stores.
+ const after=await h.handle(f.req('/api/access/overview','manager-sub'),f.env);
+ assert.equal(after.status,401);
+ assert.equal((await after.json()).code,'E_UNAUTHENTICATED');
+ const stock=await h.handle(f.req('/api/access/data?entity=stock','manager-sub'),f.env);
+ assert.equal(stock.status,401);
 });
 test('production, absent gate/config/DB, unexpected methods and query input fail closed before JWT fetch',async t=>{
  const f=fixture(t),h=await setup(f);

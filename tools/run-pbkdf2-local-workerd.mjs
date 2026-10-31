@@ -61,7 +61,7 @@ async function run(){
       const res=await fetch(url+'/run',{method:'POST',signal:AbortSignal.timeout(25000)});
       if(!res.ok)throw new Error('E_SYNTHETIC_PROBE_STATUS_'+res.status);
       const body=await res.json();
-      if(body.kind!=='synthetic_local_workerd_wall_ms_not_cpu' || body.iterations!==600000 ||
+      if(body.kind!=='synthetic_local_workerd_wall_ms_not_cpu' || body.iterations!==100000 ||
          body.correct_match!==true || body.wrong_match!==false ||
          !['hash_ms','verify_correct_ms','verify_wrong_ms'].every(k=>Number.isFinite(body[k]) && body[k]>=0))
         throw new Error('E_SYNTHETIC_PROBE_RESULT');
@@ -76,7 +76,7 @@ async function run(){
       result:'LOCAL_WORKERD_SYNTHETIC_PASS',
       cpu_limit_verified:false,
       environment:'local_workerd',
-      iterations:600000,
+      iterations:100000,
       samples:count,
       median_wall_ms:{
         hash:med('hash_ms'),verify_correct:med('verify_correct_ms'),

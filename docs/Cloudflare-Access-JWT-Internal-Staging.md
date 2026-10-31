@@ -154,3 +154,19 @@ PR #73 已在 main 合併且主線 CI #41184285149 為 success 5/5。本次新�
 獨立的 `/staging-access-preview.html` 現在對合法 UUID 的工作列提供僅限 `todo/doing/done` 的人工狀態選擇及**第二次確認**，並使用固定同源 `POST /api/access/task-status`、`X-Staging-Intent: task.status` 呼叫 PR #76 的已驗簽 Access/D1 交易 API。不自行附加或讀取 Token／Cookie，不接受外部 URL，無本機資料保存。Client 需精確檢查 JSON 回應的 `environment=staging_access`、`production_ready=false`、`result.id/status` 等；任何不確定結果清除舊資料並提示先查詢後再決定是否重試，絕不自動重送。其他資料表保持唯讀。
 
 這是**前端功能接線與合成測試**，不是遠端 Cloudflare Policy/0003 Migration／身分 Enrollment／Gate 配置或 D1 實際寫入。寫入 Gate 不在 Wrangler 中預設配置，Production `CLOUD_AUTH_PHASE=disabled`。還需操作員另行批准 Staging 實站驗收和後續 Production 上線。
+
+
+## 2026-10-31 Staging Access 測試業主一次性綁定（需獨立操作員核准）
+
+此增量新增 **預設不可執行的手動 GitHub Actions** `.github/workflows/d1-staging-access-owner-enroll.yml` 和 `tools/cloudflare-staging-access-owner-enroll.mjs`，目標是把已存在的**單一合成測試 Owner**，與由管理員私下核准的 Cloudflare Access 身分對應。**本次只交付程式碼及合成測試，不設定任何 Secret、Environment、Access Policy，也不執行 D1 遠端寫入。**
+
+**執行前必備的獨立操作／證據：**
+
+1. 另行核准並套用 **Staging-only 0003** Schema（`d1-staging-access-0003-apply.yml`）；需用既有的 `CHECK_STAGING_0003_READONLY` 實際確認 `ALREADY_APPLIED`。本綁定 Workflow 不會自動 Migration。
+2. Cloudflare Access 在 **Previews only** 保護所有 Preview 入口，且由管理員私下核對受信任的 team issuer、單一 Access app Audience、預計綁定的合成測試 Owner subject。**絕不在公開 PR、Issue、Actions logs 發表 subject/JWT/Token/帳密。** 請先確認 Cloudflare Access 的身分識別資訊是否與預期相符，切勿猜測 email 或把 username 當 subject。
+3. GitHub 管理員**額外建立並保護** `d1-staging-access-enroll-write` Environment，只授予對固定 Staging D1 的最低必要寫入權限。於此環境私下設定 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`STAGING_ACCESS_ISSUER`、`STAGING_ACCESS_AUDIENCE`、`STAGING_ACCESS_OWNER_SUBJECT` Secrets；非敏感 Environment Variable `STAGING_ACCESS_OWNER_ENROLL_APPROVED=ALLOW_STAGING_TEST_OWNER_LINK_ONLY`。不可與 Production Secret 共用 Token。
+4. 獨立批准真正的遠端身份資料變更後，在 GitHub Actions 的 **Staging Access synthetic owner link (manual, never Production)** 選擇 `main`，手動輸入 `ENROLL_STAGING_ACCESS_OWNER_ONCE` 兩次並填入當時**完整 40 字元 main SHA**；不得僅因 PR 合併就觸發。
+
+**遠端寫入的失敗封閉設計：** 使用固定 `wrangler.staging-access-0003.jsonc`、同一個 Staging Migration concurrency lock。憑證僅在受控步驟注入，先核對 0001/0002/0003 Ledger、v3 Contract、0003 DDL、唯一有效測試 Owner、FK/integrity、0 Session、0 Access Link、0 Audit/業務紀錄與明確一致的 Staging UUID。前置檢查失敗即停止，**不寫入 SQL**。產生權限 0600 的暫存 SQL，內含順序為：只建立 `active=0` 連結，接著為此 Owner 產生不記載 Token/subject 的操作員稽核，最後僅在稽核存在、Owner 仍有效時將該連結設為 `active=1`。其中任一步失敗都不應自動重試／清空重建；需先由操作員私下讀取 D1 查明狀態。寫入結果與完整性再由唯讀 Postflight 驗證，Secret 和原始 D1 行只留在 Runner 暫存資料夾、不作公開 Artifact。Workflow 執行程式碼不會調整 Access Policy、Worker 環境 Gate、Production D1 或密碼。
+
+**此步成功後仍不足以實際登入：** Owner subject 綁定只是獨立前置條件；需再另外核准 Preview Access Policy、Worker 的可信 `CLOUD_ACCESS_ISSUER` / `CLOUD_ACCESS_AUDIENCE` / `CLOUD_ACCESS_IDENTITY_GATE`，才能開始真實 GET。工作寫入則另需 `CLOUD_ACCESS_TASK_WRITE_GATE`、受控測試資料與真實 D1 交易稽核 E2E。沒有以上實站證據仍必須標記 `production_ready=false`，Production 持續 disabled。

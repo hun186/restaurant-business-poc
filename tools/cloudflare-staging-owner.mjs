@@ -48,7 +48,7 @@ export async function buildOwnerSql(password) {
   const record = await hashWorkerPassword(password);
   const id = randomUUID();
   if (!/^[0-9a-f-]{36}$/.test(id) || !/^[a-f0-9]{32}$/.test(record.password_salt) ||
-      !/^pbkdf2-sha256\$600000\$[a-f0-9]{64}$/.test(record.password_hash))
+      !/^pbkdf2-sha256\$100000\$[a-f0-9]{64}$/.test(record.password_hash))
     fail('invalid credential format');
   // Every interpolated value is generated internally and strictly validated.
   // Last guard is atomic with the insert to resist simultaneous invocations.

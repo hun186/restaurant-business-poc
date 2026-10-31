@@ -1,0 +1,75 @@
+name: Staging Access 0003 D1 read-only status (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Only CHECK_STAGING_0003_READONLY; never applies a migration'
+        required: true
+        type: choice
+        default: CHECK_STAGING_0003_READONLY
+        options:
+          - CHECK_STAGING_0003_READONLY
+      confirm:
+        description: 'Type CHECK_STAGING_0003_READONLY again'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: restaurant-business-d1-staging-migrations
+  cancel-in-progress: false
+jobs:
+  status-only:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          inputs.action == 'CHECK_STAGING_0003_READONLY' &&
+          inputs.confirm == 'CHECK_STAGING_0003_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-staging
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed before npm/npx
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify fixed staging binding, isolated migration and account
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-staging-access-0003-readonly.mjs config
+      - name: Install fixed Wrangler without scoped cloud credentials
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Staging D1 read-only schema and integrity snapshot
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "::error::Staging-only Cloudflare credentials unavailable"
+            exit 1
+          fi
+          node tools/cloudflare-staging-access-0003-readonly.mjs config
+          snapshot="$RUNNER_TEMP/d1-access-0003-readonly"
+          mkdir -p "$snapshot"
+          query() {
+            npx --no-install wrangler d1 execute STAGING_DB --remote --json --config wrangler.staging-access-0003.jsonc --command "$2" > "$snapshot/$1.json"
+          }
+          query ledger "SELECT name FROM d1_migrations ORDER BY name;"
+          query contract "SELECT contract_version FROM cloud_schema_contract WHERE id=1;"
+          query owners "SELECT id,username,role,active FROM users ORDER BY id;"
+          query tables "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;"
+          query indexes "SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name;"
+          query table "SELECT name,sql FROM sqlite_master WHERE type='table' AND name='access_identity_links';"
+          query fk "PRAGMA foreign_key_check;"
+          query integrity "PRAGMA quick_check;"
+          node tools/cloudflare-staging-access-0003-readonly.mjs inspect "$snapshot"
+          echo "STAGING_0003_GET_ONLY_COMPLETE; no migration, no identity enrollment, no production write."

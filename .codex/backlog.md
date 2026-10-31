@@ -1,6 +1,9 @@
 # Backlog
 
 
+> 2026-10-31 P0 #34 NOW｜PR #69 已 Squash Merge main `95bf23800726da5bb25d52e6a88ac5aa6ca3e438`，其 postmerge Verify #41170341387 仍待最新查詢。本次新增 Staging 0003 的 **人工 GET-only 檢查** 工作流程與嚴格 baseline/schema/ledger 驗證，沒有 APPLY 分支。固定 main/protected `d1-staging`/Staging UUID、共用舊 Migration 鎖和封閉 SHA256，合成 Node SQLite 測試；最新 PR HEAD Hosted CI/Codex Pending。若 Merge 後可用 Action `CHECK_STAGING_0003_READONLY`（仍需現場受控 Token 與環境），不能擅自開放 D1 Migration、正式登入、Production 及 G5 Restore。
+
+
 > 2026-10-31 P0 #34 NEXT｜PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，main Verify #41169668388 5/5 PASS。當前僅新增獨立 Staging 0003 Migration 選擇配置（單獨 migrations_dir、明確 staging UUID）與 synthetic schema/allowlist 驗證；保留 0002 舊工作流程和封閉目錄，**無遠端寫入或套用**。必須 Hosted CI + Codex Review + Gate 成立後才可 Merge。下一小型增量可建立嚴格、人工操作的 Staging-only 0003 Workflow，但不得擅自執行遠端 apply；Production 仍 disabled、G5 Restore 暫緩。
 
 > 2026-10-31 P0 #34｜PR #67 Squash Merge main `14a184af02d55b2249ce9adb233b843c5984aeac`，postmerge Verify #41169303453 5/5 PASS。下一小型增量只把 D1 `access_identity_links` 的 inactive-by-default / primary+unique key / FK proposal 和合成資料庫驗證放在 `cloudflare/migration-proposals/` **隔離目錄**；現有 0001/0002 Migration 一鍵驗收與 allowlist 不變，禁止直接放行、遠端執行或當成已套用。Proposal 本地合成 SQLite 6/6 PASS，最新 HEAD Hosted CI/Codex Review 待核對。之後須單獨設計 migration 版本化 Staging-only 放行（受保護環境、人工審批、可回復證據），Owner/subject binding 人工管理，Production 仍 disabled。

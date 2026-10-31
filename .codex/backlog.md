@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-31 P0 #34｜PR #67 Squash Merge main `14a184af02d55b2249ce9adb233b843c5984aeac`，postmerge Verify #41169303453 5/5 PASS。下一小型增量只把 D1 `access_identity_links` 的 inactive-by-default / primary+unique key / FK proposal 和合成資料庫驗證放在 `cloudflare/migration-proposals/` **隔離目錄**；現有 0001/0002 Migration 一鍵驗收與 allowlist 不變，禁止直接放行、遠端執行或當成已套用。Proposal 本地合成 SQLite 6/6 PASS，最新 HEAD Hosted CI/Codex Review 待核對。之後須單獨設計 migration 版本化 Staging-only 放行（受保護環境、人工審批、可回復證據），Owner/subject binding 人工管理，Production 仍 disabled。
+
 > 2026-10-31 P0 #34 CURRENT｜主線 `3a66e99ab9c4b7287cfe86d7e07237a841cc1186`（PR #66 Squash Merge）Postmerge Verify #41165785965 5/5 PASS；本階段小型 PR 只處理「可信 Access JWT 的 subject → 人工預先核准的 D1 使用者、角色、有效門市」之內部唯讀查詢。不存在的 `access_identity_links` 表必須 null/deny；實際 D1 v3 migration 與 enrollment 故意不包含，防止自動帳戶授權。僅合成測試/文件/closed SHA256，**最新 HEAD Hosted CI/Codex Pending、尚未 Merge**。後續另設計版本化 mapping migration/嚴格授權註冊/Session/CSRF、實站 Preview Access E2E；Production 繼續 disabled。
 
 > 2026-10-31 P0 #34｜PR #66 初輪 Hosted Verify #41165314213 5/5 PASS；正式 Codex Review 對原 HEAD `439e68b8c755b51b6b491605275003d7dd92bd0c` 提出有效 P2：Header 合法但 Payload/Signature 破損仍造成 JWKS Fetch。已修正 `keyHint` 在網路前驗證完整三段 canonical Base64url、signature 256–512 bytes 和 payload JSON 物件**僅結構、不信任 claims**；增加 empty/bad/short/malformed payload 網路零請求回歸，本地 4/4 PASS，Git blobs 和 SHA256 清單同步更新。**修正後新 HEAD Hosted CI／正式 Codex Review Pending，尚未 Merge**；無公開 Worker 路由／登入／D1 write／Production 變更。

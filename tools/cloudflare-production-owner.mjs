@@ -91,7 +91,7 @@ export function postflightSql(){
  "(SELECT COUNT(*) FROM d1_migrations) AS migration_total, "+
  "(SELECT COUNT(*) FROM users) AS users, "+
  "(SELECT COUNT(*) FROM users WHERE username='owner' AND role='owner' AND active=1 "+
- "AND password_hash LIKE 'pbkdf2-sha256$100000$%' AND length(password_salt)=32) AS owners, "+
+ "AND password_hash LIKE 'pbkdf2-sha256$100000$%' AND length(password_hash)=85 AND length(password_salt)=32) AS owners, "+
  "(SELECT COUNT(*) FROM sessions) AS sessions, "+
  "(SELECT COUNT(*) FROM login_attempts) AS login_attempts, "+
  "(SELECT COUNT(*) FROM audit_logs) AS audit_logs;";

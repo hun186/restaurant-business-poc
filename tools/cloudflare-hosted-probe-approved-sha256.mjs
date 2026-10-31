@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"dd91d3380d23d5ee9aa278ac466f2915a4394a8cb215f5e7adc788b8ebe8c166"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-staging-access-0003-apply.yml":"112dadf0074a72ee88b044dbbcc44a4dc055a5f634e6dc418e5048ad83138e8d",
   ".github/workflows/d1-staging-access-0003-readonly.yml":"47ebf43287ee71287008af38814d1045b2af2f49351d5f2d79b04b33a1aeb166",
   ".github/workflows/d1-staging-http-readonly.yml":"eaef2b273bb09ec19cf99ea4c951af4c763fe7ba40eb948941fe5f358b095133",
   ".github/workflows/d1-disposable-binding-inventory-g5.yml":"f2fb6c8d1ab28a268280fd7b0a87b7acd0a71eb4aa342deb50168d91c3faf8e3",
@@ -22,6 +23,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-staging-0003-apply-gate.mjs":"99ad4c7d666f429ebd8978f27c20f7158450ca869a42e7b2cf16a66481533e4a",
   "tools/cloudflare-staging-0003-transition-evidence.mjs":"0f411cfb7f788919e534ec7e21bc663df23fcdbd5d4c0cdd389d9b3edda07fce",
   "tools/cloudflare-staging-access-0003-readonly.mjs":"66993a792b510b072ea8daffaee1739d922ae163be1a3b97e219296daa5019c0",
   "tools/cloudflare-staging-http-readonly.mjs":"f16537ec95a1e6a052d2ac6e0ff5809cad3283b0e34c68af54d6bf0f89bb1d98",
@@ -51,6 +53,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-staging-0003-apply-gate.test.js":"22373469ca88d67580f3b75412a22e67b1843c88d11f25f2c3de5daf7e7c3a44",
   "tests/cloudflare-staging-0003-transition-evidence.test.js":"e21bd97d77917b3adb175b2325b1358ae9585965400bad7fa3f30a15b50c5ac3",
   "tests/cloudflare-staging-0003-readonly.test.js":"a39a681a80bb7cf6a2e0bc8c524374ec7cee412ba70fb722b89f1b9cbb676ac3",
   "wrangler.staging-access-0003.jsonc":"bac71389a7a59b49feae20bb60f46a2ac4f8a7d873b910139a335ca7cbb69585",

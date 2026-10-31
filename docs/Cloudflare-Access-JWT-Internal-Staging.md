@@ -36,3 +36,10 @@
 - 在正式整合前仍需完成信任設定私有保存、Access Previews-only 覆蓋範圍實證、JWKS 與 signed JWT 串接、CPU 測試、D1 身分映射、Session/CSRF/節流與活體 Staging E2E。
 
 > PR #65 初審 P2 修正：公鑰 HTTP 失敗時即使無 cache 也限制重試頻率；當陌生 kid 導致遠端 refresh 時，不阻塞相符且仍有效的快取 kid。新增兩個合成回歸，本地共 8/8 PASS；等待本修正 HEAD Hosted CI 和正式 Codex 複審，禁止把初輪 CI 當作最新 HEAD PASS。
+
+## 第三內部增量：已簽章身分與受信任 JWKS 串接（仍未對外啟用）
+
+- `cloudflare/access-identity-internal.mjs` 建立只讀 `createTrustedAccessIdentity`：從受控 issuer/audience 啟動 JWKS Loader，對 `Cf-Access-Jwt-Assertion` 先做無授權意義的嚴格 kid 格式擷取；這只是 key lookup hint，不是登入或授權。
+- 僅在受信任公鑰載入成功後，才交由已審查的 `verifyAccessJwtAssertion` 檢查真實 RSA-SHA256 簽章及完整 JWT Claims；只有全部通過才回傳經驗證 `subject`，未驗證、過期、異常來源皆不返回身分。
+- 合成 RSA 私鑰只在測試中當場產生，mock JWKS Response，不呼叫 Cloudflare，不修改公開 Worker／routes／config、D1、登入或 Production。
+- 尚需後續單獨設計 Staging 僅 Preview 的真實 Cloudflare Access 政策、受控 D1 subject-user 映射、角色／門市 RBAC、Session/CSRF/Rate limit、CPU 與真實 E2E。不可將本串接視為正式登入 Ready。

@@ -1,6 +1,7 @@
 import { inspectD1Contract } from './d1-readiness.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
+import { previewAccessBusiness } from './access-business-readonly.mjs';
 import { previewOperationalData } from './operations-readonly.mjs';
 import { previewOperationalOverview } from './overview-readonly.mjs';
 // Cloudflare staging bootstrap: the D1-backed business API has NOT been ported.
@@ -21,6 +22,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
+    if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);
     if (pathname === '/api/data') return previewOperationalData(request, env);
     if (pathname === '/api/overview') return previewOperationalOverview(request, env);
     if (pathname === '/api/health') {

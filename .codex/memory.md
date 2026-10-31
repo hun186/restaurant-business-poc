@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜PR #70 已經正式 Codex 複審（最新 HEAD `5b306526c4b52aefb12b55a49bbc587cc688003c` Completed/0 new Findings、原 P2 resolved）、Hosted Verify #41180712116 5/5 PASS 後 Squash Merge `0524137cf265ba14da2feae66d3e0e1798bcc5ba`。本增量分支 `feat/staging-0003-transition-evidence-20261031` 僅新增 **離線 before/after 證據比對工具**：重用 0003 READONLY READY/ALREADY_APPLIED、確認原 Owner/contract/0002 indexes 完全相同、七個業務 table COUNT 未變、0003 新表筆數為 0；附合成 SQLite / 異常快照拒絕測試及閉鎖 SHA256。未接任何遠端 apply workflow、未對 Cloudflare 發出操作、未開通帳號/Access/Production。**本 PR 仍需最新 HEAD Hosted CI 與正式 Codex Review，未完成不可 Merge**。
+
 
 > 2026-10-31 P0 #34｜PR #69 已在正式 Codex Review Completed/0 Findings、HEAD Verify #41170187590 5/5 SUCCESS 後 Squash Merge `95bf23800726da5bb25d52e6a88ac5aa6ca3e438`；其合併後 main Verify #41170341387 最近檢查仍 IN_PROGRESS，需下次核對。現分支 `feat/staging-0003-readonly-gate-20261031` 新增 main-only、人工觸發、與原 Migration 共享鎖的 Staging 0003 **GET/SELECT/PRAGMA 唯讀** GitHub Actions 工作流程、Staging target/ledger/contract/Owner/DDL/FK/integrity fail-closed validator、離線 SQLite regressions、閉鎖 SHA256。尚未建立/觸發遠端 Workflow、未套用 0003、未動任何正式 D1/Access/帳號，最新 PR HEAD Hosted CI/Codex Review **Pending**。下一步才另開經審查、有人為授權的 Staging-only apply/recovery/recheck；Production disabled。
 

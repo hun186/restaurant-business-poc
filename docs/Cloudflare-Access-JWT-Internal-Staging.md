@@ -95,3 +95,11 @@ PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，合併後 Verify #
 - 工作只會對固定 Staging D1 使用六條唯讀 SQL / PRAGMA（0001/0002/0003 ledger、v3 contract、唯一既有 Owner、0003 sqlite_master DDL、foreign_key_check、quick_check）。Runner 暫存 JSON 不上傳成 Artifact，不回傳 Owner ID／JWT／原始 SQL 給公開 Logs；只回傳 READY 或 ALREADY_APPLIED 及全為 false 的登入／正式上線旗標。
 - `tools/cloudflare-staging-access-0003-readonly.mjs` 檢查固定 Staging UUID、Cloudflare Account、獨立 0003 目錄、精確 SQL 提案及對應的 D1 Ledger 內容。不存在 0003 及 Ledger 0001+0002 為 READY；存在且與 approved DDL 一致且 Ledger 0001+0002+0003 為 ALREADY_APPLIED；部分或不相符一律拒絕。只有 **合成 Node SQLite** 測試，不代表已取得現場實證。
 - **本 Workflow 完全沒有 APPLY、Wrangler migrations apply、遠端 SQL --file、帳號註冊或資料寫入選項。** 不自動啟用登入、Production、任何 Restore；後續若需要真正 Staging 套用 0003，必須再獨立審查、審批並執行嚴格 apply/postflight。不要把 GET-only PASS 當成 Migration 已套用。
+
+## 2026-10-31 Staging 0003 Migration 前後驗證工具（離線，未套用）
+
+本階段新增 `tools/cloudflare-staging-0003-transition-evidence.mjs`，提供未來受控 Staging-only Migration 執行後的完整性證據檢查，不自行觸發 Wrangler、任何 Cloudflare API、登入、資料寫入或表格建立。
+
+用法為已有兩份受控、未公開的 D1 唯讀快照資料夾時，執行 `node tools/cloudflare-staging-0003-transition-evidence.mjs verify <before-dir> <after-dir>`；需在受控環境提供既有的 `CLOUDFLARE_ACCOUNT_ID` 以檢查 pin，**不可把原始快照附到公開 Issue、PR 或日誌**。每份快照需含 `ledger/contract/owners/tables/indexes/table/fk/integrity/counts.json`，後快照另需 `link_count.json`；這是驗證器的介面契約，現階段沒有遠端自動取得／套用工作流程。
+
+判定必須：before 嚴格 READY (0001/0002)、after 嚴格 ALREADY_APPLIED（0001/0002/0003），Owner、Contract、0002 索引相同，七組使用者/Session/門市/權限/工作/庫存移動/稽核表 COUNT 沒變，`access_identity_links` 新表空白（0）。若狀態不完整或資料變動則 fail closed；工具只檢查指定快照內的有限欄位，不會證明所有未查詢的資料列都未改變、沒有外部並行寫入，也不能證明遠端 migration 曾執行。合成測試只是離線資料庫。正式遠端 APPLY、Owner Access 連結啟用、Production 規劃仍需獨立人工安全授權。

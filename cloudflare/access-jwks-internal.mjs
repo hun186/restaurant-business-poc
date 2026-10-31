@@ -91,14 +91,15 @@ export function createAccessJwksLoader({issuer, fetchImpl = fetch, nowMs = Date.
       if (!Number.isSafeInteger(now) || now < 0 ||
           (requiredKid !== undefined && (typeof requiredKid !== 'string' ||
             !/^[A-Za-z0-9_-]{1,128}$/.test(requiredKid)))) throw Error(FAILURE);
+      const fresh = cache && now < expiresAt && now >= expiresAt - ttlMs;
+      // Do not stall a still-valid cached kid behind a concurrent rotation.
+      if (fresh && (!requiredKid || cache.keys.some(k => k.kid === requiredKid))) return cache;
       if (pending) return pending.then(keys => {
         if (requiredKid && !keys.keys.some(k => k.kid === requiredKid)) throw Error(FAILURE);
         return keys;
       });
-      const fresh = cache && now < expiresAt && now >= expiresAt - ttlMs;
-      if (fresh && (!requiredKid || cache.keys.some(k => k.kid === requiredKid))) return cache;
-      // Never fetch once per untrusted random kid; throttle rotation attempts.
-      if (fresh && now - lastAttemptAt < minRefreshMs) throw Error(FAILURE);
+      // Bound outbound requests even on cold start and upstream failures.
+      if (now - lastAttemptAt < minRefreshMs) throw Error(FAILURE);
       lastAttemptAt = now;
       pending = refresh();
       try {

@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34 NEXT｜Hosted main `2db12d459471e99f72ec8b412a6931d6683f6bd8`（PR #78 Squash Merged；#41190237606 5/5 PASS）。真正遠端 Staging 0003 GET-only Run #41195806621 成功，固定結果 `STAGING_0003_READONLY_READY`：0003 **尚未套用**，身分註冊/Access Policy/Production 皆未啟用。本次 `fix/staging-owner-enroll-toctou-20261031` 只修補已 Merge 的 dormant Staging Owner enrollment 預檢至 SQL 寫入間競態：三階段 SQL 再驗 22 個 table counts，增加虛構 DB 競態回歸，閉鎖 Manifest；最新 Hosted CI/Codex/PR 合併未驗證。沒有執行 Cloudflare D1 Migration、Enrol、Access Policy 或任何遠端寫入。
+
+
 > 2026-10-31 P0 #34｜main `2b77d673cd633739b1afcad81578ac8487e91214` PR #77 merged，postmerge Verify #41188801114 completed/success 5/5。此分支 `feat/staging-access-owner-enroll-20261031` 為最後真正 Staging 登入依賴之一：protected 手動 Workflow 在另行授權與配置 Staging-only 最小權限 Token 後，嚴格核對單一既有合成 Owner、0003 DDL + Ledger、0 Session/Link/Audit/營運紀錄；再使用私下設定且格式驗證的 Access issuer/aud/subject，先建立 inactive link、寫入不含 JWT/subject 的稽核，最後核對稽核與仍 active Owner 才啟用；任何中斷不盲目重試、不清庫，私密 postflight 檢查。無自動 Production 路由，不修改 main Worker/Gate/Access Policy/0003 Migration。**本分支只有程式與合成測試，Hosted CI/正式 Codex Review 未驗證/未 Merge；未執行遠端 0003 apply、身份綁定或啟用任何 Gate，Production disabled**。
 
 

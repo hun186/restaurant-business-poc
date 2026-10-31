@@ -1,5 +1,9 @@
 # Backlog
 
+> 2026-10-31 P0 #34｜PR #66 初輪 Hosted Verify #41165314213 5/5 PASS；正式 Codex Review 對原 HEAD `439e68b8c755b51b6b491605275003d7dd92bd0c` 提出有效 P2：Header 合法但 Payload/Signature 破損仍造成 JWKS Fetch。已修正 `keyHint` 在網路前驗證完整三段 canonical Base64url、signature 256–512 bytes 和 payload JSON 物件**僅結構、不信任 claims**；增加 empty/bad/short/malformed payload 網路零請求回歸，本地 4/4 PASS，Git blobs 和 SHA256 清單同步更新。**修正後新 HEAD Hosted CI／正式 Codex Review Pending，尚未 Merge**；無公開 Worker 路由／登入／D1 write／Production 變更。
+
+> 2026-10-31 P0 #34｜PR #65 已正式 Squash Merge `da82791424199c0162e61824e6e9dc17e2ba8590`，最新 HEAD `493d8f24188b997404ad4627101927192eb63cd6` Verify #41165009136 5/5 PASS，Codex re-review Completed/0 new Findings/2 Threads Resolved。此分支第三增量只新增**未接 Worker 公開路由**的 `cloudflare/access-identity-internal.mjs`：從未驗簽 header 中的 kid 只取公鑰索引，從固定 team JWKS Loader 讀取公鑰，再使用原有 WebCrypto RS256 完整驗簽、aud/iss/time 檢查後才回傳 subject；無 Header/驗證失敗皆 null。合成 RSA E2E local 4/4 PASS，最新 Head Hosted CI／正式 Codex Review Pending。沒有登入、D1 身分授權、Session、正式 Access 設定或 Production 變更；Production disabled。
+
 > 2026-10-31 P0 #34｜PR #65 初次 Hosted Verify #41164764670 **5/5 PASS**，正式 Codex Review 對原 HEAD `bc8873cdcc38174d54ec916523aafd33553ea13e` 指出 2 個有效 P2：（1）無有效 cache 時 fetch 失敗未節流；（2）未命中 kid 刷新會阻塞可用的快取 kid。已修改 JWKS Loader 先回傳仍有效、相符的 cache，再加入 pending；所有刷新失敗均遵守 30 秒節流；新增合成回歸 Local **8/8 PASS**、exact Git Blob 核對並更新 SHA256 Manifest。**新 HEAD Hosted CI／Codex 複審待驗證，PR 未合併**；無公開路由、登入或 Cloudflare 遠端寫入，Production disabled。
 
 > 2026-10-31 P0 #34｜已核對 PR #64 Squash Merge `db2e208e0af6680b6f0fd4d833ccc3f0185a862a`、合併後 Verify #41164519699 5/5 PASS；接續小型內部 JWKS 公鑰載入器，針對固定 HTTPS team cert endpoint、redirect/size/timeout/key rotation/cache 以合成測試護欄驗證，尚未對接公開 Worker 或 Cloudflare 遠端。Local 6/6 PASS，PR Head Hosted CI／正式 Codex Review Pending，禁止宣稱 Login/Production D1 Ready；需依已授權 Auto-Merge Gate 核對後才能合併。

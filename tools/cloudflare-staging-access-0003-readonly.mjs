@@ -11,13 +11,19 @@ const BASE='wrangler.preview-migrations.jsonc';
 const ISOLATED='cloudflare/migrations-access-0003';
 const ACTIVE='cloudflare/migrations';
 const MIGRATION='0003_access_identity_links.sql';
-const files=['ledger','contract','owners','table','fk','integrity'];
+const files=['ledger','contract','owners','tables','indexes','table','fk','integrity'];
 const error=code=>{throw Error('E_STAGING_0003_READONLY_'+code);};
 const keys=(obj,expected)=>!!obj && typeof obj==='object' && !Array.isArray(obj) &&
   JSON.stringify(Object.keys(obj).sort())===JSON.stringify([...expected].sort());
 const json=(root,file)=>JSON.parse(fs.readFileSync(path.join(root,file),'utf8'));
 const ddl=source=>source.slice(source.indexOf('CREATE TABLE access_identity_links (')).trim().replace(/;\s*$/,'');
 const sorted=(root,dir)=>fs.readdirSync(path.join(root,dir)).sort();
+const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const INDEXES=Object.freeze([
+  ['idx_login_attempts_at',/^CREATE INDEX\\s+idx_login_attempts_at\\s+ON\\s+login_attempts\\s*\\(\\s*at\\s*,\\s*id\\s*\\)$/i],
+  ['idx_login_attempts_ip_hash_at',/^CREATE INDEX\\s+idx_login_attempts_ip_hash_at\\s+ON\\s+login_attempts\\s*\\(\\s*ip_hash\\s*,\\s*at\\s*\\)$/i],
+  ['idx_login_attempts_username_nocase_at',/^CREATE INDEX\\s+idx_login_attempts_username_nocase_at\\s+ON\\s+login_attempts\\s*\\(\\s*username\\s+COLLATE\\s+NOCASE\\s*,\\s*at\\s*\\)$/i]
+]);
 export function verify0003ReadOnlyConfig(root,accountId) {
   if(accountId!==ACCOUNT_ID)error('ACCOUNT');
   const staging=json(root,CONFIG),baseline=json(root,BASE),prod=json(root,'wrangler.jsonc');
@@ -61,6 +67,23 @@ export function inspect0003ReadOnly(data,expectedDdl){
   const ready=JSON.stringify(names)===JSON.stringify(before);
   const applied=JSON.stringify(names)===JSON.stringify(with3);
   if(!ready&&!applied)error('LEDGER_ORDER');
+  // A valid migration ledger alone cannot certify the actual database schema.
+  // Match the full 0001 table inventory (+ Wrangler ledger / optional 0003)
+  // and all three exact 0002 login-rate-limit indexes before reporting READY.
+  const base=fs.readFileSync(path.join(ROOT,ACTIVE,'0001_initial_v3.sql'),'utf8');
+  const baseTables=[...base.matchAll(/CREATE TABLE\\s+([A-Za-z_][A-Za-z_0-9]*)\\s*\\(/g)].map(x=>x[1]);
+  if(baseTables.length!==22||new Set(baseTables).size!==22)error('BASELINE_CONTRACT');
+  const expectedTableNames=[...baseTables,'d1_migrations',...(applied?['access_identity_links']:[])].sort();
+  const existingTables=rows(data,'tables');
+  if(existingTables.some(x=>!x||typeof x.name!=='string'||!x.name)||
+      new Set(existingTables.map(x=>x.name)).size!==existingTables.length ||
+      JSON.stringify(existingTables.map(x=>x.name).sort())!==JSON.stringify(expectedTableNames))
+    error('TABLE_INVENTORY');
+  const indexes=rows(data,'indexes');
+  if(indexes.length!==INDEXES.length||
+      new Set(indexes.map(x=>x?.name)).size!==INDEXES.length||
+      !INDEXES.every(([name,pattern])=>indexes.some(x=>x?.name===name&&
+        typeof x.sql==='string'&&pattern.test(x.sql.trim()))))error('INDEX_INVENTORY');
   const contract=rows(data,'contract');
   if(contract.length!==1||contract[0].contract_version!==3)error('CONTRACT');
   const owners=rows(data,'owners');

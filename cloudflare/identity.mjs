@@ -1,4 +1,5 @@
 import { loadPrincipal, hasAccess } from './auth-core.mjs';
+import { nativeLoginEnabled } from './native-login-http.mjs';
 
 const headers = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -15,7 +16,7 @@ function response(status, body) {
 // new scoped migrations, rate limiting and credential enrollment are reviewed.
 export async function previewIdentity(request, env) {
   if (request.method !== 'GET') return response(405, { code: 'METHOD_NOT_ALLOWED' });
-  if (env?.CLOUD_AUTH_PHASE !== 'preview-readonly' || !env.DB?.prepare) {
+  if ((env?.CLOUD_AUTH_PHASE !== 'preview-readonly' && !nativeLoginEnabled(env)) || !env.DB?.prepare) {
     return response(503, { code: 'E_NOT_READY' });
   }
   try {

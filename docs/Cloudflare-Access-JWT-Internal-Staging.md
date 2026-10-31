@@ -118,3 +118,14 @@ PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，合併後 Verify #
 - **預設關閉**：只有 Worker 的 `CLOUD_AUTH_PHASE=preview-readonly`，以及由受控 Preview 環境顯式配置 `CLOUD_ACCESS_IDENTITY_GATE=staging-get-only`、`CLOUD_ACCESS_ISSUER=https://<team>.cloudflareaccess.com`、`CLOUD_ACCESS_AUDIENCE=<64位十六進位aud>` 時，才允許執行；上述值來自可信伺服器設定，**絕不可接收 Request/未驗簽 JWT 提供的 URL 或 Audience**。沒有 Gate/配置一律回 503；沒有有效 JWT/啟用映射一律回 401，禁止 CORS 通用分享及快取。Production `CLOUD_AUTH_PHASE=disabled` 維持拒絕。
 - **本 PR 不修改 `wrangler.jsonc` 的 Production／Preview vars，不設定真正的 team domain 或 Audience，不變更 Access Policy，不建立或啟用 D1 連結，不部署正式登入。** 真正 Staging E2E 仍須人工受保護 Preview Access 政策、0003 實際 D1 Migration、人工核准的合成身分連結、實際 JWKS 驗簽與撤權測試。
 - 新增合成 RSA JWT/JWKS 與 in-memory SQLite D1 的正常／無簽章／篡改／撤權／停用門市／Production 拒絕／無 Session 等測試，Source/Test/Worker 三檔以精確 SHA256 納入封閉 inventory。這只是可被啟用的唯讀查詢，不代表 Access/生產上線或支援正式操作；後續仍需另行設計有時效的 Session、CSRF、稽核與每項業務操作 RBAC。
+
+## 2026-10-31 Staging Access 業務唯讀 API（預設關閉）
+
+PR #73 已在 main 合併且主線 CI #41184285149 為 success 5/5。本次新增兩個預設關閉、只適用 Preview 的 API：
+
+- GET /api/access/data?entity=tasks：可選 locations、ingredients、training_courses、tasks、purchase_orders、repairs、shifts、stock。重用現有伺服器側 SQL/門市條件，拒絕 users、audit_logs、staff_directory、HR、重複或未知 query parameters。
+- GET /api/access/overview：重用既有 open_tasks、pending_orders、open_repairs、low_stock 既有 SQL 聚合，權限由 D1 現時的角色/門市決定。
+
+兩個 API 需 CLOUD_AUTH_PHASE=preview-readonly、CLOUD_ACCESS_IDENTITY_GATE=staging-get-only、受信任的 CLOUD_ACCESS_ISSUER 和 CLOUD_ACCESS_AUDIENCE、經 RS256 驗證的 Cloudflare Access JWT 與 D1 active=1 身分綁定。使用合成 RSA/JWKS + SQLite 雙門市回歸測試覆蓋 token 篡改/過期、跨店存取、門市撤權、敏感資源、非法 query 和 POST。回覆 no-store，絕不設定 Session/Cookie 或允許業務寫入。
+
+本次不變更 wrangler.jsonc、Cloudflare Access Policy、遠端 D1 Migration、人工身分綁定或 Production disabled 狀態。實站 E2E 仍需另取得受保護的 Staging 0003/Preview Access 啟用授權。

@@ -47,3 +47,27 @@
 ### PR #66 Codex P2 修正
 
 在取得 JWKS 前先檢查 Token 三段的 canonical Base64url、Payload 有效 JSON 物件與 Signature 長度；此階段不解讀未驗證 claims 的任何授權意義。所有不合法結構一律 `null` 且不觸發遠端 JWKS Fetch；新增合成回歸，本地 4/4 PASS。仍待最新 HEAD CI 與正式複審。
+
+## Explicit Cloudflare Access subject-to-D1 principal binding (internal-only)
+
+PR continuation after #66 Squash Merge `3a66e99ab9c4b7287cfe86d7e07237a841cc1186` and confirmed postmerge Verify #41165785965 5/5 PASS.
+
+`cloudflare/access-principal-internal.mjs` composes the previously reviewed **signature-verified** Access JWT/JWKS chain with a D1 **read-only**, parameterized lookup. It never grants a role from Access JWT claims, email addresses, user names, or arbitrary HTTP headers. A valid subject must match a **separately approved** active link tied to the exact trusted issuer and application audience; users and stores must be active. Missing/ambiguous links, missing table, wrong v3 contract, disabled users, invalid roles and stale stores deny. Returned role and scope are database-derived, immutable snapshot data, **not an application Session or authority for mutations**; downstream operations must revalidate all grants and CSRF/Session at action time. No schema changes or Cloudflare API requests are performed by the runtime module itself.
+
+**Future schema proposal for independent migration review (NOT executed or shipped as a migration in this PR):**
+
+```sql
+CREATE TABLE access_identity_links (
+  issuer TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+  PRIMARY KEY(issuer,audience,subject),
+  UNIQUE(issuer,audience,user_id)
+);
+```
+
+Provisioning and role assignment are owner/operator-controlled actions that require a separate audited enrollment design and staging-only migration. **Do not automatically match identities, add seed Owner accounts, or perform production migration.** The actual deployed D1 v3 lacks this table; the resolver intentionally returns null there. Local synthetic fixture tests create the table solely in an isolated in-memory SQLite DB. No Worker route imports this module, and Production remains `CLOUD_AUTH_PHASE=disabled`.
+
+Next gates: review actual Access Preview protection/policies and JWT issuer/audience via private evidence; audited versioned D1 link table/migration and enrollment; hosted identity+DB smoke; session/CSRF/rate limiting and RBAC; production security/backup/readiness approvals. G5 destructive Restore remains deferred.

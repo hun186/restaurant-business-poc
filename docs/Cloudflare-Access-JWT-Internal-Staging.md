@@ -88,3 +88,10 @@ PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，合併後 Verify #
 合成 SQLite 測試驗證：專屬設定只指向 staging UUID、0003 SQL DDL 與 PR #68 審核提案一致、0001／0002 原清單保持兩檔、已有 v3/0002 使用者與 migration ledger 不被修改、連結表起始空白且 active=0、不可重複綁定，以及 FK 連動。這不是 Cloudflare 遠端 migration 演練。
 
 下一步需經獨立 PR 開發固定 main SHA、禁止任意 Database ID、protected d1-staging Environment、嚴格遠端唯讀 preflight 與 postflight、不可跨環境、不可混套任何其他 pending SQL 的明確工作流程。實際遠端 0003 apply、任何 Owner 身分綁定／授權啟用、Access 政策及 Production 變更尚未獲得本次程式碼合併授權。
+
+## 2026-10-31 Staging 0003 一鍵唯讀檢查（尚未遠端執行）
+
+- 在 GitHub Actions 手動選擇 `Staging Access 0003 D1 read-only status (manual)`，Action/Confirm 皆為 `CHECK_STAGING_0003_READONLY`。僅允許 main、受控 `d1-staging` Environment，與既有 Migration workflows 使用相同 concurrency group，不會與它們並行。需要該 Environment 中適當權限的 Cloudflare Token；此 PR 不設定或修改任何 Secret。
+- 工作只會對固定 Staging D1 使用六條唯讀 SQL / PRAGMA（0001/0002/0003 ledger、v3 contract、唯一既有 Owner、0003 sqlite_master DDL、foreign_key_check、quick_check）。Runner 暫存 JSON 不上傳成 Artifact，不回傳 Owner ID／JWT／原始 SQL 給公開 Logs；只回傳 READY 或 ALREADY_APPLIED 及全為 false 的登入／正式上線旗標。
+- `tools/cloudflare-staging-access-0003-readonly.mjs` 檢查固定 Staging UUID、Cloudflare Account、獨立 0003 目錄、精確 SQL 提案及對應的 D1 Ledger 內容。不存在 0003 及 Ledger 0001+0002 為 READY；存在且與 approved DDL 一致且 Ledger 0001+0002+0003 為 ALREADY_APPLIED；部分或不相符一律拒絕。只有 **合成 Node SQLite** 測試，不代表已取得現場實證。
+- **本 Workflow 完全沒有 APPLY、Wrangler migrations apply、遠端 SQL --file、帳號註冊或資料寫入選項。** 不自動啟用登入、Production、任何 Restore；後續若需要真正 Staging 套用 0003，必須再獨立審查、審批並執行嚴格 apply/postflight。不要把 GET-only PASS 當成 Migration 已套用。

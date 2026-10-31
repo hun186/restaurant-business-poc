@@ -146,7 +146,7 @@ test('bad D1 contract and SQL failure never disclose SQL/JWT or return metrics a
  const f=fixture(t),h=await setup(f);
  f.db.exec('DELETE FROM cloud_schema_contract');
  let r=await h.handle(f.req('/api/access/overview'),f.env);
- assert.equal(r.status,503);assert.equal((await r.json()).code,'E_SCHEMA_NOT_READY');
+ assert.equal(r.status,401);assert.equal((await r.json()).code,'E_UNAUTHENTICATED'); // private D1 contract errors are intentionally indistinguishable from a denied principal
  f.db.exec('INSERT INTO cloud_schema_contract(id,contract_version) VALUES(1,3)');
  f.db.exec('DROP TABLE tasks');
  r=await h.handle(f.req('/api/access/overview'),f.env);

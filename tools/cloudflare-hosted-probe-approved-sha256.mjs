@@ -24,7 +24,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
-  "tools/cloudflare-staging-access-owner-enroll.mjs":"32bf4470fb789ba517c1378ab4672897e00e90fa1f959d6bab8e0a519a71938e",
+  "tools/cloudflare-staging-access-owner-enroll.mjs":"d7462c77f8b301120e9f1d90b73f17e96b731eea2c8f364c0f4ed5e2b570ea2c",
   "tools/cloudflare-staging-0003-apply-gate.mjs":"99ad4c7d666f429ebd8978f27c20f7158450ca869a42e7b2cf16a66481533e4a",
   "tools/cloudflare-staging-0003-transition-evidence.mjs":"0f411cfb7f788919e534ec7e21bc663df23fcdbd5d4c0cdd389d9b3edda07fce",
   "tools/cloudflare-staging-access-0003-readonly.mjs":"66993a792b510b072ea8daffaee1739d922ae163be1a3b97e219296daa5019c0",
@@ -55,7 +55,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/cloudflare-staging-access-owner-enroll.test.js":"4f27b8d027aff25acf75182e2e8ec785c817c51a6de63ffa0f99c654875a96f6",
+  "tests/cloudflare-staging-access-owner-enroll.test.js":"41d98f45cfaa7ccf23473a802795b4077b3599b5e3bf134346ff81523f4e9676",
   "tests/cloudflare-staging-access-task-ui-race.test.js":"d8e7edcde2b742fc9c8011fe917a2401d21b56dec15308431134ede4efff24b0",
   "tests/cloudflare-staging-access-task-ui.test.js":"676061cd853502b7a3348dac6b9cf43dd8294fc34d96349c73d22a4792e9d633",
   "tests/cloudflare-access-task-status-write.test.js":"1ddc20dea848535164ae793ca435a48fce0954ce39afaf96fcb87b21b6706cff",

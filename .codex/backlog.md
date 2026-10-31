@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-10-31 P0 最新 NEXT**：Production D1 v3 Schema 與 0001/0002 已由實站 [#41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) PASS；不可再跑 first-init。正式 Owner 尚未建立、PBKDF2 100k 真實登入未開放。PR #84 Owner helper（合成安全工具、稽核與測試）修正 P1 稽核問題、等待最新 Hosted CI + Codex 正式複審；遠端 Owner Workflow 建立操作遭連線端安全阻擋且未建，不能宣稱可一鍵部署。Token rotation 可能讓沿用舊 Cloudflare key 值的 GH Secrets 失效，操作者需自行核對／更新，勿暴露密鑰。
+
 > **2026-10-31 P0 #34 NEXT**：Production D1 `first-init` 手動操作仍需 Environment 安全變數和 Write Token；#41207484827 僅空庫唯讀，未做 Migration，#41210737227 main Verify PASS 5/5。分支 `feat/production-owner-bootstrap-100k-20261031` 準備獨立且不可自動執行的 100k Owner SQL 生成工具與合成測試；Production Owner GitHub Actions Workflow 因連線安全限制未建立。不能宣稱正式 Owner 或登入開通。先取得真正 Schema-only Postflight，後續才可在經授權工具下建立 Owner／啟用登入。
 
 > **2026-10-31 P0 NEXT**：Production D1 [Run #41207484827](https://github.com/hun186/restaurant-business-poc/actions/runs/41207484827) 真實空庫唯讀 PASS，#41046807367/#40914927490 Restore drill skipped。分支 `feat/g5-pristine-first-init-manual-gated-20261031` 新增 **one-time first-init** 人工核准模式以免全新空庫初始化依賴未完成的 Restore 演練；舊版 `apply` / 既有 Recovery gate 不變。此分支僅程式/合成測試、未執行 Production D1 寫入。PR/CI/Codex/Merge 待核對；本次沒有授權正式 schema migration。完成後仍待正式 Owner 100k 密碼建立與真實端點/備份 UAT，Production auth disabled。

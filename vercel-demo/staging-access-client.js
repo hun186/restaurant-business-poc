@@ -80,7 +80,9 @@ export function createAccessPreviewClient(fetchImpl=fetch){
    throw new AccessPreviewError('E_INVALID_COMMAND',400);
   const response=await fetchImpl('/api/access/task-status',{
    method:'POST',mode:'same-origin',credentials:'same-origin',cache:'no-store',
-   redirect:'manual',referrerPolicy:'no-referrer',
+   // Referrer policy also governs the browser's Origin header on POST;
+   // no-referrer can send Origin:null and fail the strict Worker CSRF gate.
+   redirect:'manual',referrerPolicy:'same-origin',
    headers:{Accept:'application/json','Content-Type':'application/json',
     'X-Staging-Intent':'task.status'},
    body:JSON.stringify({action:'task.status',data:{id,status}}),signal

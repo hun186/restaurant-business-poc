@@ -11,7 +11,10 @@ import {rowsFromWranglerJson} from './check-cloudflare-staging.mjs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const DDL=path.join(ROOT,'cloudflare/migrations-access-0003/0003_access_identity_links.sql');
 const READS=['ledger','contract','owners','tables','indexes','table','fk','integrity','counts','links','audits'];
-const COUNT_KEYS=['users','sessions','locations','user_locations','tasks','stock_moves','audit_logs','access_identity_links','purchase_orders','stocktakes'];
+const COUNT_KEYS=['users','sessions','locations','user_locations','login_attempts','audit_logs',
+ 'tasks','ingredients','stock_moves','purchase_orders','stocktakes','repairs','shifts',
+ 'leave_requests','training_courses','training_records','evaluations','backup_settings',
+ 'ingredient_prices','menu_dishes','dish_ingredients','access_identity_links'];
 const err=()=>{throw Error('E_STAGING_ACCESS_OWNER_ENROLL_BLOCKED')};
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";
 const keys=(v,expected)=>v&&typeof v==='object'&&!Array.isArray(v)&&
@@ -41,7 +44,7 @@ function assertBaseline(data){
  const counts=dbRows(data,'counts');
  if(counts.length!==1||!keys(counts[0],COUNT_KEYS))err();
  for(const field of COUNT_KEYS){
-  if(!Number.isSafeInteger(counts[0][field])||counts[0][field] !== (field==='users'?1:0))err();
+  if(!Number.isSafeInteger(counts[0][field])||counts[0][field] !== (field==='users'||field==='backup_settings'?1:0))err();
  }
  if(dbRows(data,'links').length!==0||dbRows(data,'audits').length!==0)err();
  return owners[0].id;
@@ -93,7 +96,7 @@ export function assertEnrollmentPostflight(data,config,auditId){
  const owners=dbRows(data,'owners'),links=dbRows(data,'links'),audits=dbRows(data,'audits'),counts=dbRows(data,'counts');
  if(owners.length!==1||!keys(counts[0],COUNT_KEYS)||counts.length!==1||
     !COUNT_KEYS.every(k=>Number.isSafeInteger(counts[0][k])&&
-       counts[0][k]===(k==='users'||k==='audit_logs'||k==='access_identity_links'?1:0)))err();
+       counts[0][k]===(['users','backup_settings','audit_logs','access_identity_links'].includes(k)?1:0)))err();
  const owner=owners[0];
  if(owner.username!=='owner'||owner.role!=='owner'||Number(owner.active)!==1||
     links.length!==1||!keys(links[0],['issuer','audience','subject','user_id','active'])||

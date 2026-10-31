@@ -1,4 +1,5 @@
-// Same-origin, read-only Cloudflare Access Preview browser client.
+// Same-origin Cloudflare Access Staging browser client: GET data and a narrowly
+// scoped, explicitly confirmed task.status POST when independently enabled.
 // Only the browser attaches its protected-preview cookie. We NEVER read or
 // copy the Access assertion, store user data, or accept an arbitrary API host.
 export const ENTITY_LABELS=Object.freeze({
@@ -13,7 +14,13 @@ const ERROR_CODES=Object.freeze({
   E_NOT_READY:'此環境沒有啟用 Staging Access 唯讀查詢。',
   E_SCHEMA_NOT_READY:'Staging 資料庫尚未完成必要的 Schema。',
   E_ACCESS_UNAVAILABLE:'Staging Access 身分驗證目前無法使用。',
-  E_ACCESS_BUSINESS_UNAVAILABLE:'Staging 營運資料目前無法讀取。'
+  E_ACCESS_BUSINESS_UNAVAILABLE:'Staging 營運資料目前無法讀取。',
+  E_TASK_WRITE_NOT_ENABLED:'管理員尚未啟用 Staging 工作狀態變更（目前僅能唯讀）。',
+  E_NO_STATE_CHANGE:'此工作已經是指定狀態，無需重新寫入。',
+  E_CONCURRENT_CHANGE:'工作或權限已變動，請重新整理後再操作。',
+  E_TASK_NOT_FOUND:'工作不存在，或目前身分／門市無操作權限。',
+  E_ORIGIN_DENIED:'瀏覽器來源驗證失敗，無法送出工作狀態更新。',
+  E_TASK_WRITE_UNAVAILABLE:'工作狀態更新無法確認，請重新整理查詢後再決定是否重試。'
 });
 export class AccessPreviewError extends Error{
  constructor(code,status){
@@ -65,12 +72,45 @@ export function createAccessPreviewClient(fetchImpl=fetch){
    throw new AccessPreviewError(isRecord(json)&&typeof json.code==='string'?json.code:'E_ACCESS_UNAVAILABLE',response.status);
   return validate(json,type,entity);
  }
+ // This is the ONLY mutating browser method. The server independently
+ // authenticates Access, live D1 roles/stores and the dedicated write gate.
+ async function changeTaskStatus(id,status,signal){
+  if(typeof id!=='string'||!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id)||
+     !['todo','doing','done'].includes(status))
+   throw new AccessPreviewError('E_INVALID_COMMAND',400);
+  const response=await fetchImpl('/api/access/task-status',{
+   method:'POST',mode:'same-origin',credentials:'same-origin',cache:'no-store',
+   redirect:'manual',referrerPolicy:'no-referrer',
+   headers:{Accept:'application/json','Content-Type':'application/json',
+    'X-Staging-Intent':'task.status'},
+   body:JSON.stringify({action:'task.status',data:{id,status}}),signal
+  });
+  if(!response||response.type==='opaqueredirect'||!Number.isSafeInteger(response.status))
+   throw new AccessPreviewError('E_TASK_WRITE_UNAVAILABLE',0);
+  const mime=response.headers?.get('content-type')||'';
+  if(!/^application\\/json(?:\\s*;|$)/i.test(mime))
+   throw new AccessPreviewError('E_INVALID_RESPONSE',response.status);
+  let json;
+  try{json=await response.json();}catch{
+   throw new AccessPreviewError('E_INVALID_RESPONSE',response.status);
+  }
+  if(!response.ok||response.status!==200)
+   throw new AccessPreviewError(isRecord(json)&&typeof json.code==='string'?
+    json.code:'E_TASK_WRITE_UNAVAILABLE',response.status);
+  if(!isRecord(json)||json.ok!==true||json.environment!=='staging_access'||
+     json.production_ready!==false||!isRecord(json.result)||
+     json.result.id!==id||json.result.status!==status)
+   throw new AccessPreviewError('E_INVALID_RESPONSE',200);
+  return Object.freeze({id,status});
+ }
+
  return Object.freeze({
   me:signal=>read('/api/access/me','me',null,signal),
   overview:signal=>read('/api/access/overview','overview',null,signal),
   data:async (entity,signal)=>{
    if(!Object.hasOwn(ENTITY_LABELS,entity))throw new AccessPreviewError('E_UNKNOWN_ENTITY',400);
    return read('/api/access/data?entity='+encodeURIComponent(entity),'data',entity,signal);
-  }
+  },
+  changeTaskStatus
  });
 }

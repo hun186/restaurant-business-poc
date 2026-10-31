@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜main `2b77d673cd633739b1afcad81578ac8487e91214` PR #77 merged，postmerge Verify #41188801114 completed/success 5/5。此分支 `feat/staging-access-owner-enroll-20261031` 為最後真正 Staging 登入依賴之一：protected 手動 Workflow 在另行授權與配置 Staging-only 最小權限 Token 後，嚴格核對單一既有合成 Owner、0003 DDL + Ledger、0 Session/Link/Audit/營運紀錄；再使用私下設定且格式驗證的 Access issuer/aud/subject，先建立 inactive link、寫入不含 JWT/subject 的稽核，最後核對稽核與仍 active Owner 才啟用；任何中斷不盲目重試、不清庫，私密 postflight 檢查。無自動 Production 路由，不修改 main Worker/Gate/Access Policy/0003 Migration。**本分支只有程式與合成測試，Hosted CI/正式 Codex Review 未驗證/未 Merge；未執行遠端 0003 apply、身份綁定或啟用任何 Gate，Production disabled**。
+
+
 > 2026-10-31 P0 #34｜main `69b6bec81fd980df564a0050527ee482916adb03` PR #76 Merge，postmerge Verify #41186913315 completed/success 5/5；新分支 `feat/staging-access-task-ui-20261031` 連接獨立 Staging GET 頁面與已驗簽的 Access task.status D1 交易，只開 tasks 人工狀態選擇＋確認＋同源 POST，前端不可修改角色/門市、未知結果不自動重送、重新查詢 D1，其他資料維持唯讀。合成 Client contract/security tests/closed SHA256/文件需最新 Head CI+Codex 正式驗證，尚未 Merge；Cloudflare Access Policy、trusted issuer/audience、0003 遠端 migration、approved subject link 和 write Gate 未啟用，Production disabled，未執行真正遠端 D1 寫入。
 
 

@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜main `2b77d673cd633739b1afcad81578ac8487e91214`（PR #77 Merge，postmerge Verify #41188801114 5/5 PASS），0 open PR。新 branch `feat/staging-access-owner-enroll-20261031`：一次性 Staging 合成業主 Cloudflare Access subject→已存在 D1 Owner 身分綁定，人工 workflow_dispatch、完整 main SHA、獨立未設定的 protected Environment + typed approval、固定 Staging D1 UUID、先 0003 ReadOnly ALREADY_APPLIED 與空 Link/Session/Audit/業務紀錄再寫入。一次性 SQL 依序 inactive link→操作員稽核→啟用，後續驗證；不自動重試、不清庫。只有程式及 SQLite 合成測試，最新 Hosted CI/正式 Codex Review 待確認、尚未 Merge。**遠端 0003 apply/連結寫入/Access Policy/任何 Gate 與 Production 均未執行、未獲本次遠端授權。**
+
+
 > 2026-10-31 P0 #34 CURRENT｜PR #76 已 Merge main `69b6bec81fd980df564a0050527ee482916adb03`，postmerge Verify #41186913315 completed/success 5/5。分支 `feat/staging-access-task-ui-20261031` 加入真正接到 Access JWT→D1 交易的 Staging 工作狀態畫面；明確選擇/確認、嚴格同源 POST/JSON/Intent、只讀重新驗證、失敗清畫面不自動重送，其他業務資料唯讀。原來的 Cloudflare 狀態仍是 0003 遠端 Migration、Access Policy/身份對應/寫入 Gate 未啟用且未授權，Production disabled。本 PR 最新 CI/Codex 待驗證，未 Merge。
 
 

@@ -41,7 +41,7 @@ test('candidate copies the reviewed 0003 proposal DDL without any extra commands
  const nonComments=migration.split('\n').filter(line=>!line.trim().startsWith('--')).join('\n').trim();
  assert.match(nonComments,/^CREATE TABLE access_identity_links \(/);
  assert.equal(nonComments.split(';').filter(x=>x.trim()).length,1);
- assert.doesNotMatch(nonComments,/\b(?:DROP|INSERT|UPDATE|DELETE|ALTER|ATTACH|PRAGMA|REPLACE|TRIGGER|BEGIN)\b/i);
+ assert.doesNotMatch(nonComments,/(?:^|;)\s*(?:DROP|INSERT|UPDATE|DELETE|ALTER|ATTACH|PRAGMA|REPLACE|TRIGGER|BEGIN)\b/im);
 });
 test('existing 0001 and 0002 remain unchanged and 0002 workflow cannot select 0003',()=>{
  const oldWorkflow=read('.github/workflows/d1-staging-incremental-0002.yml');

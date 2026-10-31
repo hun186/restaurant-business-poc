@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜Live Staging 0003 READONLY Run #41195806621 at main `2db12d459471e99f72ec8b412a6931d6683f6bd8` completed/success and reported `STAGING_0003_READONLY_READY` (not applied). PR #78 already Merged; postmerge Verify #41190237606 5/5 PASS. Current branch `fix/staging-owner-enroll-toctou-20261031` only strengthens dormant enrollment SQL (re-check full 22-table pristine counts before each stage) and adds synthetic race tests. Remote Staging 0003 apply/Owner enrollment/Access Policy and all Production actions remain unexecuted and require separately approved operator action. Current branch CI/Codex/Merge still pending.
+
+
 > 2026-10-31 P0 #34 CURRENT｜main `2b77d673cd633739b1afcad81578ac8487e91214`（PR #77 Merge，postmerge Verify #41188801114 5/5 PASS），0 open PR。新 branch `feat/staging-access-owner-enroll-20261031`：一次性 Staging 合成業主 Cloudflare Access subject→已存在 D1 Owner 身分綁定，人工 workflow_dispatch、完整 main SHA、獨立未設定的 protected Environment + typed approval、固定 Staging D1 UUID、先 0003 ReadOnly ALREADY_APPLIED 與空 Link/Session/Audit/業務紀錄再寫入。一次性 SQL 依序 inactive link→操作員稽核→啟用，後續驗證；不自動重試、不清庫。只有程式及 SQLite 合成測試，最新 Hosted CI/正式 Codex Review 待確認、尚未 Merge。**遠端 0003 apply/連結寫入/Access Policy/任何 Gate 與 Production 均未執行、未獲本次遠端授權。**
 
 

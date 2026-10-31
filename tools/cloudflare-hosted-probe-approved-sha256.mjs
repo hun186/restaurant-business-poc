@@ -53,13 +53,14 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-staging-access-task-ui.test.js":"9709aef8f701deb6879fb5af1c886dc23858a4694f57ec122f6d6e78c06eed6c",
   "tests/cloudflare-access-task-status-write.test.js":"1ddc20dea848535164ae793ca435a48fce0954ce39afaf96fcb87b21b6706cff",
   "cloudflare/access-task-status-write.mjs":"93ac4ca86637410cc546a90e047ec982489ec9ad8f7e7f096e7a3e6f07783b0d",
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
-  "vercel-demo/staging-access-preview.js":"8ac4550fb1cacf1c58b0112c09a6fe8302e19259d3f4c0dd46d49bb1571cdbc9",
-  "vercel-demo/staging-access-preview.css":"af14baa4f16b4dc1388cb284b93cfd49f20e2d3d1faee61bb937b30c032722ee",
-  "vercel-demo/staging-access-preview.html":"78655f0e14c3d96242fbb53f046167e933f975f44861a7f3b494caeb8573948f",
-  "vercel-demo/staging-access-client.js":"a2b509cec3d3ef24f4322ffa43235f1b098eef9328611a708274c53165447ee2",
+  "vercel-demo/staging-access-preview.js":"8945dd0b98de9956f8c496557c424f73829c7e074544fdb85c605bf65fac0553",
+  "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
+  "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",
+  "vercel-demo/staging-access-client.js":"1c11adac4f2f11bf030d6d69be705b8d7ad47bca86355aeff172c578af644e57",
   "tests/cloudflare-access-business-readonly.test.js":"96fa1af5c025434c6923e178d906f5a1130512a8491ba6273e296e922477fbae",
   "cloudflare/access-business-readonly.mjs":"f39e8d38c37f2541e6ec64bd847c46cafbbbe230479c7a4ffb0ee21ded07dbc6",
   "tests/cloudflare-access-me-readonly.test.js":"2c4f7d3cf619fd479b38532e7b617d7d57fa49ccf9b0d80fd3ac0cbc20865422",
@@ -102,7 +103,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-d1-operations-readonly.test.js":"59013e77737bb51d9660280a46243f7ca4c7e53ff842b1bcc7b6ad685a3df180",
   "tests/cloudflare-d1-overview-readonly.test.js":"9d106488b709b63ab86b9493b48774a7eab86b38a1f5dc9e02063c338e49eb4a",
   "部署檢查.bat":"879861ecf25c36aaf9879d5c0970ead4275e227f6bee50ee7cf65ad951a719f4",
-  "vercel-demo/README.md":"e7358efcf53bcb10cfde05f528535c3bbfb2f73b6a1fa55f466585ef3a83ff9f",
+  "vercel-demo/README.md":"5cf7a112b1d7338f07f41e3ea1ea8167a8441c8c22a91e624159bc396c503173",
   "vercel-demo/index.html":"0752239d4291ac4bc93d9314a321e55684e532950b8913b97c510094683f9769",
   "vercel-demo/mock.js":"fe93ded70482a89a8cbc520b9b3dce5b28840d1a79144052ad465a5a758ee6fe",
   "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",

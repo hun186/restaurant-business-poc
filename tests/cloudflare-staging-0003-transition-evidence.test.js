@@ -85,7 +85,9 @@ test('new identity links, changed users, sessions, store/stock data and malforme
  after=f.snapshot(true);
  assert.throws(()=>v.verify0003Transition(before,after,sql),/BUSINESS_DATA_CHANGED/);
  f.db.prepare('DELETE FROM sessions').run();
- f.db.prepare("INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type) VALUES('bad','missing','synthetic-store',1,'purchase')").run();
+ f.db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('synthetic-store-2','Synthetic Other Store');
+ after=f.snapshot(true);
+ assert.throws(()=>v.verify0003Transition(before,after,sql),/BUSINESS_DATA_CHANGED/);
 });
 test('metadata changes, malformed JSON outputs and missing link_count deny',async t=>{
  const v=await validatorPromise,f=fixture(t),before=f.snapshot();f.apply();

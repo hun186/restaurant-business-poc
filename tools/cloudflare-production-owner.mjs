@@ -105,7 +105,7 @@ export function postflightSql(){
  "(SELECT COUNT(*) FROM audit_logs) AS audit_logs, "+
  "(SELECT COUNT(*) FROM audit_logs WHERE actor_name='production-bootstrap' "+
  "AND action='auth.owner_bootstrap' AND entity='users' "+
- "AND detail='{\\\"hash_version\\\":\\\"pbkdf2-sha256$100000\\\"}' "+
+ "AND json_extract(detail,'$.hash_version')='pbkdf2-sha256$100000' "+
  "AND entity_id=(SELECT id FROM users WHERE username='owner' AND role='owner' AND active=1)) AS owner_enrollment_audits;";
 }
 function config(){

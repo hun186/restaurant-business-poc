@@ -2,7 +2,7 @@
 // Unlike the legacy apply route, this does not claim a restore drill occurred.
 // It MUST run in the protected production-migration job before any write token.
 // This module never contacts Cloudflare, creates a schema or receives secrets.
-import {fileURLToPath} from 'node:url';
+import {pathToFileURL} from 'node:url';
 
 const RELEASE='PRISTINE_EMPTY_PRODUCTION_SCHEMA_ONLY';
 const ACK='I_APPROVE_EMPTY_PRODUCTION_FIRST_INIT_WITHOUT_RESTORE_DRILL';
@@ -26,7 +26,7 @@ export function verifyPristineFirstInitApproval(v) {
     production_write_performed:false,restore_drill_verified:false,production_ready:false});
 }
 
-if(process.argv[1] && import.meta.url===new URL('file://'+fileURLToPath(import.meta.url)).href) {
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   // Direct entrypoint without external libs, no raw input values in logs.
   const e=process.env;
   try {

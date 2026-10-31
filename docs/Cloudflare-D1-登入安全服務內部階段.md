@@ -1,6 +1,6 @@
 # Cloudflare D1 登入安全核心：內部程式階段（RB-028）
 
-> **2026-10-31 安全相容性更新（新版本）**：依 Staging 獨立 Worker 的合成測試，PBKDF2 600,000 次於 Hosted 探針失敗（疑似平台迭代上限）；100,000 次三種操作均通過，Cloudflare 儀表板彙總 CPU Time 0.506 ms，但沒有個別 invocation CPU 證據。新產生的 Worker Hash 使用 `pbkdf2-sha256$100000$...`；舊版 `$600000 無法在 Hosted 工具上自動驗證或轉換，需另行批准密碼重設。**100k 低於 OWASP 目前建議的 PBKDF2-HMAC-SHA256 600k 強度，僅作受控 Staging 技術驗證；不得因本次 PR 即開放正式密碼登入。** Production Cloudflare Login 與 Worker Routes 維持關閉、D1 和 Owner 密碼無改動。下方保留初始設計歷史說明。
+> **2026-10-31 相容性更新**：獨立 Cloudflare Hosted 探針的 PBKDF2 600,000 次運算失敗（疑似 Runtime 100,000 次上限）；100,000 次的 hash／正確驗證／錯誤驗證均通過。儀表板彙總 CPU Time 0.506 ms，但尚無個別 invocation CPU 記錄。新版 Worker 密碼格式為 `pbkdf2-sha256$100000$...`，既有 `pbkdf2-sha256$600000$...` 不會自動降級或重新計算，需受控重設。**100,000 次低於 OWASP 建議的 PBKDF2-HMAC-SHA256 600,000 次，僅限受控 Staging 技術評估；不構成正式登入的資安核准。** Production 路由、D1 和既有 Owner 密碼均不變；以下保留歷史文件。
 
 > 本 PR **不會啟用**雲端登入或登出端點。使用者在 staging D1 已人工建立一位 Owner（Run #40188578478，遠端 postflight PASS），但登入仍需完整資安與 Workers 實機 CPU 驗收後才可對外開放。
 

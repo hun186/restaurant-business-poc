@@ -25,7 +25,8 @@ test('only manually callable task.status POST uses same-origin cookies, intent h
  assert.equal(options.credentials,'same-origin');
  assert.equal(options.redirect,'manual');
  assert.equal(options.cache,'no-store');
- assert.equal(options.referrerPolicy,'no-referrer');
+ assert.equal(options.referrerPolicy,'same-origin');
+ // A browser POST needs Origin: <current origin>; no-referrer would null it.
  assert.equal(options.headers.Accept,'application/json');
  assert.equal(options.headers['Content-Type'],'application/json');
  assert.equal(options.headers['X-Staging-Intent'],'task.status');

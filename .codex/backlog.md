@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜PR #76 已 Merge main `69b6bec81fd980df564a0050527ee482916adb03`，postmerge Verify #41186913315 completed/success 5/5。分支 `feat/staging-access-task-ui-20261031` 加入真正接到 Access JWT→D1 交易的 Staging 工作狀態畫面；明確選擇/確認、嚴格同源 POST/JSON/Intent、只讀重新驗證、失敗清畫面不自動重送，其他業務資料唯讀。原來的 Cloudflare 狀態仍是 0003 遠端 Migration、Access Policy/身份對應/寫入 Gate 未啟用且未授權，Production disabled。本 PR 最新 CI/Codex 待驗證，未 Merge。
+
+
 > 2026-10-31 P0 #34 CURRENT｜main `c44a29fc814efb27b3c68fd58025b6b6009e0f01`（PR #75 合併、#41186205299 Verify 5/5 PASS），新增 `feat/staging-access-task-status-20261031`：未啟用的 signed Access `POST /api/access/task-status`，Staging 只支援任務狀態更改與 D1 原子稽核，DB SQL 在批次內核對 live role/store/identity link。專用 Write Gate 不配置、Production disabled；合成測試、closed hashes、latest Hosted CI 與正式 Codex Review 待驗證。真正 0003 apply/Access policy/人工身分綁定/遠端寫入/Production 需另行使用者授權，先不要操作。
 
 

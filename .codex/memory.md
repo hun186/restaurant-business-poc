@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜main `69b6bec81fd980df564a0050527ee482916adb03` PR #76 Merge，postmerge Verify #41186913315 completed/success 5/5；新分支 `feat/staging-access-task-ui-20261031` 連接獨立 Staging GET 頁面與已驗簽的 Access task.status D1 交易，只開 tasks 人工狀態選擇＋確認＋同源 POST，前端不可修改角色/門市、未知結果不自動重送、重新查詢 D1，其他資料維持唯讀。合成 Client contract/security tests/closed SHA256/文件需最新 Head CI+Codex 正式驗證，尚未 Merge；Cloudflare Access Policy、trusted issuer/audience、0003 遠端 migration、approved subject link 和 write Gate 未啟用，Production disabled，未執行真正遠端 D1 寫入。
+
+
 > 2026-10-31 P0 #34｜已核對 main `c44a29fc814efb27b3c68fd58025b6b6009e0f01`（PR #75 Merge、main Verify #41186205299 completed/success 5/5）、無 Open PR。新 branch `feat/staging-access-task-status-20261031` 將先前僅限內部 Session 的工作狀態 D1 寫入概念，擴充為**預設關閉**的 signed Access JWT + D1 link、live role/store + transaction audit 的單動作 Staging `POST /api/access/task-status`。要求獨立、未配置的 `CLOUD_ACCESS_TASK_WRITE_GATE=staging-task-status-only`，同源 HTTPS/Fetch-Metadata/意圖標頭，沒有 Production 寫入。合成多角色/跨店/失效 JWT/禁用身份/事前撤權/批次原子性驗證，SHA256 封閉清單+CI/Codex 待最新 HEAD 檢查。本 PR 尚未 Merge；遠端 0003 Migration、真正 Access Policy/Enrollment、Gate 啟用、D1 live mutation 沒執行，Production `disabled`。
 
 

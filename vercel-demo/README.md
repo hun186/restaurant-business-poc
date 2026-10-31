@@ -28,3 +28,10 @@
 只有在**整個 Cloudflare Preview 受 Access 政策保護**、Staging 0003 Migration 已經正式核准並套用、管理員明確啟用身分綁定及 `CLOUD_ACCESS_IDENTITY_GATE=staging-get-only`，以及可信任的 team issuer/audience 完成配置後，這個網址才有機會查詢真實 D1 Staging 測試資料。這些外部步驟本 PR 一項都沒有執行；Production 的 `CLOUD_AUTH_PHASE=disabled` 不變。
 
 驗收方式：在受保護的 Cloudflare Preview 開啟 `/staging-access-preview.html`，由 Cloudflare Access 在邊緣授權使用者後讀取身份、總覽與各類門市資料；測試帳號撤銷或停用門市後按重新整理，必須立即清除舊顯示並拒絕存取。此頁只有唯讀呈現，沒有建立 Session、密碼登入、匯出、寫入、修改權限或備份功能。**不可因為頁面能被打開就判定 Access 防護已經生效；需獨立驗證未授權匿名請求會被 Cloudflare Access 阻擋。**
+
+
+## Staging 工作狀態人工操作驗收（程式碼完成、未啟用）
+
+獨立 `/staging-access-preview.html` 的「今日工作」表格新增單一 Staging 測試動作：選擇 `待辦／處理中／已完成`，再按「確認更新（Staging）」並接受確認視窗。僅向同源 `POST /api/access/task-status` 發送固定 `task.status` 命令，瀏覽器管理自己的 Cloudflare Access Cookie，前端不接收 JWT、角色或門市等欄位、不在 Storage 留存資料。成功後重新呼叫 GET；失敗時擦除舊資料、要求先重新讀取核對，**不自動重試**以免發生重複更新。其他模組仍唯讀。
+
+此路由是 PR #76 已合併、預設關閉的寫入元件。需要管理者另行配置 `CLOUD_ACCESS_TASK_WRITE_GATE=staging-task-status-only`、受保護的 Staging Access Policy、可信 issuer/audience、0003 D1 Schema Migration 及已批准的身份對應。本次 PR 不執行這些遠端操作、不配置寫入 Gate；未設定時 POST 回 503，公開 Vercel Mock 無真實後端，Production 仍 disabled。此介面只是受控驗收工具，**不是已上線的餐廳管理系統**。

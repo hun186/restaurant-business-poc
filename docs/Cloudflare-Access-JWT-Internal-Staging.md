@@ -147,3 +147,10 @@ PR #73 已在 main 合併且主線 CI #41184285149 為 success 5/5。本次新�
 交易 `D1.batch` 在**每一個關鍵 SQL** 確認 live `access_identity_links` active、user active/role、active store、user_locations 和 staff assignment；先新增稽核，再更新工作狀態，最後在同筆交易驗證；若更新失敗或驗證不一致，透過 NOT NULL constraint fail-closed **ROLLBACK**；D1 changes 必須三筆皆為 1 才回傳 200。重複狀態 409、越權或停用門市拒絕、失效 JWT 401、異常 D1 503 且不回傳 SQL、JWT 或帳密。使用合成 JWT、in-memory SQLite 模擬授權、跨店、撤權競態、失敗批次原子性。尚未經 Cloudflare 真實 D1 寫入測試；不可把合成證據寫成實站 PASS。
 
 安全順序：管理員另行核准 Staging 0003 Migration、Cloudflare Preview Access 完整覆蓋、受信任 issuer/audience、人工核准的 subject-user 授權，才可再單獨審查是否啟用這個**僅限 Staging 工作狀態**的獨立 Write Gate。這不提供叫貨、盤點或 Production 寫入，既有 Staging 頁面仍是唯讀，不會自動發出 POST。正式業務寫入/啟用前仍須真正的遠端 D1 transaction + 權限 + CSRF UAT。
+
+
+## 2026-10-31 Staging UI 實際接入 task.status（程式碼完成，遠端未啟用）
+
+獨立的 `/staging-access-preview.html` 現在對合法 UUID 的工作列提供僅限 `todo/doing/done` 的人工狀態選擇及**第二次確認**，並使用固定同源 `POST /api/access/task-status`、`X-Staging-Intent: task.status` 呼叫 PR #76 的已驗簽 Access/D1 交易 API。不自行附加或讀取 Token／Cookie，不接受外部 URL，無本機資料保存。Client 需精確檢查 JSON 回應的 `environment=staging_access`、`production_ready=false`、`result.id/status` 等；任何不確定結果清除舊資料並提示先查詢後再決定是否重試，絕不自動重送。其他資料表保持唯讀。
+
+這是**前端功能接線與合成測試**，不是遠端 Cloudflare Policy/0003 Migration／身分 Enrollment／Gate 配置或 D1 實際寫入。寫入 Gate 不在 Wrangler 中預設配置，Production `CLOUD_AUTH_PHASE=disabled`。還需操作員另行批准 Staging 實站驗收和後續 Production 上線。

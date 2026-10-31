@@ -15,7 +15,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/cloudflare-g0-readonly-inventory.yml":"3eae225c854c8ddc3184e096bcf2433efe2fe9de2d29becb683199b63440227d",
   ".github/workflows/d1-disposable-restore-drill-g5.yml":"92116a942506a18fe04569eb6cb813d9ea278e58079c1eda4e19a3f775d2ee78",
   ".github/workflows/d1-production-recovery-readonly-g5.yml":"938c1cacb3b88536b00a2d86a886b1e5f732040a632ed8fe6d6b12dbee0e9744",
-  ".github/workflows/d1-production-initialize-g5.yml":"4311da9ab25288e820149e1a66c8d0308495c177583599aa7c86244b9bf39eee",
+  ".github/workflows/d1-production-initialize-g5.yml":"3d99ca48d10315c4a1f1545f6ac4c98f6c172d60f1acf289488eba18ccd342fc",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
   ".github/workflows/verify.yml":"5fe5443aad6d62b183a1f78fdedfd8902789ea7a7173cac9aefb958a120ff296",
   ".github/workflows/d1-staging-migration.yml":"24171173e1030ef0bf15e7012f537300b1d2c335c71664da13b6e0383b2e3e98",
@@ -24,6 +24,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-prod-first-init-gate.mjs":"c7d6ea91159a6948314ca954311a7228cca6cf13ec0fa5a3c90135fb92d78baf",
   "tools/cloudflare-staging-access-owner-enroll.mjs":"d7462c77f8b301120e9f1d90b73f17e96b731eea2c8f364c0f4ed5e2b570ea2c",
   "tools/cloudflare-staging-0003-apply-gate.mjs":"99ad4c7d666f429ebd8978f27c20f7158450ca869a42e7b2cf16a66481533e4a",
   "tools/cloudflare-staging-0003-transition-evidence.mjs":"0f411cfb7f788919e534ec7e21bc663df23fcdbd5d4c0cdd389d9b3edda07fce",
@@ -55,6 +56,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-prod-first-init-gate.test.js":"29737c85748cd68825420aec6a38b2866fa6afd78b51babd3c24912eba02fd86",
   "tests/cloudflare-native-login-http.test.js":"5a8fc37b5915977ae4cccf9c27736b98ca8bd72e18470ebaeb748108677fabe8",
   "cloudflare/native-login-http.mjs":"3e509f7d4115432220f8c5df0bd2b2481f46387af08edd5c954804eb996aeefb",
   "tests/cloudflare-staging-access-owner-enroll.test.js":"41d98f45cfaa7ccf23473a802795b4077b3599b5e3bf134346ff81523f4e9676",

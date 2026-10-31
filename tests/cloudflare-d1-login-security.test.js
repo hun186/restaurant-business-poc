@@ -202,3 +202,15 @@ test('PBKDF2 100k new hash is versioned; legacy 600k needs explicit reset',async
   assert.equal(await auth.verifyWorkerPassword('synthetic-benchmark-only-no-user',current.password_salt,legacy),false);
   assert.equal(await auth.verifyWorkerPassword('synthetic-benchmark-only-no-user',current.password_salt,'scrypt:legacy'),false);
 });
+
+test('legacy 600k D1 Owner cannot silently sign in via 100k Hosted verifier',async()=>{
+  const svc=await servicePromise,f=await setup();
+  try{
+    f.db.prepare('UPDATE users SET password_hash=? WHERE username=?').run(
+      'pbkdf2-sha256$600000$b23b9c54fc3759972294fb04e48f49a9e4e8ad6f04e4df2734fb7566567031ac','owner');
+    const outcome=await svc.authenticateD1(f.d1,{username:'owner',password:f.password,ipHash:f.ip});
+    assert.deepEqual(outcome,{status:401,code:'E_INVALID_CREDENTIALS'});
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,0);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM login_attempts').get().n,1);
+  }finally{f.db.close();}
+});

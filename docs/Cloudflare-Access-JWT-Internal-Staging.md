@@ -111,3 +111,10 @@ PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，合併後 Verify #
 使用與其他 Staging Migration 相同 GitHub concurrency lock。Runner 先執行全程靜態雜湊檢查，精確核對 Staging 專用 UUID、隔離單檔 0003 DDL，再用固定的唯讀 SQL 取得 0001/0002 baseline ledger、22 tables+ledger、0002 三個索引、Schema v3、單一 active Owner、FK、quick_check、七張表數量。若不符合 READY、僅存在一名 Owner 以外的人員或任何業務活動/Session/數量異常，**絕不執行 SQL Migration**。前置檢查成功後，才用唯一的 `wrangler.staging-access-0003.jsonc` 執行一次 remote `d1 migrations apply STAGING_DB`，隨即重新讀取所有資料庫證據並使用 PR #71 的 before/after 保全比對工具確認 0003 新表仍為空、原使用者和業務資料筆數不變。任何失敗標記工作流程 FAIL，不假裝已完成或清空重建。
 
 此為 Staging 單一**可加性** Schema Migration，**並非 Production 正式開通**。離線 SQLite 回歸只有合成資料，不能代替遠端 Time Travel/備份、Cloudflare Access Policy、身份註冊與 Session、RPO/RTO 等驗收。Production Cloudflare D1 ID 與 `CLOUD_AUTH_PHASE=disabled` 不得修改；G5 Restore 一律不在此範圍。手動執行前先確認最新 main Hosted CI、必要 Review，並由有權限操作者依環境操作流程另外啟動，不能由 Agent 自動執行。
+
+## 2026-10-31 Staging Access 身分唯讀查詢（尚未啟用）
+
+- 新增 `GET /api/access/me`，串接既有經 RS256 簽章驗證、JWKS 嚴格載入與 D1 `issuer+audience+subject` 明確綁定功能；僅回傳 D1 讀取的目前有效使用者、角色與有效門市，不讀 JWT 自述職級，不建立 Session/Cookie/CSRF，不接受密碼，沒有寫入路由。
+- **預設關閉**：只有 Worker 的 `CLOUD_AUTH_PHASE=preview-readonly`，以及由受控 Preview 環境顯式配置 `CLOUD_ACCESS_IDENTITY_GATE=staging-get-only`、`CLOUD_ACCESS_ISSUER=https://<team>.cloudflareaccess.com`、`CLOUD_ACCESS_AUDIENCE=<64位十六進位aud>` 時，才允許執行；上述值來自可信伺服器設定，**絕不可接收 Request/未驗簽 JWT 提供的 URL 或 Audience**。沒有 Gate/配置一律回 503；沒有有效 JWT/啟用映射一律回 401，禁止 CORS 通用分享及快取。Production `CLOUD_AUTH_PHASE=disabled` 維持拒絕。
+- **本 PR 不修改 `wrangler.jsonc` 的 Production／Preview vars，不設定真正的 team domain 或 Audience，不變更 Access Policy，不建立或啟用 D1 連結，不部署正式登入。** 真正 Staging E2E 仍須人工受保護 Preview Access 政策、0003 實際 D1 Migration、人工核准的合成身分連結、實際 JWKS 驗簽與撤權測試。
+- 新增合成 RSA JWT/JWKS 與 in-memory SQLite D1 的正常／無簽章／篡改／撤權／停用門市／Production 拒絕／無 Session 等測試，Source/Test/Worker 三檔以精確 SHA256 納入封閉 inventory。這只是可被啟用的唯讀查詢，不代表 Access/生產上線或支援正式操作；後續仍需另行設計有時效的 Session、CSRF、稽核與每項業務操作 RBAC。

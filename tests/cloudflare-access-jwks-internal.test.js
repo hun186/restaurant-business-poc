@@ -73,6 +73,9 @@ test('concurrent calls share one fetch; errors do not become cached grants',asyn
   const errors=await Promise.allSettled([h.loader.getJwks(),h.loader.getJwks()]);
   assert.deepEqual(errors.map(x=>x.status),['rejected','rejected']);
   assert.equal(h.count,1);
+  await assert.rejects(h.loader.getJwks(),/ACCESS_JWKS_UNAVAILABLE/);
+  assert.equal(h.count,1);
+  h.advance(30001);
   await h.loader.getJwks();
   assert.equal(h.count,2);
 });
@@ -81,4 +84,32 @@ test('abort deadline rejects stalled request without exposing details',async()=>
   const loader=createAccessJwksLoader({issuer:ISSUER,timeoutMs:100,fetchImpl:(_url,{signal})=>
     new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('secret network detail')),{once:true}))});
   await assert.rejects(loader.getJwks(),error=>error.message==='ACCESS_JWKS_UNAVAILABLE');
+});
+
+test('failed fetches are throttled even with no valid cached keys',async()=>{
+  let now=100000, calls=0;
+  const loader=createAccessJwksLoader({issuer:ISSUER,nowMs:()=>now,fetchImpl:async()=>{calls++;throw Error('unavailable')}});
+  await assert.rejects(loader.getJwks(),/ACCESS_JWKS_UNAVAILABLE/);
+  for(let i=0;i<20;i++) await assert.rejects(loader.getJwks({requiredKid:'unknown'}),/ACCESS_JWKS_UNAVAILABLE/);
+  assert.equal(calls,1);
+  now+=30001;
+  await assert.rejects(loader.getJwks(),/ACCESS_JWKS_UNAVAILABLE/);
+  assert.equal(calls,2);
+});
+test('unrelated key rotation cannot block requests for fresh cached keys',async()=>{
+  let now=100000, calls=0, finish;
+  const loader=createAccessJwksLoader({issuer:ISSUER,nowMs:()=>now,fetchImpl:async()=>{
+    calls++;
+    if(calls===1)return reply();
+    return new Promise((_resolve,reject)=>{finish=reject});
+  }});
+  const cached=await loader.getJwks({requiredKid:'current'});
+  now+=30001;
+  const unknown=loader.getJwks({requiredKid:'new-key'});
+  assert.equal(typeof finish,'function');
+  assert.equal(await loader.getJwks({requiredKid:'current'}),cached);
+  finish(Error('rotating endpoint unavailable'));
+  await assert.rejects(unknown,/ACCESS_JWKS_UNAVAILABLE/);
+  assert.equal(await loader.getJwks({requiredKid:'current'}),cached);
+  assert.equal(calls,2);
 });

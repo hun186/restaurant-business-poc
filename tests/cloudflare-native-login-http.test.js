@@ -15,11 +15,14 @@ function dbFixture(){
  const db=new DatabaseSync(':memory:');
  db.exec(fs.readFileSync(path.join(base,'db/schema.sql'),'utf8'));
  db.exec('CREATE TABLE cloud_schema_contract(id INTEGER PRIMARY KEY,contract_version INTEGER NOT NULL); INSERT INTO cloud_schema_contract VALUES(1,3);');
- const prepare=sql=>({bind(...args){return{
-  first:async()=>db.prepare(sql).get(...args),
-  all:async()=>({results:db.prepare(sql).all(...args)}),
-  run:async()=>({meta:db.prepare(sql).run(...args)})
- }}});
+ const prepare=sql=>{
+  const bound=(args)=>({
+   first:async()=>db.prepare(sql).get(...args),
+   all:async()=>({results:db.prepare(sql).all(...args)}),
+   run:async()=>({meta:db.prepare(sql).run(...args)})
+  });
+  return {...bound([]),bind(...args){return bound(args);}};
+ };
  const adapter={prepare,async batch(statements){
   db.exec('BEGIN');try{
    const result=[];

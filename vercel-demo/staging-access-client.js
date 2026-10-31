@@ -68,7 +68,7 @@ export function createAccessPreviewClient(fetchImpl=fetch){
  return Object.freeze({
   me:signal=>read('/api/access/me','me',null,signal),
   overview:signal=>read('/api/access/overview','overview',null,signal),
-  data:(entity,signal)=>{
+  data:async (entity,signal)=>{
    if(!Object.hasOwn(ENTITY_LABELS,entity))throw new AccessPreviewError('E_UNKNOWN_ENTITY',400);
    return read('/api/access/data?entity='+encodeURIComponent(entity),'data',entity,signal);
   }

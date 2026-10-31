@@ -48,6 +48,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "cloudflare/access-principal-internal.mjs":"9b0bbda8c1e635cf1d0d135a2fce82994a11a2268a15d62c223c63f5945b99af",
+  "tests/cloudflare-access-principal-internal.test.js":"296db09ace5eff23c4c02139faa401fa9cb119cf58ef65347d0f5af753a98a85",
   "cloudflare/access-identity-internal.mjs":"3cc1a2a54b4d0de70226be32ed4f836a084e989e39bf8824e81103ccfb3215ab",
   "tests/cloudflare-access-identity-internal.test.js":"4c8d62dee8359d9563ebdd17bfeb4cd08f1978b163f38ea2650d5253cd3d09a7",
   "cloudflare/access-jwks-internal.mjs":"4aac6023aa52025e46cda70746b040da8adf24f0ff0fb76d652eff99634dfdd1",

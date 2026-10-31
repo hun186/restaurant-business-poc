@@ -78,3 +78,13 @@ Next gates: review actual Access Preview protection/policies and JWT issuer/audi
 - `active` 預設 **0**（未核准），不會自動登入、建立 Owner 或權限；唯一約束禁止同一 issuer/audience 下兩個 subjects 配到同一使用者，亦禁止同一 subject 重複綁定。獨立的受控人工入職與審核流程後才可切換 active=1。
 - Synthetic SQLite 自動測試驗證添加式 DDL、0 新 user/Session、資料不遺失、Audience/Subject/Foreign Key/唯一性約束及停用預設；不代表遠端 Cloudflare D1 Migrated。
 - 必須另開獨立 PR 審查版本升級、Staging-only preflight/單次 apply/postflight、防止誤用 Production、D1 可回復性與人工授權，才可考慮將 SQL 移入正式遷移目錄。此 PR **不執行任何 Migration 或部署作業**。
+
+## 2026-10-31 Staging 0003 隔離式 Migration 配置（尚未套用）
+
+PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，合併後 Verify #41169668388 5/5 PASS。本次只新增獨立 `wrangler.staging-access-0003.jsonc`（固定 STAGING_DB / staging UUID、只包含一個 D1 綁定）和 `cloudflare/migrations-access-0003/0003_access_identity_links.sql`。舊 `wrangler.preview-migrations.jsonc`、`cloudflare/migrations` 0001／0002、原本 0002 手動 Workflow 均原封不動。
+
+根據 Cloudflare 的 Wrangler D1 Migrations 行為，`migrations apply` 會套用指定 migrations_dir 中所有未套用項目，所以不能直接將 0003 放到原本 0002 Migration 目錄。新的隔離配置僅用來準備未來獨立審核的 Staging-only 手動流程，**尚未連接任何 GitHub Actions 遠端 apply 工作、也沒有執行 Cloudflare API 或 D1 寫入**。
+
+合成 SQLite 測試驗證：專屬設定只指向 staging UUID、0003 SQL DDL 與 PR #68 審核提案一致、0001／0002 原清單保持兩檔、已有 v3/0002 使用者與 migration ledger 不被修改、連結表起始空白且 active=0、不可重複綁定，以及 FK 連動。這不是 Cloudflare 遠端 migration 演練。
+
+下一步需經獨立 PR 開發固定 main SHA、禁止任意 Database ID、protected d1-staging Environment、嚴格遠端唯讀 preflight 與 postflight、不可跨環境、不可混套任何其他 pending SQL 的明確工作流程。實際遠端 0003 apply、任何 Owner 身分綁定／授權啟用、Access 政策及 Production 變更尚未獲得本次程式碼合併授權。

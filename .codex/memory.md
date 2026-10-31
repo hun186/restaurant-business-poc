@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜PR #65 初次 Hosted Verify #41164764670 **5/5 PASS**，正式 Codex Review 對原 HEAD `bc8873cdcc38174d54ec916523aafd33553ea13e` 指出 2 個有效 P2：（1）無有效 cache 時 fetch 失敗未節流；（2）未命中 kid 刷新會阻塞可用的快取 kid。已修改 JWKS Loader 先回傳仍有效、相符的 cache，再加入 pending；所有刷新失敗均遵守 30 秒節流；新增合成回歸 Local **8/8 PASS**、exact Git Blob 核對並更新 SHA256 Manifest。**新 HEAD Hosted CI／Codex 複審待驗證，PR 未合併**；無公開路由、登入或 Cloudflare 遠端寫入，Production disabled。
+
 > 2026-10-31 P0 #34｜PR #64 已正式 Squash Merge `db2e208e0af6680b6f0fd4d833ccc3f0185a862a`，Postmerge Verify #41164519699 completed/success 5/5。此分支下一階段只新增**內部、未連接 Worker 路由** Cloudflare Access JWKS 信任來源 HTTPS 公鑰載入器，固定 team issuer/certs、禁止 redirect/credentials、不信任遠端 URL、64KiB/timeout/RS256 檢查、限期快取及 kid 輪換，合成 RSA 測試與 exact SHA256 封閉清單。Local 6/6 初測 PASS；最新 HEAD Hosted CI／Codex Review 尚未完成，不能報為通過。無正式 Access Policy/JWKS 遠端實證、沒有登入或 D1 寫入，Production disabled。
 
 > 2026-10-31 P0 #34｜PR #63 Squash Merge main `5663f604ec1a98dee99097d4c7bb47b2287aad22`，合併後 Verify #41107287991 success 5/5，真實 HTTP GET-only Staging Preview #41162137307 `STAGING_HTTP_GET_ONLY_ANONYMOUS_PASS`、D1 `schema_only`。下一增量新增**未接公開路由**的 Cloudflare Access JWT WebCrypto RS256 驗證器、實際 RSA 合成簽章正負測試、關閉的 SHA-256 Allowlist；由於目前 Worker 使用 Static Assets，Cloudflare 的 `ctx.access` 不會傳給 Worker，未來必須驗證已簽章的 `Cf-Access-Jwt-Assertion` 並從可信 team 取得 JWKS。**尚未開通真正登入、未驗證 Access policy / JWKS 可信載入 / Hosted PBKDF2 CPU，Production disabled、沒有 D1 遠端寫入。** 此增量需最新 HEAD Hosted CI 與 Codex 正式 Review；Merge 另需使用者同意。

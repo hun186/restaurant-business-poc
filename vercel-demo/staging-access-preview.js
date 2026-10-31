@@ -1,8 +1,9 @@
 import {createAccessPreviewClient,ENTITY_LABELS} from './staging-access-client.js';
 
 // This page intentionally never loads the public mock.js or app.js. It only
-// reads signed-Access /api/access/* on its OWN origin. No local/session storage,
-// password fields, token parsing, simulated login or cross-origin endpoints.
+// uses signed-Access /api/access/* on its OWN origin; only task.status may
+// perform a manually confirmed POST if the server's independent Staging write
+// gate is enabled. No storage, passwords, tokens or cross-origin endpoints.
 const client=createAccessPreviewClient();
 const $=id=>document.getElementById(id);
 const viewNames={overview:'今日營運總覽',...ENTITY_LABELS};
@@ -10,7 +11,7 @@ const metricsLabels={
  open_tasks:'待處理工作',pending_orders:'待處理叫貨單',
  open_repairs:'待處理維修',low_stock:'低於安全庫存'
 };
-let view='overview',seq=0,controller=null;
+let view='overview',seq=0,controller=null,mutationInFlight=false;
 
 function el(tag,text,cls){
  const node=document.createElement(tag);
@@ -43,6 +44,55 @@ function displayValue(value){
  if(typeof value==='object')return JSON.stringify(value);
  return String(value);
 }
+const UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
+const taskStates=Object.freeze({todo:'待辦',doing:'處理中',done:'已完成'});
+function taskAction(item){
+ // This is only a convenience UI: the Worker alone decides authorization.
+ if(typeof item.id!=='string'||!UUID.test(item.id)||
+    !Object.hasOwn(taskStates,item.status))return el('span','不可變更');
+ const cell=el('div',null,'preview-task-action');
+ const select=el('select');
+ select.setAttribute('aria-label','工作狀態');
+ for(const [key,title] of Object.entries(taskStates)){
+  const option=el('option',title);
+  option.value=key;
+  option.selected=key===item.status;
+  select.append(option);
+ }
+ const submit=el('button','確認更新（Staging）','btn small');
+ submit.type='button';submit.disabled=true;
+ select.addEventListener('change',()=>{
+  submit.disabled=mutationInFlight||select.value===item.status;
+ });
+ submit.addEventListener('click',async()=>{
+  const desired=select.value;
+  if(mutationInFlight||!Object.hasOwn(taskStates,desired)||
+     desired===item.status)return;
+  if(!window.confirm('這會變更 Staging D1 的工作狀態並新增稽核紀錄。\\n確定要更新嗎？'))return;
+  mutationInFlight=true;
+  const atSeq=seq;
+  for(const button of document.querySelectorAll('.preview-task-action button'))
+   button.disabled=true;
+  status('正在更新 Staging 工作狀態；請勿重複送出…');
+  try{
+   await client.changeTaskStatus(item.id,desired);
+   if(atSeq===seq&&view==='tasks')refresh();
+  }catch(error){
+   // A failed network response might still follow a committed transaction:
+   // never retry automatically, or display stale prior data as current.
+   if(atSeq===seq){
+    clear();
+    status((error?.message||'工作狀態更新結果無法確認。')+
+     ' 請先重新整理確認最新狀態，不要直接重複送出。','error');
+   }
+  }finally{
+   mutationInFlight=false;
+  }
+ });
+ cell.append(select,submit);
+ return cell;
+}
+
 function showRows(rows){
  const content=$('preview-content');
  if(rows.length===0){
@@ -51,19 +101,25 @@ function showRows(rows){
   return;
  }
  const columns=Object.keys(rows[0]).slice(0,24);
+ const isTaskView=view==='tasks';
  const table=el('table'),thead=el('thead'),headrow=el('tr');
  for(const column of columns)headrow.append(el('th',column));
+ if(isTaskView)headrow.append(el('th','Staging 工作狀態操作'));
  thead.append(headrow);
  const tbody=el('tbody');
  for(const item of rows){
   const row=el('tr');
   for(const column of columns)row.append(el('td',displayValue(item[column])));
+  if(isTaskView){const c=el('td');c.append(taskAction(item));row.append(c);}
   tbody.append(row);
  }
  table.append(thead,tbody);
  const frame=el('div',null,'preview-table');
  frame.append(table);
- content.replaceChildren(frame);
+ if(isTaskView){
+  const note=el('p','工作狀態更新需由管理員另行開啟 Staging 專用 Write Gate；未啟用時伺服器會拒絕，不會修改資料。其他所有頁面維持唯讀。','preview-task-note');
+  content.replaceChildren(note,frame);
+ }else content.replaceChildren(frame);
  content.hidden=false;
 }
 async function refresh(){

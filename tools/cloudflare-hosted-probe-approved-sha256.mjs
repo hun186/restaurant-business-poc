@@ -53,11 +53,12 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-staging-access-task-ui-race.test.js":"d8e7edcde2b742fc9c8011fe917a2401d21b56dec15308431134ede4efff24b0",
   "tests/cloudflare-staging-access-task-ui.test.js":"9709aef8f701deb6879fb5af1c886dc23858a4694f57ec122f6d6e78c06eed6c",
   "tests/cloudflare-access-task-status-write.test.js":"1ddc20dea848535164ae793ca435a48fce0954ce39afaf96fcb87b21b6706cff",
   "cloudflare/access-task-status-write.mjs":"93ac4ca86637410cc546a90e047ec982489ec9ad8f7e7f096e7a3e6f07783b0d",
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
-  "vercel-demo/staging-access-preview.js":"8945dd0b98de9956f8c496557c424f73829c7e074544fdb85c605bf65fac0553",
+  "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",
   "vercel-demo/staging-access-client.js":"1c11adac4f2f11bf030d6d69be705b8d7ad47bca86355aeff172c578af644e57",

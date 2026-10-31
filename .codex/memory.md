@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34 CONTINUATION｜PR #66 已 Squash Merge main `3a66e99ab9c4b7287cfe86d7e07237a841cc1186`; postmerge Verify #41165785965 completed/success 5/5，且現時無 Open PR。新分支 `feat/staging-access-d1-principal-readonly-20261031` 建立獨立內部 Access signed subject→D1 角色/門市讀取映射，嚴格 issuer+audience+subject 明確連結，active 使用者與門市、合成 SQLite 測試、缺少 link table 保守拒絕；**尚無正式 D1 link table/migration，未建立 Owner、無公開 Worker route/Session/登入或資料庫寫入**。本地 D1 映射合成測試 6/6 PASS（以相容身份驗證替身驗證映射），正式完整模組需 GitHub Hosted CI/正式 Codex Review。下一個 PR 需先設計審核過的 Migration 與身份註冊授權；不得視為 Staging Login 已完成。
+
 > 2026-10-31 P0 #34｜PR #66 初輪 Hosted Verify #41165314213 5/5 PASS；正式 Codex Review 對原 HEAD `439e68b8c755b51b6b491605275003d7dd92bd0c` 提出有效 P2：Header 合法但 Payload/Signature 破損仍造成 JWKS Fetch。已修正 `keyHint` 在網路前驗證完整三段 canonical Base64url、signature 256–512 bytes 和 payload JSON 物件**僅結構、不信任 claims**；增加 empty/bad/short/malformed payload 網路零請求回歸，本地 4/4 PASS，Git blobs 和 SHA256 清單同步更新。**修正後新 HEAD Hosted CI／正式 Codex Review Pending，尚未 Merge**；無公開 Worker 路由／登入／D1 write／Production 變更。
 
 > 2026-10-31 P0 #34｜PR #65 已正式 Squash Merge `da82791424199c0162e61824e6e9dc17e2ba8590`，最新 HEAD `493d8f24188b997404ad4627101927192eb63cd6` Verify #41165009136 5/5 PASS，Codex re-review Completed/0 new Findings/2 Threads Resolved。此分支第三增量只新增**未接 Worker 公開路由**的 `cloudflare/access-identity-internal.mjs`：從未驗簽 header 中的 kid 只取公鑰索引，從固定 team JWKS Loader 讀取公鑰，再使用原有 WebCrypto RS256 完整驗簽、aud/iss/time 檢查後才回傳 subject；無 Header/驗證失敗皆 null。合成 RSA E2E local 4/4 PASS，最新 Head Hosted CI／正式 Codex Review Pending。沒有登入、D1 身分授權、Session、正式 Access 設定或 Production 變更；Production disabled。

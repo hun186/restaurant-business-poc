@@ -97,16 +97,17 @@ jobs:
   initialize-production:
     if: >-
       ${{ github.ref == 'refs/heads/main' &&
-      inputs.mode == 'apply' &&
-      inputs.confirm == 'INITIALIZE_EMPTY_PROD_D1_V3_0001_0002' &&
-      inputs.expected_main_sha == github.sha &&
-      (inputs.recovery_ack == 'RECOVERY_REHEARSED_AND_APPROVED' && inputs.first_init_ack == '' && inputs.pristine_run == '') ||
-      (inputs.mode == 'first-init' &&
+      ((inputs.mode == 'apply' &&
+       inputs.confirm == 'INITIALIZE_EMPTY_PROD_D1_V3_0001_0002' &&
+       inputs.expected_main_sha == github.sha &&
+       inputs.recovery_ack == 'RECOVERY_REHEARSED_AND_APPROVED' &&
+       inputs.first_init_ack == '' && inputs.pristine_run == '') ||
+       (inputs.mode == 'first-init' &&
        inputs.confirm == 'INITIALIZE_PRISTINE_PROD_D1_V3_0001_0002' &&
        inputs.expected_main_sha == github.sha &&
        inputs.recovery_ack == '' &&
        inputs.first_init_ack == 'I_APPROVE_EMPTY_PRODUCTION_FIRST_INIT_WITHOUT_RESTORE_DRILL' &&
-       inputs.pristine_run == '41207484827') }}
+       inputs.pristine_run == '41207484827')) }}
     needs: readonly-preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 20

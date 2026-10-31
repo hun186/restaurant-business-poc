@@ -62,7 +62,7 @@ CREATE TABLE access_identity_links (
   audience TEXT NOT NULL,
   subject TEXT NOT NULL,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+  active INTEGER NOT NULL DEFAULT 0 CHECK(active IN (0,1)),
   PRIMARY KEY(issuer,audience,subject),
   UNIQUE(issuer,audience,user_id)
 );
@@ -71,3 +71,10 @@ CREATE TABLE access_identity_links (
 Provisioning and role assignment are owner/operator-controlled actions that require a separate audited enrollment design and staging-only migration. **Do not automatically match identities, add seed Owner accounts, or perform production migration.** The actual deployed D1 v3 lacks this table; the resolver intentionally returns null there. Local synthetic fixture tests create the table solely in an isolated in-memory SQLite DB. No Worker route imports this module, and Production remains `CLOUD_AUTH_PHASE=disabled`.
 
 Next gates: review actual Access Preview protection/policies and JWT issuer/audience via private evidence; audited versioned D1 link table/migration and enrollment; hosted identity+DB smoke; session/CSRF/rate limiting and RBAC; production security/backup/readiness approvals. G5 destructive Restore remains deferred.
+
+## 2026-10-31 Access 身分綁定表隔離提案（未部署）
+
+- 提案 SQL 固定在 `cloudflare/migration-proposals/0003_access_identity_links.sql`，而**不是** `cloudflare/migrations/`；完全不接入任何 `workflow_dispatch` 或遠端套用指令。現有 Staging 0001/0002 Ledger 與嚴格允許清單保持不變。
+- `active` 預設 **0**（未核准），不會自動登入、建立 Owner 或權限；唯一約束禁止同一 issuer/audience 下兩個 subjects 配到同一使用者，亦禁止同一 subject 重複綁定。獨立的受控人工入職與審核流程後才可切換 active=1。
+- Synthetic SQLite 自動測試驗證添加式 DDL、0 新 user/Session、資料不遺失、Audience/Subject/Foreign Key/唯一性約束及停用預設；不代表遠端 Cloudflare D1 Migrated。
+- 必須另開獨立 PR 審查版本升級、Staging-only preflight/單次 apply/postflight、防止誤用 Production、D1 可回復性與人工授權，才可考慮將 SQL 移入正式遷移目錄。此 PR **不執行任何 Migration 或部署作業**。

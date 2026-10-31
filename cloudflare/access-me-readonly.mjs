@@ -34,7 +34,7 @@ export function createPreviewAccessMeHandler({fetchImpl,nowMs}={}){
         const url=new URL(request.url);
         if(url.search || url.hash || url.pathname!=='/api/access/me')
           return reply(400,{code:'E_BAD_REQUEST'});
-        const configKey=env.CLOUD_ACCESS_ISSUER+'|'+env.CLOUD_ACCESS_AUDIENCE.toLowerCase();
+        const configKey=env.CLOUD_ACCESS_ISSUER+'|'+env.CLOUD_ACCESS_AUDIENCE;
         if(key!==configKey){
           lookup=createBoundAccessPrincipal({
             issuer:env.CLOUD_ACCESS_ISSUER,

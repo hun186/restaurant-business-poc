@@ -1,4 +1,5 @@
 import { inspectD1Contract } from './d1-readiness.mjs';
+import { nativeLoginHttp } from './native-login-http.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
 import { previewAccessBusiness } from './access-business-readonly.mjs';
@@ -21,6 +22,7 @@ function json(body, status = 200) {
 export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
+    if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);

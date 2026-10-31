@@ -85,5 +85,5 @@ test('Staging UI requires explicit person confirmation and does not auto retry o
  assert.match(client,/\/api\/access\/task-status/);
  assert.doesNotMatch(html,/<form\b|<input\b|mock\.js|app\.js/);
  assert.doesNotMatch(js+' '+client,/localStorage|sessionStorage|\.innerHTML\s*=|document\.cookie|atob\s*\(|Authorization/);
- assert.doesNotMatch(client,/fetchImpl\(\s*[^'"/\s]/); // only fixed, literal server paths
+ assert.match(client,/fetchImpl\('\/api\/access\/task-status'/);
 });

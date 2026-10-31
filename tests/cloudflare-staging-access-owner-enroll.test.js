@@ -142,3 +142,35 @@ test('workflow is manual main/SHA/environment gated and never enables login or P
  assert.doesNotMatch(work,/migrations apply|wrangler\.production|--config wrangler\.jsonc|workflow_call:|schedule:/);
  assert.doesNotMatch(work,/echo .*(?:STAGING_ACCESS_OWNER_SUBJECT|STAGING_ACCESS_ISSUER)/);
 });
+
+test('preflight-to-write race fails closed at every stage; no new Access grant',async t=>{
+ const api=await enrollmentPromise;
+ for(const stage of ['before-link','before-audit','before-activation']){
+  const f=fixture(t);
+  const sql=api.generateEnrollmentSql(CFG,{auditId:'11111111-2222-4333-8444-555555555555'});
+  api.assertEnrollmentPreflight(f.snapshot(),CFG);
+  const injectBusinessRecord=()=>f.db.prepare('INSERT INTO training_courses(id,title) VALUES(?,?)')
+   .run(randomUUID(),'Synthetic concurrent training record');
+  if(stage==='before-link')injectBusinessRecord();
+  f.db.exec(sql.statements[0]);
+  if(stage==='before-audit')injectBusinessRecord();
+  f.db.exec(sql.statements[1]);
+  if(stage==='before-activation')injectBusinessRecord();
+  f.db.exec(sql.statements[2]);
+  assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM access_identity_links WHERE active=1')[0].n,0,stage);
+  assert.throws(()=>api.assertEnrollmentPostflight(f.snapshot(),CFG,sql.auditId),stage);
+  assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM training_courses')[0].n,1,stage);
+  if(stage==='before-link'){
+   assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM access_identity_links')[0].n,0);
+   assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM audit_logs')[0].n,0);
+  }
+  if(stage==='before-audit'){
+   assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM access_identity_links')[0].n,1);
+   assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM audit_logs')[0].n,0);
+  }
+  if(stage==='before-activation'){
+   assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM access_identity_links')[0].n,1);
+   assert.equal(get(f.db,'SELECT COUNT(*) AS n FROM audit_logs')[0].n,1);
+  }
+ }
+});

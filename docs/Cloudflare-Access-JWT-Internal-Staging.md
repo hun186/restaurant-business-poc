@@ -34,3 +34,5 @@
 - 公鑰限制 RSA/RS256/signature/exponent，拒絕重複 kid 與私鑰欄位；每個 Loader 隔離五分鐘 cache，過期時不得使用舊 key，未知 kid 最快每 30 秒嘗試輪換，並行請求共用一次讀取。
 - `tests/cloudflare-access-jwks-internal.test.js` 使用合成 RSA 公鑰與假 HTTPS Response，無真實 Cloudflare 呼叫、無 Token 或人員資料。這不是 Cloudflare Access 正式政策驗收，也尚未建立可用的登入鏈。
 - 在正式整合前仍需完成信任設定私有保存、Access Previews-only 覆蓋範圍實證、JWKS 與 signed JWT 串接、CPU 測試、D1 身分映射、Session/CSRF/節流與活體 Staging E2E。
+
+> PR #65 初審 P2 修正：公鑰 HTTP 失敗時即使無 cache 也限制重試頻率；當陌生 kid 導致遠端 refresh 時，不阻塞相符且仍有效的快取 kid。新增兩個合成回歸，本地共 8/8 PASS；等待本修正 HEAD Hosted CI 和正式 Codex 複審，禁止把初輪 CI 當作最新 HEAD PASS。

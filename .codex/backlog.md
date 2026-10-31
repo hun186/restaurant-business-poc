@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜主線 `3a66e99ab9c4b7287cfe86d7e07237a841cc1186`（PR #66 Squash Merge）Postmerge Verify #41165785965 5/5 PASS；本階段小型 PR 只處理「可信 Access JWT 的 subject → 人工預先核准的 D1 使用者、角色、有效門市」之內部唯讀查詢。不存在的 `access_identity_links` 表必須 null/deny；實際 D1 v3 migration 與 enrollment 故意不包含，防止自動帳戶授權。僅合成測試/文件/closed SHA256，**最新 HEAD Hosted CI/Codex Pending、尚未 Merge**。後續另設計版本化 mapping migration/嚴格授權註冊/Session/CSRF、實站 Preview Access E2E；Production 繼續 disabled。
+
 > 2026-10-31 P0 #34｜PR #66 初輪 Hosted Verify #41165314213 5/5 PASS；正式 Codex Review 對原 HEAD `439e68b8c755b51b6b491605275003d7dd92bd0c` 提出有效 P2：Header 合法但 Payload/Signature 破損仍造成 JWKS Fetch。已修正 `keyHint` 在網路前驗證完整三段 canonical Base64url、signature 256–512 bytes 和 payload JSON 物件**僅結構、不信任 claims**；增加 empty/bad/short/malformed payload 網路零請求回歸，本地 4/4 PASS，Git blobs 和 SHA256 清單同步更新。**修正後新 HEAD Hosted CI／正式 Codex Review Pending，尚未 Merge**；無公開 Worker 路由／登入／D1 write／Production 變更。
 
 > 2026-10-31 P0 #34｜PR #65 已正式 Squash Merge `da82791424199c0162e61824e6e9dc17e2ba8590`，最新 HEAD `493d8f24188b997404ad4627101927192eb63cd6` Verify #41165009136 5/5 PASS，Codex re-review Completed/0 new Findings/2 Threads Resolved。此分支第三增量只新增**未接 Worker 公開路由**的 `cloudflare/access-identity-internal.mjs`：從未驗簽 header 中的 kid 只取公鑰索引，從固定 team JWKS Loader 讀取公鑰，再使用原有 WebCrypto RS256 完整驗簽、aud/iss/time 檢查後才回傳 subject；無 Header/驗證失敗皆 null。合成 RSA E2E local 4/4 PASS，最新 Head Hosted CI／正式 Codex Review Pending。沒有登入、D1 身分授權、Session、正式 Access 設定或 Production 變更；Production disabled。

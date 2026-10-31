@@ -1,0 +1,103 @@
+name: Staging Access 0003 schema-only apply (manual, guarded)
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Staging additive DDL ONLY; never production'
+        required: true
+        type: choice
+        default: APPLY_STAGING_0003_SCHEMA_ONLY
+        options:
+          - APPLY_STAGING_0003_SCHEMA_ONLY
+      confirm:
+        description: 'Type APPLY_STAGING_0003_SCHEMA_ONLY'
+        required: true
+        type: string
+      approved_head_sha:
+        description: 'Enter exact reviewed 40-character main Commit SHA'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: restaurant-business-d1-staging-migrations
+  cancel-in-progress: false
+jobs:
+  approved-staging-schema-only:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          inputs.action == 'APPLY_STAGING_0003_SCHEMA_ONLY' &&
+          inputs.confirm == 'APPLY_STAGING_0003_SCHEMA_ONLY' &&
+          inputs.approved_head_sha == github.sha }}
+    environment: d1-staging-0003-write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Reviewed-source preflight (no secrets)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify protected approval and pinned staging target (no D1 writes)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_0003_SCHEMA_APPLY_APPROVED: ${{ vars.STAGING_0003_SCHEMA_APPLY_APPROVED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$STAGING_0003_SCHEMA_APPLY_APPROVED" != "ENABLED_STAGING_0003_SCHEMA_ONLY" ]]; then
+            echo "::error::Staging 0003 write Environment not explicitly enabled"
+            exit 1
+          fi
+          node tools/cloudflare-staging-access-0003-readonly.mjs config
+      - name: Install fixed Wrangler without Cloudflare token in scope
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Verify remote Staging baseline; apply only isolated 0003; verify preserved data
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_0003_SCHEMA_APPLY_APPROVED: ${{ vars.STAGING_0003_SCHEMA_APPLY_APPROVED }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ||
+                "$STAGING_0003_SCHEMA_APPLY_APPROVED" != "ENABLED_STAGING_0003_SCHEMA_ONLY" ]]; then
+            echo "::error::Missing protected staging approval or credentials"
+            exit 1
+          fi
+          node tools/cloudflare-staging-access-0003-readonly.mjs config
+          before="$RUNNER_TEMP/d1-access-0003-apply-before"
+          after="$RUNNER_TEMP/d1-access-0003-apply-after"
+          mkdir -p "$before" "$after"
+          query() {
+            npx --no-install wrangler d1 execute STAGING_DB --remote --json \
+              --config wrangler.staging-access-0003.jsonc --command "$3" > "$1/$2.json"
+          }
+          snapshot() {
+            target="$1"
+            query "$target" ledger "SELECT name FROM d1_migrations ORDER BY name;"
+            query "$target" contract "SELECT contract_version FROM cloud_schema_contract WHERE id=1;"
+            query "$target" owners "SELECT id,username,role,active FROM users ORDER BY id;"
+            query "$target" tables "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;"
+            query "$target" indexes "SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name;"
+            query "$target" table "SELECT name,sql FROM sqlite_master WHERE type='table' AND name='access_identity_links';"
+            query "$target" fk "PRAGMA foreign_key_check;"
+            query "$target" integrity "PRAGMA quick_check;"
+            query "$target" counts "SELECT (SELECT COUNT(*) FROM users) AS users,(SELECT COUNT(*) FROM sessions) AS sessions,(SELECT COUNT(*) FROM locations) AS locations,(SELECT COUNT(*) FROM user_locations) AS user_locations,(SELECT COUNT(*) FROM tasks) AS tasks,(SELECT COUNT(*) FROM stock_moves) AS stock_moves,(SELECT COUNT(*) FROM audit_logs) AS audit_logs;"
+          }
+          snapshot "$before"
+          node tools/cloudflare-staging-0003-apply-gate.mjs preflight "$before"
+          echo "STAGING_0003_STRICT_PREFLIGHT_PASS"
+          npx --no-install wrangler d1 migrations apply STAGING_DB --remote \
+            --config wrangler.staging-access-0003.jsonc
+          snapshot "$after"
+          query "$after" link_count "SELECT COUNT(*) AS n FROM access_identity_links;"
+          node tools/cloudflare-staging-0003-apply-gate.mjs postflight "$before" "$after"
+          echo "STAGING_0003_SCHEMA_ONLY_APPLIED_AND_VERIFIED; no identity linked; production unchanged."

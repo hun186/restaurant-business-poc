@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-31 P0 #34 NEXT｜截至本分支起點 main=`cd1f5921f9c909f28d3abc75c7679c8708d9cfd4`，PR #71 before/after offline evidence 已合併；新工作為 `d1-staging-access-0003-apply.yml` + `tools/cloudflare-staging-0003-apply-gate.mjs` + synthetic Node SQLite。只有 main、手動逐字確認、full-SHA、獨立 **未預置** `d1-staging-0003-write` Protected Environment 及特別允許的非敏感變數才有 Staging Schema Additive Apply 途徑。程式碼不自動觸發、未執行任何 D1 遠端寫入、CI/Codex 正式 Review Pending，不得在 Merge 後自動啟動遠端 Migration、Access enrollment 或 G5 Restore。下一階段需人工配置 Environment / Staging-only最小權限 Token / 完整備份回復證據，核對最新 Hosted GitHub 並由明確授權管理員手動 dispatch；Production disabled。
+
 > 2026-10-31 P0 #34 下一增量：PR #70 已 Squash Merge main `0524137cf265ba14da2feae66d3e0e1798bcc5ba`，latest HEAD CI #41180712116 5/5 PASS、Codex completed/0 new Findings、P2 resolved。本分支只增加 Staging 0003 before/after **offline evidence validator** 和合成 DB 測試，禁止自動遠端 APPLY；本地遷移過程的 SQL 僅於記憶體 SQLite 合成測試執行。未完成最新 Head CI/Codex Review 前保持 PR Open；Staging 真正套用/身分連結啟用與 Production 仍未授權。
 
 

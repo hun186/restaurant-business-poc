@@ -1,0 +1,126 @@
+name: Staging Access synthetic owner link (manual, never Production)
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        required: true
+        type: choice
+        options:
+          - ENROLL_STAGING_ACCESS_OWNER_ONCE
+      confirm:
+        description: Retype ENROLL_STAGING_ACCESS_OWNER_ONCE
+        required: true
+        type: string
+      reviewed_head_sha:
+        description: Exact current main 40-character commit SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: restaurant-business-d1-staging-migrations
+  cancel-in-progress: false
+jobs:
+  owner-access-link:
+    if: >-
+      ${{ github.ref == 'refs/heads/main' &&
+          inputs.action == 'ENROLL_STAGING_ACCESS_OWNER_ONCE' &&
+          inputs.confirm == 'ENROLL_STAGING_ACCESS_OWNER_ONCE' &&
+          inputs.reviewed_head_sha == github.sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Dedicated, intentionally NOT configured/approved by this PR.
+    environment: d1-staging-access-enroll-write
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail-closed reviewed executable inventory
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify separately approved target and private identity
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_ACCESS_ISSUER: ${{ secrets.STAGING_ACCESS_ISSUER }}
+          STAGING_ACCESS_AUDIENCE: ${{ secrets.STAGING_ACCESS_AUDIENCE }}
+          STAGING_ACCESS_OWNER_SUBJECT: ${{ secrets.STAGING_ACCESS_OWNER_SUBJECT }}
+          STAGING_ACCESS_OWNER_ENROLL_APPROVED: ${{ vars.STAGING_ACCESS_OWNER_ENROLL_APPROVED }}
+        run: |
+          set -euo pipefail
+          if [[ "$STAGING_ACCESS_OWNER_ENROLL_APPROVED" != "ALLOW_STAGING_TEST_OWNER_LINK_ONLY" ||
+                -z "$CLOUDFLARE_ACCOUNT_ID" || -z "$STAGING_ACCESS_ISSUER" ||
+                -z "$STAGING_ACCESS_AUDIENCE" || -z "$STAGING_ACCESS_OWNER_SUBJECT" ]]; then
+            echo "::error::Protected Staging-only approval and identity required"
+            exit 1
+          fi
+          node tools/cloudflare-staging-access-owner-enroll.mjs config
+      - name: Install pinned Wrangler without credential scope
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Privately preflight D1, stage inactive identity, audit, activate, verify
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_ACCESS_ISSUER: ${{ secrets.STAGING_ACCESS_ISSUER }}
+          STAGING_ACCESS_AUDIENCE: ${{ secrets.STAGING_ACCESS_AUDIENCE }}
+          STAGING_ACCESS_OWNER_SUBJECT: ${{ secrets.STAGING_ACCESS_OWNER_SUBJECT }}
+          STAGING_ACCESS_OWNER_ENROLL_APPROVED: ${{ vars.STAGING_ACCESS_OWNER_ENROLL_APPROVED }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ "$STAGING_ACCESS_OWNER_ENROLL_APPROVED" != "ALLOW_STAGING_TEST_OWNER_LINK_ONLY" ||
+                -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ||
+                -z "$STAGING_ACCESS_ISSUER" || -z "$STAGING_ACCESS_AUDIENCE" ||
+                -z "$STAGING_ACCESS_OWNER_SUBJECT" ]]; then
+            echo "::error::Missing Staging-only approval/credentials"
+            exit 1
+          fi
+          node tools/cloudflare-staging-access-owner-enroll.mjs config
+          before="$RUNNER_TEMP/staging-access-enroll-before"
+          after="$RUNNER_TEMP/staging-access-enroll-after"
+          private_sql="$RUNNER_TEMP/staging-access-owner-once.sql"
+          mkdir -m 700 "$before" "$after"
+          trap 'rm -rf "$before" "$after"; rm -f "$private_sql" "$RUNNER_TEMP/staging-access-owner-audit-id" "$RUNNER_TEMP/staging-access-enroll-errors" "$RUNNER_TEMP/staging-access-enroll-output"' EXIT
+          query() {
+            if ! npx --no-install wrangler d1 execute STAGING_DB --remote --json \
+                --config wrangler.staging-access-0003.jsonc --command "$3" \
+                > "$1/$2.json" 2> "$RUNNER_TEMP/staging-access-enroll-errors"; then
+              echo "::error::Private D1 inspection failed (no raw data logged)"
+              exit 1
+            fi
+          }
+          snapshot() {
+            target="$1"
+            query "$target" ledger "SELECT name FROM d1_migrations ORDER BY name;"
+            query "$target" contract "SELECT contract_version FROM cloud_schema_contract WHERE id=1;"
+            query "$target" owners "SELECT id,username,role,active FROM users ORDER BY id;"
+            query "$target" tables "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;"
+            query "$target" indexes "SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name;"
+            query "$target" table "SELECT name,sql FROM sqlite_master WHERE type='table' AND name='access_identity_links';"
+            query "$target" fk "PRAGMA foreign_key_check;"
+            query "$target" integrity "PRAGMA quick_check;"
+            query "$target" counts "SELECT (SELECT COUNT(*) FROM users) AS users,(SELECT COUNT(*) FROM sessions) AS sessions,(SELECT COUNT(*) FROM locations) AS locations,(SELECT COUNT(*) FROM user_locations) AS user_locations,(SELECT COUNT(*) FROM tasks) AS tasks,(SELECT COUNT(*) FROM stock_moves) AS stock_moves,(SELECT COUNT(*) FROM audit_logs) AS audit_logs,(SELECT COUNT(*) FROM access_identity_links) AS access_identity_links,(SELECT COUNT(*) FROM purchase_orders) AS purchase_orders,(SELECT COUNT(*) FROM stocktakes) AS stocktakes;"
+            query "$target" links "SELECT issuer,audience,subject,user_id,active FROM access_identity_links ORDER BY issuer,audience,subject;"
+            query "$target" audits "SELECT id,actor_id,actor_name,action,entity,entity_id,location_id,detail FROM audit_logs ORDER BY id;"
+          }
+          # This is NOT a migration: 0003 must already be deployed with
+          # independent approval; otherwise the first read fails closed.
+          snapshot "$before"
+          node tools/cloudflare-staging-access-owner-enroll.mjs preflight "$before"
+          node tools/cloudflare-staging-access-owner-enroll.mjs write-sql "$private_sql"
+          if ! npx --no-install wrangler d1 execute STAGING_DB --remote --yes \
+              --config wrangler.staging-access-0003.jsonc --file "$private_sql" \
+              > "$RUNNER_TEMP/staging-access-enroll-output" \
+              2> "$RUNNER_TEMP/staging-access-enroll-errors"; then
+            echo "::error::Staging enrollment incomplete; inspect privately and do NOT retry blindly"
+            exit 1
+          fi
+          snapshot "$after"
+          node tools/cloudflare-staging-access-owner-enroll.mjs postflight "$after"
+          echo "STAGING_TEST_OWNER_LINK_VERIFIED; Access policy/write Gate not enabled; Production unchanged."

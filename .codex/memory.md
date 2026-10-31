@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34 **LIVE STAGING MILESTONE**｜已直接核對 GitHub Main `0eab4ddf8968f7565342b7d08cdc6c3952c519bb`，PR #79 已 Squash Merge、合併後 Verify #41196915018 completed/success 5/5；真正 Cloudflare **remote** Staging 0003 Schema-only Workflow #41198456616 completed/success：preflight PASS、Wrangler 遠端 UUID `2c355bed-d9c3-449c-aa9b-1018f3bc1177` 上 `0003_access_identity_links.sql ✅`、Postflight `STAGING_0003_SCHEMA_ONLY_APPLIED_AND_VERIFIED`。**0003 已套用並通過比對，不要重跑。** 當前獨立增量 `docs/staging-access-live-0003-handoff-20261031` 僅納入操作員 Runbook、README 入口與事實交接（CI／正式 Codex Review／Merge Pending；未執行遠端 Access 設定）。下一個真實阻擋：操作員在 Cloudflare 確認 Previews-only Access Policy 覆蓋／AUD／Issuer／測試 Owner JWT `sub`，另行核准手動 `d1-staging-access-enroll-write` 身分對應。受控身分綁定、Preview Identity Gate、真實 GET E2E、Staging task status 實站寫入、Production 均**未執行／未驗收**。詳見 `docs/Staging-Access-0003-live-operator-runbook.md`；以下為歷史階段。
+
+
 > 2026-10-31 P0 #34 NEXT｜Hosted main `2db12d459471e99f72ec8b412a6931d6683f6bd8`（PR #78 Squash Merged；#41190237606 5/5 PASS）。真正遠端 Staging 0003 GET-only Run #41195806621 成功，固定結果 `STAGING_0003_READONLY_READY`：0003 **尚未套用**，身分註冊/Access Policy/Production 皆未啟用。本次 `fix/staging-owner-enroll-toctou-20261031` 只修補已 Merge 的 dormant Staging Owner enrollment 預檢至 SQL 寫入間競態：三階段 SQL 再驗 22 個 table counts，增加虛構 DB 競態回歸，閉鎖 Manifest；最新 Hosted CI/Codex/PR 合併未驗證。沒有執行 Cloudflare D1 Migration、Enrol、Access Policy 或任何遠端寫入。
 
 

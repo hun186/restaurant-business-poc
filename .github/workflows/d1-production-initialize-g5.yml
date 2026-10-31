@@ -137,6 +137,15 @@ jobs:
             echo 'G5_RELEASE_GATE_CLOSED'
             exit 1
           fi
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify reviewed SHA allowlist again (no credentials)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Validate one-time pristine first-init release (before write token)
         if: ${{ inputs.mode == 'first-init' }}
         env:
@@ -150,15 +159,6 @@ jobs:
           G5_FIRST_INIT_APPROVED: ${{ vars.PROD_D1_FIRST_INIT_APPROVED }}
           G5_FIRST_INIT_PREFLIGHT_RUN: ${{ vars.PROD_D1_FIRST_INIT_PREFLIGHT_RUN }}
         run: node tools/cloudflare-prod-first-init-gate.mjs
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-          package-manager-cache: false
-      - name: Verify reviewed SHA allowlist again (no credentials)
-        run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Verify fixed production-only D1 target
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

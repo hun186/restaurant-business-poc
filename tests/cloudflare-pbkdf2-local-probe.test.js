@@ -16,11 +16,11 @@ const workerPromise=import('../cloudflare/pbkdf2-local-probe-worker.mjs');
 const probePromise=import('../cloudflare/pbkdf2-local-probe.mjs');
 const url='http://127.0.0.1:18786';
 
-test('synthetic only: 600k production PBKDF2 auth-core functions match correctly, no credentials in output',async()=>{
+test('synthetic only: 100k production PBKDF2 auth-core functions match correctly, no credentials in output',async()=>{
   const probe=await probePromise;
   const result=await probe.runSyntheticPbkdf2Probe();
   assert.equal(result.kind,'synthetic_local_workerd_wall_ms_not_cpu');
-  assert.equal(result.iterations,600000);
+  assert.equal(result.iterations,100000);
   assert.equal(result.correct_match,true);
   assert.equal(result.wrong_match,false);
   assert.ok(['hash_ms','verify_correct_ms','verify_wrong_ms'].every(k=>Number.isFinite(result[k]) && result[k]>=0));
@@ -99,7 +99,7 @@ test('loopback synthetic Worker returns only finite wall-clock timings and does 
   assert.equal(res.status,200);
   const body=await res.json();
   assert.equal(body.kind,'synthetic_local_workerd_wall_ms_not_cpu');
-  assert.equal(body.iterations,600000);
+  assert.equal(body.iterations,100000);
   assert.equal(body.correct_match,true);
   assert.equal(body.wrong_match,false);
   for(const k of ['hash_ms','verify_correct_ms','verify_wrong_ms'])assert.ok(Number.isFinite(body[k]) && body[k]>=0);

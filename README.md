@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-10-31 Production D1 首次空庫初始化方案（PR 開發中，未執行寫入）**：遠端 [Run #41207484827](https://github.com/hun186/restaurant-business-poc/actions/runs/41207484827) 已證實固定 Production D1 是全新空庫且 integrity PASS。真正 disposable Restore 演練仍未完成，不得偽稱已演練。本工作新增 **手動、獨立簽署** 的 one-time `first-init` Schema-only 分支，保留原有 Recovery-gated `apply` 路線，並沿用雙重空庫預檢、SHA 固定 Migration、Time Travel bookmark、Postflight 驗證。**不自動執行**，正式 Owner/Login/業務仍未開放。詳見 [G5 Production 首次初始化安全作業](docs/Cloudflare-G5-Production-D1-First-Init-Safety-Gates.md)。
+
 > **2026-10-31 上線路線更新（原生登入）**：使用者選擇在 Cloudflare Workers Free 上採用 PBKDF2-HMAC-SHA256 **100,000 次**（PR #81 已 Merge，合併後 Verify #41205348412 5/5 PASS）；不再把 Cloudflare Zero Trust 與信用卡登錄當成必要前提。本次開發增量僅準備**預設關閉**的原生 Worker/D1 `/api/login`、`/api/logout` 及 `/api/me` 介面，**不代表已啟用正式登入**。Production D1 尚需 Schema、Owner、Session/CSRF/限流實站驗收及正式 UI 接線；仍是 Demo，勿輸入真實資料。詳見 [Cloudflare 原生 PBKDF2-100k Production 上線分段驗收](docs/Cloudflare-Native-100k-Production-Rollout.md)。
 
 > **2026-10-31 最新實證（覆蓋下方歷史快照）：** Staging D1 `0003_access_identity_links.sql` 已由 [GitHub Actions #41198456616](https://github.com/hun186/restaurant-business-poc/actions/runs/41198456616) 對真正遠端 D1 成功套用且完成 Postflight；Production 仍未開放、Cloudflare Access policy/Owner Link/登入與業務寫入未驗收。下一步請依 [Staging Access 0003 實站操作員 Runbook](docs/Staging-Access-0003-live-operator-runbook.md) 設定 **Previews only** 的 Access Policy 及獨立授權之測試 Owner 綁定；禁止以 README 的舊時點描述重新套用 0003。

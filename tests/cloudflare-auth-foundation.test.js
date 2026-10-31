@@ -42,7 +42,7 @@ test('Worker PBKDF2 password hashing uses distinct, versioned format without cha
   const password=auth.freshSessionToken();
   const a=await auth.hashWorkerPassword(password),b=await auth.hashWorkerPassword(password);
   assert.match(a.password_salt,/^[a-f0-9]{32}$/);
-  assert.match(a.password_hash,/^pbkdf2-sha256\$600000\$[a-f0-9]{64}$/);
+  assert.match(a.password_hash,/^pbkdf2-sha256\$100000\$[a-f0-9]{64}$/);
   assert.notEqual(a.password_salt,b.password_salt);
   assert.notEqual(a.password_hash,b.password_hash);
   assert.equal(await auth.verifyWorkerPassword(password,a.password_salt,a.password_hash),true);

@@ -38,7 +38,7 @@ function fixture(t,{migrated=true}={}){
   table:wrangler(get(db,"SELECT name,sql FROM sqlite_master WHERE type='table' AND name='access_identity_links'")),
   fk:wrangler(get(db,'PRAGMA foreign_key_check')),
   integrity:wrangler(get(db,'PRAGMA quick_check')),
-  counts:migrated?wrangler(get(db,"SELECT (SELECT COUNT(*) FROM users) AS users,(SELECT COUNT(*) FROM sessions) AS sessions,(SELECT COUNT(*) FROM locations) AS locations,(SELECT COUNT(*) FROM user_locations) AS user_locations,(SELECT COUNT(*) FROM tasks) AS tasks,(SELECT COUNT(*) FROM stock_moves) AS stock_moves,(SELECT COUNT(*) FROM audit_logs) AS audit_logs,(SELECT COUNT(*) FROM access_identity_links) AS access_identity_links,(SELECT COUNT(*) FROM purchase_orders) AS purchase_orders,(SELECT COUNT(*) FROM stocktakes) AS stocktakes")):wrangler([]),
+  counts:migrated?wrangler(get(db,"SELECT (SELECT COUNT(*) FROM users) AS users,(SELECT COUNT(*) FROM sessions) AS sessions,(SELECT COUNT(*) FROM locations) AS locations,(SELECT COUNT(*) FROM user_locations) AS user_locations,(SELECT COUNT(*) FROM login_attempts) AS login_attempts,(SELECT COUNT(*) FROM audit_logs) AS audit_logs,(SELECT COUNT(*) FROM tasks) AS tasks,(SELECT COUNT(*) FROM ingredients) AS ingredients,(SELECT COUNT(*) FROM stock_moves) AS stock_moves,(SELECT COUNT(*) FROM purchase_orders) AS purchase_orders,(SELECT COUNT(*) FROM stocktakes) AS stocktakes,(SELECT COUNT(*) FROM repairs) AS repairs,(SELECT COUNT(*) FROM shifts) AS shifts,(SELECT COUNT(*) FROM leave_requests) AS leave_requests,(SELECT COUNT(*) FROM training_courses) AS training_courses,(SELECT COUNT(*) FROM training_records) AS training_records,(SELECT COUNT(*) FROM evaluations) AS evaluations,(SELECT COUNT(*) FROM backup_settings) AS backup_settings,(SELECT COUNT(*) FROM ingredient_prices) AS ingredient_prices,(SELECT COUNT(*) FROM menu_dishes) AS menu_dishes,(SELECT COUNT(*) FROM dish_ingredients) AS dish_ingredients,(SELECT COUNT(*) FROM access_identity_links) AS access_identity_links;")):wrangler([]),
   links:migrated?wrangler(get(db,'SELECT issuer,audience,subject,user_id,active FROM access_identity_links ORDER BY issuer,audience,subject')):wrangler([]),
   audits:wrangler(get(db,'SELECT id,actor_id,actor_name,action,entity,entity_id,location_id,detail FROM audit_logs ORDER BY id'))
  });
@@ -61,6 +61,19 @@ test('preflight must find exact v3+0003, single active synthetic owner and zero 
  }
  const notMigrated=fixture(t,{migrated:false});
  assert.throws(()=>api.assertEnrollmentPreflight(notMigrated.snapshot(),CFG));
+ // Some v3 business records do not need an active location. Every such
+ // independent table must still prevent Owner Access privilege activation.
+ for(const [table,insert] of [
+  ['ingredients',db=>db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
+    .run(randomUUID(),'SYNT-ING','Synthetic Ingredient','kg')],
+  ['training_courses',db=>db.prepare('INSERT INTO training_courses(id,title) VALUES(?,?)')
+    .run(randomUUID(),'Synthetic Training')]
+ ]){
+  const populated=fixture(t);
+  insert(populated.db);
+  assert.throws(()=>api.assertEnrollmentPreflight(populated.snapshot(),CFG),table);
+ }
+
  f.db.prepare("UPDATE users SET active=0 WHERE id=?").run(f.owner);
  assert.throws(()=>api.assertEnrollmentPreflight(f.snapshot(),CFG));
 });

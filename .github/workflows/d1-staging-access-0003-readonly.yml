@@ -66,6 +66,8 @@ jobs:
           query ledger "SELECT name FROM d1_migrations ORDER BY name;"
           query contract "SELECT contract_version FROM cloud_schema_contract WHERE id=1;"
           query owners "SELECT id,username,role,active FROM users ORDER BY id;"
+          query tables "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name;"
+          query indexes "SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name;"
           query table "SELECT name,sql FROM sqlite_master WHERE type='table' AND name='access_identity_links';"
           query fk "PRAGMA foreign_key_check;"
           query integrity "PRAGMA quick_check;"

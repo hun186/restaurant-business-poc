@@ -4,17 +4,29 @@ import {createAccessJwksLoader} from './access-jwks-internal.mjs';
 import {verifyAccessJwtAssertion} from './access-jwt-internal.mjs';
 
 const LIMIT = 16384;
+function decodeSegment(segment, maxBytes) {
+  if (!segment || !/^[A-Za-z0-9_-]+$/.test(segment) || segment.length % 4 === 1) return null;
+  try {
+    const binary = atob(segment.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(segment.length/4)*4,'='));
+    if (binary.length > maxBytes ||
+        btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'') !== segment) return null;
+    return Uint8Array.from(binary, x=>x.charCodeAt(0));
+  } catch { return null; }
+}
 function keyHint(assertion) {
   if (typeof assertion !== 'string' || assertion.length > LIMIT ||
       !/^[A-Za-z0-9_.-]+$/.test(assertion)) return null;
   const parts = assertion.split('.');
   if (parts.length !== 3 || parts[0].length > 1024) return null;
   try {
-    const input = parts[0];
-    if (!/^[A-Za-z0-9_-]+$/.test(input) || input.length % 4 === 1) return null;
-    const binary = atob(input.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(input.length/4)*4,'='));
-    if (btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'') !== input) return null;
-    const header = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(binary, x=>x.charCodeAt(0))));
+    const [protectedBytes,payloadBytes,signatureBytes] = [
+      decodeSegment(parts[0],1024),decodeSegment(parts[1],LIMIT),decodeSegment(parts[2],512)
+    ];
+    if (!protectedBytes || !payloadBytes || !signatureBytes || signatureBytes.length < 256) return null;
+    // Syntax check only. Do not use unsigned payload claims as identity or policy.
+    const claims = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(payloadBytes));
+    if (!claims || typeof claims !== 'object' || Array.isArray(claims)) return null;
+    const header = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(protectedBytes));
     return header && !Array.isArray(header) && header.alg === 'RS256' && header.typ === 'JWT' &&
       typeof header.kid === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(header.kid) ? header.kid : null;
   } catch { return null; }

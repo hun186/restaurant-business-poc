@@ -1,5 +1,7 @@
 # Backlog
 
+> 2026-10-31 P0 #34 下一增量：PR #70 已 Squash Merge main `0524137cf265ba14da2feae66d3e0e1798bcc5ba`，latest HEAD CI #41180712116 5/5 PASS、Codex completed/0 new Findings、P2 resolved。本分支只增加 Staging 0003 before/after **offline evidence validator** 和合成 DB 測試，禁止自動遠端 APPLY；本地遷移過程的 SQL 僅於記憶體 SQLite 合成測試執行。未完成最新 Head CI/Codex Review 前保持 PR Open；Staging 真正套用/身分連結啟用與 Production 仍未授權。
+
 
 > 2026-10-31 P0 #34 NOW｜PR #69 已 Squash Merge main `95bf23800726da5bb25d52e6a88ac5aa6ca3e438`，其 postmerge Verify #41170341387 仍待最新查詢。本次新增 Staging 0003 的 **人工 GET-only 檢查** 工作流程與嚴格 baseline/schema/ledger 驗證，沒有 APPLY 分支。固定 main/protected `d1-staging`/Staging UUID、共用舊 Migration 鎖和封閉 SHA256，合成 Node SQLite 測試；最新 PR HEAD Hosted CI/Codex Pending。若 Merge 後可用 Action `CHECK_STAGING_0003_READONLY`（仍需現場受控 Token 與環境），不能擅自開放 D1 Migration、正式登入、Production 及 G5 Restore。
 

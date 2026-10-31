@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜main `56f4cbe89e8688732a635d51a55365d352bba279`（PR #74 Squash Merge、主線 Verify #41185073412 completed/success 5/5），無 open PR。新 branch `feat/staging-access-preview-ui-20261031` 增加與 Demo 完全獨立的 `/staging-access-preview.html`，使用已合併、但預設關閉的 `/api/access/me|data|overview` 顯示 D1 身分/門市業務/首頁統計；純同源 GET、Browser-managed Access Cookie、CSP、無帳密/Token 操作或 storage，API 合約/撤權後清除/舊請求競態防護合成測試。Closed SHA256 inventory、Hosted CI/正式 Codex Review 此 PR 仍待驗證，尚未 Merge。沒有設定真正的 Cloudflare Access Policy、Preview Gate/可信 issuer/audience、0003 遠端 migration、身分綁定或 Production Login；實站 E2E 仍需操作員另行授權。
+
+
 > 2026-10-31 P0 #34｜main e23c633a3f8a7553203a50198a08f8b5203bd08d（PR #73 Merge、postmerge Verify #41184285149 completed/success 5/5），新分支 feat/staging-access-business-readonly-20261031 建立預設關閉的 Access JWT→D1 binding Staging GET /api/access/data 和 /api/access/overview，重用既有門市範圍 SQL，禁止 HR、稽核、使用者管理與所有變更。合成 RSA/JWKS + SQLite 多門市/角色/撤權/非法請求測試，含 SHA256 封閉清單。本分支 latest HEAD CI/Codex Review Pending，尚未 Merge、無遠端 D1 0003 Apply、無 Access policy 或身份 enrollment；Production disabled。
 
 

@@ -103,3 +103,11 @@ PR #68 已合併 `aa0f13c189eab863ab1f5e921c212401a904ca39`，合併後 Verify #
 用法為已有兩份受控、未公開的 D1 唯讀快照資料夾時，執行 `node tools/cloudflare-staging-0003-transition-evidence.mjs verify <before-dir> <after-dir>`；需在受控環境提供既有的 `CLOUDFLARE_ACCOUNT_ID` 以檢查 pin，**不可把原始快照附到公開 Issue、PR 或日誌**。每份快照需含 `ledger/contract/owners/tables/indexes/table/fk/integrity/counts.json`，後快照另需 `link_count.json`；這是驗證器的介面契約，現階段沒有遠端自動取得／套用工作流程。
 
 判定必須：before 嚴格 READY (0001/0002)、after 嚴格 ALREADY_APPLIED（0001/0002/0003），Owner、Contract、0002 索引相同，七組使用者/Session/門市/權限/工作/庫存移動/稽核表 COUNT 沒變，`access_identity_links` 新表空白（0）。若狀態不完整或資料變動則 fail closed；工具只檢查指定快照內的有限欄位，不會證明所有未查詢的資料列都未改變、沒有外部並行寫入，也不能證明遠端 migration 曾執行。合成測試只是離線資料庫。正式遠端 APPLY、Owner Access 連結啟用、Production 規劃仍需獨立人工安全授權。
+
+## 2026-10-31 Staging 0003 人工 Schema-only Apply 路由（此 PR 僅提交程式碼）
+
+上游 PR #71 已 Squash Merge `cd1f5921f9c909f28d3abc75c7679c8708d9cfd4`；本次另設獨立 `.github/workflows/d1-staging-access-0003-apply.yml`，只接受 `main` 之 `workflow_dispatch`，必須填寫 `APPLY_STAGING_0003_SCHEMA_ONLY` 及**最新 main 完整 40 碼 SHA**。使用新的 `d1-staging-0003-write` Environment（預設不存在、不可直接執行），須由管理者**另行建立並審核權限、設定僅對 Staging D1 授權之 Token、Account ID，並提供非敏感 Environment Variable `STAGING_0003_SCHEMA_APPLY_APPROVED=ENABLED_STAGING_0003_SCHEMA_ONLY`**。程式碼合併本身不代表同意執行；本對話不建立 Environment、不調整 Secrets、不 dispatch Workflow。
+
+使用與其他 Staging Migration 相同 GitHub concurrency lock。Runner 先執行全程靜態雜湊檢查，精確核對 Staging 專用 UUID、隔離單檔 0003 DDL，再用固定的唯讀 SQL 取得 0001/0002 baseline ledger、22 tables+ledger、0002 三個索引、Schema v3、單一 active Owner、FK、quick_check、七張表數量。若不符合 READY、僅存在一名 Owner 以外的人員或任何業務活動/Session/數量異常，**絕不執行 SQL Migration**。前置檢查成功後，才用唯一的 `wrangler.staging-access-0003.jsonc` 執行一次 remote `d1 migrations apply STAGING_DB`，隨即重新讀取所有資料庫證據並使用 PR #71 的 before/after 保全比對工具確認 0003 新表仍為空、原使用者和業務資料筆數不變。任何失敗標記工作流程 FAIL，不假裝已完成或清空重建。
+
+此為 Staging 單一**可加性** Schema Migration，**並非 Production 正式開通**。離線 SQLite 回歸只有合成資料，不能代替遠端 Time Travel/備份、Cloudflare Access Policy、身份註冊與 Session、RPO/RTO 等驗收。Production Cloudflare D1 ID 與 `CLOUD_AUTH_PHASE=disabled` 不得修改；G5 Restore 一律不在此範圍。手動執行前先確認最新 main Hosted CI、必要 Review，並由有權限操作者依環境操作流程另外啟動，不能由 Agent 自動執行。

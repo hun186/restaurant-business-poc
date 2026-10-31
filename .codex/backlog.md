@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜PR #74 已 Merge，main `56f4cbe89e8688732a635d51a55365d352bba279`、Verify #41185073412 completed/success 5/5。新 branch `feat/staging-access-preview-ui-20261031` 提供獨立的 Staging Access 唯讀前端（非 Vercel Mock），透過已合併之 authenticated GET 顯示權限內業務、首頁及身分，無帳密/Token、Cookie讀取、儲存或寫入，完整合成測試/closed hashes 待最新 Hosted CI+Codex Review。Remote Access policy、Staging 0003 apply、身份綁定及正式 E2E 一律另需 operator approval；Production disabled。
+
+
 > 2026-10-31 P0 #34 CURRENT｜main e23c633a3f8a7553203a50198a08f8b5203bd08d；PR #73 Merge & main Verify 5/5 PASS。新分支 feat/staging-access-business-readonly-20261031 延伸 gated signed Access 為營運資料/首頁統計 GET，敏感資料拒絕、Production/變更封閉。新合成測試與 SHA256 inventory 待最新 Hosted CI/Codex，通過前不 Merge；D1 0003 遠端 Migration、Access policy、身分註冊及 G5 Restore 未獲授權且未執行。下一步真正 Staging E2E 需操作員配置及證據。
 
 

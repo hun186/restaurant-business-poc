@@ -19,3 +19,12 @@
 ## Excel 與列印虛構示範
 - 「系統管理 → Excel 匯出與列印」可多工作表、選欄位、條件篩選後下載真 `.xlsx`、預覽列印，所有資料均來自本瀏覽器 `sessionStorage` 模擬庫，不連真實 SQLite、員工或 IP。
 - 安全稽核中的 IP `192.0.2.20` 是保留的文件範例位址；**不是使用者／訪客的真實來源 IP**。Demo 無真正登入與權限保護，請勿輸入任何營運或個人資料。
+
+
+## Staging Access 唯讀驗收頁（與公開 Demo 完全分離）
+
+`staging-access-preview.html`、`staging-access-preview.js`、`staging-access-client.js` 和 `staging-access-preview.css` 是**獨立**的操作介面，不載入 `mock.js`，不使用 Vercel 的虛構登入，也不在瀏覽器儲存 Token 或營運資料。這些靜態檔案可能隨 Demo 發佈而公開，但它們**不是授權邊界**：只會向所在網域的 `/api/access/me`、`/api/access/overview`、`/api/access/data` 發出 `GET`，由伺服器驗證 Cloudflare Access RS256 JWT 與 D1 使用者/門市綁定。Vercel 公開站並沒有這套已啟用的後端；頁面應顯示不可用，而非自動改走公開 Demo 或跨站請求。
+
+只有在**整個 Cloudflare Preview 受 Access 政策保護**、Staging 0003 Migration 已經正式核准並套用、管理員明確啟用身分綁定及 `CLOUD_ACCESS_IDENTITY_GATE=staging-get-only`，以及可信任的 team issuer/audience 完成配置後，這個網址才有機會查詢真實 D1 Staging 測試資料。這些外部步驟本 PR 一項都沒有執行；Production 的 `CLOUD_AUTH_PHASE=disabled` 不變。
+
+驗收方式：在受保護的 Cloudflare Preview 開啟 `/staging-access-preview.html`，由 Cloudflare Access 在邊緣授權使用者後讀取身份、總覽與各類門市資料；測試帳號撤銷或停用門市後按重新整理，必須立即清除舊顯示並拒絕存取。此頁只有唯讀呈現，沒有建立 Session、密碼登入、匯出、寫入、修改權限或備份功能。**不可因為頁面能被打開就判定 Access 防護已經生效；需獨立驗證未授權匿名請求會被 Cloudflare Access 阻擋。**

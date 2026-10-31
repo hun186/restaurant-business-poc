@@ -129,3 +129,11 @@ PR #73 已在 main 合併且主線 CI #41184285149 為 success 5/5。本次新�
 兩個 API 需 CLOUD_AUTH_PHASE=preview-readonly、CLOUD_ACCESS_IDENTITY_GATE=staging-get-only、受信任的 CLOUD_ACCESS_ISSUER 和 CLOUD_ACCESS_AUDIENCE、經 RS256 驗證的 Cloudflare Access JWT 與 D1 active=1 身分綁定。使用合成 RSA/JWKS + SQLite 雙門市回歸測試覆蓋 token 篡改/過期、跨店存取、門市撤權、敏感資源、非法 query 和 POST。回覆 no-store，絕不設定 Session/Cookie 或允許業務寫入。
 
 本次不變更 wrangler.jsonc、Cloudflare Access Policy、遠端 D1 Migration、人工身分綁定或 Production disabled 狀態。實站 E2E 仍需另取得受保護的 Staging 0003/Preview Access 啟用授權。
+
+
+## 2026-10-31 Staging 專用唯讀操作頁（程式碼完成、未啟用）
+
+- 新增 `/staging-access-preview.html`，沿用餐廳好管家 RWD 風格，但與公開 `index.html` / `mock.js` 完全隔離。只從**同源**取得 D1 實際身份、首頁指標與允許的營運類別；所有回應應為 server-verified `staging_access_readonly`，並明確 `production_ready=false`、`session_created=false`、`mutations_enabled=false`。
+- Browser 發 `GET` 時使用同源 Cookie（由瀏覽器保管 Cloudflare Access Cookie）；不讀取、傳出或保存 Access JWT；不接受使用者可輸入的 URL/Host、角色、Token、帳密。禁止重新導向自動跟隨，拒絕非 JSON 與錯誤格式；切換頁面會清除上一頁資料，過期或撤權時立即擦除畫面，並使用請求序號阻止較晚回來的舊資料覆蓋新頁。
+- 前端使用 `textContent` 顯示 D1 資料、不使用 `innerHTML`，加 CSP、`no-referrer` 與 `noindex`；不提供編輯、叫貨核准、個資查詢、Excel 匯出或正式營運功能。Vercel 公開 Demo 可能也包含該靜態頁，**但不含可用的 Access API；不能當作登入示範**。
+- 真正的 Cloudflare Preview Access Policy/0003 Migration/issuer/audience/subject link/Gate/有效的 Staging E2E 仍待另外批准與實證，不能將靜態頁發布或 CI PASS 視為登入完成。

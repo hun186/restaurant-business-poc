@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"dd91d3380d23d5ee9aa278ac466f2915a4394a8cb215f5e7adc788b8ebe8c166"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-staging-access-owner-enroll.yml":"1553d583d94be5d813477b660b964f637896227ceffd4bf710474509d85ac1e4",
   ".github/workflows/d1-staging-access-0003-apply.yml":"112dadf0074a72ee88b044dbbcc44a4dc055a5f634e6dc418e5048ad83138e8d",
   ".github/workflows/d1-staging-access-0003-readonly.yml":"47ebf43287ee71287008af38814d1045b2af2f49351d5f2d79b04b33a1aeb166",
   ".github/workflows/d1-staging-http-readonly.yml":"eaef2b273bb09ec19cf99ea4c951af4c763fe7ba40eb948941fe5f358b095133",
@@ -23,6 +24,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-staging-access-owner-enroll.mjs":"ef7db428fca7e91b281debacee9207a5eb1e478dd5fdd4ea976e9d3fa5f07573",
   "tools/cloudflare-staging-0003-apply-gate.mjs":"99ad4c7d666f429ebd8978f27c20f7158450ca869a42e7b2cf16a66481533e4a",
   "tools/cloudflare-staging-0003-transition-evidence.mjs":"0f411cfb7f788919e534ec7e21bc663df23fcdbd5d4c0cdd389d9b3edda07fce",
   "tools/cloudflare-staging-access-0003-readonly.mjs":"66993a792b510b072ea8daffaee1739d922ae163be1a3b97e219296daa5019c0",
@@ -53,6 +55,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-staging-access-owner-enroll.test.js":"1b739d89adce827bc390d187a4e7f723767efb01379202188528d5b3b7f9fbc6",
   "tests/cloudflare-staging-access-task-ui-race.test.js":"d8e7edcde2b742fc9c8011fe917a2401d21b56dec15308431134ede4efff24b0",
   "tests/cloudflare-staging-access-task-ui.test.js":"676061cd853502b7a3348dac6b9cf43dd8294fc34d96349c73d22a4792e9d633",
   "tests/cloudflare-access-task-status-write.test.js":"1ddc20dea848535164ae793ca435a48fce0954ce39afaf96fcb87b21b6706cff",

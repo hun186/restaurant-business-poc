@@ -55,6 +55,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-native-login-http.test.js":"a8e3be1ab990cab0a712343c979dd57c4605e2064580989c1f5be576fcb8ce61",
+  "cloudflare/native-login-http.mjs":"3e509f7d4115432220f8c5df0bd2b2481f46387af08edd5c954804eb996aeefb",
   "tests/cloudflare-staging-access-owner-enroll.test.js":"41d98f45cfaa7ccf23473a802795b4077b3599b5e3bf134346ff81523f4e9676",
   "tests/cloudflare-staging-access-task-ui-race.test.js":"d8e7edcde2b742fc9c8011fe917a2401d21b56dec15308431134ede4efff24b0",
   "tests/cloudflare-staging-access-task-ui.test.js":"676061cd853502b7a3348dac6b9cf43dd8294fc34d96349c73d22a4792e9d633",
@@ -186,14 +188,14 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "src/service.js":"43eb8d0c6c49761964496c6255f4e2715b6916bba342ac47505933801c50edef",
   "cloudflare/auth-core.mjs":"de298a3bcd7e0b21a3921eef7fc1c562492999075bad595c17fe74797830a0d7",
   "cloudflare/d1-readiness.mjs":"76c2c9be11d3ed4e7b689d883382a0189e29a8bacbb4679e05fecd9bc714e593",
-  "cloudflare/identity.mjs":"36b3e99c4596398f39022ac4498f35d1271aacdad27368c41812e01383473b40",
+  "cloudflare/identity.mjs":"f7a949504865485735d439555fc755dcbeb40149b7a42d6007402c2ca1cb2b63",
   "cloudflare/client-ip.mjs":"d8b76231629430f081059fb9211d9c0aa58c494476ef985d305c4cb32c0466e8",
   "cloudflare/login-service.mjs":"09bfcd15d52bc6762932e6493073d9a46548e3f9f29aa1561ee0d3b66d6437a5",
   "cloudflare/migrations/0001_initial_v3.sql":"33a73b2b6a64f4e60339d10609c2eec957914cf57bf1dff1aece68b1c3a1a616",
   "cloudflare/migrations/0002_login_attempts_window_indexes.sql":"d97cec3593c69e60614554f95d36a7cfa14bf509f8e7c5961bcdc59550d12592",
   "cloudflare/pbkdf2-local-probe-worker.mjs":"b6a5f61d552def61ab39b968c6cad5f9441c44718992ceb03915295cadbabc84",
   "cloudflare/pbkdf2-local-probe.mjs":"cd363b2ac17a184b0f2a0660899f3aaaa6a546ed9f50178c5304041e06c7469a",
-  "cloudflare/worker.mjs":"dfe45da903b5421fd0d99fce1f5b767a58f68d948fe312f928d2fd260f3d5a1d",
+  "cloudflare/worker.mjs":"0c8d5be88aa84f5acb461976a22ad5247257155f6caa55906ea2fb71dabe4667",
   "cloudflare/wrangler.d1.example.jsonc":"b6db7434a57a81a31d7700c9e93560da301655aba2a41af127d11f994e0aa06b",
   "cloudflare/wrangler.preview-migrations.example.jsonc":"3e4a8feb7459c9bcfa08a2a36f8d7b4e45bac1a1dbbfe020bf8466b22d2b2f67",
   "db/backup.sql":"2823994610ca8373e11d342358392144532f1414570ad5fdbc95b470891d53ce",

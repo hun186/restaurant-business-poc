@@ -4,7 +4,7 @@ import { generateKeyPairSync, createSign } from 'node:crypto';
 import { verifyAccessJwtAssertion, verifyAccessRequest } from '../cloudflare/access-jwt-internal.mjs';
 
 const ISSUER = 'https://demo-team.cloudflareaccess.com';
-const AUD = 'a'.repeat(32);
+const AUD = 'a'.repeat(64);
 const NOW = 1793420000;
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const rsa = publicKey.export({ format: 'jwk' });
@@ -40,7 +40,7 @@ test('rejects wrong audience, issuer, expired, not-before and future-issued toke
 });
 test('rejects invalid trust configuration, ambiguous keys, malformed claims',async()=>{
   const good=token();
-  for(const invalid of [{...config,audience:''},{...config,issuer:'https://evil.example'},
+  for(const invalid of [{...config,audience:''},{...config,audience:'a'.repeat(32)},{...config,issuer:'https://evil.example'},
     {...config,jwks:{keys:[key,key]}},{...config,jwks:{keys:[{...key,n:'no'}]}},
     {...config,jwks:{keys:[{...key,use:'enc'}]}},{...config,jwks:{keys:[]}}])
     assert.equal(await verifyAccessJwtAssertion(good,invalid),null);

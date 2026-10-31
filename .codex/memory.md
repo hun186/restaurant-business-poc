@@ -2,6 +2,9 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜main e23c633a3f8a7553203a50198a08f8b5203bd08d（PR #73 Merge、postmerge Verify #41184285149 completed/success 5/5），新分支 feat/staging-access-business-readonly-20261031 建立預設關閉的 Access JWT→D1 binding Staging GET /api/access/data 和 /api/access/overview，重用既有門市範圍 SQL，禁止 HR、稽核、使用者管理與所有變更。合成 RSA/JWKS + SQLite 多門市/角色/撤權/非法請求測試，含 SHA256 封閉清單。本分支 latest HEAD CI/Codex Review Pending，尚未 Merge、無遠端 D1 0003 Apply、無 Access policy 或身份 enrollment；Production disabled。
+
+
 > 2026-10-31 P0 #34｜已核對 main `1789c572308d03d0659c59e122918e85950c96cf`，PR #72 已 Merge、Postmerge Verify #41181809999 completed/success 5/5，無 Open PR。分支 `feat/staging-signed-access-identity-get-20261031` 接續真正 Staging Readonly Access 資料串接：新增預設關閉、只允許 Preview 的 `GET /api/access/me`，內部串接已驗簽 JWT → D1 明確啟用 subject-user-role-store 讀取；沒有有效 Gate/issuer/aud/phase/Access JWT/啟用綁定時拒絕。合成 RSA/JWKS+SQLite 測試與 SHA256 檔案封閉清單更新。**最新 PR Head Hosted CI/Codex 待驗證，未 Merge、未設定 Preview Gate/真正 Access Policy、未建立身分連結/Session、未遠端執行 0003，Production disabled**。下個實際依賴是管理者核准 Staging Migration、Access Preview 政策與人工身分綁定，才可執行真實 E2E。
 
 

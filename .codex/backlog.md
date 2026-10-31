@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜main e23c633a3f8a7553203a50198a08f8b5203bd08d；PR #73 Merge & main Verify 5/5 PASS。新分支 feat/staging-access-business-readonly-20261031 延伸 gated signed Access 為營運資料/首頁統計 GET，敏感資料拒絕、Production/變更封閉。新合成測試與 SHA256 inventory 待最新 Hosted CI/Codex，通過前不 Merge；D1 0003 遠端 Migration、Access policy、身分註冊及 G5 Restore 未獲授權且未執行。下一步真正 Staging E2E 需操作員配置及證據。
+
+
 > 2026-10-31 P0 #34 CURRENT｜main `1789c572308d03d0659c59e122918e85950c96cf`，PR #72 Merge + Main Verify #41181809999 5/5 PASS。此工作項在 `feat/staging-signed-access-identity-get-20261031` 增加**預設關閉**、只限 `preview-readonly` Staging `GET /api/access/me`；要求獨立 Preview Gate、可信 team issuer/aud、經 RS256 驗證與 D1 `active=1` 明確映射，不能自動比對 email/username，也不提供 Session、POST、業務寫入或 Production route，合成測試/allowlist/文件同時更新。本分支最新 CI/Codex Pending；需完整 Auto-Merge Gate 成立才允許 Merge。實際 Access Preview Policy、Staging 0003 遠端 apply、人工 Owner 身分 enrollment 與真實 E2E 仍未獲核准、未完成，Production disabled。
 
 

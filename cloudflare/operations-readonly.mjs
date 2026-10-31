@@ -11,7 +11,7 @@ const reply = (status, data) => new Response(JSON.stringify(data), {status, head
 
 // All SQL identifiers and predicates are server-owned. Never interpolate entity
 // or requester-supplied store IDs into SQL. Filter in SQL BEFORE LIMIT.
-function queryFor(entity, p) {
+export function queryFor(entity, p) {
   const owner = p.role === 'owner';
   const staff = p.role === 'staff';
   // Match loadPrincipal(): a stale grant must not authorize deactivated stores.

@@ -20,7 +20,7 @@ function visibility(alias, principal, createdBy) {
   return {sql:active+grant, args:[principal.id]};
 }
 
-function metricQueries(principal) {
+export function metricQueries(principal) {
   const tasks=visibility('t',principal,'assigned_to');
   const orders=visibility('o',principal,'created_by');
   const repairs=visibility('r',principal,'created_by');

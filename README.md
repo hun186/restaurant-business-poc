@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-10-31 最新實證（覆蓋下方歷史快照）：** Staging D1 `0003_access_identity_links.sql` 已由 [GitHub Actions #41198456616](https://github.com/hun186/restaurant-business-poc/actions/runs/41198456616) 對真正遠端 D1 成功套用且完成 Postflight；Production 仍未開放、Cloudflare Access policy/Owner Link/登入與業務寫入未驗收。下一步請依 [Staging Access 0003 實站操作員 Runbook](docs/Staging-Access-0003-live-operator-runbook.md) 設定 **Previews only** 的 Access Policy 及獨立授權之測試 Owner 綁定；禁止以 README 的舊時點描述重新套用 0003。
+
 > 2026-10-30 / PR #41 G0 整合至最新 main（已含 PR #47 的隔離式 D1 Pin UUID）：新增固定 Cloudflare GET only 的 Worker/Domain/Zone 公開暴露面盤點、主線人工 Protected Environment 工作流程、synthetic total_count/多頁 fail-closed 測試及 reviewed SHA-256 allowlist。PR #41 前一 HEAD 903d15d 已通過 Verify 5/5、Workers Build 與 Codex 無 Findings；本整合 HEAD 須重新 Hosted CI + 正式 Codex Review，未通過前不可 Squash Merge。PR #47 已合併，但**未對真正 Cloudflare D1 API 做 remote inspect 或 Restore**。G0 仍未實際運行，Access / 正式登入寫入不可宣稱開放。
 
 > 2026-10-30 G5 #46：使用者提供 disposable D1 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198`，已提出**獨立 Pin-ID PR**，只更新演練目標、封閉安全指紋及測試；尚未透過 Cloudflare API 驗證其真實身分/空庫，也未批准或執行任何 Restore。詳見 `docs/Cloudflare-G5-Disposable-D1-Real-Restore-Drill.md`。

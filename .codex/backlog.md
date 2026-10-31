@@ -1,5 +1,8 @@
 # Backlog
 
+> 2026-10-31 P0 #34 CURRENT｜main `c44a29fc814efb27b3c68fd58025b6b6009e0f01`（PR #75 合併、#41186205299 Verify 5/5 PASS），新增 `feat/staging-access-task-status-20261031`：未啟用的 signed Access `POST /api/access/task-status`，Staging 只支援任務狀態更改與 D1 原子稽核，DB SQL 在批次內核對 live role/store/identity link。專用 Write Gate 不配置、Production disabled；合成測試、closed hashes、latest Hosted CI 與正式 Codex Review 待驗證。真正 0003 apply/Access policy/人工身分綁定/遠端寫入/Production 需另行使用者授權，先不要操作。
+
+
 > 2026-10-31 P0 #34 CURRENT｜PR #74 已 Merge，main `56f4cbe89e8688732a635d51a55365d352bba279`、Verify #41185073412 completed/success 5/5。新 branch `feat/staging-access-preview-ui-20261031` 提供獨立的 Staging Access 唯讀前端（非 Vercel Mock），透過已合併之 authenticated GET 顯示權限內業務、首頁及身分，無帳密/Token、Cookie讀取、儲存或寫入，完整合成測試/closed hashes 待最新 Hosted CI+Codex Review。Remote Access policy、Staging 0003 apply、身份綁定及正式 E2E 一律另需 operator approval；Production disabled。
 
 

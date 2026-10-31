@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#102f43">
+<title>餐廳好管家｜Staging Access 唯讀驗收</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/staging-access-preview.css">
+<script type="module" src="/staging-access-preview.js"></script>
+</head>
+<body>
+<div class="demo-banner">
+ <strong>Staging Access 唯讀預覽 · 非公開 Demo、非正式營運系統</strong>
+ <span>僅在 Cloudflare 受保護的 Preview 上驗收。此頁不提供登入表單、不接受帳密、不儲存資料，也不能核准、編輯或匯出資料。</span>
+</div>
+<div class="shell">
+ <aside class="sidebar">
+  <div class="brand"><span class="brand-mark">♜</span><span><strong>餐廳好管家</strong><small>Staging 唯讀驗收</small></span></div>
+  <div class="nav-label">營運資料</div>
+  <nav id="preview-nav" aria-label="Staging 唯讀檢視">
+   <button type="button" data-view="overview" class="active">▦ <span>今日總覽</span></button>
+   <button type="button" data-view="tasks">☑ <span>今日工作</span></button>
+   <button type="button" data-view="purchase_orders">▤ <span>叫貨單</span></button>
+   <button type="button" data-view="stock">▣ <span>庫存</span></button>
+   <button type="button" data-view="repairs">⚒ <span>設備維修</span></button>
+   <button type="button" data-view="shifts">▦ <span>排班</span></button>
+   <button type="button" data-view="ingredients">♧ <span>食材主檔</span></button>
+   <button type="button" data-view="locations">⌂ <span>門市</span></button>
+   <button type="button" data-view="training_courses">▥ <span>訓練課程</span></button>
+  </nav>
+  <div class="side-bottom">
+   <div class="mode-label">唯讀 · 無寫入 / Session 建立</div>
+   <p>Access 權限由 Cloudflare 與 D1 身分映射決定；非從本頁切換角色。</p>
+  </div>
+ </aside>
+ <div class="workarea">
+  <header class="topbar">
+   <div class="crumb">餐飲管理 / <strong id="preview-title">今日營運總覽</strong></div>
+   <div class="top-right"><button class="btn small" id="preview-reload" type="button">重新整理</button></div>
+  </header>
+  <main>
+   <div class="heading">
+    <div><div class="eyebrow">CLOUDFLARE ACCESS / STAGING</div><h1 id="preview-heading">今日營運總覽</h1><p>查詢時即時重新驗證 Access JWT 與 D1 身分綁定。</p></div>
+   </div>
+   <div class="panel preview-identity">
+    <strong>目前身分（僅由受信任的 D1 綁定取得）</strong>
+    <p id="preview-user">尚未取得身分</p>
+   </div>
+   <div id="preview-status" class="preview-status" role="status" aria-live="polite">準備驗證 Staging Access…</div>
+   <section id="preview-content" aria-label="授權營運資料" hidden></section>
+  </main>
+  <footer>Staging 專用唯讀檢視 · 不會顯示 Vercel 模擬資料 · 沒有密碼登入或業務寫入</footer>
+ </div>
+</div>
+</body>
+</html>

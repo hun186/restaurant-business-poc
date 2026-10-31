@@ -28,6 +28,8 @@ function fixture(t,applied=false){
      ledger:from('SELECT name FROM d1_migrations ORDER BY name'),
      contract:from('SELECT contract_version FROM cloud_schema_contract WHERE id=1'),
      owners:from('SELECT id,username,role,active FROM users ORDER BY id'),
+     tables:from("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV' ORDER BY name"),
+     indexes:from("SELECT name,sql FROM sqlite_master WHERE type='index' AND name LIKE 'idx_login_attempts_%' ORDER BY name"),
      table:from("SELECT name,sql FROM sqlite_master WHERE type='table' AND name='access_identity_links'"),
      fk:from('PRAGMA foreign_key_check'),
      integrity:from('PRAGMA quick_check')
@@ -69,6 +71,12 @@ test('partial migration, unexpected ledger, schema drift, FK and integrity error
  broken=clone();broken.integrity[0].results=[{quick_check:'corrupt'}];reject(broken);
  broken=clone();delete broken.integrity;reject(broken);
  broken=clone();broken.table[0].results.push({name:'access_identity_links',sql:'CREATE TABLE access_identity_links(x TEXT)'});reject(broken);
+ broken=clone();broken.tables[0].results=broken.tables[0].results.filter(x=>x.name!=='stock_moves');reject(broken);
+ broken=clone();broken.tables[0].results.push({name:'unexpected_table'});reject(broken);
+ broken=clone();broken.indexes[0].results=broken.indexes[0].results.filter(x=>x.name!=='idx_login_attempts_at');reject(broken);
+ broken=clone();broken.indexes[0].results[0].sql='CREATE INDEX idx_login_attempts_username_nocase_at ON login_attempts(username,at)';reject(broken);
+ f.db.exec('DROP TABLE stock_moves; DROP INDEX idx_login_attempts_at;');
+ reject(f.snapshot());
  const applied=fixture(t,true).snapshot();
  applied.table[0].results[0].sql='CREATE TABLE access_identity_links(x TEXT)';
  reject(applied);
@@ -76,7 +84,7 @@ test('partial migration, unexpected ledger, schema drift, FK and integrity error
 });
 test('all Wrangler snapshots must be one successful result set, with no omissions',async t=>{
  const g=await guardPromise,f=fixture(t);
- for(const name of ['ledger','contract','owners','table','fk','integrity']){
+ for(const name of ['ledger','contract','owners','tables','indexes','table','fk','integrity']){
    const b=f.snapshot();b[name]=[{success:false,results:[]}];
    assert.throws(()=>g.inspect0003ReadOnly(b,sql),/E_STAGING_0003_READONLY_/);
    const c=f.snapshot();c[name]=[{success:true,results:[]},{success:true,results:[]}];
@@ -94,7 +102,7 @@ test('new workflow is human-only, GET-only, main-only and has no apply path',()=
  assert.match(y,/node tools\/cloudflare-staging-access-0003-readonly\.mjs inspect/);
  assert.doesNotMatch(y,/d1 migrations apply|d1 migrations create|d1 execute DB\b|--file\b|^\s*push:/m);
  for(const line of y.split('\n').filter(x=>x.includes('query ') && !x.includes('query()')))
-   assert.match(line,/^\s+query (?:ledger|contract|owners|table|fk|integrity) "SELECT |^\s+query (?:fk|integrity) "PRAGMA (?:foreign_key_check|quick_check);"/);
+   assert.match(line,/^\s+query (?:ledger|contract|owners|tables|indexes|table|fk|integrity) "SELECT |^\s+query (?:fk|integrity) "PRAGMA (?:foreign_key_check|quick_check);"/);
  const install=y.slice(y.indexOf('- name: Install fixed Wrangler'),y.indexOf('- name: Staging D1 read-only'));
  assert.doesNotMatch(install,/secrets\.|CLOUDFLARE_API_TOKEN/);
 });

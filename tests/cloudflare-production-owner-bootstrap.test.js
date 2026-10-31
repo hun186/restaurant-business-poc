@@ -41,7 +41,7 @@ test('strict pristine/v3 migration preflight refuses rows or unexpected query sh
  assert.deepEqual(m.EMPTY_TABLES,tables);
  assert.equal(m.checkProductionOwnerPreflight(wrap([row()])),true);
  for(const field of [...tables,'migration_total','migration_1','migration_2','contract_version']){
-  const r=row();r[field]=field==='contract_version'?2:field==='migration_total'?3:1;
+  const r=row();r[field]=field==='contract_version'?2:field==='migration_total'?3:field.startsWith('migration_')?0:1;
   assert.throws(()=>m.checkProductionOwnerPreflight(wrap([r])),/E_PROD_OWNER_ENROLL/,field);
  }
  for(const change of [

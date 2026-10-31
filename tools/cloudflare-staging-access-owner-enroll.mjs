@@ -62,12 +62,21 @@ export function generateEnrollmentSql(config,{auditId=randomUUID()}={}){
  const id=quote(auditId);
  const scope="l.issuer="+iss+" AND l.audience="+aud+" AND l.subject="+sub;
  const exists="EXISTS(SELECT 1 FROM cloud_schema_contract WHERE id=1 AND contract_version=3)";
+ // Recheck all pristine tables in the actual D1 mutation statements:
+ // the preceding remote preflight snapshot cannot prevent concurrent writes.
+ const pristine=phase=>COUNT_KEYS.map(table=>{
+  const expected=table==='users'||table==='backup_settings'?1:
+   table==='audit_logs'?(phase==='activate'?1:0):
+   table==='access_identity_links'?(phase==='stage'?0:1):0;
+  return '(SELECT COUNT(*) FROM "'+table+'")='+expected;
+ }).join(' AND ');
  const staged=[
   "INSERT INTO access_identity_links(issuer,audience,subject,user_id,active)",
   "SELECT "+iss+","+aud+","+sub+",u.id,0 FROM users u",
   "WHERE u.username='owner' AND u.role='owner' AND u.active=1",
   "AND (SELECT COUNT(*) FROM users)=1 AND "+exists,
-  "AND NOT EXISTS(SELECT 1 FROM access_identity_links)"
+  "AND NOT EXISTS(SELECT 1 FROM access_identity_links)",
+  'AND '+pristine('stage')
  ].join(' ')+';';
  const audit=[
   "INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail)",
@@ -76,7 +85,8 @@ export function generateEnrollmentSql(config,{auditId=randomUUID()}={}){
   "FROM access_identity_links l JOIN users u ON u.id=l.user_id",
   "WHERE "+scope+" AND l.active=0",
   "AND u.username='owner' AND u.role='owner' AND u.active=1",
-  "AND NOT EXISTS(SELECT 1 FROM audit_logs)"
+  "AND NOT EXISTS(SELECT 1 FROM audit_logs)",
+  'AND '+pristine('audit')
  ].join(' ')+';';
  const activate=[
   "UPDATE access_identity_links SET active=1 WHERE issuer="+iss+" AND audience="+aud+" AND subject="+sub,
@@ -85,7 +95,8 @@ export function generateEnrollmentSql(config,{auditId=randomUUID()}={}){
   "AND u.username='owner' AND u.role='owner' AND u.active=1)",
   "AND EXISTS(SELECT 1 FROM audit_logs a WHERE a.id="+id,
   "AND a.action='access.owner.enrollment' AND a.entity='access_identity_links'",
-  "AND a.entity_id=access_identity_links.user_id AND a.actor_name='staging_access_operator')"
+  "AND a.entity_id=access_identity_links.user_id AND a.actor_name='staging_access_operator')",
+  'AND '+pristine('activate')
  ].join(' ')+';';
  return Object.freeze({statements:Object.freeze([staged,audit,activate]),auditId});
 }

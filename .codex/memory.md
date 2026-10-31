@@ -2,6 +2,8 @@
 
 ## Current Focus
 
+> 2026-10-31 P0 #34｜PR #65 已正式 Squash Merge `da82791424199c0162e61824e6e9dc17e2ba8590`，最新 HEAD `493d8f24188b997404ad4627101927192eb63cd6` Verify #41165009136 5/5 PASS，Codex re-review Completed/0 new Findings/2 Threads Resolved。此分支第三增量只新增**未接 Worker 公開路由**的 `cloudflare/access-identity-internal.mjs`：從未驗簽 header 中的 kid 只取公鑰索引，從固定 team JWKS Loader 讀取公鑰，再使用原有 WebCrypto RS256 完整驗簽、aud/iss/time 檢查後才回傳 subject；無 Header/驗證失敗皆 null。合成 RSA E2E local 4/4 PASS，最新 Head Hosted CI／正式 Codex Review Pending。沒有登入、D1 身分授權、Session、正式 Access 設定或 Production 變更；Production disabled。
+
 > 2026-10-31 P0 #34｜PR #65 初次 Hosted Verify #41164764670 **5/5 PASS**，正式 Codex Review 對原 HEAD `bc8873cdcc38174d54ec916523aafd33553ea13e` 指出 2 個有效 P2：（1）無有效 cache 時 fetch 失敗未節流；（2）未命中 kid 刷新會阻塞可用的快取 kid。已修改 JWKS Loader 先回傳仍有效、相符的 cache，再加入 pending；所有刷新失敗均遵守 30 秒節流；新增合成回歸 Local **8/8 PASS**、exact Git Blob 核對並更新 SHA256 Manifest。**新 HEAD Hosted CI／Codex 複審待驗證，PR 未合併**；無公開路由、登入或 Cloudflare 遠端寫入，Production disabled。
 
 > 2026-10-31 P0 #34｜PR #64 已正式 Squash Merge `db2e208e0af6680b6f0fd4d833ccc3f0185a862a`，Postmerge Verify #41164519699 completed/success 5/5。此分支下一階段只新增**內部、未連接 Worker 路由** Cloudflare Access JWKS 信任來源 HTTPS 公鑰載入器，固定 team issuer/certs、禁止 redirect/credentials、不信任遠端 URL、64KiB/timeout/RS256 檢查、限期快取及 kid 輪換，合成 RSA 測試與 exact SHA256 封閉清單。Local 6/6 初測 PASS；最新 HEAD Hosted CI／Codex Review 尚未完成，不能報為通過。無正式 Access Policy/JWKS 遠端實證、沒有登入或 D1 寫入，Production disabled。

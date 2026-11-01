@@ -1,0 +1,64 @@
+name: Production D1 Owner readiness (manual and read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_PRODUCTION_OWNER_READONLY (no credentials or writes)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-production-d1-initialization
+  cancel-in-progress: false
+
+jobs:
+  owner-readiness:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_PRODUCTION_OWNER_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-production-readonly
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify closed reviewed SHA256 execution surface (no credentials)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify immutable Production D1 target before API token
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-prod-d1-init.mjs config
+      - name: Install pinned Wrangler without Cloudflare token
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Inspect only Production D1 Owner counts, migrations and integrity
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$CLOUDFLARE_API_TOKEN" ]] || {
+            echo 'PRODUCTION_OWNER_READONLY_SECRET_UNAVAILABLE'
+            exit 1
+          }
+          umask 077
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          for task in before after quick foreign; do
+            query="$(node tools/cloudflare-prod-owner-readonly.mjs sql "$task")"
+            npx --no-install wrangler d1 execute PROD_DB --remote --json \
+              --config wrangler.production-initialize.jsonc \
+              --command "$query" > "$work/$task.json"
+          done
+          node tools/cloudflare-prod-owner-readonly.mjs inspect "$work"
+          echo 'Read-only inspection complete; no account or DB write performed.'

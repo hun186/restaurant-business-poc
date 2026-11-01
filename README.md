@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-11-01 Production Owner 唯讀就緒檢查（PR 開發中）**：正式 Production D1 Schema v3／Migration 0001、0002 已由 [#41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) 真實完成，PR #84 已 Merge、主線 Verify #41217213971 5/5 PASS。尚無正式 Owner／公網登入。這次新增只用 `d1-production-readonly` 的手動 Owner 狀態檢查（空庫可建立／Owner 與稽核已就緒／異常拒絕），**不使用密碼或 Write Token，不對 D1 寫入**；詳見 [Owner 100k Production 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。
+
 > **2026-10-31 最新 Production 實證：** [Run #41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) 已對真正 Production D1 成功套用 `0001`／`0002`，得到 `PROD_D1_SCHEMA_ONLY_POSTFLIGHT_PASS`（v3、兩筆 Migration、Owner=0、登入關閉）。**不要重跑 first-init**。PR #84 只準備正式 Owner PBKDF2-100k SQL 及 **`auth.owner_bootstrap` 稽核**，不包含可遠端寫入的 Workflow；正式 Owner 未建立，正式登入仍停用。下方舊時點的空庫／待初始化敘述僅為歷史紀錄。
 
 > **2026-10-31 Production Owner 下一階段（僅程式準備）**：PR #83 已 Merge，主線 Verify #41210737227 PASS 5/5；Production D1 遠端只讀 Run #41207484827 確認空庫，但 **first-init 尚未實際執行**。本分支準備 PBKDF2 100k 的一次性 Production Owner 生成器（嚴格 v3／兩筆 Migration／空表預檢），**正式遠端 Owner Actions Workflow 未建立，受連線端安全檢查阻擋**，請勿當成已可部署或可登入。詳見 [Production Owner 100k 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。

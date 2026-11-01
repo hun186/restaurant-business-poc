@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-01 P0 Windows readonly Owner 操作修正**：使用者在 Windows 對 Owner 工具選 1，隱藏輸入後出現無分類 `E_PRODUCTION_OWNER_OPERATOR`。已知選 1 沒有寫入。新分支 `fix/prod-owner-check-safe-diagnostics-20261101` 開發安全 phase/reason 分類、D1 Read/Write Token 說明與 401/403/404/429/timeout/invalid JSON/資料檢查測試。先完成 GitHub CI/Codex Review，再依 AGENTS.md 經使用者 Merge，才讓使用者重試 **選 1** 並回傳非敏感 phase/reason。真正原因尚未確認，不應假設有權限或資料庫錯誤。Production Owner=0、login disabled，未解決 REST batch 實站回滾驗收前不可選 2。
+
 > **2026-11-01 P0 NEXT — 操作者 Owner 啟動工具**：已完成主線 PR #86 Merge/Verify #41270968870 5/5 PASS，正式 D1 v3 已建表，兩次 readonly #41265972020/#41265998671 Owner=0 PASS，**不再 first-init**。新分支 `feat/prod-owner-operator-local-one-shot-20261101` 開發私人本機 one-click check/enroll（不經 GH Secrets、密碼非 CLI args/不落盤、main clean 和確認雙鎖、單次 Cloudflare REST Batch、嚴格前後驗與失敗不重試）、跨平台入口及 synthetic tests。PR/CI/Codex 待確認，不得聲稱已部署、Owner 已建或登入開放。下一環由使用者在安全本機環境正式操作；隔離 D1 rollback 與登入 CSRF/Session/Ratelimit/Worker E2E 尚需驗收。
 
 > **2026-11-01 P0 NEXT**：Owner readiness 真正 D1 唯讀 Run #41265972020/#41265998671 雙 PASS（v3、兩筆 Migration、Owner=0），PR #85 merged/main Verify #41265293849 5/5 PASS；勿重跑 first-init。現開發 `fix/prod-owner-audit-cross-connection-20261101`，修正 Owner SQL 第二筆稽核過度依賴 `changes()`（跨連線可能=0）的問題、補測部分失敗與安全拒絕，**尚未執行 Production Owner 建立**。下一步需受控寫入渠道、驗證 Owner=1/audit=1 且無 Session，再另行進行公開登入安全驗收。

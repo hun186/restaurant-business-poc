@@ -154,3 +154,82 @@ test('operator launcher files contain no password/token literals, refer only to 
   assert.doesNotMatch(s,/wrangler d1 execute|time-travel restore|d1 migrations apply/);
  }
 });
+
+test('read-only operator reports only redacted HTTP/API diagnostic categories',async()=>{
+ const m=await modulePromise;
+ const scenarios=[
+  [401,'HTTP_401'],[403,'HTTP_403'],[404,'HTTP_404'],
+  [429,'HTTP_429'],[503,'HTTP_5XX'],[418,'HTTP_OTHER']
+ ];
+ for(const [status,reason] of scenarios){
+  await assert.rejects(()=>m.inspectProductionOwner(TOKEN,async()=>({
+   ok:false,status,json:async()=>({message:'DO_NOT_PRINT_PRIVATE_TOKEN'})
+  })),error=>{
+   assert.equal(error.message,'E_PRODUCTION_OWNER_OPERATOR');
+   assert.equal(error.safePhase,'READ_BEFORE');
+   assert.equal(error.safeReason,reason);
+   assert.doesNotMatch(JSON.stringify({reason:error.safeReason,phase:error.safePhase}),
+      /DO_NOT_PRINT_PRIVATE_TOKEN/);
+   return true;
+  });
+ }
+});
+test('read-only operator distinguishes malformed JSON and API response without body leakage',async()=>{
+ const m=await modulePromise;
+ for(const [transport,reason] of [
+  [async()=>({ok:true,status:200,json:async()=>{throw Error('PRIVATE_BODY');}}),'INVALID_JSON'],
+  [async()=>({ok:true,status:200,json:async()=>({success:false,result:[],errors:[{message:'PRIVATE_BODY'}]})}),'API_REJECTED'],
+  [async()=>({ok:true,status:200,json:async()=>({success:true,result:[]})}),'RESPONSE_SHAPE'],
+  [async()=>{throw Error('PRIVATE_ERROR');},'NETWORK_OR_TIMEOUT']
+ ]){
+  await assert.rejects(()=>m.inspectProductionOwner(TOKEN,transport),error=>{
+   assert.equal(error.message,'E_PRODUCTION_OWNER_OPERATOR');
+   assert.equal(error.safePhase,'READ_BEFORE');
+   assert.equal(error.safeReason,reason);
+   assert.doesNotMatch(JSON.stringify(error),/PRIVATE_/);
+   return true;
+  });
+ }
+});
+test('read-only operator identifies the failing query and never sends D1 writes',async()=>{
+ const m=await modulePromise;
+ const tasks=['READ_BEFORE','READ_AFTER','READ_QUICK','READ_FOREIGN'];
+ for(let i=0;i<4;i++){
+  let queries=0;
+  const sim=mockD1();
+  const transport=async(url,req)=>{
+   if(queries++===i)return {ok:false,status:403};
+   return sim.transport(url,req);
+  };
+  await assert.rejects(()=>m.inspectProductionOwner(TOKEN,transport),error=>{
+   assert.equal(error.safePhase,tasks[i]);
+   assert.equal(error.safeReason,'HTTP_403');return true;
+  });
+  assert.equal(sim.writes,0);
+ }
+ const malformed=mockD1();
+ const bad=async(url,req)=>{
+  const result=await malformed.transport(url,req);
+  const body=JSON.parse(req.body);
+  if(body.sql.includes('migration_1'))
+    return {ok:true,status:200,json:async()=>({success:true,result:[
+      {success:true,results:[{contract_version:999}]}
+    ]})};
+  return result;
+ };
+ await assert.rejects(()=>m.inspectProductionOwner(TOKEN,bad),error=>{
+  assert.equal(error.safePhase,'READ_VALIDATE');
+  assert.equal(error.safeReason,'DATABASE_STATE');return true;
+ });
+ assert.equal(malformed.writes,0);
+});
+test('short or missing token is rejected before networking with safe phase',async()=>{
+ const m=await modulePromise;
+ let calls=0;
+ const transport=async()=>{calls++;throw Error('NEVER_USE_NETWORK');};
+ await assert.rejects(()=>m.inspectProductionOwner('abc',transport),error=>{
+  assert.equal(error.safePhase,'READ_BEFORE');
+  assert.equal(error.safeReason,'TOKEN_FORMAT');return true;
+ });
+ assert.equal(calls,0);
+});

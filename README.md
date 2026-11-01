@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-11-01 Windows Owner Readonly 操作診斷修正（PR 開發中）**：選項 1 原本所有 Cloudflare Token/API/資料檢查錯誤都顯示同一個 `E_PRODUCTION_OWNER_OPERATOR`。這次只補安全的階段／錯誤類別（401/403/404/429、網路、JSON、Schema），選項 1 可用獨立 D1 Read Token；不輸出 API 原文、Token、密碼／雜湊，也不進行 Production D1 寫入。詳見 [Owner 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。
+
 > **2026-11-01 Production Owner 實際管理工具（PR 開發中）**：Production D1 Schema v3、Migration=2、Owner=0 已由正式實機唯讀雙 PASS 驗證。這次新增本機 Windows／Linux 一鍵 Owner 管理工具，預設唯讀，受控模式必須從乾淨 main 執行、手動輸入 Production Token 與確認密碼、一次寫入、稽核後驗、不自動重試。**僅程式準備，未建立 Owner、未啟用登入、未對 Production DB 寫入**。詳見 [Owner 建立交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。
 
 > **2026-11-01 Production Owner 安全修正（開發中）**：目前正式 D1 已通過唯讀 Owner=0 驗證（#41265972020/#41265998671）。這次修正 One-time Owner 私有 SQL 的稽核綁定，避免以 SQLite 連線局部 `changes()` 判斷而漏寫稽核；補充不同 SQLite 連線、寫入中斷與拒絕放行測試。**只改候選程式，不建立正式 Owner、不修改 Cloudflare DB、不開放登入**。受控 Owner 寫入程序仍需獨立核准，見 [Owner 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。

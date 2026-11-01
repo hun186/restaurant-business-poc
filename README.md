@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-11-01 Production Owner 實際管理工具（PR 開發中）**：Production D1 Schema v3、Migration=2、Owner=0 已由正式實機唯讀雙 PASS 驗證。這次新增本機 Windows／Linux 一鍵 Owner 管理工具，預設唯讀，受控模式必須從乾淨 main 執行、手動輸入 Production Token 與確認密碼、一次寫入、稽核後驗、不自動重試。**僅程式準備，未建立 Owner、未啟用登入、未對 Production DB 寫入**。詳見 [Owner 建立交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。
+
 > **2026-11-01 Production Owner 安全修正（開發中）**：目前正式 D1 已通過唯讀 Owner=0 驗證（#41265972020/#41265998671）。這次修正 One-time Owner 私有 SQL 的稽核綁定，避免以 SQLite 連線局部 `changes()` 判斷而漏寫稽核；補充不同 SQLite 連線、寫入中斷與拒絕放行測試。**只改候選程式，不建立正式 Owner、不修改 Cloudflare DB、不開放登入**。受控 Owner 寫入程序仍需獨立核准，見 [Owner 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。
 
 > **2026-11-01 Production Owner 唯讀就緒檢查（PR 開發中）**：正式 Production D1 Schema v3／Migration 0001、0002 已由 [#41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) 真實完成，PR #84 已 Merge、主線 Verify #41217213971 5/5 PASS。尚無正式 Owner／公網登入。這次新增只用 `d1-production-readonly` 的手動 Owner 狀態檢查（空庫可建立／Owner 與稽核已就緒／異常拒絕），**不使用密碼或 Write Token，不對 D1 寫入**；詳見 [Owner 100k Production 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。

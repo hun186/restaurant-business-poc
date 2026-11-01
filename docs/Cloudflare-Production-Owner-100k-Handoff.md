@@ -1,5 +1,14 @@
 # Cloudflare Production D1 — Owner 一次性建立（未開放執行）
 
+## 2026-11-01 最新交接｜D1 REST Batch 特定回滾場景已實機 PASS，Owner 仍未建立
+
+- 已確認：使用者在專屬 Scratch D1 上先回報 `SCRATCH_D1_EMPTY_VERIFIED`、後回報 `DISPOSABLE_D1_REST_BATCH_ROLLBACK_PASS`（2 筆控制資料、0 筆回滾殘留）；來源是操作者提供之非敏感輸出，未由此代理人直接查詢 Cloudflare。詳見 [隔離實機驗收](Cloudflare-D1-REST-Batch-Disposable-Rollback-Lab.md)。
+- 最新已知 Production D1：Schema v3、0001/0002 已套用，先前 Owner 唯讀實測為 0；**執行任何正式 Owner 寫入之前，必須再次取得新鮮、完整的只讀 `PRODUCTION_OWNER_READY_TO_ENROLL_READONLY`**，不可將歷史 Owner=0 當作即時值。
+- 這只解除 REST batch **指定 UNIQUE 故障回滾**的技術疑慮；尚未驗證任意中斷、Cloudflare API timeout 後的不確定提交、所有備份復原情境。不得推定正式 Owner SQL 或登入已通過實機。
+- 放行之前還需：受控變更窗口及可恢復點／備份簽核、目標 UUID 與主線 HEAD/程式完整性、最新只讀 preflight、Owner 建立的獨立明確使用者授權及最小權限 Write Token、單次受控寫入、Owner=1/audit=1/Session=0 的只讀 postflight。任何異常只走只讀診斷，不自動 Retry／清庫／回復密碼。
+- **本 PR 只更新紀錄與核准清單**；不得因此執行 `run-production-owner-operator.bat` 選項 2、`first-init`、Production Login enable 或 Cloudflare D1 刪除。Production `CLOUD_AUTH_PHASE=disabled` 繼續維持。
+- Cloudflare Free D1 數量受限，Scratch Lab 及 G5 Recovery Drill 皆屬暫存用途；須遵守 [資料庫生命週期與回收規範](Cloudflare-D1-Database-Lifecycle.md)。
+
 ## 2026-11-01：Windows 選項 1 唯讀查詢失敗的診斷修正（PR 開發中）
 
 實機操作回報：Windows 執行 `run-production-owner-operator.bat`，選 `1 / Check`，輸入隱藏 Token 後只顯示 `E_PRODUCTION_OWNER_OPERATOR`。這**無法判定**是 API Token、Cloudflare HTTP、REST 回應、網路或資料庫狀態問題；因為原始碼全部攔截成相同錯誤。選項 1 只發唯讀 SELECT/PRAGMA，不會建立 Owner，也不會修改 Production D1。正式 Schema v3/兩個 Migration 已完成，不可重跑 first-init。

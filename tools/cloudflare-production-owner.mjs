@@ -69,12 +69,18 @@ export async function buildProductionOwnerSql(password) {
  return `INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active)
 SELECT '${id}','owner','餐廳業主','owner','${v.password_salt}','${v.password_hash}',1
 WHERE ${precondition};
--- The audit row records only the privileged enrollment, never a password or token.
--- changes() prevents an audit entry if the guarded Owner INSERT changed no rows.
+-- Audit exact newly created Owner identity; do not trust changes() across
+-- D1 importer statements/connections. Never store credential material in audit.
 INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,detail)
 SELECT '${auditId}','production-bootstrap','auth.owner_bootstrap','users','${id}',
        '{"hash_version":"pbkdf2-sha256$100000"}'
-WHERE changes()=1 AND EXISTS (SELECT 1 FROM users WHERE id='${id}' AND username='owner');
+WHERE EXISTS (
+ SELECT 1 FROM users WHERE id='${id}' AND username='owner'
+   AND role='owner' AND active=1
+   AND password_salt='${v.password_salt}' AND password_hash='${v.password_hash}'
+)
+AND (SELECT COUNT(*) FROM users)=1
+AND (SELECT COUNT(*) FROM audit_logs)=0;
 `;
 }
 export function savePrivateOwnerSql(file,content,runnerTemp) {

@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-11-02 Production D1 Owner 上線前備份工具（程式準備）**：使用者 Windows 選項3 已實機回報 `PRODUCTION_OWNER_AND_TIME_TRAVEL_READONLY_PASS`（Owner0、v3/Migration2，無寫入）；目前尚無真正匯出與異地可恢復驗收。新增 `run-production-d1-backup.bat`，在受控維護窗口啟動 Cloudflare D1 官方 SQL Export，使用記憶體 SQLite 重播檢查並保存 AES-256-GCM 加密封存，不新增 D1。注意官方 Export **可能暫時阻塞資料庫查詢**，且本機加密檔**不等於異地備份或真正 Cloudflare Restore**。詳見 [正式 D1 加密匯出 Runbook](docs/Cloudflare-Production-D1-Encrypted-Local-Export.md)。正式 Owner 選項2 與登入仍未授權。
+
 > **2026-11-01 P0 D1 REST Batch 實機驗收：操作者回報 PASS**：PR #89 已合併 `1fddd26147c57e07e33565c054f2f472c0ccac6f`，主線 [Verify #41299316181](https://github.com/hun186/restaurant-business-poc/actions/runs/41299316181) 5/5 PASS。使用者在專用空白 Scratch D1 上先取得 `SCRATCH_D1_EMPTY_VERIFIED`，再由本機工具得到 `DISPOSABLE_D1_REST_BATCH_ROLLBACK_PASS`（control_rows=2、rollback_extra_rows=0）。此為**使用者提供的真實遠端操作結果**，非 GitHub CI 獨立重跑，且僅覆蓋指定 UNIQUE 衝突場景；沒有經此程序對 Production 執行寫入。**正式 Owner 尚未建立、Production 登入仍 disabled**。詳見 [實機驗收及證據邊界](docs/Cloudflare-D1-REST-Batch-Disposable-Rollback-Lab.md) 與 [D1 名額回收規範](docs/Cloudflare-D1-Database-Lifecycle.md)。
 
 > **2026-11-01 Windows Owner Readonly 操作診斷修正（PR 開發中）**：選項 1 原本所有 Cloudflare Token/API/資料檢查錯誤都顯示同一個 `E_PRODUCTION_OWNER_OPERATOR`。這次只補安全的階段／錯誤類別（401/403/404/429、網路、JSON、Schema），選項 1 可用獨立 D1 Read Token；不輸出 API 原文、Token、密碼／雜湊，也不進行 Production D1 寫入。詳見 [Owner 交接](docs/Cloudflare-Production-Owner-100k-Handoff.md)。

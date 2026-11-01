@@ -115,7 +115,8 @@ export async function remoteExport({token,transport=fetch,pause=ms=>delay(ms)}){
   '/d1/database/'+target.databaseId;
  const meta=await api(prefix,'GET',token,null,transport);
  if(!eqTarget(meta))fail('TARGET');
- const read=await inspectProductionOwner(token,transport);
+ let read;
+ try{read=await inspectProductionOwner(token,transport);}catch{fail('OWNER_STATE');}
  if(read.status!=='PRODUCTION_OWNER_READY_TO_ENROLL_READONLY')fail('OWNER_STATE');
  const endpoint=prefix+'/export';
  let bookmark='',signed='';

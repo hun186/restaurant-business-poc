@@ -1,5 +1,13 @@
 # Cloudflare Production D1：加密本機匯出與離線重播驗證（無新增 D1）
 
+## 2026-11-02｜Windows 真實 Export API 錯誤：安全診斷修正（仍需實機複驗）
+
+使用者已在可信任 Windows 選 `run-production-d1-backup.bat` 選項1、輸入 `EXPORT_PRODUCTION_D1_TO_ENCRYPTED_LOCAL_BACKUP`、隱藏 Cloudflare Token 與加密密碼，工具在匯出階段回傳 `E_PRODUCTION_D1_BACKUP phase=EXPORT_API`，**未產生可驗證的加密備份成功證據**。此錯誤不包含 API 原始回應，因此不能斷言是 Token、Bookmark 格式、Task 失敗或下載連結問題；此錯誤本身亦不表示已執行 SQL 寫入。**不要在修正合併前反覆重啟遠端 Export**，因為 Cloudflare 官方說明 Export 可阻塞查詢且進行中任務需持續輪詢或自動取消。
+
+此次修正：按照 [Cloudflare 官方 Export API 文件](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/export/) 將 `at_bookmark` 視為有界不含控制字元的**不透明字串**，不再硬限定為固定的 `8-8-8-32` 十六進位形式；`type` 與 `status` 可能缺省，但 `success`、完成時 `signed_url`、輪詢時有效 `at_bookmark` 仍需嚴格查核。失敗不再一律只輸出 `EXPORT_API`，增加經白名單保護的 `detail=TASK_ERROR|TASK_REJECTED|RESPONSE_SHAPE|STATUS_INVALID|BOOKMARK_MISSING|BOOKMARK_INVALID|BOOKMARK_CHANGED|COMPLETE_URL_MISSING` 等分類。**絕不輸出** Cloudflare 原始回應、Task messages/error、Bookmark、簽署 URL、SQL、Token、密碼或 Stack，避免公開支援紀錄洩密。
+
+這是 **GitHub 程式修正 + 合成 HTTP 測試**，不是已遠端 Export 成功。任何真實重試須先在最新已 Merge `main` 且合併後 CI 全綠、正式 Codex Review 完成、安全維護窗口內由操作者確認；新錯誤的 `phase` / `detail` 可安全貼回支援，但不可貼 API 原文。成功匯出仍不等於異地副本或真實 Cloudflare Restore 完成。
+
 ## 部署平台分工與合併檢查
 
 - **正式 Web/App：Cloudflare Workers**，靜態前端透過 `wrangler.jsonc` 的 `assets` Binding 提供、`/api/*` 由 Worker 路由處理，Production 綁定既有 `restaurant-business-prod` D1；Preview 綁定 `restaurant-business-staging` D1。正式登入 `CLOUD_AUTH_PHASE=disabled` 未開通；**不得把目前 Demo 靜態頁當已驗收的正式營運 UI**。

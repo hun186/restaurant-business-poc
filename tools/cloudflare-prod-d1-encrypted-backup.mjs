@@ -18,9 +18,18 @@ const HEADER='RBPOC_D1_AES256_GCM_SQL_V1';
 const MAX_SQL_BYTES=32*1024*1024;
 const MAX_RESP_BYTES=65536;
 const ITERATIONS=310000;
-const BOOKMARK=/^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{32}$/i;
+// The official D1 Export API documents an opaque string, not a fixed UUID shape.
+// Only allow bounded printable token characters; never log the bookmark.
+const BOOKMARK=/^[A-Za-z0-9._:~-]{1,256}$/;
 const EXTERNAL_HOST=/(\.cloudflarestorage\.com|\.r2\.dev|\.cloudflare\.com)$/i;
-const fail=(reason='UNSAFE')=>{const e=Error(FAIL);e.reason=reason;throw e;};
+const FAIL_DETAILS=new Set(['RESPONSE_SHAPE','TASK_REJECTED','TASK_ERROR',
+ 'STATUS_INVALID','BOOKMARK_MISSING','BOOKMARK_INVALID','BOOKMARK_CHANGED',
+ 'COMPLETE_URL_MISSING']);
+const fail=(reason='UNSAFE',detail)=>{
+ const e=Error(FAIL);e.reason=reason;
+ if(reason==='EXPORT_API'&&FAIL_DETAILS.has(detail))e.safeDetail=detail;
+ throw e;
+};
 const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const eqTarget=meta=>meta?.success===true&&meta.result?.name==='restaurant-business-prod'&&
  meta.result?.uuid===localProductionTarget().databaseId&&meta.result?.version==='production';
@@ -138,14 +147,24 @@ export async function remoteExport({token,transport=fetch,pause=ms=>delay(ms)}){
   if(bookmark)body.current_bookmark=bookmark;
   const next=await api(endpoint,'POST',token,body,transport);
   const r=next.result;
-  if(!isObj(r)||r.type!=='export'||r.success!==true||r.status==='error')fail('EXPORT_API');
+  // The inner "type" and "status" are documented optional fields. Wrangler
+  // accepts status=undefined as "in progress" and resends at_bookmark.
+  // Never show the server's messages, error string, bookmark, or signed URL.
+  if(!isObj(r)||(r.type!==undefined&&r.type!=='export'))
+   fail('EXPORT_API','RESPONSE_SHAPE');
+  if(r.success!==true)fail('EXPORT_API','TASK_REJECTED');
+  if(r.status==='error')fail('EXPORT_API','TASK_ERROR');
   if(r.status==='complete'){
-   if(typeof r.result?.signed_url!=='string')fail('EXPORT_API');
+   if(typeof r.result?.signed_url!=='string'||!r.result.signed_url)
+    fail('EXPORT_API','COMPLETE_URL_MISSING');
    signed=r.result.signed_url;break;
   }
-  if(r.status&&r.status!=='in_progress'&&r.status!=='pending')fail('EXPORT_API');
-  if(typeof r.at_bookmark!=='string'||!BOOKMARK.test(r.at_bookmark))fail('EXPORT_API');
-  if(bookmark&&bookmark!==r.at_bookmark)fail('EXPORT_API');
+  if(r.status!==undefined&&r.status!=='in_progress'&&r.status!=='pending')
+   fail('EXPORT_API','STATUS_INVALID');
+  if(typeof r.at_bookmark!=='string'||!r.at_bookmark)
+   fail('EXPORT_API','BOOKMARK_MISSING');
+  if(!BOOKMARK.test(r.at_bookmark))fail('EXPORT_API','BOOKMARK_INVALID');
+  if(bookmark&&bookmark!==r.at_bookmark)fail('EXPORT_API','BOOKMARK_CHANGED');
   bookmark=r.at_bookmark;
   if(i<15)await pause(2000);
  }
@@ -257,7 +276,9 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
    'DOWNLOAD_SIZE','DOWNLOAD_ENCODING','SQL_SIZE','SQL_INTEGRITY','SQL_FK','SQL_SCHEMA',
    'SQL_REPLAY','ARCHIVE_SIZE','ARCHIVE_FORMAT','ARCHIVE_AUTH','ARCHIVE_VERIFY',
    'OUTPUT_PATH','SAVE','VERIFY_PATH','TTY']);
-  console.error(FAIL+' phase='+(safe.has(e.reason)?e.reason:'UNKNOWN')+
-   '; NO PRODUCTION WRITE. EXPORT/RESTORE NOT AUTHORIZED.');process.exitCode=1;
+  const detail=e.reason==='EXPORT_API'&&FAIL_DETAILS.has(e.safeDetail)
+   ?' detail='+e.safeDetail:'';
+  console.error(FAIL+' phase='+(safe.has(e.reason)?e.reason:'UNKNOWN')+detail+
+   '; NO PRODUCTION SQL WRITE. NO RESTORE AUTHORIZED.');process.exitCode=1;
  });
 }

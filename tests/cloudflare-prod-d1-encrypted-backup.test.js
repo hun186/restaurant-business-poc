@@ -24,7 +24,8 @@ const before={
 const after={contract_version:3,migration_total:2,users:0,owners:0,
  sessions:0,login_attempts:0,audit_logs:0,owner_enrollment_audits:0};
 const envelope=x=>({ok:true,status:200,text:async()=>JSON.stringify(x),json:async()=>x});
-function mockTransport({tamper=false,badUrl=false}={}){
+function mockTransport({tamper=false,badUrl=false,
+ bookmark='aaaaaaaa-bbbbbbbb-cccccccc-'+'d'.repeat(32),omitType=false}={}){
  let queries=0,posts=0,gets=0,downloads=0;const calls=[];
  const transport=async(url,opts)=>{
   calls.push({url:url.split('?')[0],method:opts.method,auth:!!opts.headers?.Authorization});
@@ -35,11 +36,11 @@ function mockTransport({tamper=false,badUrl=false}={}){
    assert.equal(body.output_format,'polling');
    if(posts===1){
     assert.equal(body.current_bookmark,undefined);
-    return envelope({success:true,result:{type:'export',success:true,
-     at_bookmark:'aaaaaaaa-bbbbbbbb-cccccccc-'+'d'.repeat(32)}});
+    return envelope({success:true,result:{...(omitType?{}:{type:'export'}),success:true,
+     at_bookmark:bookmark}});
    }
-   assert.equal(body.current_bookmark,'aaaaaaaa-bbbbbbbb-cccccccc-'+'d'.repeat(32));
-   return envelope({success:true,result:{type:'export',success:true,status:'complete',
+   assert.equal(body.current_bookmark,bookmark);
+   return envelope({success:true,result:{...(omitType?{}:{type:'export'}),success:true,status:'complete',
     result:{signed_url:badUrl?'http://127.0.0.1/file':
      'https://private.example.r2.dev/signed?SECRET_SIGNED_QUERY'}}});
   }
@@ -136,4 +137,68 @@ test('Windows launcher offers explicit export and offline verify, never import/r
  const txt=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8');
  assert.match(txt,/--export/);assert.match(txt,/--verify/);
  assert.doesNotMatch(txt,/d1 migrations apply|time_travel.restore|\/import|--enroll/);
+});
+
+test('Cloudflare documents export bookmark as opaque string and type is optional',async()=>{
+ const m=await mod,opaque='d1-export-v2.2026_11-02';
+ const mock=mockTransport({bookmark:opaque,omitType:true});
+ const dump=await m.remoteExport({token:TOKEN,transport:mock.transport,pause:async()=>{}});
+ assert.equal(dump,SQL);
+ assert.equal(mock.posts,2);assert.equal(mock.downloads,1);
+});
+test('unrecognized export shapes return sanitized, specific, fail-closed errors',async()=>{
+ const m=await mod;
+ const cases=[
+  {payload:{success:true,result:{type:'export',success:false,error:'PRIVATE_API_ERROR'}},
+   detail:'TASK_REJECTED'},
+  {payload:{success:true,result:{type:'export',success:true,status:'error',error:'PRIVATE_API_ERROR'}},
+   detail:'TASK_ERROR'},
+  {payload:{success:true,result:{type:'import',success:true,at_bookmark:'abc'}},
+   detail:'RESPONSE_SHAPE'},
+  {payload:{success:true,result:{type:'export',success:true,status:'invalid-status',
+   at_bookmark:'abc'}},detail:'STATUS_INVALID'},
+  {payload:{success:true,result:{type:'export',success:true}},
+   detail:'BOOKMARK_MISSING'},
+  {payload:{success:true,result:{type:'export',success:true,at_bookmark:'PRIVATE BOOKMARK'}},
+   detail:'BOOKMARK_INVALID'},
+  {payload:{success:true,result:{type:'export',success:true,status:'complete',result:{}}},
+   detail:'COMPLETE_URL_MISSING'}
+ ];
+ for(const item of cases){
+  const mock=mockTransport();
+  const transport=async(url,opt)=>url.endsWith('/export')
+   ?envelope(item.payload):mock.transport(url,opt);
+  await assert.rejects(()=>m.remoteExport({token:TOKEN,transport,pause:async()=>{}}),e=>{
+   assert.equal(e.message,'E_PRODUCTION_D1_BACKUP');
+   assert.equal(e.reason,'EXPORT_API');
+   assert.equal(e.safeDetail,item.detail);
+   assert.doesNotMatch(JSON.stringify({message:e.message,reason:e.reason,detail:e.safeDetail}),
+    /PRIVATE_API_ERROR|PRIVATE BOOKMARK|Bearer|signed_url/);
+   return true;
+  });
+  assert.equal(mock.downloads,0);
+  assert.equal(mock.queries,4);
+ }
+});
+test('malformed or changed poll bookmark is rejected without a download',async()=>{
+ const m=await mod;
+ const cases=['changed-bookmark','control\\nnewline'];
+ for(const changed of cases){
+  const mock=mockTransport();
+  let count=0;
+  const transport=async(url,opt)=>{
+   if(url.endsWith('/export')){
+    count++;
+    if(count===1)return envelope({success:true,result:{type:'export',success:true,
+     at_bookmark:'original-bookmark'}});
+    return envelope({success:true,result:{type:'export',success:true,
+     at_bookmark:changed}});
+   }
+   return mock.transport(url,opt);
+  };
+  await assert.rejects(()=>m.remoteExport({token:TOKEN,transport,pause:async()=>{}}),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP' &&
+    e.safeDetail===(changed.includes('\\n')?'BOOKMARK_INVALID':'BOOKMARK_CHANGED'));
+  assert.equal(mock.downloads,0);assert.equal(count,2);
+ }
 });

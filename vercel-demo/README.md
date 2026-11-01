@@ -1,5 +1,7 @@
 # Vercel 公開展示站
 
+> **2026-11-02 部署策略調整**：正式產品前端與 API 以 **Cloudflare Workers + D1** 為主線；本 Vercel 專案保留純虛構資料展示。已透過 Vercel 專案設定 API 提交並成功更新 `previewDeploymentsDisabled=true`，降低每個 GitHub PR 耗盡免費 Preview 部署額度的風險；**main 的展示站部署路線保留**。舊 PR 已失敗的 Vercel GitHub 狀態不會因這項設定自動變綠。若要恢復 Demo PR Preview，須另經人工決策恢復，且不得把展示站視為正式資料庫或 API。
+
 本目錄是完全獨立的**前端虛構資料演示**，不是正式後端部署。
 
 - `index.html`、`app.js`、`styles.css` 使用現有 UI 風格；`mock.js` 攔截瀏覽器內部 /api 呼叫，使用記憶體／sessionStorage 虛構紀錄。

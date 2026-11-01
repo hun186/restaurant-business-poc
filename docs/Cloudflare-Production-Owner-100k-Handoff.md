@@ -1,5 +1,28 @@
 # Cloudflare Production D1 — Owner 一次性建立（未開放執行）
 
+## 2026-11-01：本機受控 Owner 建立工具（須經 PR 驗證合併）
+
+以下工具在合併前僅為候選程式，不代表 Production Owner 已建立，也沒有直接替管理者執行寫入。Production v3 Schema 已在 Run #41215336274 實際建立；Owner=0 已由 #41265972020 與 #41265998671 兩次遠端唯讀確認。**不可重跑 first-init。**
+
+### 操作者執行方式（自己的 Windows/Linux 終端機、Cloudflare D1 Write Token）
+
+1. 從已通過 Hosted CI、Codex Review 並合併的最新 main 取得原始碼，使用 Node.js 22 或更新版。絕不要從不明來源下載 bat，也不要在其他人的電腦上輸入 Token。
+2. Windows 在專案根目錄雙擊 run-production-owner-operator.bat；Linux 執行 bash run-production-owner-operator.sh。或直接執行 node tools/cloudflare-prod-owner-operator.mjs --check（僅檢查）／--enroll（一次性寫入）。
+3. 第一次先選 **1 / Check**，在本機隱藏輸入欄貼上對正確 Cloudflare 帳戶與 Production D1 有 D1 Write 權限的 API Token。程式固定核對目標 Account ID 與 DB UUID；Token 不寫入檔案、GitHub Actions、Issue、終端歷史或日誌。只在回傳 PRODUCTION_OWNER_READY_TO_ENROLL_READONLY 時進入下一步。
+4. 管理者確認要建立首位 Owner 時選 **2 / Enroll**，再次隱藏輸入 Token；程式用四個唯讀查詢重驗 v3／兩筆 Migration／20 表空白／FK／quick_check。接著必須輸入 CREATE_ONE_PRODUCTION_OWNER_ONCE，再隱藏輸入與重複確認 **12–256 字元** Owner 密碼。WebCrypto 會在本機產生 PBKDF2-SHA256 100,000 次、16-byte salt，只送出 hash/salt，**不傳送原始密碼**。帳號固定為 owner。
+5. 使用 Cloudflare 官方 D1 REST POST /accounts/{account_id}/d1/database/{database_id}/query 的單次 batch 請求送兩筆受前置條件保護的 Owner 與 auth.owner_bootstrap 稽核 INSERT。**不得自行改成兩次 CLI writes 或貼入 Cloudflare Console。只會嘗試一次寫入，不會自動重試。** 網路錯誤仍可能發生在寫入提交之後。
+6. 程式重新用四種唯讀查詢核對。只有 PRODUCTION_OWNER_CREATED_AUDITED_READONLY_VERIFIED（Owner=1、稽核=1、Migration=2、外鍵與完整性正常）才代表帳號結構完成。CLOUD_AUTH_PHASE 仍必須維持 disabled；此步驟**沒有開放登入**。
+7. 任一步失敗只輸出 E_PRODUCTION_OWNER_OPERATOR，**不得直接重按 2、重新建表、清空 D1、重設 Owner 或猜測交易已回滾**。應先選 1 唯讀檢查、記錄不含密碼的狀態，異常交人工審查。顯示已建立 Owner 就不要再建立。
+
+### 已知限制與安全界線
+
+- 工具由本機管理者執行，不是 Cloudflare Worker 端點、GitHub Actions Production Write Workflow 或自動帳號註冊。GitHub Connector 無法代替操作者提供 Production Token。
+- Cloudflare 官方 D1 REST /query 支援 batch，但**尚未透過 disposable D1 實站證明**其故障交易回滾；不能把 Worker Binding API batch() 保證直接移植到 REST 實作。故意採用失敗封閉、單次寫入、Postflight、不自動重試。在正式營運前建議用隔離庫驗證失敗注入。
+- 不得在聊天、Issue、PR 張貼 Token、Owner 密碼、生成 SQL、hash 或 salt。完成後輪替／撤銷短期 Production Write Token，並核對是否有其他 Environment 共用舊值。
+- 正式業務 API、Cookie、CSRF、Session、來源 IP、登入速率限制、UI 仍需要另行實站驗收，才可從 disabled 開放登入。
+- 官方文件：https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/ 及 https://developers.cloudflare.com/d1/worker-api/d1-database/
+
+
 ## 2026-11-01：新增唯讀驗證（不會建立 Owner）
 
 正式 Production D1 已於 [Run #41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) 完成 v3 Schema／0001、0002；**不要重跑 `first-init`**。PR #84 已合併主線 `31e29b678b781dfc0f4b59eb92d5d111f1cd6c40`，主線 Verify #41217213971 PASS 5/5。正式 Owner 仍未確認建立、登入仍關閉。

@@ -87,7 +87,7 @@ test('AES-GCM archive roundtrip and offline SQL replay validates v3 and migratio
  assert.equal(plain,SQL);
  assert.throws(()=>m.decryptSql(sealed,'wrong-encryption-passphrase-123'),/E_PRODUCTION_D1_BACKUP/);
  const corrupt=JSON.parse(sealed.toString());
- corrupt.ciphertext='b'+corrupt.ciphertext.slice(1);
+ corrupt.ciphertext=(corrupt.ciphertext[0]==='a'?'b':'a')+corrupt.ciphertext.slice(1);
  assert.throws(()=>m.decryptSql(Buffer.from(JSON.stringify(corrupt)),'synthetic-lab-password-123456'),/E_PRODUCTION_D1_BACKUP/);
 });
 test('invalid or incomplete dump fails closed without writing remote D1',async()=>{

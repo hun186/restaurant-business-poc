@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createInterface} from 'node:readline/promises';
+import {execFileSync} from 'node:child_process';
 import {ACCOUNT_ID} from './check-cloudflare-staging.mjs';
 import {verifyProductionOwnerTarget, buildProductionOwnerSql} from './cloudflare-production-owner.mjs';
 import {ownerReadinessSql,verifyOwnerReadiness} from './cloudflare-prod-owner-readonly.mjs';
@@ -16,6 +17,21 @@ const MAX_SECRET_BYTES=4096;
 function fail(){throw Error(FAIL);}
 function onlyString(s){return typeof s==='string'&&s.length>0&&s.length<MAX_SECRET_BYTES;}
 const repoRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+
+// A privileged interactive action is never allowed from a dirty/unreviewed PR checkout.
+// This check runs before prompting for the Cloudflare write credential.
+export function assertTrustedMainCheckout(){
+  if(process.env.GITHUB_ACTIONS==='true')fail();
+  try{
+    const run=args=>execFileSync('git',args,{
+      cwd:repoRoot,encoding:'utf8',timeout:8000,stdio:['ignore','pipe','ignore']
+    }).trim();
+    if(run(['branch','--show-current'])!=='main' ||
+       run(['status','--porcelain','--untracked-files=no'])!=='')fail();
+    if(!/^[0-9a-f]{40}$/.test(run(['rev-parse','HEAD'])))fail();
+    return true;
+  }catch{fail();}
+}
 
 export function localProductionTarget(){
   const read=p=>JSON.parse(fs.readFileSync(path.join(repoRoot,p),'utf8'));
@@ -138,6 +154,7 @@ async function hidden(prompt,maxBytes=MAX_SECRET_BYTES){
 async function main(args){
   if(args.length!==1||!['--check','--enroll'].includes(args[0]))fail();
   localProductionTarget();
+  if(args[0]==='--enroll')assertTrustedMainCheckout();
   if(!process.stdin.isTTY || !process.stdout.isTTY)fail();
   const token=await hidden('Cloudflare Production D1 Write Token (hidden): ');
   if(!onlyString(token)||token.length<20)fail();

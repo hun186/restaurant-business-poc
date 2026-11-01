@@ -1,4 +1,20 @@
 # Cloudflare Production D1 — Owner 一次性建立（未開放執行）
+
+## 2026-11-01：新增唯讀驗證（不會建立 Owner）
+
+正式 Production D1 已於 [Run #41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) 完成 v3 Schema／0001、0002；**不要重跑 `first-init`**。PR #84 已合併主線 `31e29b678b781dfc0f4b59eb92d5d111f1cd6c40`，主線 Verify #41217213971 PASS 5/5。正式 Owner 仍未確認建立、登入仍關閉。
+
+這個新的開發增量新增 `.github/workflows/d1-production-owner-readonly.yml`：**僅在合併主線後才能從 Actions 手動運行**，Branch 選 `main`、輸入 `CHECK_PRODUCTION_OWNER_READONLY`。使用既有 `d1-production-readonly` Environment 的 `CLOUDFLARE_ACCOUNT_ID` 和 `CLOUDFLARE_PROD_D1_READ_TOKEN`，**絕不使用 Migration Write Token 或 Owner 密碼**。
+
+它會先驗證固定目標、Reviewed SHA-256、現有 v3 合約與 2 個 Migration Ledger，再以四個唯讀 SQL（兩個 SELECT 統計、`PRAGMA quick_check`、`PRAGMA foreign_key_check`）查詢正式 D1。只有以下兩種嚴格符合的狀態會 PASS：
+
+- `PRODUCTION_OWNER_READY_TO_ENROLL_READONLY`：20 張 Owner／Session／稽核／業務表均無資料，可規劃受控首次 Owner 建立；**不代表已建立或允許寫入**。
+- `PRODUCTION_OWNER_ALREADY_ENROLLED_READONLY`：恰好一位 active 的 PBKDF2-100k Owner 與恰好一筆去識別化權限授予稽核、無 Session／登入嘗試；這是結構就緒，並非公網登入或密碼實測成功。
+
+任一來源回傳不符、缺失或 quick_check／FK 檢查異常即 **Fail closed**，只輸出泛化錯誤、不印 D1 原始內容、憑證或密碼。嚴格檢查簽章的 CLI 在 `tools/cloudflare-prod-owner-readonly.mjs`，本地測試在 `tests/cloudflare-prod-owner-readonly.test.js`。
+
+注意：**這個增量絕不建立正式 Owner**；真正密碼建立須另經受控流程核准與 Cloudflare 實站驗收。若 Migration Token 曾 Rotate，唯讀環境可能使用獨立 Read Token；不得因寫入 Token 已更新就假定唯讀 Token 也有效。
+
  
 ## 目前狀態
 - 主線 `26028441205b6d365b09fa0c7d11806eb237bd7e`：PR #83 已 Merge，postmerge Verify #41210737227 5/5 PASS。

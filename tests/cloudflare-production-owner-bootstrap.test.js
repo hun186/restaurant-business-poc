@@ -110,3 +110,60 @@ test('private Owner SQL uses a single expected ephemeral path without overwrite'
   assert.throws(()=>m.savePrivateOwnerSql(path.join(dir,'../elsewhere.sql'),'X',dir),/E_PROD_OWNER_ENROLL/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('Owner and grant audit stay linkable even when import uses different SQLite connections',async()=>{
+ const m=await modulePromise,password='synthetic-only-bootstrap-password';
+ const sql=await m.buildProductionOwnerSql(password);
+ assert.doesNotMatch(sql,/changes\\(\\)/i);
+ const statements=sql.split(';\\n').filter(x=>x.trim());
+ assert.equal(statements.length,2,'expected only guarded Owner and audit statements');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'prod-owner-connection-'));
+ const file=path.join(dir,'isolated-synthetic.sqlite');
+ try{
+  const setup=new DatabaseSync(file);
+  setup.exec(fs.readFileSync(path.join(root,'db/schema.sql'),'utf8'));
+  setup.exec('CREATE TABLE cloud_schema_contract(id INTEGER PRIMARY KEY,contract_version INTEGER NOT NULL);');
+  setup.exec('INSERT INTO cloud_schema_contract VALUES(1,3)');
+  setup.exec('CREATE TABLE d1_migrations(name TEXT PRIMARY KEY);');
+  setup.exec("INSERT INTO d1_migrations VALUES('0001_initial_v3.sql'),('0002_login_attempts_window_indexes.sql')");
+  setup.close();
+  const ownerDb=new DatabaseSync(file);
+  ownerDb.exec(statements[0]+';');
+  assert.equal(ownerDb.prepare('SELECT COUNT(*) AS n FROM users').get().n,1);
+  ownerDb.close();
+  const auditDb=new DatabaseSync(file);
+  assert.equal(auditDb.prepare('SELECT changes() AS n').get().n,0,
+   'new connection cannot observe prior INSERT via changes()');
+  auditDb.exec(statements[1]+';');
+  auditDb.close();
+  const verified=new DatabaseSync(file);
+  assert.equal(verified.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n,1);
+  assert.equal(m.verifyProductionOwnerPostflight(wrap([verified.prepare(m.postflightSql()).get()]),wrap([])),true);
+  const actual=verified.prepare('SELECT actor_name,action,detail FROM audit_logs').get();
+  assert.deepEqual(JSON.parse(actual.detail),{hash_version:'pbkdf2-sha256$100000'});
+  assert.doesNotMatch(JSON.stringify(actual),/synthetic-only-bootstrap-password/);
+  verified.close();
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('partial Owner without matching audit is rejected; no clearing or retry side effects',async()=>{
+ const m=await modulePromise;
+ const sql=await m.buildProductionOwnerSql('synthetic-only-bootstrap-password');
+ const statements=sql.split(';\\n').filter(x=>x.trim());
+ const db=initDb();
+ try{
+  db.exec(statements[0]+';');
+  // Simulate an import interrupted after its Owner statement.
+  const first=db.prepare(m.postflightSql()).get();
+  assert.equal(first.users,1);
+  assert.equal(first.audit_logs,0);
+  assert.throws(()=>m.verifyProductionOwnerPostflight(wrap([first]),wrap([])),/E_PROD_OWNER_ENROLL/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n,1);
+  // The initial Owner guard is idempotent: no new Owner and no new audit on replay.
+  db.exec(sql);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n,1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n,1);
+  assert.equal(m.verifyProductionOwnerPostflight(
+   wrap([db.prepare(m.postflightSql()).get()]),wrap([])),true);
+ }finally{db.close();}
+});

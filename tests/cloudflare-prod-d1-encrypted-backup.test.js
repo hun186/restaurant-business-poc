@@ -158,7 +158,7 @@ test('unrecognized export shapes return sanitized, specific, fail-closed errors'
    detail:'RESPONSE_SHAPE'},
   {payload:{success:true,result:{type:'export',success:true,status:{invalid:'PRIVATE'},
    at_bookmark:'abc'}},detail:'STATUS_INVALID'},
-  {payload:{success:true,result:{type:'export',success:true,status:'BAD\\nSTATUS',
+  {payload:{success:true,result:{type:'export',success:true,status:'BAD'+String.fromCharCode(10)+'STATUS',
    at_bookmark:'abc'}},detail:'STATUS_INVALID'},
   {payload:{success:true,result:{type:'export',success:true}},
    detail:'BOOKMARK_MISSING'},
@@ -208,7 +208,7 @@ test('malformed or changed poll bookmark is rejected without a download',async()
 
 test('Cloudflare nonterminal progress labels are polled, not misdiagnosed as invalid',async()=>{
  const m=await mod;
- for(const label of ['queued','running','processing','exporting','export_started','phase-3','in_progress']){
+ for(const label of ['queued','running','processing','exporting','export_started','phase-3','in_progress','in progress']){
   const mock=mockTransport({progressStatus:label,bookmark:'opaque-export-token-2026'});
   let pauses=0;
   const sql=await m.remoteExport({token:TOKEN,transport:mock.transport,

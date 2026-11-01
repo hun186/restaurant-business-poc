@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-01 P0 NEXT**：已確認 Production v3 Schema、兩個 Migration 真正完成 #41215336274；PR #84 merged & main CI #41217213971 5/5 PASS；**正式 Owner／公開登入未建立**。開發新 P0 `feat/prod-owner-readiness-readonly-20261101`，新增 D1 Readonly 人工工作流程，驗證初始化後的 Owner/稽核/Schema 準備狀態，不可寫入、不可重做 first-init。待 CI/Codex/PR Merge 後由操作員 Run workflow；正式 Owner 建立需獨立受控權限與實站核准。Token 輪替後 Environment Secrets 仍需本人核對。
+
 > **2026-10-31 P0 最新 NEXT**：Production D1 v3 Schema 與 0001/0002 已由實站 [#41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) PASS；不可再跑 first-init。正式 Owner 尚未建立、PBKDF2 100k 真實登入未開放。PR #84 Owner helper（合成安全工具、稽核與測試）修正 P1 稽核問題、等待最新 Hosted CI + Codex 正式複審；遠端 Owner Workflow 建立操作遭連線端安全阻擋且未建，不能宣稱可一鍵部署。Token rotation 可能讓沿用舊 Cloudflare key 值的 GH Secrets 失效，操作者需自行核對／更新，勿暴露密鑰。
 
 > **2026-10-31 P0 #34 NEXT**：Production D1 `first-init` 手動操作仍需 Environment 安全變數和 Write Token；#41207484827 僅空庫唯讀，未做 Migration，#41210737227 main Verify PASS 5/5。分支 `feat/production-owner-bootstrap-100k-20261031` 準備獨立且不可自動執行的 100k Owner SQL 生成工具與合成測試；Production Owner GitHub Actions Workflow 因連線安全限制未建立。不能宣稱正式 Owner 或登入開通。先取得真正 Schema-only Postflight，後續才可在經授權工具下建立 Owner／啟用登入。

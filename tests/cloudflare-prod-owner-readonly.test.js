@@ -68,6 +68,10 @@ test('incomplete or unexpected Owner, D1 ledger and integrity states fail closed
  }
  const bad=await created();bad.after[0].results[0].audit_logs=0;
  assert.throws(()=>m.verifyOwnerReadiness(bad),/E_PRODUCTION_OWNER_READONLY/);
+ const drift=await created();drift.before[0].results[0].contract_version=2;
+ assert.throws(()=>m.verifyOwnerReadiness(drift),/E_PRODUCTION_OWNER_READONLY/);
+ const mismatch=await empty();mismatch.after[0].results[0].owner_enrollment_audits=1;
+ assert.throws(()=>m.verifyOwnerReadiness(mismatch),/E_PRODUCTION_OWNER_READONLY/);
 });
 test('CLI uses private files; prints only allowed status and rejects invalid payload',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'prod-owner-readonly-'));
@@ -100,5 +104,6 @@ test('new readonly workflow is main/manual-only and never loads a D1 write token
  assert.match(s,/cloudflare-hosted-probe-preflight/);
  assert.match(s,/cloudflare-prod-d1-init.mjs config/);
  assert.match(s,/cloudflare-prod-owner-readonly.mjs inspect/);
- assert.match(s,/--remote --json --config wrangler.production-initialize.jsonc/);
+ assert.match(s,/d1 execute PROD_DB --remote --json/);
+ assert.match(s,/--config wrangler.production-initialize.jsonc/);
 });

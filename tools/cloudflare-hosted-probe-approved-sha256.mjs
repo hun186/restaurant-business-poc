@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"25aab44e89a2eb8c6ade645a8912cbdabd34197d40caea7f5c1838c8fd67fd4e"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-production-owner-readonly.yml":"def216f11e62b9d12d04d990daf3350f8115c76d3812e9e4a8ee704111a6aa09",
   ".github/workflows/d1-staging-access-owner-enroll.yml":"ef15cf9026c99b8d1b759903ebf202bb9713abd4da2301c216ddae331615b846",
   ".github/workflows/d1-staging-access-0003-apply.yml":"112dadf0074a72ee88b044dbbcc44a4dc055a5f634e6dc418e5048ad83138e8d",
   ".github/workflows/d1-staging-access-0003-readonly.yml":"47ebf43287ee71287008af38814d1045b2af2f49351d5f2d79b04b33a1aeb166",
@@ -24,6 +25,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-prod-owner-readonly.mjs":"a4c4303b1aee2bcb28a9bac27695f930cf32600921155e887f05ff6696b58211",
   "tools/cloudflare-production-owner.mjs":"fea3c479dee7788cad91b8193d88b23a49882389d87ba1aa2f8bf664dd3b72b4",
   "tools/cloudflare-prod-first-init-gate.mjs":"c7d6ea91159a6948314ca954311a7228cca6cf13ec0fa5a3c90135fb92d78baf",
   "tools/cloudflare-staging-access-owner-enroll.mjs":"d7462c77f8b301120e9f1d90b73f17e96b731eea2c8f364c0f4ed5e2b570ea2c",
@@ -57,6 +59,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-prod-owner-readonly.test.js":"f74a2eddf8dab72c525694e0928eaf37ae92e6e1a5f11cc8e9193b31850d6964",
   "tests/cloudflare-production-owner-bootstrap.test.js":"ae068de5aef6d34eb73d12b2bda3138f52650f44194b5906777b3d0db39c6e77",
   "tests/cloudflare-prod-first-init-gate.test.js":"54939a686b4ec83a9139550d0f89ee4f51be01f56a6f45cadaaee4aaf66ac060",
   "tests/cloudflare-native-login-http.test.js":"5a8fc37b5915977ae4cccf9c27736b98ca8bd72e18470ebaeb748108677fabe8",

@@ -25,6 +25,9 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "run-disposable-d1-batch-lab.sh":"6fb818548beb4f8816ef513c02282705276ea74c9f1feaeae9e00576b377840e",
+  "run-disposable-d1-batch-lab.bat":"9dd023fe4731ace777828c5064b1c6aa8adb8a3755a97f068cea41418a45f396",
+  "tools/cloudflare-d1-rest-batch-lab.mjs":"78b730304723a7331d05b26fc5ea0feeac936f96be05b1456a212a857f4629cc",
   "run-production-owner-operator.sh":"3ab312e9acecca68e61b173752ab50837944bfc5c1eae565c27147779503f6c2",
   "run-production-owner-operator.bat":"734b8f6df91e3e7d3832756863553bbe295ab92186d113e2ca7f6b35bbe9d366",
   "tools/cloudflare-prod-owner-operator.mjs":"d070e3378d918b6b75e3be76e06640fca43d5994feb89f4af82e9454e15d4f4d",
@@ -62,6 +65,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",
   "tests/cloudflare-prod-owner-operator.test.js":"0018c813fd8674c5eb8a2fdd6231577199a1b0a007ea746b5c358032d69b4355",
   "tests/cloudflare-prod-owner-readonly.test.js":"93c1d84776058afac70822ff628fe7219c8156e779a91fb2e523f5cb449e10d9",
   "tests/cloudflare-production-owner-bootstrap.test.js":"6c737d07e3bfff389721cc17dada264b92f2c82ae656d3013d43ca3c548f6b00",

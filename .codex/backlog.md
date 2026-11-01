@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-01 P0 NEXT**：Owner readiness 真正 D1 唯讀 Run #41265972020/#41265998671 雙 PASS（v3、兩筆 Migration、Owner=0），PR #85 merged/main Verify #41265293849 5/5 PASS；勿重跑 first-init。現開發 `fix/prod-owner-audit-cross-connection-20261101`，修正 Owner SQL 第二筆稽核過度依賴 `changes()`（跨連線可能=0）的問題、補測部分失敗與安全拒絕，**尚未執行 Production Owner 建立**。下一步需受控寫入渠道、驗證 Owner=1/audit=1 且無 Session，再另行進行公開登入安全驗收。
+
 > **2026-11-01 P0 NEXT**：已確認 Production v3 Schema、兩個 Migration 真正完成 #41215336274；PR #84 merged & main CI #41217213971 5/5 PASS；**正式 Owner／公開登入未建立**。開發新 P0 `feat/prod-owner-readiness-readonly-20261101`，新增 D1 Readonly 人工工作流程，驗證初始化後的 Owner/稽核/Schema 準備狀態，不可寫入、不可重做 first-init。待 CI/Codex/PR Merge 後由操作員 Run workflow；正式 Owner 建立需獨立受控權限與實站核准。Token 輪替後 Environment Secrets 仍需本人核對。
 
 > **2026-10-31 P0 最新 NEXT**：Production D1 v3 Schema 與 0001/0002 已由實站 [#41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) PASS；不可再跑 first-init。正式 Owner 尚未建立、PBKDF2 100k 真實登入未開放。PR #84 Owner helper（合成安全工具、稽核與測試）修正 P1 稽核問題、等待最新 Hosted CI + Codex 正式複審；遠端 Owner Workflow 建立操作遭連線端安全阻擋且未建，不能宣稱可一鍵部署。Token rotation 可能讓沿用舊 Cloudflare key 值的 GH Secrets 失效，操作者需自行核對／更新，勿暴露密鑰。

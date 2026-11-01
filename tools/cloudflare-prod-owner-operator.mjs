@@ -9,6 +9,7 @@ import {execFileSync} from 'node:child_process';
 import {ACCOUNT_ID} from './check-cloudflare-staging.mjs';
 import {verifyProductionOwnerTarget, buildProductionOwnerSql} from './cloudflare-production-owner.mjs';
 import {ownerReadinessSql,verifyOwnerReadiness} from './cloudflare-prod-owner-readonly.mjs';
+import {inspectRemote,cloudflareReadOnly} from './cloudflare-d1-recovery-readiness.mjs';
 
 const FAIL='E_PRODUCTION_OWNER_OPERATOR';
 const APPROVAL='CREATE_ONE_PRODUCTION_OWNER_ONCE';
@@ -16,10 +17,10 @@ const MAX_API_BYTES=65536;
 const MAX_SECRET_BYTES=4096;
 function fail(){throw Error(FAIL);}
 const SAFE_PHASES=new Set(['LOCAL_CONFIG','TOKEN_INPUT','READ_BEFORE','READ_AFTER',
-  'READ_QUICK','READ_FOREIGN','READ_VALIDATE','WRITE_ATTEMPT','POST_WRITE_VALIDATE']);
+  'READ_QUICK','READ_FOREIGN','READ_VALIDATE','READ_RECOVERY','WRITE_ATTEMPT','POST_WRITE_VALIDATE']);
 const SAFE_REASONS=new Set(['INPUT_UNAVAILABLE','TOKEN_FORMAT','HTTP_401','HTTP_403',
   'HTTP_404','HTTP_429','HTTP_5XX','HTTP_OTHER','NETWORK_OR_TIMEOUT',
-  'API_REJECTED','INVALID_JSON','RESPONSE_SHAPE','DATABASE_STATE','UNKNOWN']);
+  'API_REJECTED','INVALID_JSON','RESPONSE_SHAPE','DATABASE_STATE','RECOVERY_UNAVAILABLE','UNKNOWN']);
 function diagnostic(reason='UNKNOWN',phase){
   const error=Error(FAIL);
   error.safeReason=SAFE_REASONS.has(reason)?reason:'UNKNOWN';
@@ -118,6 +119,33 @@ export async function inspectProductionOwner(token,transport=fetch){
   try{return verifyOwnerReadiness(data);}
   catch{throw diagnostic('DATABASE_STATE','READ_VALIDATE');}
 }
+// Additional READ-ONLY operator gate. The Bookmark proves current Time Travel
+// capability, NOT an independently verified backup, Restore or authorization.
+export async function inspectOwnerAndTimeTravel(token,{
+  ownerTransport=fetch,recoveryTransport=fetch}={}){
+  const owner=await inspectProductionOwner(token,ownerTransport);
+  if(owner.status!=='PRODUCTION_OWNER_READY_TO_ENROLL_READONLY')
+    throw diagnostic('DATABASE_STATE','READ_VALIDATE');
+  let recovery;
+  try{
+    recovery=await inspectRemote(p=>cloudflareReadOnly(p,token,recoveryTransport));
+  }catch{
+    throw diagnostic('RECOVERY_UNAVAILABLE','READ_RECOVERY');
+  }
+  if(recovery.status!=='G5_PROD_D1_TIME_TRAVEL_READONLY_CAPABILITY_PASS' ||
+     recovery.current_bookmark_retrieved!==true)
+    throw diagnostic('RECOVERY_UNAVAILABLE','READ_RECOVERY');
+  return Object.freeze({
+    status:'PRODUCTION_OWNER_AND_TIME_TRAVEL_READONLY_PASS',
+    schema_version:3,applied_migrations:2,owner_count:0,
+    current_bookmark_retrieved:true,
+    remote_restore_rehearsal_verified:false,
+    offsite_encrypted_backup_verified:false,
+    recovery_signoff_granted:false,
+    production_write_performed:false,
+    login_enabled_by_check:false
+  });
+}
 export function ownerSqlBatch(privateSql){
   if(typeof privateSql!=='string'||privateSql.length>20000)fail();
   const stmts=privateSql.split(';\n').map(x=>x.trim()).filter(Boolean);
@@ -191,7 +219,7 @@ async function hidden(prompt,maxBytes=MAX_SECRET_BYTES){
   });
 }
 async function main(args){
-  if(args.length!==1||!['--check','--enroll'].includes(args[0]))fail();
+  if(args.length!==1||!['--check','--preflight','--enroll'].includes(args[0]))fail();
   try{localProductionTarget();}catch{throw diagnostic('UNKNOWN','LOCAL_CONFIG');}
   if(args[0]==='--enroll')assertTrustedMainCheckout();
   if(!process.stdin.isTTY || !process.stdout.isTTY)
@@ -207,6 +235,11 @@ async function main(args){
   const initial=await inspectProductionOwner(token);
   if(args[0]==='--check'){
     process.stdout.write(JSON.stringify(initial)+'\n');
+    return;
+  }
+  if(args[0]==='--preflight'){
+    // Owner readiness was validated above. This mode never enrolls anyone.
+    process.stdout.write(JSON.stringify(await inspectOwnerAndTimeTravel(token))+'\n');
     return;
   }
   if(initial.status!=='PRODUCTION_OWNER_READY_TO_ENROLL_READONLY')fail();

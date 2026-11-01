@@ -9,6 +9,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {createInterface} from 'node:readline/promises';
 import {setTimeout as delay} from 'node:timers/promises';
 import {localProductionTarget,inspectProductionOwner} from './cloudflare-prod-owner-operator.mjs';
+import {verifyExactMigrations} from './cloudflare-prod-d1-init.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const APPROVAL='EXPORT_PRODUCTION_D1_TO_ENCRYPTED_LOCAL_BACKUP';
@@ -35,28 +36,40 @@ export function privateDir(target=defaultDir()){
   fail('OUTPUT_PATH');
  return p;
 }
+// Fail closed unless the encrypted copy can locally replay the *entire*
+// reviewed v3 migration schema plus the two exact migration ledger entries.
 export function verifyLocalSql(sql) {
  if(typeof sql!=='string'||!sql.trim()||
    Buffer.byteLength(sql,'utf8')>MAX_SQL_BYTES)fail('SQL_SIZE');
  let db;
  try{
+  const migrationsDir=path.join(ROOT,'cloudflare','migrations');
+  verifyExactMigrations(migrationsDir);
+  const initial=fs.readFileSync(path.join(migrationsDir,'0001_initial_v3.sql'),'utf8');
+  const second=fs.readFileSync(path.join(migrationsDir,'0002_login_attempts_window_indexes.sql'),'utf8');
+  const expectedTables=[...initial.matchAll(/CREATE TABLE\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(/g)]
+   .map(m=>m[1]).concat('d1_migrations');
+  const expectedIndexes=[...(initial+'\n'+second).matchAll(
+   /CREATE\s+(?:UNIQUE\s+)?INDEX\s+([A-Za-z_][A-Za-z_0-9]*)\s+ON\s+/gi)].map(m=>m[1]);
+  if(expectedTables.length!==23||new Set(expectedTables).size!==23||
+    expectedIndexes.length<8||new Set(expectedIndexes).size!==expectedIndexes.length)
+   fail('SQL_SCHEMA');
   db=new DatabaseSync(':memory:');
   db.exec(sql);
   if(db.prepare('PRAGMA quick_check').get()?.quick_check!=='ok')fail('SQL_INTEGRITY');
   if(db.prepare('PRAGMA foreign_key_check').all().length!==0)fail('SQL_FK');
-  const table=String(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_schema_contract'").get()?.name||'');
-  if(table!=='cloud_schema_contract')fail('SQL_SCHEMA');
-  const required=['users','locations','audit_logs','sessions','stock_moves',
-    'purchase_orders','cloud_schema_contract','d1_migrations'];
-  for(const name of required){
-   if(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name)?.name!==name)
-    fail('SQL_SCHEMA');
-  }
-  const version=db.prepare('SELECT contract_version FROM cloud_schema_contract').get()?.contract_version;
-  const ledger=db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').get()?.n;
+  const names=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV'").all()
+   .map(row=>row.name).sort();
+  if(JSON.stringify(names)!==JSON.stringify(expectedTables.sort()))fail('SQL_SCHEMA');
+  const indexNames=db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND sql IS NOT NULL AND tbl_name <> '_cf_KV'").all()
+   .map(row=>row.name).sort();
+  if(JSON.stringify(indexNames)!==JSON.stringify(expectedIndexes.sort()))fail('SQL_SCHEMA');
+  const contract=db.prepare('SELECT id,contract_version FROM cloud_schema_contract').all();
+  const ledger=db.prepare('SELECT name FROM d1_migrations ORDER BY id').all().map(x=>x.name);
   const owners=db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='owner' AND active=1").get()?.n;
-  if(Number(version)!==3||ledger!==2||!Number.isSafeInteger(owners)||owners>1)
-   fail('SQL_SCHEMA');
+  if(contract.length!==1||contract[0].id!==1||contract[0].contract_version!==3||
+     JSON.stringify(ledger)!==JSON.stringify(['0001_initial_v3.sql','0002_login_attempts_window_indexes.sql'])||
+     !Number.isSafeInteger(owners)||owners>1)fail('SQL_SCHEMA');
   return Object.freeze({schema_version:3,applied_migrations:2,owner_count:owners,
    local_sqlite_replay_verified:true,production_restore_performed:false,
    remote_restore_rehearsal_verified:false,offsite_encrypted_backup_verified:false});

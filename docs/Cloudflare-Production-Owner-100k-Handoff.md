@@ -1,5 +1,9 @@
 # Cloudflare Production D1 — Owner 一次性建立（未開放執行）
 
+## 2026-11-02｜正式 Owner 前加密匯出方案（僅程式準備）
+
+使用者於 Windows 選項3 已回報 `PRODUCTION_OWNER_AND_TIME_TRAVEL_READONLY_PASS`（v3、兩個 Migration、Owner0、Bookmark 可取得、沒有寫入）。**這不能取代真正備份**，所以另準備 [Production D1 加密本機 SQL 匯出與離線 SQLite 重播](Cloudflare-Production-D1-Encrypted-Local-Export.md)：`run-production-d1-backup.bat` 提供 Export 與 Offline Verify，直接使用 Cloudflare 官方 `POST /export`（無 SQL 寫入，但匯出期間**可能阻塞資料庫查詢**），最多 32 MiB，內存 SQLite 檢查後 AES-GCM 加密儲存於使用者家目錄；不新增 D1、不寫正式資料、不自動 Restore。只有操作者真正執行後才能宣稱本機加密備份；仍需要安全複製到獨立裝置並實機驗證，**不可把它直接記成加密異地備份已驗證**。Owner 一次性寫入仍需另行明確批准及恢復方案核准。
+
 ## 2026-11-01｜Owner + Time Travel 一鍵整合唯讀預檢（新選項 3）
 
 Windows `run-production-owner-operator.bat` 新增 **選項 3：Check Owner + Time Travel bookmark（READ ONLY）**；Linux 同樣選 3，CLI 可直接執行 `node tools/cloudflare-prod-owner-operator.mjs --preflight`。此流程仍以本機互動式隱藏 Token 輸入，不需新建 D1。

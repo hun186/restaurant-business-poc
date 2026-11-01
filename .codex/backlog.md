@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-02 P0 NEXT — 加密備份實機＋獨立恢復核准**：Owner+Time Travel Windows 選項3 實機 PASS 已由操作者回報，無寫入；正式 Owner=0（檢查當時），Schema v3/Migration2，Bookmark 可取得但不能宣稱真正可還原。新增本機 `run-production-d1-backup.bat`：Cloudflare Export API 專用、受控窗口、加密本機備份、離線 SQLite replay、自有磁碟資料；不新增 D1／不修改 Production。先完成 Hosted CI＋Codex Review＋條件式 Merge，再在 Windows 安全執行；若成功仍需獨立安全儲存與異機驗證（不是自動 offsite PASS）。修正 Owner 選項3 的 Read OR Write Token 提示。禁止自動選Owner2、重跑first-init或Restore/Delete。
+
 > **2026-11-01 P0 NEXT — 一鍵 Owner/Time Travel 唯讀預檢與備份核准**：操作者在 Windows 已實測 Owner `--check` PASS（v3/2 Migrations/Owner0），另有 Scratch REST Batch UNIQUE rollback PASS；遠端 G5 Time Travel 10/29 舊 Run #40872307187 PASS 只證明當時可以讀取 Bookmark。新分支增加 BAT/Shell 選項3／CLI `--preflight`，對固定 Prod D1 執行 Owner + Time Travel GET 唯讀、故障封閉、安全輸出；不修改 Production 或 Owner write 語義。須 Hosted HEAD CI、正式 Codex Review、條件式 Merge，然後操作者實機跑選項3；獨立的加密離站備份、真實 Restore、恢復簽核仍未完成。任何 Owner 寫入需明確授權，禁用正式登入維持。
 
 > **2026-11-01 P0 NEXT：正式 Owner 寫入前安全 Gate（未授權）＋D1 配額回收**：PR #89 已 Squash Merge main `1fddd26147c57e07e33565c054f2f472c0ccac6f`，main Verify #41299316181 5/5 PASS。操作者於全新 Scratch D1 先取得 `SCRATCH_D1_EMPTY_VERIFIED`、再取得 `DISPOSABLE_D1_REST_BATCH_ROLLBACK_PASS`（控制2筆、額外0筆）。此為使用者提供實機記錄，限定 UNIQUE 衝突測例；不是通用交易原子性認證。Production Schema v3＋Migration 2 已完成，Owner 之前為0、Login disabled；任何 Owner 寫入前重新跑**唯讀** Preflight，完成可回復點／授權／Postflight 方案後另取得明確 Production Write 核准。禁止自動執行選項2、first-init、D1 Delete/Restore。Cloudflare Free 目前已有 Prod、Staging、G5 Drill、Scratch Lab 4 個庫；持久保留 Prod+Staging，其他只在保存證據並核對綁定及未完工作後由管理員手動回收；詳見 `docs/Cloudflare-D1-Database-Lifecycle.md`。

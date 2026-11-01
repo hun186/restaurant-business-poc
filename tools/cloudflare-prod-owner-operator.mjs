@@ -226,20 +226,20 @@ async function main(args){
     throw diagnostic('INPUT_UNAVAILABLE','TOKEN_INPUT');
   let token;
   try{
-    token=await hidden(args[0]==='--check'
-      ?'Cloudflare Production D1 Read OR Write Token (hidden): '
-      :'Cloudflare Production D1 Write Token (hidden): ');
+    token=await hidden(args[0]==='--enroll'
+      ?'Cloudflare Production D1 Write Token (hidden): '
+      :'Cloudflare Production D1 Read OR Write Token (hidden): ');
   }catch{throw diagnostic('INPUT_UNAVAILABLE','TOKEN_INPUT');}
   if(!onlyString(token)||token.length<20)
     throw diagnostic('TOKEN_FORMAT','TOKEN_INPUT');
+  if(args[0]==='--preflight'){
+    // One Owner readiness pass plus two Time Travel GET calls. Never enroll.
+    process.stdout.write(JSON.stringify(await inspectOwnerAndTimeTravel(token))+'\n');
+    return;
+  }
   const initial=await inspectProductionOwner(token);
   if(args[0]==='--check'){
     process.stdout.write(JSON.stringify(initial)+'\n');
-    return;
-  }
-  if(args[0]==='--preflight'){
-    // Owner readiness was validated above. This mode never enrolls anyone.
-    process.stdout.write(JSON.stringify(await inspectOwnerAndTimeTravel(token))+'\n');
     return;
   }
   if(initial.status!=='PRODUCTION_OWNER_READY_TO_ENROLL_READONLY')fail();

@@ -143,3 +143,14 @@ test('SQL importer splits exact two guarded INSERTs, never outputs raw password'
   assert.throws(()=>m.ownerSqlBatch(invalid),/E_PRODUCTION_OWNER_OPERATOR/);
  }
 });
+
+test('operator launcher files contain no password/token literals, refer only to local CLI',()=>{
+ const fs=require('node:fs');
+ for(const name of ['run-production-owner-operator.bat','run-production-owner-operator.sh']){
+  const s=fs.readFileSync(path.join(root,name),'utf8');
+  assert.match(s,/cloudflare-prod-owner-operator\.mjs/);
+  assert.match(s,/--check/);assert.match(s,/--enroll/);
+  assert.doesNotMatch(s,/CLOUDFLARE_(API_TOKEN|PROD_D1_WRITE_TOKEN)=|PRODUCTION_OWNER_PASSWORD=/);
+  assert.doesNotMatch(s,/wrangler d1 execute|time-travel restore|d1 migrations apply/);
+ }
+});

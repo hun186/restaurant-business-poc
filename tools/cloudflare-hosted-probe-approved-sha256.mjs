@@ -25,8 +25,8 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
-  "run-production-d1-backup.bat":"6bd2a69c593bebe6fe02038514518beeb48fb5c8f15b0b536f4513d665675ad7",
-  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"01de1b7f08410275a07db41944127c0226ef38c106ba7d135b15e9401cf02739",
+  "run-production-d1-backup.bat":"450d32dd2f39779155e7e244b876f244a0d7243e9ae307d07ed95856a4c2e09d",
+  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"6aa621bb4188aa1c9d3cf35760d416bf737daf8253386740a0d2552384472c85",
   "run-disposable-d1-batch-lab.sh":"6fb818548beb4f8816ef513c02282705276ea74c9f1feaeae9e00576b377840e",
   "run-disposable-d1-batch-lab.bat":"9dd023fe4731ace777828c5064b1c6aa8adb8a3755a97f068cea41418a45f396",
   "tools/cloudflare-d1-rest-batch-lab.mjs":"78b730304723a7331d05b26fc5ea0feeac936f96be05b1456a212a857f4629cc",
@@ -67,7 +67,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/cloudflare-prod-d1-encrypted-backup.test.js":"1bd29ef7e9453def5d478b5c16d61496668cf6b3b5ed3e8910c6e0685c84c112",
+  "tests/cloudflare-prod-d1-encrypted-backup.test.js":"e2c4c009d1338c25ca5d1995180013c7f9279648836beb5bda7450a76ed3c33d",
   "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",
   "tests/cloudflare-prod-owner-operator.test.js":"41f705454d8bda9a7fb34549a634f85f807b7d7636ad1c5eccce4ffd75591d02",
   "tests/cloudflare-prod-owner-readonly.test.js":"93c1d84776058afac70822ff628fe7219c8156e779a91fb2e523f5cb449e10d9",

@@ -1,5 +1,15 @@
 # Cloudflare Production D1：加密本機匯出與離線重播驗證（無新增 D1）
 
+## 2026-11-02｜第二次實機回報 `STATUS_INVALID`（尚無有效備份）
+
+操作者使用已合併 PR #93 的 Windows 一鍵工具、選 1，於 Export API 回報 `E_PRODUCTION_D1_BACKUP phase=EXPORT_API detail=STATUS_INVALID`。這**不是** Cloudflare D1 Schema、Owner、Migration、SQL 寫入或 Restore 的失敗證據；只表示目前程式收到未列入允許清單的 `result.status`，並未取得可驗證的 SQL 加密備份。不要重複按 1，因為首次 `POST /export` 可能已開始 Cloudflare 匯出任務，且會阻塞資料庫其他查詢。
+
+依 [Cloudflare 官方 Export API 文件](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/export/)，`status` 公布的終止值僅 `complete` / `error`，輪詢使用 `at_bookmark`；[官方 Wrangler Export Poller](https://github.com/cloudflare/workers-sdk/blob/main/packages/wrangler/src/d1/export.ts) 的行為為其餘狀態均持續輪詢（非全部視為 API 錯誤）。原工具只接受 `pending`、`in_progress`、缺省，可能將合法的非終止值誤判為 `STATUS_INVALID`。實際雲端狀態的**字面值未由操作者提供且不應公開列印**，因此這是相容性修正而不是已確證的唯一根因。
+
+改為只將 `complete`（須具有效 Signed URL）與 `error`（Fail Closed）視為終止；其他狀態如果是 **1–64 個無控制字元的可列印 ASCII 字串**或欄位缺省，僅在 **同時有有效、固定不變的 Bookmark** 時才繼續輪詢，最多 16 次、每次間隔 2 秒。狀態物件／控制字元／過長字串、不合法 Bookmark、錯誤結果物件均立即拒絕，保留對合法完成 URL 的網域限制、加密與本機 SQLite Replay。即使外部 Export 永遠不完成，也會在有限嘗試後以 `EXPORT_TIMEOUT` 中止，不會盲目重試或產生假的成功證據。
+
+這是**程式與合成測試修復**。須待最新 HEAD CI + Codex Review + Merge + main CI 完成後，由操作者低流量維護窗口最多執行一次再次驗證；不可貼 Token、密碼、SQL、URL、Bookmark 或原始 Cloudflare 回應。成功匯出不等於已驗證異地備份或遠端 Restore。
+
 ## 2026-11-02｜Windows 真實 Export API 錯誤：安全診斷修正（仍需實機複驗）
 
 使用者已在可信任 Windows 選 `run-production-d1-backup.bat` 選項1、輸入 `EXPORT_PRODUCTION_D1_TO_ENCRYPTED_LOCAL_BACKUP`、隱藏 Cloudflare Token 與加密密碼，工具在匯出階段回傳 `E_PRODUCTION_D1_BACKUP phase=EXPORT_API`，**未產生可驗證的加密備份成功證據**。此錯誤不包含 API 原始回應，因此不能斷言是 Token、Bookmark 格式、Task 失敗或下載連結問題；此錯誤本身亦不表示已執行 SQL 寫入。**不要在修正合併前反覆重啟遠端 Export**，因為 Cloudflare 官方說明 Export 可阻塞查詢且進行中任務需持續輪詢或自動取消。

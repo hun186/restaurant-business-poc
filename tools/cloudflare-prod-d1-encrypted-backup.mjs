@@ -21,6 +21,7 @@ const ITERATIONS=310000;
 // The official D1 Export API documents an opaque string, not a fixed UUID shape.
 // Only allow bounded printable token characters; never log the bookmark.
 const BOOKMARK=/^[A-Za-z0-9._:~-]{1,256}$/;
+const PROGRESS_STATUS=/^[\x20-\x7E]{1,64}$/;
 const EXTERNAL_HOST=/(\.cloudflarestorage\.com|\.r2\.dev|\.cloudflare\.com)$/i;
 const FAIL_DETAILS=new Set(['RESPONSE_SHAPE','TASK_REJECTED','TASK_ERROR',
  'STATUS_INVALID','BOOKMARK_MISSING','BOOKMARK_INVALID','BOOKMARK_CHANGED',
@@ -147,9 +148,10 @@ export async function remoteExport({token,transport=fetch,pause=ms=>delay(ms)}){
   if(bookmark)body.current_bookmark=bookmark;
   const next=await api(endpoint,'POST',token,body,transport);
   const r=next.result;
-  // The inner "type" and "status" are documented optional fields. Wrangler
-  // accepts status=undefined as "in progress" and resends at_bookmark.
-  // Never show the server's messages, error string, bookmark, or signed URL.
+  // Wrangler's official export poller only treats "complete" and "error"
+  // as terminal: other bounded status tokens are progress indicators.
+  // The API docs do not publish an exhaustive list of progress statuses.
+  // Never show server status, messages, error, bookmark, or signed URL.
   if(!isObj(r)||(r.type!==undefined&&r.type!=='export'))
    fail('EXPORT_API','RESPONSE_SHAPE');
   if(r.success!==true)fail('EXPORT_API','TASK_REJECTED');
@@ -159,8 +161,12 @@ export async function remoteExport({token,transport=fetch,pause=ms=>delay(ms)}){
     fail('EXPORT_API','COMPLETE_URL_MISSING');
    signed=r.result.signed_url;break;
   }
-  if(r.status!==undefined&&r.status!=='in_progress'&&r.status!=='pending')
+  // Accept opaque progress labels, but reject objects, control characters,
+  // oversized values, and missing/changed bookmarks. Polling stays bounded.
+  if(r.status!==undefined &&
+    (typeof r.status!=='string'||!PROGRESS_STATUS.test(r.status)))
    fail('EXPORT_API','STATUS_INVALID');
+  if(r.result!==undefined)fail('EXPORT_API','RESPONSE_SHAPE');
   if(typeof r.at_bookmark!=='string'||!r.at_bookmark)
    fail('EXPORT_API','BOOKMARK_MISSING');
   if(!BOOKMARK.test(r.at_bookmark))fail('EXPORT_API','BOOKMARK_INVALID');

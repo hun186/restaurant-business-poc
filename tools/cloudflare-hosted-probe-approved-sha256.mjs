@@ -127,7 +127,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-d1-operations-readonly.test.js":"59013e77737bb51d9660280a46243f7ca4c7e53ff842b1bcc7b6ad685a3df180",
   "tests/cloudflare-d1-overview-readonly.test.js":"9d106488b709b63ab86b9493b48774a7eab86b38a1f5dc9e02063c338e49eb4a",
   "部署檢查.bat":"879861ecf25c36aaf9879d5c0970ead4275e227f6bee50ee7cf65ad951a719f4",
-  "vercel-demo/README.md":"5cf7a112b1d7338f07f41e3ea1ea8167a8441c8c22a91e624159bc396c503173",
+  "vercel-demo/README.md":"da31dd538e6f9cb557c95f1daa6ea5153c090e01d6c835cdc70f29302f96dbf8",
   "vercel-demo/index.html":"0752239d4291ac4bc93d9314a321e55684e532950b8913b97c510094683f9769",
   "vercel-demo/mock.js":"fe93ded70482a89a8cbc520b9b3dce5b28840d1a79144052ad465a5a758ee6fe",
   "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",

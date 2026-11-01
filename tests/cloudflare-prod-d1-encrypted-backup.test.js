@@ -137,6 +137,7 @@ test('Windows launcher offers explicit export and offline verify, never import/r
  const fs=require('node:fs');
  const txt=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8');
  assert.match(txt,/--export/);assert.match(txt,/--verify/);
+ assert.match(txt,/--verify-copy/);assert.match(txt,/choice \/C 123/);
  assert.doesNotMatch(txt,/d1 migrations apply|time_travel.restore|\/import|--enroll/);
 });
 
@@ -258,4 +259,59 @@ test('unknown status with premature signed URL or malformed status fails closed'
     /E_PRODUCTION_D1_BACKUP/);
   assert.equal(mock.downloads,0);assert.equal(mock.queries,4);
  }
+});
+
+test('separately copied encrypted archive verifies matching SHA and both SQLite replays offline',async()=>{
+ const m=await mod,os=require('node:os');
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-d1-copy-lab-'));
+ const source=path.join(folder,'original.sql.aes'),copy=path.join(folder,'external.sql.aes');
+ const passphrase='synthetic-lab-password-123456';
+ try{
+  const archive=m.encryptSql(SQL,passphrase);
+  fs.writeFileSync(source,archive,{flag:'wx',mode:0o600});
+  fs.copyFileSync(source,copy,fs.constants.COPYFILE_EXCL);
+  const before=fs.readFileSync(source),copied=fs.readFileSync(copy);
+  const result=m.verifyIndependentCopy(source,copy,passphrase);
+  assert.equal(result.status,'PROD_D1_ENCRYPTED_COPY_VERIFY_PASS');
+  assert.equal(result.copy_matches_source,true);
+  assert.equal(result.both_archives_offline_sqlite_replay_verified,true);
+  assert.equal(result.offsite_encrypted_backup_verified,false);
+  assert.equal(result.external_storage_attestation_required,true);
+  assert.equal(result.remote_restore_rehearsal_verified,false);
+  assert.equal(result.production_write_performed,false);
+  assert.equal(result.owner_count,0);
+  assert.equal(result.archive_sha256,m.verifyArchive(source,passphrase).archive_sha256);
+  assert.deepEqual(fs.readFileSync(source),before);
+  assert.deepEqual(fs.readFileSync(copy),copied);
+ }finally{fs.rmSync(folder,{recursive:true,force:true});}
+});
+test('copied archive verifier rejects same file, missing copies and different valid ciphertext',async()=>{
+ const m=await mod,os=require('node:os');
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-d1-reject-copy-'));
+ const original=path.join(folder,'original.sql.aes'),copy=path.join(folder,'copy.sql.aes');
+ const pass='synthetic-lab-password-123456';
+ try{
+  fs.writeFileSync(original,m.encryptSql(SQL,pass));
+  fs.writeFileSync(copy,m.encryptSql(SQL,pass)); // authentic but not byte-identical
+  assert.throws(()=>m.verifyIndependentCopy(original,copy,pass),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_MISMATCH');
+  assert.throws(()=>m.verifyIndependentCopy(original,original,pass),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_SAME_FILE');
+  assert.throws(()=>m.verifyIndependentCopy(original,path.join(folder,'missing.sql.aes'),pass),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_PATH');
+  assert.throws(()=>m.verifyIndependentCopy('original.sql.aes',copy,pass),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_PATH');
+  fs.copyFileSync(original,copy);
+  assert.throws(()=>m.verifyIndependentCopy(original,copy,'wrong-passphrase-12345'),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='ARCHIVE_AUTH');
+ }finally{fs.rmSync(folder,{recursive:true,force:true});}
+});
+test('copy mode keeps network, SQL write and external-media attestation strictly absent',async()=>{
+ const m=await mod;
+ assert.match(m.verifyIndependentCopy.toString(),/verifyArchive/);
+ assert.doesNotMatch(m.verifyIndependentCopy.toString(),/remoteExport|transport|fetch\(|restore\(|writeFile/);
+ const launcher=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8');
+ assert.match(launcher,/if errorlevel 3 goto verify-copy/);
+ assert.match(launcher,/node tools\\cloudflare-prod-d1-encrypted-backup\.mjs --verify-copy/);
+ assert.match(launcher,/It does NOT certify an offsite location/);
 });

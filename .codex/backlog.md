@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-02 P0 — Windows D1 Export API 回應診斷／相容修復**：操作者的第一筆真實 Production Export 在收到 API 後被本機工具以 `phase=EXPORT_API` 拒絕，無備份成功證據。GitHub PR #92 merged/main CI 5/5 PASS 只含合成模擬（未驗證真實 Export response）。對照 Cloudflare Export docs，更新 Bookmarks 由固定 8-8-8-32 改為有界不透明字串、內層 `type` 可缺省、增加白名單 `detail` 診斷與實證合成 Mock；保持 HTTPS signed URL、固定 Prod DB、Owner0/Schema 讀取、無 SQL 寫入、AES-GCM 和離線驗證門檻。最新 HEAD CI + Codex Review 後才能條件式 Auto-Merge，進入 Windows 低流量受控一次 Export 複驗；不可直接重試、印出原始 API、提交 Token/SQL，亦不得自行設定恢復 signoff、Owner 2 或正式 Login。
+
 > **2026-11-02 P0 NEXT — 加密備份實機＋獨立恢復核准**：Owner+Time Travel Windows 選項3 實機 PASS 已由操作者回報，無寫入；正式 Owner=0（檢查當時），Schema v3/Migration2，Bookmark 可取得但不能宣稱真正可還原。新增本機 `run-production-d1-backup.bat`：Cloudflare Export API 專用、受控窗口、加密本機備份、離線 SQLite replay、自有磁碟資料；不新增 D1／不修改 Production。先完成 Hosted CI＋Codex Review＋條件式 Merge，再在 Windows 安全執行；若成功仍需獨立安全儲存與異機驗證（不是自動 offsite PASS）。修正 Owner 選項3 的 Read OR Write Token 提示。禁止自動選Owner2、重跑first-init或Restore/Delete。
 
 > **2026-11-01 P0 NEXT — 一鍵 Owner/Time Travel 唯讀預檢與備份核准**：操作者在 Windows 已實測 Owner `--check` PASS（v3/2 Migrations/Owner0），另有 Scratch REST Batch UNIQUE rollback PASS；遠端 G5 Time Travel 10/29 舊 Run #40872307187 PASS 只證明當時可以讀取 Bookmark。新分支增加 BAT/Shell 選項3／CLI `--preflight`，對固定 Prod D1 執行 Owner + Time Travel GET 唯讀、故障封閉、安全輸出；不修改 Production 或 Owner write 語義。須 Hosted HEAD CI、正式 Codex Review、條件式 Merge，然後操作者實機跑選項3；獨立的加密離站備份、真實 Restore、恢復簽核仍未完成。任何 Owner 寫入需明確授權，禁用正式登入維持。

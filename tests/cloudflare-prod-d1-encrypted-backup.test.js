@@ -25,7 +25,8 @@ const after={contract_version:3,migration_total:2,users:0,owners:0,
  sessions:0,login_attempts:0,audit_logs:0,owner_enrollment_audits:0};
 const envelope=x=>({ok:true,status:200,text:async()=>JSON.stringify(x),json:async()=>x});
 function mockTransport({tamper=false,badUrl=false,
- bookmark='aaaaaaaa-bbbbbbbb-cccccccc-'+'d'.repeat(32),omitType=false}={}){
+ bookmark='aaaaaaaa-bbbbbbbb-cccccccc-'+'d'.repeat(32),omitType=false,
+ progressStatus=undefined}={}){
  let queries=0,posts=0,gets=0,downloads=0;const calls=[];
  const transport=async(url,opts)=>{
   calls.push({url:url.split('?')[0],method:opts.method,auth:!!opts.headers?.Authorization});
@@ -37,7 +38,7 @@ function mockTransport({tamper=false,badUrl=false,
    if(posts===1){
     assert.equal(body.current_bookmark,undefined);
     return envelope({success:true,result:{...(omitType?{}:{type:'export'}),success:true,
-     at_bookmark:bookmark}});
+     ...(progressStatus===undefined?{}:{status:progressStatus}),at_bookmark:bookmark}});
    }
    assert.equal(body.current_bookmark,bookmark);
    return envelope({success:true,result:{...(omitType?{}:{type:'export'}),success:true,status:'complete',
@@ -155,7 +156,9 @@ test('unrecognized export shapes return sanitized, specific, fail-closed errors'
    detail:'TASK_ERROR'},
   {payload:{success:true,result:{type:'import',success:true,at_bookmark:'abc'}},
    detail:'RESPONSE_SHAPE'},
-  {payload:{success:true,result:{type:'export',success:true,status:'invalid-status',
+  {payload:{success:true,result:{type:'export',success:true,status:{invalid:'PRIVATE'},
+   at_bookmark:'abc'}},detail:'STATUS_INVALID'},
+  {payload:{success:true,result:{type:'export',success:true,status:'BAD\\nSTATUS',
    at_bookmark:'abc'}},detail:'STATUS_INVALID'},
   {payload:{success:true,result:{type:'export',success:true}},
    detail:'BOOKMARK_MISSING'},
@@ -200,5 +203,59 @@ test('malformed or changed poll bookmark is rejected without a download',async()
    e=>e.message==='E_PRODUCTION_D1_BACKUP' &&
     e.safeDetail===(changed.includes('\\n')?'BOOKMARK_INVALID':'BOOKMARK_CHANGED'));
   assert.equal(mock.downloads,0);assert.equal(count,2);
+ }
+});
+
+test('Cloudflare nonterminal progress labels are polled, not misdiagnosed as invalid',async()=>{
+ const m=await mod;
+ for(const label of ['queued','running','processing','exporting','export_started','phase-3','in_progress']){
+  const mock=mockTransport({progressStatus:label,bookmark:'opaque-export-token-2026'});
+  let pauses=0;
+  const sql=await m.remoteExport({token:TOKEN,transport:mock.transport,
+   pause:async()=>{pauses++;}});
+  assert.equal(sql,SQL);
+  assert.equal(mock.posts,2);
+  assert.equal(mock.downloads,1);
+  assert.equal(pauses,1);
+ }
+});
+test('nonterminal unknown status remains bounded and never downloads or writes data',async()=>{
+ const m=await mod,mock=mockTransport(),original='opaque-export-token-2026';
+ let sent=0,paused=0;
+ const transport=async(url,opts)=>{
+  if(url.endsWith('/export')){
+   sent++;
+   assert.equal(opts.method,'POST');
+   const body=JSON.parse(opts.body);
+   assert.equal(body.current_bookmark,sent===1?undefined:original);
+   return envelope({success:true,result:{type:'export',success:true,
+    status:'indeterminate_progress',at_bookmark:original,messages:['PRIVATE_LOG']}});
+  }
+  return mock.transport(url,opts);
+ };
+ await assert.rejects(()=>m.remoteExport({token:TOKEN,transport,
+  pause:async()=>{paused++;}}),e=>{
+  assert.equal(e.message,'E_PRODUCTION_D1_BACKUP');
+  assert.equal(e.reason,'EXPORT_TIMEOUT');
+  assert.equal(e.safeDetail,undefined);
+  return true;
+ });
+ assert.equal(sent,16);assert.equal(paused,15);assert.equal(mock.downloads,0);
+ assert.equal(mock.queries,4);assert.equal(mock.gets,1);
+});
+test('unknown status with premature signed URL or malformed status fails closed',async()=>{
+ const m=await mod;
+ for(const r of [
+  {type:'export',success:true,status:'running',at_bookmark:'valid-bookmark',
+   result:{signed_url:'https://secret.example.r2.dev/private'}},
+  {type:'export',success:true,status:'processing',at_bookmark:'bad bookmark'},
+  {type:'export',success:true,status:['processing'],at_bookmark:'valid-bookmark'}
+ ]){
+  const mock=mockTransport();
+  const transport=async(url,opts)=>url.endsWith('/export')
+   ?envelope({success:true,result:r}):mock.transport(url,opts);
+  await assert.rejects(()=>m.remoteExport({token:TOKEN,transport,pause:async()=>{}}),
+    /E_PRODUCTION_D1_BACKUP/);
+  assert.equal(mock.downloads,0);assert.equal(mock.queries,4);
  }
 });

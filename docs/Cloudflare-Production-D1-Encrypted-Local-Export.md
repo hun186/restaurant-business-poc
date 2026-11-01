@@ -1,5 +1,19 @@
 # Cloudflare Production D1：加密本機匯出與離線重播驗證（無新增 D1）
 
+## 2026-11-02｜真實 Production 備份及本機離線驗證雙 PASS（操作者實機）
+
+使用者已實際執行 Windows 選項 **1** 與 **2**，回報 `PROD_D1_ENCRYPTED_LOCAL_EXPORT_PASS` 與 `PROD_D1_ENCRYPTED_LOCAL_VERIFY_PASS`，兩次 `archive_sha256` 完全相同。Schema v3、兩筆 migration、Owner0，`local_sqlite_replay_verified=true`、`source_file_unchanged=true`、`production_write_performed=false`。**這是使用者回報之真實 Production 匯出＋獨立本機解密重播實機證據，不是 Hosted CI 合成結果**。在公開 Repo 僅記錄非機密狀態，不納入 Windows 本機完整路徑、密碼、Cloudflare Token、SQL 或備份原文。
+
+### 下一步：選項 3 驗證第二份密文副本（只有本機讀取）
+
+1. 不要再選 `1`。用 Windows 檔案總管將已驗證的 `.sql.aes` 密文檔案**複製**到另一個受保護的外接硬碟、加密儲存設備，或可信任的受保護異地儲存位置。保留原始檔；不要把密碼與密文檔放在同一個位置，也不要上傳 GitHub。**工具選項 3 不會替你執行複製**。
+2. 在專案已更新且經 PR 審核合併的 `main`，執行 `run-production-d1-backup.bat`，選 **`3`：Verify a separately copied encrypted archive (offline)**。輸入**原始檔**與**第二份副本**各自完整的 `.sql.aes` 路徑（例如來源在 `%USERPROFILE%\RestaurantD1PrivateBackups\...`，副本在外接設備的受保護資料夾），再輸入相同的隱藏加密密碼。只讀取兩個本機檔，不會發出任何網路呼叫、Export、Restore、D1 SQL、Owner 或資料庫變更。
+3. 只有當兩份封存是不同檔案、SHA-256 完全相同、兩份均可解密重播並通過 v3/ledger/完整 Schema/Index/SQLite quick_check/FK 時，才輸出 `PROD_D1_ENCRYPTED_COPY_VERIFY_PASS`，附 `copy_matches_source=true`、`both_archives_offline_sqlite_replay_verified=true`、`source_files_unchanged=true`。
+4. **即使選項 3 PASS，也只表示當時電腦上兩份密文內容相同且兩份可讀。** USB、路徑、另一磁碟機代號**不能證明**該副本已永久離線、異地、安全保存或日後能恢復，因此程式固定保持 `offsite_encrypted_backup_verified=false`、`external_storage_attestation_required=true`、`remote_restore_rehearsal_verified=false`、`recovery_signoff_granted=false`。若要完成異地驗收，操作者需親自確認第二份備份已妥善置於獨立位置／獨立設備、儲存權限與密碼分離，最好再於另一台可信任電腦用選項 2 解密重播驗證，並保存不含機密的人工紀錄。
+5. 失敗會以 `E_PRODUCTION_D1_BACKUP phase=COPY_PATH|COPY_SAME_FILE|COPY_MISMATCH|ARCHIVE_AUTH|...` 安全代碼回報，**不顯示本機完整路徑、Token、密碼、SQL**。不要刪掉唯一的原始備份，也不要為了驗證再發出新的 Production 匯出。
+
+**安全 Gate 依舊有效**：本機與異地備份檢查不等於 Cloudflare 遠端 D1 Restore 演練，不自行啟用 Production Owner 選項 2、Native Login 或授權資料庫寫入。正式恢復方案放行及 RPO/RTO 仍需獨立驗收。
+
 ## 2026-11-02｜第二次實機回報 `STATUS_INVALID`（尚無有效備份）
 
 操作者使用已合併 PR #93 的 Windows 一鍵工具、選 1，於 Export API 回報 `E_PRODUCTION_D1_BACKUP phase=EXPORT_API detail=STATUS_INVALID`。這**不是** Cloudflare D1 Schema、Owner、Migration、SQL 寫入或 Restore 的失敗證據；只表示目前程式收到未列入允許清單的 `result.status`，並未取得可驗證的 SQL 加密備份。不要重複按 1，因為首次 `POST /export` 可能已開始 Cloudflare 匯出任務，且會阻塞資料庫其他查詢。

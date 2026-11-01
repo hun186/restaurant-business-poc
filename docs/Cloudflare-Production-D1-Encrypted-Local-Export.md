@@ -1,5 +1,13 @@
 # Cloudflare Production D1：加密本機匯出與離線重播驗證（無新增 D1）
 
+## 部署平台分工與合併檢查
+
+- **正式 Web/App：Cloudflare Workers**，靜態前端透過 `wrangler.jsonc` 的 `assets` Binding 提供、`/api/*` 由 Worker 路由處理，Production 綁定既有 `restaurant-business-prod` D1；Preview 綁定 `restaurant-business-staging` D1。正式登入 `CLOUD_AUTH_PHASE=disabled` 未開通；**不得把目前 Demo 靜態頁當已驗收的正式營運 UI**。
+- **Vercel：僅供虛構 Demo**。2026-11-02 已經 Vercel 專案設定更新 `previewDeploymentsDisabled=true`，保留既有 main Demo 路線以節省免費部署額度；這不修改 Cloudflare 的 Worker、D1 或登入 Gate。
+- GitHub **合併閘門不會因 Vercel 配額錯誤被偷偷降低**。最低限度是最新 HEAD Hosted Verify 全 PASS、Workers Build PASS、正式 Codex Review Completed 且無未解決 P1/P2、無 Merge Conflict／必要分支保護阻擋；Vercel 原有 `api-deployments-free-per-day` 失敗仍需明確辨識，舊失敗狀態不會自動消失。若狀態仍使 PR 為 `unstable`，需另行獲得該 PR 個別 Merge 指令或先恢復外部檢查，不能把 failure 偽裝成 success。
+- Production Cloudflare Worker 的發佈、DNS 綁定、正式登入開關、Owner 寫入及 Production D1 備份 Export 是**彼此獨立的放行操作**。本 PR 只新增本機工具及文件；不自動觸發 Cloudflare 發佈、遠端 Export 或正式登入。
+- Vercel 專案設定 API 已成功接受更新，且回查確認同一專案仍存在；目前讀取介面沒有回傳 Preview-disabled 欄位，因此**沒有由讀回欄位再度獨立確認其布林值**。以後若需要調整 Preview，應先到 Vercel Project Settings 確認狀態。
+
 ## 適用範圍與安全限制
 
 - 目標固定為 `restaurant-business-prod` 的**既有** Cloudflare Account/DB UUID；不建立第五個 D1，不匯入、還原、Migration、刪除或建立 Owner。工具在任何 Export API 前，先核對 Production Metadata 並執行完整的 Owner 唯讀 v3/Migration2/Owner0 預檢。

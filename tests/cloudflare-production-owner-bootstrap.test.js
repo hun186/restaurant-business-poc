@@ -114,8 +114,8 @@ test('private Owner SQL uses a single expected ephemeral path without overwrite'
 test('Owner and grant audit stay linkable even when import uses different SQLite connections',async()=>{
  const m=await modulePromise,password='synthetic-only-bootstrap-password';
  const sql=await m.buildProductionOwnerSql(password);
- assert.doesNotMatch(sql,/changes\\(\\)/i);
- const statements=sql.split(';\\n').filter(x=>x.trim());
+ assert.doesNotMatch(sql,/changes\(\)/i);
+ const statements=sql.split(';\n').filter(x=>x.trim());
  assert.equal(statements.length,2,'expected only guarded Owner and audit statements');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'prod-owner-connection-'));
  const file=path.join(dir,'isolated-synthetic.sqlite');
@@ -149,7 +149,7 @@ test('Owner and grant audit stay linkable even when import uses different SQLite
 test('partial Owner without matching audit is rejected; no clearing or retry side effects',async()=>{
  const m=await modulePromise;
  const sql=await m.buildProductionOwnerSql('synthetic-only-bootstrap-password');
- const statements=sql.split(';\\n').filter(x=>x.trim());
+ const statements=sql.split(';\n').filter(x=>x.trim());
  const db=initDb();
  try{
   db.exec(statements[0]+';');

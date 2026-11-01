@@ -12,3 +12,5 @@ logs/
 .DS_Store
 .vercel/
 coverage/
+*.sql.aes
+RestaurantD1PrivateBackups/

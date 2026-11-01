@@ -14,8 +14,10 @@ echo Cloudflare export may temporarily block Production D1 queries.
 echo Encrypted archives stay under your Windows user profile.
 echo [1] Export Production D1 to encrypted local backup ^(requires operator confirmation^)
 echo [2] Verify an existing encrypted local backup ^(offline^)
+echo [3] Verify a separately copied encrypted archive ^(offline, no Cloudflare access^)
 echo.
-choice /C 12 /N /M "Select 1 or 2: "
+choice /C 123 /N /M "Select 1, 2 or 3: "
+if errorlevel 3 goto verify-copy
 if errorlevel 2 goto verify
 if errorlevel 1 goto export
 exit /b 1
@@ -32,6 +34,13 @@ if not defined BACKUP_FILE (
   exit /b 1
 )
 node tools\cloudflare-prod-d1-encrypted-backup.mjs --verify "%BACKUP_FILE%"
+set "RESULT=%ERRORLEVEL%"
+goto finish
+:verify-copy
+echo.
+echo Copy the existing .sql.aes to a separate protected drive or device first.
+echo This checks ciphertext equality and SQLite replay. It does NOT certify an offsite location.
+node tools\cloudflare-prod-d1-encrypted-backup.mjs --verify-copy
 set "RESULT=%ERRORLEVEL%"
 goto finish
 :finish

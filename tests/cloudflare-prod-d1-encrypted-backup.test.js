@@ -4,17 +4,14 @@ const {spawnSync}=require('node:child_process');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const mod=import('../tools/cloudflare-prod-d1-encrypted-backup.mjs');
-const SQL=[
- 'CREATE TABLE cloud_schema_contract(contract_version INTEGER NOT NULL);',
- 'INSERT INTO cloud_schema_contract VALUES(3);',
- 'CREATE TABLE d1_migrations(id INTEGER NOT NULL);',
- 'INSERT INTO d1_migrations VALUES(1);INSERT INTO d1_migrations VALUES(2);',
- 'CREATE TABLE users(id TEXT,role TEXT,active INTEGER);',
- 'CREATE TABLE locations(id TEXT);',
- 'CREATE TABLE audit_logs(id TEXT);',
- 'CREATE TABLE sessions(id TEXT);',
- 'CREATE TABLE stock_moves(id TEXT);',
- 'CREATE TABLE purchase_orders(id TEXT);'
+const fs=require('node:fs');
+const v3=fs.readFileSync(path.join(root,'cloudflare/migrations/0001_initial_v3.sql'),'utf8');
+const delta=fs.readFileSync(path.join(root,'cloudflare/migrations/0002_login_attempts_window_indexes.sql'),'utf8');
+// Synthetic but complete reviewed v3 schema with two legitimate migration ledger entries.
+const SQL=v3+'\n'+delta+'\n'+[
+ 'CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL);',
+ "INSERT INTO d1_migrations(id,name) VALUES(1,'0001_initial_v3.sql');",
+ "INSERT INTO d1_migrations(id,name) VALUES(2,'0002_login_attempts_window_indexes.sql');"
 ].join('\n');
 const TOKEN='a'.repeat(24);
 const before={
@@ -93,9 +90,10 @@ test('AES-GCM archive roundtrip and offline SQL replay validates v3 and migratio
 test('invalid or incomplete dump fails closed without writing remote D1',async()=>{
  const m=await mod;
  for(const s of [
-  'DROP TABLE foo;',SQL.replace('VALUES(3)','VALUES(4)'),
-  SQL.replace('INSERT INTO d1_migrations VALUES(2);',''),
-  SQL.replace('CREATE TABLE audit_logs(id TEXT);','')
+  'DROP TABLE foo;',SQL.replace('VALUES(1,3)','VALUES(1,4)'),
+  SQL.replace("INSERT INTO d1_migrations(id,name) VALUES(2,'0002_login_attempts_window_indexes.sql');",''),
+  SQL.replace(/CREATE TABLE evaluations \([\s\S]*?\);/,''),
+  SQL.replace(/CREATE INDEX idx_dish_ingredients_dish ON dish_ingredients\(dish_id\);/,'')
  ])assert.throws(()=>m.verifyLocalSql(s),/E_PRODUCTION_D1_BACKUP/);
  assert.throws(()=>m.encryptSql(SQL,'short'),/E_PRODUCTION_D1_BACKUP/);
 });

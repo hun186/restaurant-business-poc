@@ -26,7 +26,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "run-production-d1-backup.bat":"6bd2a69c593bebe6fe02038514518beeb48fb5c8f15b0b536f4513d665675ad7",
-  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"f4cd904223df6afafc094bc218b006451b2ff86b3b38f3fe108b78c1528c4ba8",
+  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"21a0049aff3e40a1ab72fc500e0379e59dcdac947766b8671a6575752879785f",
   "run-disposable-d1-batch-lab.sh":"6fb818548beb4f8816ef513c02282705276ea74c9f1feaeae9e00576b377840e",
   "run-disposable-d1-batch-lab.bat":"9dd023fe4731ace777828c5064b1c6aa8adb8a3755a97f068cea41418a45f396",
   "tools/cloudflare-d1-rest-batch-lab.mjs":"78b730304723a7331d05b26fc5ea0feeac936f96be05b1456a212a857f4629cc",

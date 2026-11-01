@@ -230,6 +230,42 @@ export function verifyArchive(file,passphrase) {
   archive_sha256:createHash('sha256').update(bytes).digest('hex'),
   ...v,source_file_unchanged:true,production_write_performed:false});
 }
+// Offline only: compare an independently stored encrypted copy with the
+// original ciphertext, then authenticate + replay BOTH archives in memory.
+// It does not inspect media identity, assert physical offsite custody, or copy.
+export function verifyIndependentCopy(originalFile,copyFile,passphrase){
+ if(typeof originalFile!=='string'||typeof copyFile!=='string'||
+    !path.isAbsolute(originalFile)||!path.isAbsolute(copyFile)||
+    !originalFile.endsWith('.sql.aes')||!copyFile.endsWith('.sql.aes'))
+   fail('COPY_PATH');
+ let a,b,sa,sb;
+ try{
+  a=fs.realpathSync.native(originalFile);
+  b=fs.realpathSync.native(copyFile);
+  sa=fs.lstatSync(originalFile);
+  sb=fs.lstatSync(copyFile);
+ }catch{fail('COPY_PATH');}
+ if(!sa.isFile()||!sb.isFile()||sa.isSymbolicLink()||sb.isSymbolicLink()||
+    sa.size>MAX_SQL_BYTES*2||sb.size>MAX_SQL_BYTES*2)fail('COPY_PATH');
+ if((process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b)||
+   (sa.ino!==0&&sa.ino===sb.ino&&sa.dev===sb.dev))
+   fail('COPY_SAME_FILE');
+ const original=verifyArchive(originalFile,passphrase);
+ const copy=verifyArchive(copyFile,passphrase);
+ if(original.archive_sha256!==copy.archive_sha256)fail('COPY_MISMATCH');
+ if(original.schema_version!==copy.schema_version||
+    original.applied_migrations!==copy.applied_migrations||
+    original.owner_count!==copy.owner_count)fail('COPY_MISMATCH');
+ return Object.freeze({status:'PROD_D1_ENCRYPTED_COPY_VERIFY_PASS',
+  archive_sha256:copy.archive_sha256,copy_matches_source:true,
+  both_archives_offline_sqlite_replay_verified:true,
+  schema_version:copy.schema_version,applied_migrations:copy.applied_migrations,
+  owner_count:copy.owner_count,source_files_unchanged:true,
+  production_write_performed:false,production_restore_performed:false,
+  remote_restore_rehearsal_verified:false,
+  offsite_encrypted_backup_verified:false,
+  external_storage_attestation_required:true,recovery_signoff_granted:false});
+}
 async function hidden(prompt){
  if(!process.stdin.isTTY||!process.stdout.isTTY||!process.stdin.setRawMode)fail('TTY');
  process.stdout.write(prompt);
@@ -252,6 +288,19 @@ async function hidden(prompt){
  });
 }
 async function main(args){
+ if(args.length===1&&args[0]==='--verify-copy'){
+  const rl=createInterface({input:process.stdin,output:process.stdout});
+  let originalFile,copyFile;
+  try{
+   originalFile=await rl.question('Original .sql.aes full path: ');
+   copyFile=await rl.question('Copied .sql.aes full path: ');
+  }finally{rl.close();}
+  if(!originalFile?.trim()||!copyFile?.trim())fail('COPY_PATH');
+  const pass=await hidden('Backup passphrase (hidden): ');
+  console.log(JSON.stringify(verifyIndependentCopy(
+   path.resolve(originalFile.trim()),path.resolve(copyFile.trim()),pass)));
+  return;
+ }
  if(args.length===2&&args[0]==='--verify'){
   const pass=await hidden('Backup passphrase (hidden): ');
   console.log(JSON.stringify(verifyArchive(path.resolve(args[1]),pass)));return;
@@ -281,7 +330,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
    'NETWORK','HTTP','API_SHAPE','EXPORT_API','EXPORT_TIMEOUT','SIGNED_URL','DOWNLOAD',
    'DOWNLOAD_SIZE','DOWNLOAD_ENCODING','SQL_SIZE','SQL_INTEGRITY','SQL_FK','SQL_SCHEMA',
    'SQL_REPLAY','ARCHIVE_SIZE','ARCHIVE_FORMAT','ARCHIVE_AUTH','ARCHIVE_VERIFY',
-   'OUTPUT_PATH','SAVE','VERIFY_PATH','TTY']);
+   'OUTPUT_PATH','SAVE','VERIFY_PATH','COPY_PATH','COPY_SAME_FILE','COPY_MISMATCH','TTY']);
   const detail=e.reason==='EXPORT_API'&&FAIL_DETAILS.has(e.safeDetail)
    ?' detail='+e.safeDetail:'';
   console.error(FAIL+' phase='+(safe.has(e.reason)?e.reason:'UNKNOWN')+detail+

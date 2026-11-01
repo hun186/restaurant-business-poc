@@ -26,7 +26,7 @@ const before={
 };
 const after={contract_version:3,migration_total:2,users:0,owners:0,
  sessions:0,login_attempts:0,audit_logs:0,owner_enrollment_audits:0};
-const envelope=x=>({ok:true,status:200,text:async()=>JSON.stringify(x)});
+const envelope=x=>({ok:true,status:200,text:async()=>JSON.stringify(x),json:async()=>x});
 function mockTransport({tamper=false,badUrl=false}={}){
  let queries=0,posts=0,gets=0,downloads=0;const calls=[];
  const transport=async(url,opts)=>{

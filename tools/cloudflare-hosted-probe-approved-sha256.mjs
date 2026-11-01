@@ -28,9 +28,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "run-disposable-d1-batch-lab.sh":"6fb818548beb4f8816ef513c02282705276ea74c9f1feaeae9e00576b377840e",
   "run-disposable-d1-batch-lab.bat":"9dd023fe4731ace777828c5064b1c6aa8adb8a3755a97f068cea41418a45f396",
   "tools/cloudflare-d1-rest-batch-lab.mjs":"78b730304723a7331d05b26fc5ea0feeac936f96be05b1456a212a857f4629cc",
-  "run-production-owner-operator.sh":"3ab312e9acecca68e61b173752ab50837944bfc5c1eae565c27147779503f6c2",
-  "run-production-owner-operator.bat":"734b8f6df91e3e7d3832756863553bbe295ab92186d113e2ca7f6b35bbe9d366",
-  "tools/cloudflare-prod-owner-operator.mjs":"d070e3378d918b6b75e3be76e06640fca43d5994feb89f4af82e9454e15d4f4d",
+  "run-production-owner-operator.sh":"4a301bc29a818fd77b21a9cd38a079a247cff908654dfcab6cf680d2f0888ed1",
+  "run-production-owner-operator.bat":"ddcb460803e8e36fcba161ac6cad953062788898bc441d6dc1d5fc4fb137213c",
+  "tools/cloudflare-prod-owner-operator.mjs":"b926fe61eedac72869e2b8dc57a15872d661f074f37ac18b9c8b58a7d489b694",
   "tools/cloudflare-prod-owner-readonly.mjs":"5c5b84c05d19b207dec3e81d7c3bb652add24855ba06f501c2d15ba42776df98",
   "tools/cloudflare-production-owner.mjs":"3e6d47c6cf00d19744b81de2f5f93d5b51824ea9bc3c4975129d09c27a31fff9",
   "tools/cloudflare-prod-first-init-gate.mjs":"c7d6ea91159a6948314ca954311a7228cca6cf13ec0fa5a3c90135fb92d78baf",
@@ -66,7 +66,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",
-  "tests/cloudflare-prod-owner-operator.test.js":"0018c813fd8674c5eb8a2fdd6231577199a1b0a007ea746b5c358032d69b4355",
+  "tests/cloudflare-prod-owner-operator.test.js":"41f705454d8bda9a7fb34549a634f85f807b7d7636ad1c5eccce4ffd75591d02",
   "tests/cloudflare-prod-owner-readonly.test.js":"93c1d84776058afac70822ff628fe7219c8156e779a91fb2e523f5cb449e10d9",
   "tests/cloudflare-production-owner-bootstrap.test.js":"6c737d07e3bfff389721cc17dada264b92f2c82ae656d3013d43ca3c548f6b00",
   "tests/cloudflare-prod-first-init-gate.test.js":"54939a686b4ec83a9139550d0f89ee4f51be01f56a6f45cadaaee4aaf66ac060",

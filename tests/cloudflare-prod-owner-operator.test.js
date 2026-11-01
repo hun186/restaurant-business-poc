@@ -149,7 +149,7 @@ test('operator launcher files contain no password/token literals, refer only to 
  for(const name of ['run-production-owner-operator.bat','run-production-owner-operator.sh']){
   const s=fs.readFileSync(path.join(root,name),'utf8');
   assert.match(s,/cloudflare-prod-owner-operator\.mjs/);
-  assert.match(s,/--check/);assert.match(s,/--enroll/);
+  assert.match(s,/--check/);assert.match(s,/--enroll/);assert.match(s,/--preflight/);
   assert.doesNotMatch(s,/CLOUDFLARE_(API_TOKEN|PROD_D1_WRITE_TOKEN)=|PRODUCTION_OWNER_PASSWORD=/);
   assert.doesNotMatch(s,/wrangler d1 execute|time-travel restore|d1 migrations apply/);
  }
@@ -232,4 +232,59 @@ test('short or missing token is rejected before networking with safe phase',asyn
   assert.equal(error.safeReason,'TOKEN_FORMAT');return true;
  });
  assert.equal(calls,0);
+});
+
+
+test('combined Owner and Time Travel check returns only safe fields and no writes',async()=>{
+ const m=await modulePromise,sim=mockD1(),target=m.localProductionTarget();
+ const bookmark='aaaaaaaa-bbbbbbbb-cccccccc-'+ 'd'.repeat(32);
+ let gets=0;
+ const recoveryTransport=async(url,opts)=>{
+  gets++;
+  assert.equal(opts.method,'GET');assert.equal(opts.redirect,'error');
+  assert.equal(opts.body,undefined);
+  assert.equal(opts.headers.Authorization,'Bearer '+TOKEN);
+  assert.ok(url.startsWith('https://api.cloudflare.com/client/v4/accounts/'+
+    target.accountId+'/d1/database/'+target.databaseId));
+  const data=url.endsWith('/time_travel/bookmark')
+   ? {success:true,result:{bookmark}}
+   : {success:true,result:{uuid:target.databaseId,name:'restaurant-business-prod',version:'production'}};
+  return {ok:true,text:async()=>JSON.stringify(data)};
+ };
+ const out=await m.inspectOwnerAndTimeTravel(TOKEN,{ownerTransport:sim.transport,recoveryTransport});
+ assert.equal(out.status,'PRODUCTION_OWNER_AND_TIME_TRAVEL_READONLY_PASS');
+ assert.equal(out.owner_count,0);assert.equal(out.current_bookmark_retrieved,true);
+ assert.equal(out.recovery_signoff_granted,false);
+ assert.equal(out.offsite_encrypted_backup_verified,false);
+ assert.equal(out.remote_restore_rehearsal_verified,false);
+ assert.equal(out.production_write_performed,false);
+ assert.equal(sim.writes,0);assert.equal(sim.reads,4);assert.equal(gets,2);
+ assert.doesNotMatch(JSON.stringify(out),/aaaaaaaa|bbbbbbbb|cccccccc|password|token|secret|database_id|account_id/i);
+});
+test('combined preflight fail-closed on recovery errors; never performs writes',async()=>{
+ const m=await modulePromise;
+ for(const invalid of [
+  async()=>({ok:false,status:401,text:async()=>'{PRIVATE_SECRET}'}),
+  async()=>({ok:true,text:async()=>'{BAD_PRIVATE_SECRET}'}),
+  async()=>({ok:true,text:async()=>JSON.stringify({success:true,result:{uuid:'wrong',name:'restaurant-business-prod',version:'production'}})}),
+  async()=>{throw Error('PRIVATE_SECRET');}
+ ]){
+  const sim=mockD1();
+  await assert.rejects(()=>m.inspectOwnerAndTimeTravel(TOKEN,{
+   ownerTransport:sim.transport,recoveryTransport:invalid
+  }),e=>{
+   assert.equal(e.message,'E_PRODUCTION_OWNER_OPERATOR');
+   assert.equal(e.safePhase,'READ_RECOVERY');
+   assert.equal(e.safeReason,'RECOVERY_UNAVAILABLE');
+   assert.doesNotMatch(JSON.stringify({message:e.message,phase:e.safePhase,reason:e.safeReason}),/PRIVATE_SECRET/);
+   return true;
+  });
+  assert.equal(sim.writes,0);
+ }
+ const enrolled=mockD1({initial:'enrolled'});
+ let recoveryCalls=0;
+ await assert.rejects(()=>m.inspectOwnerAndTimeTravel(TOKEN,{
+  ownerTransport:enrolled.transport,recoveryTransport:async()=>{recoveryCalls++;throw Error('UNREACHABLE');}
+ }),/E_PRODUCTION_OWNER_OPERATOR/);
+ assert.equal(recoveryCalls,0);assert.equal(enrolled.writes,0);
 });

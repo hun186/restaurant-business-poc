@@ -1,5 +1,15 @@
 # Cloudflare Production D1 — Owner 一次性建立（未開放執行）
 
+## 2026-11-01｜Owner + Time Travel 一鍵整合唯讀預檢（新選項 3）
+
+Windows `run-production-owner-operator.bat` 新增 **選項 3：Check Owner + Time Travel bookmark（READ ONLY）**；Linux 同樣選 3，CLI 可直接執行 `node tools/cloudflare-prod-owner-operator.mjs --preflight`。此流程仍以本機互動式隱藏 Token 輸入，不需新建 D1。
+
+它先檢查 Production v3、兩筆 Migration、Owner=0、業務與稽核資料為空、完整性與外鍵，接著使用相同的 D1 Read/Write Token 對**固定 Production D1** 發出 GET Metadata 與 GET Time Travel Bookmark。若任一步驟失敗，Fail Closed；不輸出 Token、Bookmark、SQL、完整資料庫回應或錯誤堆疊，亦不執行任何寫入。
+
+成功結果 `PRODUCTION_OWNER_AND_TIME_TRAVEL_READONLY_PASS` 明確保留以下限制：`current_bookmark_retrieved:true`，但 `remote_restore_rehearsal_verified:false`、`offsite_encrypted_backup_verified:false`、`recovery_signoff_granted:false`、`production_write_performed:false`。**Bookmark 可取得不等於該資料庫已有經驗證的離站備份、實際還原能力或恢復簽核。**
+
+若顯示 `phase=READ_RECOVERY reason=RECOVERY_UNAVAILABLE`，請檢查 Token 對固定 Production D1 的 Time Travel 讀取權限或使用既有 [G5 唯讀工作流程](../.github/workflows/d1-production-recovery-readonly-g5.yml) 交叉核對；不可推定是資料毀損或跳過安全門檻。選項 1、選項 2 原有語義不變，且此新選項 PASS **不自動授權**正式 Owner 建立。正式選項 2 仍需另外明確核准及備份／恢復方案。
+
 ## 2026-11-01 最新交接｜D1 REST Batch 特定回滾場景已實機 PASS，Owner 仍未建立
 
 - 已確認：使用者在專屬 Scratch D1 上先回報 `SCRATCH_D1_EMPTY_VERIFIED`、後回報 `DISPOSABLE_D1_REST_BATCH_ROLLBACK_PASS`（2 筆控制資料、0 筆回滾殘留）；來源是操作者提供之非敏感輸出，未由此代理人直接查詢 Cloudflare。詳見 [隔離實機驗收](Cloudflare-D1-REST-Batch-Disposable-Rollback-Lab.md)。

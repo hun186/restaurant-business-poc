@@ -21,7 +21,7 @@ const ITERATIONS=310000;
 // The official D1 Export API documents an opaque string, not a fixed UUID shape.
 // Only allow bounded printable token characters; never log the bookmark.
 const BOOKMARK=/^[A-Za-z0-9._:~-]{1,256}$/;
-const PROGRESS_STATUS=/^[A-Za-z0-9_:-]{1,64}$/;
+const PROGRESS_STATUS=/^[\x20-\x7E]{1,64}$/;
 const EXTERNAL_HOST=/(\.cloudflarestorage\.com|\.r2\.dev|\.cloudflare\.com)$/i;
 const FAIL_DETAILS=new Set(['RESPONSE_SHAPE','TASK_REJECTED','TASK_ERROR',
  'STATUS_INVALID','BOOKMARK_MISSING','BOOKMARK_INVALID','BOOKMARK_CHANGED',

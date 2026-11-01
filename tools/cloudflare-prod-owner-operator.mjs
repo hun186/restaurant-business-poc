@@ -30,11 +30,13 @@ function tagged(error,phase){
   const reason=error?.safeReason??'UNKNOWN';
   return diagnostic(reason,phase);
 }
-function publicFailure(error){
+function publicFailure(error,mode){
   const phase=SAFE_PHASES.has(error?.safePhase)?error.safePhase:'LOCAL_CONFIG';
   const reason=SAFE_REASONS.has(error?.safeReason)?error.safeReason:'UNKNOWN';
-  return FAIL+' phase='+phase+' reason='+reason+
-    '; NO AUTOMATIC WRITE RETRY. Use Production Owner READONLY inspection.';
+  const suffix=mode==='--check'
+    ?'; READ-ONLY CHECK FAILED (NO WRITE ATTEMPTED).'
+    :'; NO AUTOMATIC WRITE RETRY. Use Production Owner READONLY inspection.';
+  return FAIL+' phase='+phase+' reason='+reason+suffix;
 }
 function onlyString(s){return typeof s==='string'&&s.length>0&&s.length<MAX_SECRET_BYTES;}
 const repoRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -224,7 +226,7 @@ if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.
   main(process.argv.slice(2)).catch(error=>{
     // Controlled diagnostic enums only: never output arbitrary error messages
     // or full Cloudflare responses, hashes, SQL, tokens or passwords.
-    process.stderr.write(publicFailure(error)+'\n');
+    process.stderr.write(publicFailure(error,process.argv[2])+'\n');
     process.exitCode=1;
   });
 }

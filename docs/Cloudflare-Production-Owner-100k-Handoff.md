@@ -1,5 +1,25 @@
 # Cloudflare Production D1 — Owner 一次性建立（未開放執行）
 
+## 2026-11-01：Windows 選項 1 唯讀查詢失敗的診斷修正（PR 開發中）
+
+實機操作回報：Windows 執行 `run-production-owner-operator.bat`，選 `1 / Check`，輸入隱藏 Token 後只顯示 `E_PRODUCTION_OWNER_OPERATOR`。這**無法判定**是 API Token、Cloudflare HTTP、REST 回應、網路或資料庫狀態問題；因為原始碼全部攔截成相同錯誤。選項 1 只發唯讀 SELECT/PRAGMA，不會建立 Owner，也不會修改 Production D1。正式 Schema v3/兩個 Migration 已完成，不可重跑 first-init。
+
+本修正提供安全的分階段代碼：
+
+| phase/reason | 操作者應做的事情 |
+|---|---|
+| `TOKEN_INPUT / TOKEN_FORMAT` | 確認輸入的是新建立或輪替後的 **Cloudflare API Token 值**（非 Token 名稱、GitHub Secret 名稱），無前後空白。不要把 Token 貼進聊天、GitHub 或日誌 |
+| `READ_BEFORE / HTTP_401` 或 `HTTP_403` | 檢查 Token 是否仍有效、是否指向正確 Cloudflare Account，及是否包含該帳戶的 D1 Read 權限；403 也可能受 Cloudflare 存取政策影響，不直接判定憑證遭撤銷 |
+| `READ_* / HTTP_404` | 查核 Token 對目標 D1 的授權、固定 Account/Database 設定是否匹配 |
+| `READ_* / HTTP_429` 或 `HTTP_5XX` | API 可能限流或服務異常，稍後只重試**唯讀選項 1**，不要重跑寫入 |
+| `READ_* / NETWORK_OR_TIMEOUT` | 檢查連線、代理伺服器、防火牆或 TLS；不要輸出原始錯誤或 URL／Token |
+| `READ_* / API_REJECTED`、`INVALID_JSON`、`RESPONSE_SHAPE` | 需要檢查 REST SQL 支援與回應格式；錯誤代碼可提供給開發者，不要附原始 D1 API 回應 |
+| `READ_VALIDATE / DATABASE_STATE` | 回傳數據不符合 Schema/Owner/稽核／完整性條件；使用 GitHub **Production D1 Owner readiness** 既有只讀 Workflow 交叉核對，不應啟動寫入 |
+
+**選項 1 的隱藏 Token 可以使用獨立 D1 Read Token**，不需 Cloudflare Production D1 Write Token；Cloudflare D1 REST Query 官方允許 D1 Read 或 D1 Write。原版提示文字寫成 Write Token 容易誤導。修正後無論 Read/Write Token，只有在操作 `--enroll` 時才要求 Write Token 與二次密碼確認。所有錯誤訊息只包含程式內白名單列舉的階段／原因，不暴露 Token、SQL、密碼或資料庫原始資料。安全測試必須涵蓋 401/403/404/429/5xx、API 拒絕、異常 JSON、網路逾時、資料異常、不意外寫入。
+
+修正 PR 未合併／未驗證前，不要把新代碼視為已正式發布；即便修正後選項 1 PASS，**仍不代表 Owner 已建立或允許立刻選 2**。Production 正式寫入前還需隔離 D1 實站驗證 REST batch 回滾與受控放行。
+
 ## 2026-11-01：本機受控 Owner 建立工具（須經 PR 驗證合併）
 
 以下工具在合併前僅為候選程式，不代表 Production Owner 已建立，也沒有直接替管理者執行寫入。Production v3 Schema 已在 Run #41215336274 實際建立；Owner=0 已由 #41265972020 與 #41265998671 兩次遠端唯讀確認。**不可重跑 first-init。**

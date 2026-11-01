@@ -15,6 +15,29 @@ const APPROVAL='CREATE_ONE_PRODUCTION_OWNER_ONCE';
 const MAX_API_BYTES=65536;
 const MAX_SECRET_BYTES=4096;
 function fail(){throw Error(FAIL);}
+const SAFE_PHASES=new Set(['LOCAL_CONFIG','TOKEN_INPUT','READ_BEFORE','READ_AFTER',
+  'READ_QUICK','READ_FOREIGN','READ_VALIDATE','WRITE_ATTEMPT','POST_WRITE_VALIDATE']);
+const SAFE_REASONS=new Set(['INPUT_UNAVAILABLE','TOKEN_FORMAT','HTTP_401','HTTP_403',
+  'HTTP_404','HTTP_429','HTTP_5XX','HTTP_OTHER','NETWORK_OR_TIMEOUT',
+  'API_REJECTED','INVALID_JSON','RESPONSE_SHAPE','DATABASE_STATE','UNKNOWN']);
+function diagnostic(reason='UNKNOWN',phase){
+  const error=Error(FAIL);
+  error.safeReason=SAFE_REASONS.has(reason)?reason:'UNKNOWN';
+  if(SAFE_PHASES.has(phase))error.safePhase=phase;
+  return error;
+}
+function tagged(error,phase){
+  const reason=error?.safeReason??'UNKNOWN';
+  return diagnostic(reason,phase);
+}
+function publicFailure(error,mode){
+  const phase=SAFE_PHASES.has(error?.safePhase)?error.safePhase:'LOCAL_CONFIG';
+  const reason=SAFE_REASONS.has(error?.safeReason)?error.safeReason:'UNKNOWN';
+  const suffix=mode==='--check'
+    ?'; READ-ONLY CHECK FAILED (NO WRITE ATTEMPTED).'
+    :'; NO AUTOMATIC WRITE RETRY. Use Production Owner READONLY inspection.';
+  return FAIL+' phase='+phase+' reason='+reason+suffix;
+}
 function onlyString(s){return typeof s==='string'&&s.length>0&&s.length<MAX_SECRET_BYTES;}
 const repoRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 
@@ -47,13 +70,13 @@ export function localProductionTarget(){
 // D1 REST /query: both single and batch bodies are supported by Cloudflare.
 // Every response shape is checked strictly; errors are not reflected to stdout.
 export async function queryD1(token,body,expected=1,transport=fetch){
-  if(!onlyString(token)||token.length<20 ||
-     !body||typeof body!=='object'||Array.isArray(body)||
-     !Number.isSafeInteger(expected)||expected<1||expected>4 ||
+  if(!onlyString(token)||token.length<20)throw diagnostic('TOKEN_FORMAT');
+  if(!body||typeof body!=='object'||Array.isArray(body)||
+     !Number.isSafeInteger(expected)||expected<1||expected>4||
      typeof transport!=='function')fail();
   const target=localProductionTarget();
   let reply;
-  try {
+  try{
     reply=await transport('https://api.cloudflare.com/client/v4/accounts/'+target.accountId+
       '/d1/database/'+target.databaseId+'/query',{
       method:'POST',redirect:'error',cache:'no-store',
@@ -61,23 +84,39 @@ export async function queryD1(token,body,expected=1,transport=fetch){
       body:JSON.stringify(body),
       signal:AbortSignal.timeout(20000)
     });
-    if(!reply?.ok || reply.status!==200)fail();
-    const data=await reply.json();
-    if(data?.success!==true || !Array.isArray(data.result) ||
-       data.result.length!==expected ||
-       data.result.some(x=>x?.success!==true||!Array.isArray(x.results)))fail();
-    if(JSON.stringify(data).length>MAX_API_BYTES)fail();
-    return data.result.map(x=>({success:true,results:x.results}));
-  }catch{fail();}
+  }catch{
+    // Do not expose fetch error, URL, response body, headers, or token.
+    throw diagnostic('NETWORK_OR_TIMEOUT');
+  }
+  if(!reply?.ok||reply.status!==200){
+    const status=reply?.status;
+    const reason=status===401?'HTTP_401':status===403?'HTTP_403':
+      status===404?'HTTP_404':status===429?'HTTP_429':
+      Number.isInteger(status)&&status>=500&&status<=599?'HTTP_5XX':'HTTP_OTHER';
+    throw diagnostic(reason);
+  }
+  let data;
+  try{data=await reply.json();}catch{throw diagnostic('INVALID_JSON');}
+  // The official D1 REST API returns result=[{success,results,meta}].
+  // Reject unknown response types instead of guessing or printing raw content.
+  if(data?.success!==true)throw diagnostic('API_REJECTED');
+  if(!Array.isArray(data.result)||data.result.length!==expected||
+     data.result.some(x=>x?.success!==true||!Array.isArray(x.results)))
+    throw diagnostic('RESPONSE_SHAPE');
+  if(JSON.stringify(data).length>MAX_API_BYTES)throw diagnostic('RESPONSE_SHAPE');
+  return data.result.map(x=>({success:true,results:x.results}));
 }
 export async function inspectProductionOwner(token,transport=fetch){
   const data={};
   for(const task of ['before','after','quick','foreign']){
-    // No write statements are permitted in this function.
-    const result=await queryD1(token,{sql:ownerReadinessSql(task)},1,transport);
-    data[task]=result;
+    try{
+      // This path accepts only reviewed SELECT or integrity-check PRAGMA SQL.
+      const result=await queryD1(token,{sql:ownerReadinessSql(task)},1,transport);
+      data[task]=result;
+    }catch(error){throw tagged(error,'READ_'+task.toUpperCase());}
   }
-  try{return verifyOwnerReadiness(data);}catch{fail();}
+  try{return verifyOwnerReadiness(data);}
+  catch{throw diagnostic('DATABASE_STATE','READ_VALIDATE');}
 }
 export function ownerSqlBatch(privateSql){
   if(typeof privateSql!=='string'||privateSql.length>20000)fail();
@@ -153,11 +192,18 @@ async function hidden(prompt,maxBytes=MAX_SECRET_BYTES){
 }
 async function main(args){
   if(args.length!==1||!['--check','--enroll'].includes(args[0]))fail();
-  localProductionTarget();
+  try{localProductionTarget();}catch{throw diagnostic('UNKNOWN','LOCAL_CONFIG');}
   if(args[0]==='--enroll')assertTrustedMainCheckout();
-  if(!process.stdin.isTTY || !process.stdout.isTTY)fail();
-  const token=await hidden('Cloudflare Production D1 Write Token (hidden): ');
-  if(!onlyString(token)||token.length<20)fail();
+  if(!process.stdin.isTTY || !process.stdout.isTTY)
+    throw diagnostic('INPUT_UNAVAILABLE','TOKEN_INPUT');
+  let token;
+  try{
+    token=await hidden(args[0]==='--check'
+      ?'Cloudflare Production D1 Read OR Write Token (hidden): '
+      :'Cloudflare Production D1 Write Token (hidden): ');
+  }catch{throw diagnostic('INPUT_UNAVAILABLE','TOKEN_INPUT');}
+  if(!onlyString(token)||token.length<20)
+    throw diagnostic('TOKEN_FORMAT','TOKEN_INPUT');
   const initial=await inspectProductionOwner(token);
   if(args[0]==='--check'){
     process.stdout.write(JSON.stringify(initial)+'\n');
@@ -177,9 +223,10 @@ async function main(args){
   process.stdout.write(JSON.stringify(status)+'\n');
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
-  main(process.argv.slice(2)).catch(()=>{
-    // Credentials or raw API error content are never logged.
-    process.stderr.write(FAIL+'; NO AUTOMATIC WRITE RETRY. Inspect Production Owner READONLY state.\n');
+  main(process.argv.slice(2)).catch(error=>{
+    // Controlled diagnostic enums only: never output arbitrary error messages
+    // or full Cloudflare responses, hashes, SQL, tokens or passwords.
+    process.stderr.write(publicFailure(error,process.argv[2])+'\n');
     process.exitCode=1;
   });
 }

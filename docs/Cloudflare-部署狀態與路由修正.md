@@ -1,5 +1,15 @@
 # Cloudflare 部署：靜態版 404 與安全啟動修正
 
+## 2026-11-02｜停用無保護 Preview URLs（不使用 Zero Trust）
+
+操作員已在 Cloudflare Worker → Domains 將 Preview 關閉、Production workers.dev 保持啟用，並在 Settings → Builds → Previews Base 確認 `Builds for Preview branches` 是 OFF。以上是操作員 Dashboard 操作回報，尚非新的 Cloudflare API 實測。使用者已明確拒用需要信用卡的 Zero Trust／Cloudflare Access，不能再把這類設置當作必做條件。
+
+本次 PR 僅同步 `wrangler.jsonc` `preview_urls:false`、保留 `workers_dev:true`、`vars.CLOUD_AUTH_PHASE=disabled`、正式／Staging D1 綁定不變；加入回歸與靜態 fail-closed 檢查並更新已審查 SHA256 指紋。禁止把此設定視為所有既存 Preview Builds、Version URLs、Custom Domains、Routes、Access 均已驗收。
+
+合併 main 可能觸發 Cloudflare 自動 Production deploy，不得視作唯讀操作。完成正式 Hosted CI、Codex Review 並符合使用者事先授權的 Merge Gate 後，仍需獨立比對正式 workers.dev 示範頁正常、關閉 Preview 開關沒有被重新打開、Production Login/Write 沒有啟用。此工作不授權 D1 SQL Write、Owner 建立、Migration、Restore 或 Worker 正式業務登入開放。
+
+## 歷史部署與唯讀驗收
+
 ## 2026-11-02｜Active Worker Deployment → Worker Version → Git Commit 唯讀證據（待遠端實機）
 
 **已知實機證據**：操作者 Windows 執行 `run-cloudflare-public-readonly.bat` 回報 `PUBLIC_WORKER_READONLY_HTTP_PASS`，`demo_http_verified=true`、`d1_schema_contract_visible=true`、`mutation_routes_fail_closed=true`、`production_ready=false`、無 Production 寫入。這已證明公開 workers.dev Demo/Health 的 GET/HEAD 符合預期，但該探測**無法**證明哪一個 Worker Version 正在提供流量，也不證明所有入口受 Access 保護。

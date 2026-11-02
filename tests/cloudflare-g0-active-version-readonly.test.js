@@ -19,7 +19,7 @@ const build=(commit=SHA,override={})=>({success:true,result:{builds:{[VERSION]:{
  build_outcome:'success',build_uuid:BUILD,
  build_trigger_metadata:{
   provider_type:'github',repo_name:'restaurant-business-poc',
-  branch:'main',commit_hash:commit,...override
+  provider_account_name:'hun186',branch:'main',commit_hash:commit,...override
  }}}}});
 function config(){return {name:'restaurant-business-poc',
  main:'./cloudflare/worker.mjs',workers_dev:true,
@@ -81,6 +81,8 @@ test('reject failed, stale and untrusted version build metadata',async()=>{
   build(SHA,{branch:'develop'}),
   build(SHA,{provider_type:'gitlab'}),
   build(SHA,{repo_name:'wrong-repo'}),
+  build(SHA,{provider_account_name:'untrusted-owner'}),
+  build(SHA,{provider_account_name:undefined}),
   {success:true,result:{builds:{[VERSION]:{
    ...build().result.builds[VERSION],build_outcome:'fail'
   }}}}

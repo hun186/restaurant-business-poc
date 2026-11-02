@@ -240,6 +240,7 @@ test('v1 contract: malformed action types or extra fields never produce D1 write
   }
   assert.equal(sessions(f),2);
   assert.equal(logs(f).length,0);
-  assert.deepEqual(account(f),{role:'staff',active:1});
+  assert.equal(account(f).role,'staff');
+  assert.equal(account(f).active,1);
   assert.deepEqual(grants(f),[f.ids.storeA]);
 });

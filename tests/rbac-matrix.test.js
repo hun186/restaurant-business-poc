@@ -141,19 +141,32 @@ test('RB-003 live HTTP role/assignment changes invalidate existing cookies; disa
  const owner=await login('owner',f.bootstrapPassword),manager=await login(f.ma.username,'test-password-234');
  const auth=h=>({Cookie:h.cookie,'x-csrf-token':h.csrf});
  const get=async(h,entity)=>request(port,'/api/data?entity='+entity,{headers:{Cookie:h.cookie}});
+ const revoked=action=>{
+  const row=f.db.prepare('SELECT detail FROM audit_logs WHERE action=? AND entity_id=? ORDER BY rowid DESC LIMIT 1')
+    .get(action,f.ma.id);
+  assert.ok(row,'expected audit entry '+action);
+  return JSON.parse(row.detail).revoked_sessions;
+ };
  let list=await get(manager,'purchase_orders');assert.equal(list.status,200);assert.equal(list.body.rows.length,2);
  const denied=await request(port,'/api/command',{method:'POST',headers:auth(manager),body:{action:'order.approve',data:{id:f.refs.get(f.sb.id).order}}});
  assert.equal(denied.status,403);
  let mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),body:{action:'user.assign-location',data:{user_id:f.ma.id,location_id:f.b}}});
  assert.equal(mutation.status,200);
+ assert.equal(revoked('user.assign-location'),1);
  assert.equal((await request(port,'/api/me',{headers:{Cookie:manager.cookie}})).status,401,'location change revokes original session');
  const newManager=await login(f.ma.username,'test-password-234');
  assert.equal(newManager.role,'manager');
+ mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),
+  body:{action:'user.assign-location',data:{user_id:f.ma.id,location_id:f.b}}});
+ assert.equal(mutation.status,200,'existing assignment is an idempotent no-op');
+ assert.equal(revoked('user.assign-location'),0,'no-op assignment must not revoke a live session');
+ assert.equal((await request(port,'/api/me',{headers:{Cookie:newManager.cookie}})).status,200);
  const managerCanCreate=await request(port,'/api/command',{method:'POST',headers:auth(newManager),body:{action:'ingredient.create',data:{sku:'MGR-OK',name:'授權主管建立',unit:'公斤'}}});
  assert.equal(managerCanCreate.status,200,'positive baseline: manager is allowed to create shared ingredient');
  list=await get(newManager,'purchase_orders');assert.equal(list.status,200);assert.equal(list.body.rows.length,3,'newly authorized store is visible only after re-login');
  mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),body:{action:'user.role',data:{user_id:f.ma.id,role:'staff'}}});
  assert.equal(mutation.status,200);
+ assert.equal(revoked('user.role'),1);
  assert.equal((await request(port,'/api/me',{headers:{Cookie:newManager.cookie}})).status,401);
  const retyped=await login(f.ma.username,'test-password-234');
  assert.equal(retyped.role,'staff','re-login must load the downgraded role, not just revoke the old cookie');
@@ -163,8 +176,24 @@ test('RB-003 live HTTP role/assignment changes invalidate existing cookies; disa
   const result=await request(port,'/api/data?entity='+entity,{headers:{Cookie:retyped.cookie}});
   assert.equal(result.status,403,entity+' rejects actual staff cookie');
  }
+ // Password rotation revokes every live browser session, not just the first one.
+ const secondStaff=await login(f.ma.username,'test-password-234');
+ const replacementPassword='rotated-secret-password-987';
+ mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),
+  body:{action:'user.password',data:{user_id:f.ma.id,password:replacementPassword}}});
+ assert.equal(mutation.status,200);
+ assert.equal(revoked('user.password'),2,'both concurrent sessions must be revoked');
+ for(const session of [retyped,secondStaff])
+  assert.equal((await request(port,'/api/me',{headers:{Cookie:session.cookie}})).status,401);
+ const passwordAudit=f.db.prepare("SELECT detail FROM audit_logs WHERE action='user.password' AND entity_id=? ORDER BY rowid DESC LIMIT 1").get(f.ma.id).detail;
+ assert.doesNotMatch(passwordAudit,/rotated-secret-password-987|pbkdf2|scrypt/);
+ assert.equal((await request(port,'/api/login',{method:'POST',
+  body:{username:f.ma.username,password:'test-password-234'}})).status,401);
+ const changedStaff=await login(f.ma.username,replacementPassword);
+ assert.equal(changedStaff.role,'staff');
  mutation=await request(port,'/api/command',{method:'POST',headers:auth(owner),body:{action:'user.active',data:{user_id:f.ma.id,active:false}}});
  assert.equal(mutation.status,200);
- assert.equal((await request(port,'/api/me',{headers:{Cookie:retyped.cookie}})).status,401);
- assert.equal((await request(port,'/api/login',{method:'POST',body:{username:f.ma.username,password:'test-password-234'}})).status,401);
+ assert.equal(revoked('user.active'),1);
+ assert.equal((await request(port,'/api/me',{headers:{Cookie:changedStaff.cookie}})).status,401);
+ assert.equal((await request(port,'/api/login',{method:'POST',body:{username:f.ma.username,password:replacementPassword}})).status,401);
 });

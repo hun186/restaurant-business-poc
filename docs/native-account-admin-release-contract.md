@@ -23,7 +23,7 @@
 
 ## 必須通過的發布 Gate
 
-1. **靜態相依隔離**：`tests/cloudflare-native-account-release-isolation.test.js` 遞迴掃描公開 Worker 的 ESM 相依路徑；禁止把 dormant 管理模組匯入、動態匯入或重新輸出。掃描不支援的匯入型態必須 Fail Closed，不能靜默略過。
+1. **靜態相依隔離**：`tests/cloudflare-native-account-release-isolation.test.js` 遞迴掃描公開 Worker 的 ESM 相依路徑，另外**獨立檢查所有 Cloudflare JS/MJS 模組是否直接引用 dormant 管理檔名**；禁止直接、間接、動態匯入或重新輸出。單行多重 `import`、`import/*...*/` 等未支援寫法也必須 Fail Closed，不能因解析器漏判而通過。
 2. **公開路由拒絕**：生產與 Preview 配置皆不得設定 `ACCOUNT_SECURITY_STAGE`；既有登入停用狀態保持；即使人工注入合成 Gate，公開 Worker 對未公告的帳號管理路徑也必須回 `503 E_NOT_READY`，不查詢也不寫入 D1。
 3. **合成資料安全**：帳號變更必須再次檢查 Owner Session／角色／CSRF／到期時間、目標原狀態，透過 D1 原子交易保證稽核、狀態變更與 Session 撤銷不會半途成功。嚴禁 Audit 含密碼、Token、Cookie 或可回復祕密。
 4. **正式上線另行核准**：建立對外 API 需新的 Threat Model、正式身份驗證與授權矩陣、來源與頻率限制、回應保密檢查、D1 遷移／備份與復原準備，以及獨立明確的 Production 寫入／部署授權。不可由通過上述單元測試直接放行。

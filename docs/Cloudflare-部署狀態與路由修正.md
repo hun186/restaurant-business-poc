@@ -6,9 +6,9 @@
 
 Cloudflare 官方版本架構將 **Build、Worker Version、Deployment** 分開管理。為了避免將 Workers Build Success 當成 Active Deploy 已驗收，本增量新增：
 
-- `tools/cloudflare-g0-active-version-readonly.mjs`：只向固定 `https://api.cloudflare.com/client/v4` 發出兩個 **GET**，不接受任意 Host 或 Path。先用 `GET /accounts/{ACCOUNT_ID}/workers/scripts/restaurant-business-poc/deployments` 讀取 Deployment 清單，保守選取建立時間最新的部署；需有唯一 Active Version 且承接 **100%** 流量，若 2 版本分流、時間衝突或回應格式不明則拒絕核定。接著用 `GET /accounts/{ACCOUNT_ID}/builds/builds?version_ids={VERSION_ID}` 讀取該版本專屬 Workers Build，需成功且 GitHub Repo = `restaurant-business-poc`、Branch = `main`、Commit SHA **完全等於此次 GitHub Actions checkout 的 `GITHUB_SHA`**。
+- `tools/cloudflare-g0-active-version-readonly.mjs`：只向固定 `https://api.cloudflare.com/client/v4` 發出兩個 **GET**，不接受任意 Host 或 Path。先用 `GET /accounts/{ACCOUNT_ID}/workers/scripts/restaurant-business-poc/deployments` 讀取 Deployment 清單，保守選取建立時間最新的部署；需有唯一 Active Version 且承接 **100%** 流量，若 2 版本分流、時間衝突或回應格式不明則拒絕核定。接著用 `GET /accounts/{ACCOUNT_ID}/builds/builds?version_ids={VERSION_ID}` 讀取該版本專屬 Workers Build，需成功且 GitHub Repo Owner = `hun186`、Repo = `restaurant-business-poc`、Branch = `main`、Commit SHA **完全等於此次 GitHub Actions checkout 的 `GITHUB_SHA`**。
 - `.github/workflows/cloudflare-g0-active-version-readonly.yml`：手動 `workflow_dispatch`、只能選 `main`，要求輸入 `CHECK_ACTIVE_WORKER_READONLY`，使用既有人工核准 Environment `cloudflare-g0-readonly`，唯讀 Cloudflare API Token 只有執行工具的步驟取得，前置先執行原本閉鎖 SHA-256 preflight。此 Workflow **不會在 push/PR 自動跑**，不會修改任何 Cloudflare/SQL。
-- 合成測試涵蓋有效 Git SHA 對應、歷史部署、無部署、流量分割、版本缺建置、Build Fail、Repo/Branch 不符、Commit mismatch、API 403/逾時/回應過大，全部 fail closed。任何遠端 API 失敗不輸出 Token、HTTP Body、帳戶 ID、Route、作者身分；僅有安全的 `G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage=...`。
+- 合成測試涵蓋有效 Git SHA 對應、歷史部署、無部署、流量分割、版本缺建置、Build Fail、Repo Owner/Repo/Branch 不符、Commit mismatch、API 403/逾時/回應過大，全部 fail closed。任何遠端 API 失敗不輸出 Token、HTTP Body、帳戶 ID、Route、作者身分；僅有安全的 `G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage=...`。
 
 ### 操作者唯讀設定與使用
 

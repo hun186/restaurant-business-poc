@@ -7,6 +7,7 @@ const {randomUUID}=require('node:crypto');
 const authPromise=import('../cloudflare/auth-core.mjs');
 const accessPromise=import('../cloudflare/account-access-internal.mjs');
 const migration=fs.readFileSync(path.join(__dirname,'..','cloudflare','migrations','0001_initial_v3.sql'),'utf8');
+const contract=JSON.parse(fs.readFileSync(path.join(__dirname,'..','docs','native-account-admin-api-contract-v1.json'),'utf8'));
 
 function adapter(db,opt={}){
   const make=(sql,args=[])=>({
@@ -186,4 +187,59 @@ test('transaction error rolls back audit, role/grant changes, and session deleti
     assert.equal(sessions(f),2,action);
     assert.equal(logs(f).length,0,action);
   }
+});
+
+
+test('v1 contract: each D1 account-access action is Owner-only even with store access',async t=>{
+  const examples={
+    'user.role':f=>({action:'user.role',targetUserId:f.ids.target,role:'manager'}),
+    'user.active':f=>({action:'user.active',targetUserId:f.ids.target,active:false}),
+    'user.assign-location':f=>({action:'user.assign-location',targetUserId:f.ids.target,locationId:f.ids.storeB}),
+    'user.unassign-location':f=>({action:'user.unassign-location',targetUserId:f.ids.target,locationId:f.ids.storeA})
+  };
+  const actions=Object.keys(contract.actions).filter(action=>action!=='user.password');
+  assert.deepEqual([...actions].sort(),Object.keys(examples).sort());
+  for(const action of actions){
+    const f=await fixture(t);
+    f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)')
+      .run(f.ids.manager,f.ids.storeA);
+    const payload=examples[action](f),before=account(f),oldGrants=grants(f);
+    assert.deepEqual(Object.keys(payload).sort(),contract.actions[action].fields,action);
+    assert.equal(contract.actions[action].role,'owner');
+    for(const role of ['manager','first']){
+      const res=await run(f,payload,role);
+      assert.deepEqual(res,{status:403,code:'E_FORBIDDEN'},action+':'+role);
+      assert.deepEqual(account(f),before,action+':'+role);
+      assert.deepEqual(grants(f),oldGrants,action+':'+role);
+      assert.equal(sessions(f),2,action+':'+role);
+      assert.equal(logs(f).length,0,action+':'+role);
+    }
+    const positive=await run(f,payload,'owner');
+    assert.deepEqual(positive,{status:200,code:'OK',revokedSessions:2},action);
+    assert.equal(sessions(f),0,action);
+    assert.equal(logs(f).length,1,action);
+    assert.equal(logs(f)[0].action,contract.actions[action].audit_action,action);
+    assert.equal(JSON.parse(logs(f)[0].detail).revoked_sessions,2,action);
+  }
+});
+
+test('v1 contract: malformed action types or extra fields never produce D1 writes',async t=>{
+  const f=await fixture(t);
+  const inputs=[
+    {action:'user.role',targetUserId:f.ids.target,role:'owner',extra:1},
+    {action:'user.role',targetUserId:[f.ids.target],role:'manager'},
+    {action:'user.active',targetUserId:f.ids.target,active:'false'},
+    {action:'user.assign-location',targetUserId:f.ids.target,locationId:[f.ids.storeB]},
+    {action:'user.unassign-location',targetUserId:f.ids.target,locationId:null},
+    {action:'user.no-such-action',targetUserId:f.ids.target},
+    {action:'user.role',targetUserId:f.ids.target,role:'administrator'}
+  ];
+  for(const input of inputs){
+    const res=await run(f,input);
+    assert.deepEqual(res,{status:400,code:'E_INVALID_INPUT'},String(input.action));
+  }
+  assert.equal(sessions(f),2);
+  assert.equal(logs(f).length,0);
+  assert.deepEqual(account(f),{role:'staff',active:1});
+  assert.deepEqual(grants(f),[f.ids.storeA]);
 });

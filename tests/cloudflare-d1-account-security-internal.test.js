@@ -144,3 +144,29 @@ test('failed D1 batch rolls back audit and password update without revoking sess
   assert.equal(sessionCount(f.db,f.target),2);
   assert.equal(auditRows(f.db).length,0);
 });
+
+
+test('v1 contract: password rotation rejects manager and staff with no side effects',async t=>{
+  const spec=JSON.parse(fs.readFileSync(path.join(root,'docs/native-account-admin-api-contract-v1.json'),'utf8'));
+  const f=await fixture(t),svc=await securityPromise;
+  assert.equal(spec.actions['user.password'].role,'owner');
+  assert.deepEqual(spec.actions['user.password'].fields,
+    ['action','newPassword','targetUserId']);
+  const previous=row(f.db,f.target),actorBefore=row(f.db,f.actor);
+  const args={targetUserId:f.target,newPassword:'synthetic-rotated-password-12345'};
+  for(const role of ['manager','staff']){
+    f.db.prepare('UPDATE users SET role=? WHERE id=?').run(role,f.actor);
+    const res=await svc.internalRotateD1Password(f.req(),f.env,args);
+    assert.deepEqual(res,{status:403,code:'E_FORBIDDEN'},role);
+    assert.deepEqual(row(f.db,f.target),previous);
+    assert.equal(sessionCount(f.db,f.target),2);
+    assert.equal(auditRows(f.db).length,0);
+  }
+  f.db.prepare('UPDATE users SET role=? WHERE id=?').run(actorBefore.role,f.actor);
+  const allowed=await svc.internalRotateD1Password(f.req(),f.env,args);
+  assert.deepEqual(allowed,{status:200,code:'OK',revokedSessions:2});
+  assert.equal(sessionCount(f.db,f.target),0);
+  assert.equal(auditRows(f.db).length,1);
+  assert.equal(JSON.parse(auditRows(f.db)[0].detail).revoked_sessions,2);
+  assert.doesNotMatch(JSON.stringify(auditRows(f.db)),/synthetic-rotated-password-12345/);
+});

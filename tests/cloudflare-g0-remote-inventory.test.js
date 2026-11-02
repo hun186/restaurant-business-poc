@@ -34,6 +34,64 @@ function routes(){
    reply({enabled:false,previews_enabled:false})
  };
 }
+test('scoped workers.dev and preview inventory uses Scripts GETs only, never certifies Access or routes',async()=>{
+ const m=await modulePromise,data=routes(),paths=[];
+ const result=m.classifyWorkerEntryPoints(await m.collectWorkerEntryPoints(async p=>{
+  paths.push(p);assert.ok(Object.hasOwn(data,p));return data[p];
+ }));
+ assert.deepEqual(paths,[
+  '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts',
+  '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-business-poc/subdomain',
+  '/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-pbkdf2-hosted-cpu-staging-probe/subdomain'
+ ]);
+ assert.equal(result.status,'G0_WORKERS_DEV_PREVIEW_SCOPED_READONLY_PASS');
+ assert.equal(result.target_workers_dev_enabled,true);
+ assert.equal(result.target_preview_urls_enabled,true);
+ assert.equal(result.probe_worker_deployed,true);
+ assert.equal(result.probe_workers_dev_enabled,false);
+ for(const k of ['custom_domains_verified','zone_routes_verified',
+  'actual_public_hostname_response_verified','public_hostname_version_verified',
+  'access_policy_verified','g0_certified','release_authorized'])
+  assert.equal(result[k],false,k);
+ assert.doesNotMatch(JSON.stringify(result),/workers\\.dev\/|zone_id|account_id|hostname|bearer/i);
+});
+test('scoped inventory rejects missing target, duplicate scripts, malformed or failed subdomain',async()=>{
+ const m=await modulePromise;
+ for(const change of [
+  d=>{d['/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts'].result=[];},
+  d=>{d['/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts'].result.push({id:'restaurant-business-poc'});},
+  d=>{d['/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-business-poc/subdomain'].result.previews_enabled='true';},
+  d=>{d['/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts/restaurant-business-poc/subdomain'].success=false;}
+ ]){
+  const mock=routes();change(mock);
+  await assert.rejects(()=>m.collectWorkerEntryPoints(p=>Promise.resolve(mock[p])),
+    /E_G0_READONLY_INVENTORY/);
+ }
+ const mock=routes();
+ mock['/accounts/31b409b04896d260ba0fadf6cc2bb305/workers/scripts'].result=
+  [{id:'restaurant-business-poc'}];
+ const scope=m.classifyWorkerEntryPoints(await m.collectWorkerEntryPoints(p=>Promise.resolve(mock[p])));
+ assert.equal(scope.probe_worker_deployed,false);
+ assert.equal(scope.probe_preview_urls_enabled,false);
+ assert.equal(scope.g0_certified,false);
+});
+test('scoped inspection cannot bypass main-only Actions, confirmation or static reviewed guard',async()=>{
+ const wf=fs.readFileSync(workflow,'utf8');
+ assert.match(wf,/inputs\\.confirm == 'CHECK_G0_WORKERS_DEV_ONLY'/);
+ assert.match(wf,/case "\\$G0_READONLY_CONFIRM"/);
+ assert.match(wf,/inspect-entrypoints/);
+ assert.doesNotMatch(wf,/wrangler deploy|d1 execute|method:\\s*POST/);
+ const mock=spawnSync(process.execPath,[source,'inspect-entrypoints'],{
+  cwd:root,encoding:'utf8',timeout:10000,
+  env:{...process.env,GITHUB_ACTIONS:'false',GITHUB_REF:'refs/heads/main',
+   CLOUDFLARE_ACCOUNT_ID:'31b409b04896d260ba0fadf6cc2bb305',
+   CLOUDFLARE_API_TOKEN:'SYNTHETIC_DO_NOT_STORE',
+   G0_READONLY_CONFIRM:'CHECK_G0_WORKERS_DEV_ONLY'}
+ });
+ assert.equal(mock.status,1);
+ assert.equal(mock.stdout,'');
+ assert.match(mock.stderr,/G0_READONLY_INVENTORY_FAILED/);
+});
 test('valid read-only inventory is explicitly not Cloudflare Access or release certification',async()=>{
  const m=await modulePromise;
  const report=m.classifyInventory(fixture());

@@ -101,7 +101,7 @@ test('fixed-account, fixed-worker GET-only fetch: no token/redirect leakage or w
  assert.equal(r.status,'G0_ACTIVE_DEPLOYMENT_BUILD_READONLY_PASS');
  assert.equal(calls.length,2);
  assert.deepEqual(calls.map(x=>new URL(x.url).pathname),
-  [dPath,bPath.split('?')[0]]);
+  ['/client/v4'+dPath,'/client/v4'+bPath.split('?')[0]]);
  for(const x of calls){
   assert.equal(x.opts.method,'GET');
   assert.equal(x.opts.redirect,'error');

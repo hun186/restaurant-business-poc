@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 NEXT：GitHub Preview OFF 安全一致性**：操作員已關閉 Cloudflare Domains Preview 及 Builds for Preview branches，正式 workers.dev 仍 ON，拒用 Zero Trust。提交 `wrangler.jsonc preview_urls:false` 的最小 PR，維持 `workers_dev:true`、Auth disabled、D1 不變，加入靜態 fail-closed 與 SHA pin。主線 merge 可能自動 Cloudflare production deploy，驗收不能用 CI 代替；後續執行人工 G0 scoped readonly 確認 `target_preview_urls_enabled=false`、Production=true，與 Demo API 路由仍 fail-closed。不要修改正式 D1、Owner、Restore 或 Login。
+
+
 > **2026-11-02 NEXT G0 Workers.dev/Preview Entry Points**：Run #41451512264 Cloudflare active 100% version/build/main SHA 實機唯讀 PASS。既有完整暴露面 inventory 要 Zone/Routes/Domain 的附加唯讀範圍；新增相同 main-only Protected Workflow 的 `CHECK_G0_WORKERS_DEV_ONLY` 模式（僅 Scripts GET、指定 Worker+Probe 的 subdomain flags），讓操作者用既有 Read Token 先證實 workers.dev 與 Preview URLs 開關，不要將其誤當 Access-policy 公網版本對照或全部 Routes 盤點。另待人工 Dashboard 確認 Preview Access Previews-only allowlist 並無痕拒絕測試；沒有進行登入、SQL Write、Owner、Restore 或 Deploy。
 
 

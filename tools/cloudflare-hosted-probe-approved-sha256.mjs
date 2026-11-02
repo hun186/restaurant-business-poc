@@ -115,7 +115,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-access-jwt-internal.test.js":"2f6c774626eedaa9081c5a3e187f439394821af38ff6ec53a3a36e1276e419ee",
   "tests/cloudflare-staging-http-readonly.test.js":"fc0449edf92dcfdf5104cd175c3684cf4a76475665125d466ecf7d4cd3d18656",
   "tests/cloudflare-g5-binding-inventory.test.js":"561d8405e8a83b92f3a2e26e26a456a9c06df85f24a05fe8033d873c456308a8",
-  "tests/cloudflare-g0-remote-inventory.test.js":"505e6f34ea7e3d1056aca0ef69a26bfa4fe9a90b9d573f9cca68679678a80989",
+  "tests/cloudflare-g0-remote-inventory.test.js":"1f8ba9341c9ab2d23b2569a340f60162bf2789f9d8d2609feefd0bad23d4e4d4",
   "cloudflare/recovery-drill-target.json":"f27c0945292ac39a2dd445cd6ececeb82229ce5409d5e1fe43858dff647ca09b",
   "tests/cloudflare-d1-disposable-drill-g5.test.js":"39bd7ca5adedf84fb43209ac012ed8d4be3dc26a43d5f894d08e5a15491fcaf5",
   "tests/cloudflare-d1-recovery-readiness-g5.test.js":"bd790723ad6b6611a43dc3f8e708e208a8391c5ee35e60e718ab641aa0011272",

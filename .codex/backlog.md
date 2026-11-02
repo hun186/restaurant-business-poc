@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 NEXT Native Session HTTPS Only**：已完成 PR #105 正式 Session/RBAC 異常門市資料 fail-closed（Postmerge CI 5/5 PASS）。原生 `loadPrincipal` 仍可能在 `http://` Request 上解析一枚外部手動注入的 Secure Session Cookie；新增入口強制 HTTPS，對不合法 URL 亦直接拒絕、不讀 D1；合成負測確保既有 HTTPS、CSRF/RBAC 沒有回歸，更新 reviewed SHA256。既有 Production Native Auth Gate 必須維持 disabled；不使用 Zero Trust，不向 Production D1 查寫或創建 Owner。
+
+
 > **2026-11-02 下一項 Native Auth RBAC 安全工作**：不再重複已 PASS 的 Cloudflare Preview OFF／Worker SHA／Demo HTTP。針對 loadPrincipal 異常門市資料部分過濾，以及 hasAccess 遇 malformed principal.locations 拋出 TypeError 的情況，改成 fail-closed 並增加 SQLite 合成回歸；不開啟正式原生登入、任何 D1 SQL Write/Owner 或 Cloudflare Zero Trust。完成 CI + Codex 後再處理業務功能與原生 Auth 上線的其他防護。
 
 

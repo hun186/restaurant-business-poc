@@ -1,5 +1,27 @@
 # Cloudflare 部署：靜態版 404 與安全啟動修正
 
+## 2026-11-02｜Active Worker Deployment → Worker Version → Git Commit 唯讀證據（待遠端實機）
+
+**已知實機證據**：操作者 Windows 執行 `run-cloudflare-public-readonly.bat` 回報 `PUBLIC_WORKER_READONLY_HTTP_PASS`，`demo_http_verified=true`、`d1_schema_contract_visible=true`、`mutation_routes_fail_closed=true`、`production_ready=false`、無 Production 寫入。這已證明公開 workers.dev Demo/Health 的 GET/HEAD 符合預期，但該探測**無法**證明哪一個 Worker Version 正在提供流量，也不證明所有入口受 Access 保護。
+
+Cloudflare 官方版本架構將 **Build、Worker Version、Deployment** 分開管理。為了避免將 Workers Build Success 當成 Active Deploy 已驗收，本增量新增：
+
+- `tools/cloudflare-g0-active-version-readonly.mjs`：只向固定 `https://api.cloudflare.com/client/v4` 發出兩個 **GET**，不接受任意 Host 或 Path。先用 `GET /accounts/{ACCOUNT_ID}/workers/scripts/restaurant-business-poc/deployments` 讀取 Deployment 清單，保守選取建立時間最新的部署；需有唯一 Active Version 且承接 **100%** 流量，若 2 版本分流、時間衝突或回應格式不明則拒絕核定。接著用 `GET /accounts/{ACCOUNT_ID}/builds/builds?version_ids={VERSION_ID}` 讀取該版本專屬 Workers Build，需成功且 GitHub Repo = `restaurant-business-poc`、Branch = `main`、Commit SHA **完全等於此次 GitHub Actions checkout 的 `GITHUB_SHA`**。
+- `.github/workflows/cloudflare-g0-active-version-readonly.yml`：手動 `workflow_dispatch`、只能選 `main`，要求輸入 `CHECK_ACTIVE_WORKER_READONLY`，使用既有人工核准 Environment `cloudflare-g0-readonly`，唯讀 Cloudflare API Token 只有執行工具的步驟取得，前置先執行原本閉鎖 SHA-256 preflight。此 Workflow **不會在 push/PR 自動跑**，不會修改任何 Cloudflare/SQL。
+- 合成測試涵蓋有效 Git SHA 對應、歷史部署、無部署、流量分割、版本缺建置、Build Fail、Repo/Branch 不符、Commit mismatch、API 403/逾時/回應過大，全部 fail closed。任何遠端 API 失敗不輸出 Token、HTTP Body、帳戶 ID、Route、作者身分；僅有安全的 `G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage=...`。
+
+### 操作者唯讀設定與使用
+
+1. 在 GitHub Settings → Environments → `cloudflare-g0-readonly` 核對 Environment 仍受人工核准／授權控制；需要已有 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_G0_READONLY_TOKEN` 的 Environment Secrets。**若既有 G0 Read Token 尚無 `Workers CI Read` 權限，需由 Cloudflare 管理員重新核發／安全替換最小權限的 Read Token**，同時保留 `Workers Scripts Read`。請勿提供 Workers Scripts Write、Workers CI Write、D1 Write、Deploy Token 或 Global API Key。所有秘密只存 GitHub Secrets，不要貼在 issue、聊天或 log。GitHub Connector 本身無權讀取這些秘密或確認 Environment Policy，需操作者核對。
+2. 開啟 GitHub → Actions → **Cloudflare G0 active Worker version attestation (manual read-only)** → Run workflow → Branch `main` → 輸入 `CHECK_ACTIVE_WORKER_READONLY`。不需在 Windows 安裝 Node。
+3. 只有當雲端真實回應與 checkout 完全一致，才會看到 `G0_ACTIVE_DEPLOYMENT_BUILD_READONLY_PASS`，同時 `active_version_to_build_link_verified=true`、`active_build_commit_matches_main=true`，Commit SHA 會顯示在非機密 JSON 內。此只驗證**查詢當下 Cloudflare API 所報的 Active Deployment→Version→Build→Git Commit**，並不證明 workers.dev 客戶端此刻承接同一個版本，`public_hostname_version_verified=false`、`access_policy_verified=false`、`staging_live_access_verified=false`、`release_authorized=false` 保持 false。
+4. 如果輸出 `G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage=CREDENTIALS|HTTP_STATUS|BUILDS|COMMIT_MISMATCH|...`，請停止，不要透過修改正式 Worker 變數、重新部署、建立 Owner 或重做 Production D1 備份來「修正」Read Token、權限或版差。
+
+官方 Cloudflare API 參考：
+- https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/deployments/
+- https://developers.cloudflare.com/api/resources/workers_builds/methods/get_builds_by_version/
+- https://developers.cloudflare.com/workers/versions-and-deployments/
+
 ## 2026-11-02｜Windows 真實連線阻斷：`API_HEALTH REQUEST_UNAVAILABLE`
 
 操作員使用 PR #98 的內建 PowerShell 5.1 備援執行 `run-cloudflare-public-readonly.bat`，成功印出 `using built-in Windows PowerShell`，但第一個固定網址 `GET /api/health` 回報 `PUBLIC_WORKER_READONLY_FAIL stage=API_HEALTH detail=REQUEST_UNAVAILABLE`。**這只表示 Windows 並未拿到 HTTP 回應，不能證明 Worker 壞掉、網站未部署、D1 異常、帳號或密碼錯誤。** GitHub Cloudflare Workers Build success 亦不能證明這個客戶端可連通。此執行完全唯讀，沒有任何 SQL 寫入或登入。

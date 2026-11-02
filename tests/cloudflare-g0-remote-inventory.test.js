@@ -53,7 +53,7 @@ test('scoped workers.dev and preview inventory uses Scripts GETs only, never cer
   'actual_public_hostname_response_verified','public_hostname_version_verified',
   'access_policy_verified','g0_certified','release_authorized'])
   assert.equal(result[k],false,k);
- assert.doesNotMatch(JSON.stringify(result),/workers\\.dev\/|zone_id|account_id|hostname|bearer/i);
+ assert.doesNotMatch(JSON.stringify(result),/https?:|\.workers\.dev\b|zone_id|account_id|bearer/i);
 });
 test('scoped inventory rejects missing target, duplicate scripts, malformed or failed subdomain',async()=>{
  const m=await modulePromise;
@@ -77,10 +77,10 @@ test('scoped inventory rejects missing target, duplicate scripts, malformed or f
 });
 test('scoped inspection cannot bypass main-only Actions, confirmation or static reviewed guard',async()=>{
  const wf=fs.readFileSync(workflow,'utf8');
- assert.match(wf,/inputs\\.confirm == 'CHECK_G0_WORKERS_DEV_ONLY'/);
- assert.match(wf,/case "\\$G0_READONLY_CONFIRM"/);
+ assert.match(wf,/inputs\.confirm == 'CHECK_G0_WORKERS_DEV_ONLY'/);
+ assert.match(wf,/case "\$G0_READONLY_CONFIRM"/);
  assert.match(wf,/inspect-entrypoints/);
- assert.doesNotMatch(wf,/wrangler deploy|d1 execute|method:\\s*POST/);
+ assert.doesNotMatch(wf,/wrangler deploy|d1 execute|method:\s*POST/);
  const mock=spawnSync(process.execPath,[source,'inspect-entrypoints'],{
   cwd:root,encoding:'utf8',timeout:10000,
   env:{...process.env,GITHUB_ACTIONS:'false',GITHUB_REF:'refs/heads/main',

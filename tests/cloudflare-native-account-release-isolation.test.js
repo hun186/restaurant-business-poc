@@ -40,7 +40,7 @@ function inspectWorkerImports(read=source){
     assert.doesNotMatch(body,/\bimport\s*\(/,'E_DYNAMIC_IMPORT_NEEDS_REVIEW');
     // Non-leading imports and import/comment combinations are valid ESM.
     // Refuse them until the dependency scanner explicitly supports them.
-    assert.doesNotMatch(body,/;\s*import\b|\bimport\s*\/\*|;\s*export\s+(?:\*|\{)/,
+    assert.doesNotMatch(body,/;[ \t]*import\b|\bimport\s*\/\*|;[ \t]*export[ \t]+(?:\*|\{)/,
       'E_UNREVIEWED_WORKER_IMPORT_SYNTAX');
     const statements=(body.match(/^\s*import\s+(?!\()/gm)||[]).length+
       (body.match(/^\s*export\s+[^\n]*\sfrom\s+['"]/gm)||[]).length;

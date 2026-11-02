@@ -1,0 +1,126 @@
+{
+  "schema": "restaurant_native_admin_api_contract_v1",
+  "status": "DESIGN_ONLY_NO_HTTP_HANDLER",
+  "candidate_endpoint": {
+    "path": "/api/admin/account",
+    "method": "POST",
+    "accept": "application/json",
+    "max_body_bytes": 2048,
+    "https_required": true,
+    "origin": "same-origin",
+    "csrf": "session-bound",
+    "authorized_role": "owner",
+    "public_route_exists": false
+  },
+  "actions": {
+    "user.password": {
+      "fields": [
+        "action",
+        "newPassword",
+        "targetUserId"
+      ],
+      "role": "owner",
+      "types": {
+        "action": "literal:user.password",
+        "newPassword": "string:12-256",
+        "targetUserId": "uuid"
+      },
+      "session_effect": "revoke_all_target_sessions",
+      "audit_action": "user.password",
+      "password_never_logged": true,
+      "self_target": "allowed"
+    },
+    "user.role": {
+      "fields": [
+        "action",
+        "role",
+        "targetUserId"
+      ],
+      "role": "owner",
+      "types": {
+        "action": "literal:user.role",
+        "role": "enum:owner,manager,staff",
+        "targetUserId": "uuid"
+      },
+      "session_effect": "revoke_all_target_sessions",
+      "audit_action": "user.role",
+      "self_target": "denied",
+      "last_active_owner_protected": true
+    },
+    "user.active": {
+      "fields": [
+        "action",
+        "active",
+        "targetUserId"
+      ],
+      "role": "owner",
+      "types": {
+        "action": "literal:user.active",
+        "active": "boolean",
+        "targetUserId": "uuid"
+      },
+      "session_effect": "revoke_all_target_sessions",
+      "audit_action": "user.active",
+      "self_target": "denied",
+      "last_active_owner_protected": true
+    },
+    "user.assign-location": {
+      "fields": [
+        "action",
+        "locationId",
+        "targetUserId"
+      ],
+      "role": "owner",
+      "types": {
+        "action": "literal:user.assign-location",
+        "locationId": "uuid",
+        "targetUserId": "uuid"
+      },
+      "session_effect": "revoke_all_target_sessions_on_change",
+      "audit_action": "user.assign-location",
+      "self_target": "allowed",
+      "repeated_action": "409_no_change"
+    },
+    "user.unassign-location": {
+      "fields": [
+        "action",
+        "locationId",
+        "targetUserId"
+      ],
+      "role": "owner",
+      "types": {
+        "action": "literal:user.unassign-location",
+        "locationId": "uuid",
+        "targetUserId": "uuid"
+      },
+      "session_effect": "revoke_all_target_sessions_on_change",
+      "audit_action": "user.unassign-location",
+      "self_target": "allowed",
+      "repeated_action": "409_no_change"
+    }
+  },
+  "response_contract": {
+    "success_http": 200,
+    "success_code": "OK",
+    "no_change_http": 409,
+    "unavailable_http": 503,
+    "forbidden_http": 403,
+    "invalid_input_http": 400,
+    "unknown_route_http": 503,
+    "secret_fields_never_returned": [
+      "password",
+      "newPassword",
+      "password_hash",
+      "password_salt",
+      "cookie",
+      "token_hash",
+      "csrf_token"
+    ]
+  },
+  "release_gates": {
+    "production_auth_phase": "disabled",
+    "preview_urls": false,
+    "internal_stage_present": false,
+    "requires_new_explicit_production_authorization": true
+  }
+}

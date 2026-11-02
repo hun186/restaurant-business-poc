@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-03 Native Account Admin v1 機器可讀契約／RBAC 驗證（新 PR 待 CI/Review）**：接續已合併 #111 main `875879ffdbf25da21d4fb1748ec6d4cc9433ce13`（公開 Worker 相依隔離＋預定 Admin 路由 503/no D1）。本分支 `test/native-account-admin-v1-contract-rbac-20261103` 新增 `docs/native-account-admin-api-contract-v1.json`：五個 D1 內部帳號 Action 的 exact keys/types、Owner-only、Session 全撤銷、安全 Audit、預定 `POST /api/admin/account`（**設計候選，沒有公開路由**）、2048-byte HTTPS/Origin/CSRF 設計條件，明示 Production Gate 未授權。新增合成 RBAC × 各操作矩陣：Manager 即使有門市授權、Staff 都不得修改；Owner 操作成功才撤銷雙 Session/記錄稽核；負向型別不造成 D1 Side Effects；密碼更新同樣不可由 Manager/Staff 執行。新增候選 URL 在 Disabled/Preview 即使 synthetic gates 被注入仍 503/no D1 的測試；文件與 Reviewed SHA256 同步。Production Login disabled、Preview URLs OFF，不使用 Zero Trust，沒有 Production D1／Owner／Restore 或新 API。最新 HEAD Hosted CI 與正式 Codex Review 需 completed/zero findings、clean Gate 才 Merge。
+
+
 > **2026-11-03 公開 Worker 與 Dormant D1 Account Admin 隔離 Gate（新 PR 待驗證）**：先前 PR #109/#110 已提供完全 dormant D1 password/role/active/store synthetic transactions；最新 main `2a8d08127d2e1d8175cbe236885abdc35db0ca11`，Hosted Verify/Workers Build 已成功。這一輪新增 `tests/cloudflare-native-account-release-isolation.test.js`：以保守靜態 ESM 依賴掃描遞迴驗證 `cloudflare/worker.mjs` 不會直接、間接、re-export 或 dynamic import 內部 account-security/access modules；用 synthetic POST 模擬管理 API 路徑，確認 Production 與 Preview 即使人工注入 test Gate 都一律 503、沒有 D1 Query/Write，並確認 production config 不包含 internal Stage 或正式 Login Gate。新增 `docs/native-account-admin-release-contract.md` 說明未來授權矩陣、環境/部署 Gate 與獨立正式放行證據。仍不使用 Zero Trust、不啟用 Production Login/D1 Write/Owner/Restore，且任何綠燈都不能視為真實 D1 Admin API 已可用。待 latest HEAD Hosted CI、正式 Codex Review、clean Merge Gate 才自動合併。
 
 

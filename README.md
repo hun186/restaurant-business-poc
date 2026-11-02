@@ -1,5 +1,7 @@
 # 餐廳好管家｜餐飲營運管理 PoC v0.1
 
+> **2026-11-02 Cloudflare Active Version 唯讀驗收準備**：Windows 公開 Worker HTTP 已由操作者實機取得 `PUBLIC_WORKER_READONLY_HTTP_PASS`，但這不包含 Active Deployment/Commit。新手動 Actions「Cloudflare G0 active Worker version attestation (manual read-only)」會在 `main`、既有受保護 `cloudflare-g0-readonly` Environment 中，僅使用 Cloudflare GET API 查目前 100% 流量版本、該版本對應的 GitHub Build 與最新 `main` SHA 是否一致，嚴禁把 GitHub CI PASS 當遠端驗證成功。需獨立的 Read Token（`Workers Scripts Read` + `Workers CI Read`），不會部署、寫 SQL 或啟用正式登入。真正 Cloudflare Access 與 Staging UAT 仍未完成。詳見 [部署驗收 Runbook](docs/Cloudflare-部署狀態與路由修正.md)。
+
 > **2026-11-02 Windows 實際公共 HTTP 問題定位中**：使用者已由 `run-cloudflare-public-readonly.bat` 成功轉用 PowerShell，但第一個 `GET /api/health` 得到 `PUBLIC_WORKER_READONLY_FAIL stage=API_HEALTH detail=REQUEST_UNAVAILABLE`（未取得 HTTP Response）。這不是資料庫寫入或 Cloudflare 部署失敗證據。新增無機密的 DNS/Proxy/TCP/TLS/Timeout 錯誤類別及固定主機的本機 DNS 結果，無 Token/POST/新增資料庫；下一步需操作員更新 main 後再跑一遍，或用 GitHub 手動 GET-only Action 比對網路；不因查到 DNS 成功或失敗就自動宣稱正式網站／Access 政策已驗收。詳見 [部署診斷 Runbook](docs/Cloudflare-部署狀態與路由修正.md)。
 
 > **2026-11-02 Windows 公網唯讀驗收補強**：若 `run-cloudflare-public-readonly.bat` 顯示找不到 Node.js，工具已新增內建 Windows PowerShell 5.1 回退，**不必為了這項 GET/HEAD 檢查安裝 Node.js**。兩種執行器均只聯絡固定 workers.dev 主機、無 Token/密碼/POST/Cloudflare SQL 寫入或部署；成功訊號仍為 `PUBLIC_WORKER_READONLY_HTTP_PASS`，只證明 Demo/Health/關閉路由符合預期，**不表示 Active Version 或 Access 已驗收**。原始 Windows 回報尚未觸發 HTTP，請參閱 [驗收 Runbook](docs/Cloudflare-部署狀態與路由修正.md)。

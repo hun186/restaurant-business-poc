@@ -1,0 +1,45 @@
+name: Cloudflare G0 active Worker version attestation (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_ACTIVE_WORKER_READONLY (only Cloudflare GET; no writes/deploy)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-g0-active-version-readonly
+  cancel-in-progress: false
+
+jobs:
+  active_version:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_ACTIVE_WORKER_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: cloudflare-g0-readonly
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed before exposing read-only token
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Get active deployment and version-associated GitHub build (Cloudflare API GET only)
+        shell: bash
+        env:
+          G0_ACTIVE_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_G0_READONLY_TOKEN }}
+        run: |
+          set -euo pipefail
+          node tools/cloudflare-g0-active-version-readonly.mjs inspect
+          echo 'G0_VERSION_BUILD_EVIDENCE_ONLY_NOT_PRODUCTION_RELEASE'

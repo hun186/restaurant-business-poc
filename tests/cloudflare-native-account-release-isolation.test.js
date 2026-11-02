@@ -31,7 +31,10 @@ function inspectWorkerImports(read=source){
     assert.doesNotMatch(body,/\bimport\s*\(/,'E_DYNAMIC_IMPORT_NEEDS_REVIEW');
     const statements=(body.match(/^\s*import\s+(?!\()/gm)||[]).length+
       (body.match(/^\s*export\s+[^\n]*\sfrom\s+['"]/gm)||[]).length;
-    const pattern=/^\s*(?:import|export)\s+(?:[^;\n]*?\s+from\s+)?['"]([^'"]+)['"]/gm;
+    // Named ESM imports may span multiple lines, as in login-service.mjs.
+    // Parse balanced simple import/export specifiers without accepting opaque
+    // source forms; the statement count below still fails closed on drift.
+    const pattern=/^\s*(?:import|export)\s+(?:(?:\{[^}]*\}|\*(?:\s+as\s+[\w$]+)?|[\w$]+(?:\s*,\s*\{[^}]*\})?)\s+from\s+)?['"]([^'"]+)['"]/gm;
     const imports=[...body.matchAll(pattern)].map(m=>m[1]);
     assert.equal(imports.length,statements,
       'E_UNPARSED_WORKER_IMPORT: '+path.relative(root,file));

@@ -20,7 +20,8 @@ export async function internalChangeD1AccountAccess(request,env,input={}){
     return {status:503,code:'E_NOT_READY'};
   if(request?.method!=='POST')return {status:405,code:'METHOD_NOT_ALLOWED'};
   if(!input || typeof input!=='object'||Array.isArray(input) ||
-     !ACTIONS.has(input.action) || !UUID.test(input.targetUserId||''))
+     !ACTIONS.has(input.action) || typeof input.targetUserId!=='string' ||
+     !UUID.test(input.targetUserId))
     return {status:400,code:'E_INVALID_INPUT'};
   const {action,targetUserId}=input;
   const isRole=action==='user.role',isActive=action==='user.active';
@@ -30,7 +31,7 @@ export async function internalChangeD1AccountAccess(request,env,input={}){
   if(keys!==expected ||
      (isRole&&!ROLES.has(input.role)) ||
      (isActive&&typeof input.active!=='boolean') ||
-     (isStore&&!UUID.test(input.locationId||'')))
+     (isStore&&(typeof input.locationId!=='string'||!UUID.test(input.locationId))))
     return {status:400,code:'E_INVALID_INPUT'};
   try{
     const p=await loadPrincipal(env.DB,request);

@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 Native Logout audit expiry race（PR 開發中）**：PR #106 已 Merge main `4df45e17fc2fced8ee01d46ab8dff5c8a8c6a4a5`，合併後 CI 5/5 PASS。本輪修補 dormant `revokeD1Session` 在 loadPrincipal 和 D1 batch 間 Session 恰巧到期可能仍寫出 `auth.logout` 成功紀錄的邊界：batch 的稽核 INSERT 和 Session DELETE 均使用相同 UTC ISO now cutoff；保留正常退出、到期/先被他方撤銷、batch rollback 的合成 SQLite/D1 測試；未打 Cloudflare D1，不啟用 Zero Trust、Production Login、Owner 或 Restore。需最新 HEAD CI/正式 Codex Review/clean Gate 再 Merge。
+
+
 > **2026-11-02 下一階段原生 Session HTTPS fail-closed（待 CI/Review）**：最新 main 2c8c587d9876ebd7c9a6b85bdb1c0ac17e5a77af（PR #105 已完成並主線 CI 5/5、Workers Build PASS），Cloudflare Demo/Preview OFF 與 Active Build 主線前一版本已由使用者獨立驗證。未使用 Zero Trust，Production Native Login 仍 disabled。新分支 fix/native-session-require-https-20261102 在 dormant `auth-core.mjs loadPrincipal` 入口明確拒絕非 HTTPS 或 malformed request URL 的 Session，即使非瀏覽器自行附帶 Secure Cookie；在任何 D1 查詢之前 Fail Closed，擴充合成測試涵蓋 HTTP/不合法 URL、原生身份 API 401、HTTPS 正常、零 SQL 查詢，更新 SHA256 守衛。完全不涉及 Production Login/Owner/SQL Write/Restore。待最新 HEAD CI/Codex/clean Gate 後才可合併。
 
 

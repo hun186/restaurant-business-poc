@@ -158,6 +158,59 @@ test('concurrent account deactivation or password rotation before session write 
   }
 });
 
+test('logout expiry or revocation race fails without false audit',async()=>{
+  const svc=await servicePromise;
+  for(const race of ['expired','revoked']){
+    const f=await setup();
+    try{
+      const out=await svc.authenticateD1(f.d1,{username:'owner',password:f.password,ipHash:f.ip});
+      assert.equal(out.status,200);
+      const token=out.cookie.match(/^__Host-restaurant_session=([^;]+)/)[1];
+      const tokenHash=await f.auth.tokenSha256(token);
+      const logout=req('/api/logout',{method:'POST',headers:{
+        cookie:f.auth.SESSION_COOKIE+'='+token,origin:'https://preview.workers.dev',
+        'x-csrf-token':out.csrf
+      }});
+      const raced={
+        ...f.d1,
+        async batch(statements){
+          if(race==='expired'){
+            f.db.prepare('UPDATE sessions SET expires_at=? WHERE token_hash=?')
+              .run('2000-01-01T00:00:00.000Z',tokenHash);
+          }else{
+            f.db.prepare('DELETE FROM sessions WHERE token_hash=?').run(tokenHash);
+          }
+          return f.d1.batch(statements);
+        }
+      };
+      await assert.rejects(()=>svc.revokeD1Session(raced,logout),/E_AUTH_ATOMIC/);
+      assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='auth.logout'").get().n,0);
+      assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,
+        race==='expired'?1:0);
+      assert.equal((await svc.revokeD1Session(f.d1,logout)).status,401);
+    }finally{f.db.close();}
+  }
+});
+
+test('logout batch rollback leaves session and audit consistent',async()=>{
+  const svc=await servicePromise, f=await setup();
+  try{
+    const out=await svc.authenticateD1(f.d1,{username:'owner',password:f.password,ipHash:f.ip});
+    const token=out.cookie.match(/^__Host-restaurant_session=([^;]+)/)[1];
+    const logout=req('/api/logout',{method:'POST',headers:{
+      cookie:f.auth.SESSION_COOKIE+'='+token,origin:'https://preview.workers.dev',
+      'x-csrf-token':out.csrf
+    }});
+    await assert.rejects(()=>svc.revokeD1Session(wrapDb(f.db,{failIndex:1}),logout),
+      /E_TEST_ATOMIC_ROLLBACK/);
+    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='auth.logout'").get().n,0);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,1);
+    assert.equal((await svc.revokeD1Session(f.d1,logout)).status,200);
+    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='auth.logout'").get().n,1);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,0);
+  }finally{f.db.close();}
+});
+
 test('logout refuses missing origin, invalid CSRF, and disabled account (no session data leaked)',async()=>{
   const svc=await servicePromise,f=await setup();
   try{

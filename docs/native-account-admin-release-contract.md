@@ -10,6 +10,14 @@
 - 使用者明確選擇**不使用 Cloudflare Zero Trust／Access，也不綁信用卡**。因此未來上線需自行設計與驗證應用層登入、Session、權限、稽核、暴露面及事故復原，而不能繞過安全驗收。
 - 真正 Production D1 的 Owner Enrollment、帳號登入、資料寫入、遷移和 Restore 目前均沒有本文件的授權。
 
+## v1 機器可讀介面契約（設計與合成驗證專用）
+
+新增加的 `docs/native-account-admin-api-contract-v1.json` 是**尚未上線**的 API 設計合約，不是可執行或已註冊的公開路由。候選路徑 `POST /api/admin/account` 目前必須回應 `503 E_NOT_READY`，不查詢 D1，也不寫入任何實際帳號資料。
+
+契約規定：最多 2048 bytes JSON、HTTPS／同來源／Session CSRF、有效 Owner 身分；每個 Action 都有固定輸入鍵與型別，拒絕未知欄位或錯誤角色；更新密碼只在內部函式使用，不記錄到 Audit 或對外回傳。重複授權屬 `409` no-op，真正變更才執行原子帳號更新＋Session 撤銷。
+
+`tests/cloudflare-d1-account-access-internal.test.js` 以此契約列出的所有 Role／Active／Store Action 驗證 Owner 成功、Manager 與 Staff 一律拒絕且無 Side Effect；`tests/cloudflare-d1-account-security-internal.test.js` 驗證密碼輪替也不得由 Manager／Staff 執行。獨立測試確認候選路徑不會從目前公開 Worker 接受任何操作。
+
 ## 建議的操作契約（未實作的設計條件）
 
 | Action | 所需角色 | 輸入 | 不可變條件與稽核 |

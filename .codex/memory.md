@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 G0 第二次實機 HTTP_STATUS（未完成遠端驗收）**：受控手動 Cloudflare 唯讀 Run #41447620360 使用 main b810c6d3aa16e85a852cfc6c65835410949ba891，已通過 LOCAL_CONFIG，但 Cloudflare API 回傳非 2xx，統一輸出 HTTP_STATUS；原始 GET 類別與 status 不明。現在擴充既有 PR #102，同一 G0 fail-closed 安全診斷任務，依 DEPLOYMENTS/BUILDS 和 401/403/404/429/5XX/OTHER 產生定值錯誤階段；不輸出 body/token，增補負測、closed SHA256。官方 Cloudflare Workers Builds API 要求 user-scoped Token（account-scoped 不支援），兩 GET 分別需 Scripts Read / CI Read。無 Secret 明文/新 API/Cloudflare 修改，PR 最新 HEAD Hosted CI/正式 Codex Review 才可 Merge；此前因審查額度不足導致 Review failed，不可繞過。
+
+
 > **2026-11-02 G0 Workflow LOCAL_CONFIG 實機失敗（待人工 Secret 核對）**：main b810c6d3aa16e85a852cfc6c65835410949ba891 的 manual Run #41420086497 顯示 LOCAL_CONFIG。Repo `wrangler.jsonc` 關鍵欄位吻合；最可能是 GitHub `cloudflare-g0-readonly` Environment 的 `CLOUDFLARE_ACCOUNT_ID` Secret 未設定／不正確。未能讀取 Secret 實際值，不得假裝已確證。新分支 `fix/g0-local-config-safe-diagnostics-20261102` 僅增加 ACCOUNT_ID_MISSING / MISMATCH 安全分類與合成測試，保留 Fail Closed 和不回顯值；不修改 Cloudflare，不查寫 D1。PR/CI/Codex/merge 須核實。
 
 

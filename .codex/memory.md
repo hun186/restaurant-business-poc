@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 Native Auth RBAC fail-closed 補強（待驗證）**：既有 G0 Preview OFF/Active Version 100%+Main SHA PASS，Windows GET/HEAD Demo 由使用者回報 PASS。使用者不使用 Zero Trust，未授權 Production Login/Write。本次 Branch fix/native-auth-malformed-location-fail-closed-20261102 只在 dormant auth-core 將異常門市資料拒絕整個 principal，且 scoped hasAccess 遇格式異常一律 false（含 owner forged principal）；補離線合成測試、更新 exact-byte SHA256。提交後須 Hosted CI、正式 Codex Review、Clean Gate；不更動 Production D1、環境變數、部署配置、Owner、Restore。
+
+
 > **2026-11-02 Cloudflare Preview 關閉與 GitHub 同步（本 PR）**：使用者已在 Cloudflare Domains 手動關 Preview（Production workers.dev 保留），並提供 Settings → Builds → Previews Base 的 OFF 截圖；不使用 Zero Trust 或綁信用卡。此前 main `7edd2828f45a41406d0a72f399154a889c6aa12f` 的 `wrangler.jsonc preview_urls:true` 有重開風險。本 PR 改成 false，保留 Production demo、Auth disabled、D1 綁定，補回歸、static preflight 和 SHA 閉鎖。此 PR merge 可能引發 Cloudflare 自動 Production deploy，必須維持完整 CI/Codex/部署安全門檻；操作者 Dashboard 改動未被新的 Cloudflare API 驗證。不得啟用 Zero Trust、Production Login/Write、Owner 或 D1 Restore。
 
 

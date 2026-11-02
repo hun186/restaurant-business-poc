@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 下一項 Native Auth RBAC 安全工作**：不再重複已 PASS 的 Cloudflare Preview OFF／Worker SHA／Demo HTTP。針對 loadPrincipal 異常門市資料部分過濾，以及 hasAccess 遇 malformed principal.locations 拋出 TypeError 的情況，改成 fail-closed 並增加 SQLite 合成回歸；不開啟正式原生登入、任何 D1 SQL Write/Owner 或 Cloudflare Zero Trust。完成 CI + Codex 後再處理業務功能與原生 Auth 上線的其他防護。
+
+
 > **2026-11-02 NEXT：GitHub Preview OFF 安全一致性**：操作員已關閉 Cloudflare Domains Preview 及 Builds for Preview branches，正式 workers.dev 仍 ON，拒用 Zero Trust。提交 `wrangler.jsonc preview_urls:false` 的最小 PR，維持 `workers_dev:true`、Auth disabled、D1 不變，加入靜態 fail-closed 與 SHA pin。主線 merge 可能自動 Cloudflare production deploy，驗收不能用 CI 代替；後續執行人工 G0 scoped readonly 確認 `target_preview_urls_enabled=false`、Production=true，與 Demo API 路由仍 fail-closed。不要修改正式 D1、Owner、Restore 或 Login。
 
 

@@ -84,6 +84,44 @@ test('D1 read-only session lookup rechecks active status, expiry, role and assig
   }finally {f.db.close();}
 });
 
+test('malformed store bindings fail closed instead of granting partial RBAC principals',async()=>{
+  const auth=await modulePromise, f=await databaseForUser('manager');
+  try{
+    const req=request('/api/me',{headers:{cookie:auth.SESSION_COOKIE+'='+f.session}});
+    const good=await auth.loadPrincipal(fakeD1(f.db),req);
+    assert.equal(auth.hasAccess(good,'manager',f.store),true);
+    for(const malformed of [
+      {...good,locations:undefined},
+      {...good,locations:null},
+      {...good,locations:{includes:()=>true}},
+      {...good,locations:[f.store,42]},
+      {...good,locations:[f.store,'']},
+      {...good,locations:['store-b',null]}
+    ]){
+      assert.equal(auth.hasAccess(malformed,'manager',f.store),false);
+      assert.equal(auth.authorizedMutation(
+        request('/api/command',{method:'POST',headers:{
+          origin:'https://example.workers.dev','x-csrf-token':f.csrf
+        }}),malformed,'manager',f.store),false);
+    }
+    // An owner also needs a properly shaped principal even with global store access.
+    assert.equal(auth.hasAccess({...good,role:'owner',locations:null},'owner','store-b'),false);
+    assert.equal(auth.hasAccess({...good,role:'owner',locations:[]},'owner','store-b'),true);
+    const brokenDb={
+      prepare(sql){
+        const statement=fakeD1(f.db).prepare(sql);
+        if(!sql.includes('SELECT ul.location_id'))return statement;
+        return {bind(...args){
+          statement.bind(...args);
+          return {all:async()=>({results:[{location_id:f.store},{location_id:null}]})};
+        }};
+      }
+    };
+    assert.equal(await auth.loadPrincipal(brokenDb,req),null);
+    assert.equal(auth.hasAccess(good,'manager','store-b'),false);
+  }finally{f.db.close();}
+});
+
 test('role elevation and cross-store requests are denied; owner can manage scoped stores',async()=>{
   const auth=await modulePromise;
   const f=await databaseForUser('manager');

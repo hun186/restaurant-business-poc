@@ -81,20 +81,20 @@ test('manual workflow and Windows BAT have no tokens, shell deployment or write 
  assert.match(source,/method='GET'/);
  assert.match(source,/credentials:'omit'/);
  assert.doesNotMatch(source,/method:'POST'|method:'PUT'|method:'PATCH'|method:'DELETE'|wrangler deploy/);
- assert.match(bat,/cloudflare-public-runtime-readonly\\.mjs/);
+ assert.match(bat,/cloudflare-public-runtime-readonly\.mjs/);
  assert.match(bat,/node -e/);
- assert.match(bat,/powershell\\.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass/);
- assert.match(bat,/cloudflare-public-runtime-readonly\\.ps1/);
+ assert.match(bat,/powershell\.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass/);
+ assert.match(bat,/cloudflare-public-runtime-readonly\.ps1/);
  assert.doesNotMatch(bat,/CLOUDFLARE_API_TOKEN|wrangler deploy|--export/);
  const ps=fs.readFileSync(path.join(root,'tools/cloudflare-public-runtime-readonly.ps1'),'utf8');
  assert.equal(ps.charCodeAt(0),0xfeff); // PowerShell 5.1 must parse UTF-8 Chinese safely
  assert.match(ps,/System.Net.Http.HttpClient/);
- assert.match(ps,/AllowAutoRedirect=\\$false/);
- assert.match(ps,/UseCookies=\\$false/);
- assert.match(ps,/UseDefaultCredentials=\\$false/);
+ assert.match(ps,/AllowAutoRedirect=\$false/);
+ assert.match(ps,/UseCookies=\$false/);
+ assert.match(ps,/UseDefaultCredentials=\$false/);
  assert.match(ps,/Read-Bounded/);
  assert.match(ps,/PUBLIC_WORKER_READONLY_HTTP_PASS/);
- assert.doesNotMatch(ps,/CLOUDFLARE_API_TOKEN|Invoke-RestMethod|Invoke-Expression|Start-Process|SendAsync\\(.*Post/);
+ assert.doesNotMatch(ps,/CLOUDFLARE_API_TOKEN|Invoke-RestMethod|Invoke-Expression|Start-Process|SendAsync\(.*Post/);
 
  assert.match(workflow,/workflow_dispatch:/);
  assert.match(workflow,/refs\/heads\/main/);

@@ -230,3 +230,74 @@ test('missing schema and failed D1 do not leak SQL, JWT, or task content',async 
  assert.doesNotMatch(await r.text(),/no such table|SELECT|staff-sub|JWT/i);
  assert.equal(logs(f).length,0);
 });
+
+test('Staging command bridge stays denied without independent operator gate; Production always blocked',async t=>{
+ const f=fixture(t),worker=(await workerPromise).default;
+ const cmd=f.makeRequest(f.ids.taskA,'doing',{url:'https://private.staging.invalid/api/command'});
+ for(const env of [
+  f.env,
+  {...f.env,CLOUD_ACCESS_COMMAND_GATE:'unexpected'},
+  {...f.env,CLOUD_ACCESS_COMMAND_GATE:'staging-task-status-only',CLOUD_ACCESS_TASK_WRITE_GATE:undefined},
+  {...f.env,CLOUD_ACCESS_COMMAND_GATE:'staging-task-status-only',CLOUD_ACCESS_IDENTITY_GATE:undefined},
+  {...f.env,CLOUD_ACCESS_COMMAND_GATE:'staging-task-status-only',CLOUD_AUTH_PHASE:'disabled'},
+  {...f.env,CLOUD_ACCESS_COMMAND_GATE:'staging-task-status-only',CLOUD_AUTH_PHASE:'native-production'}
+ ]){
+  const result=await worker.fetch(cmd.clone(),env);
+  assert.equal(result.status,503);
+  assert.equal((await result.json()).code,
+   env.CLOUD_AUTH_PHASE==='preview-readonly'&&env.CLOUD_ACCESS_COMMAND_GATE==='staging-task-status-only'
+    ? 'E_TASK_WRITE_NOT_ENABLED':'E_NOT_READY');
+ }
+ assert.equal(status(f,f.ids.taskA),'todo');
+ assert.deepEqual(logs(f),[]);
+ assert.equal(f.lookups,0);
+});
+test('Staging standard /api/command uses existing signed Access task transaction with independent gate',async t=>{
+ const f=fixture(t),worker=(await workerPromise).default;
+ const env={...f.env,CLOUD_ACCESS_COMMAND_GATE:'staging-task-status-only'};
+ const now=Math.floor(Date.now()/1000);
+ const validJwt=jwt('staff-sub',{iat:now-20,exp:now+120});
+ // The actual Worker uses global fetch for the pinned Access JWKS URL.
+ // All traffic is intercepted locally; there are no live Cloudflare calls.
+ t.mock.method(globalThis,'fetch',f.fetchImpl);
+ const opts={url:'https://private.staging.invalid/api/command',jwt:validJwt};
+ const request=f.makeRequest(f.ids.taskA,'doing',opts);
+ const res=await worker.fetch(request,env);
+ assert.equal(res.status,200);
+ assert.deepEqual((await res.json()).result,{id:f.ids.taskA,status:'doing'});
+ assert.equal(status(f,f.ids.taskA),'doing');
+ assert.equal(logs(f).length,1);
+ assert.deepEqual(JSON.parse(logs(f)[0].detail),{from:'todo',to:'doing'});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,0);
+ assert.equal((await worker.fetch(f.makeRequest(f.ids.taskA,'doing',opts),env)).status,409);
+ assert.equal(logs(f).length,1);
+ // Other business actions are not enabled via this Staging-only bridge.
+ const other=f.makeRequest(f.ids.taskA,'done',{
+  ...opts,body:JSON.stringify({action:'order.receive',data:{id:f.ids.taskA}})
+ });
+ const invalid=await worker.fetch(other,env);
+ assert.equal(invalid.status,400);
+ assert.equal((await invalid.json()).code,'E_INVALID_COMMAND');
+ assert.equal(status(f,f.ids.taskA),'doing');
+ assert.equal(logs(f).length,1);
+});
+test('Staging command bridge refuses cross-site/URL trickery and wrong methods before writes',async t=>{
+ const f=fixture(t),worker=(await workerPromise).default;
+ const env={...f.env,CLOUD_ACCESS_COMMAND_GATE:'staging-task-status-only'};
+ const cases=[
+  [{url:'https://private.staging.invalid/api/command',origin:'https://attacker.invalid'},403],
+  [{url:'https://private.staging.invalid/api/command',fetchSite:'cross-site'},403],
+  [{url:'https://private.staging.invalid/api/command',intent:'order.receive'},403],
+  [{url:'https://private.staging.invalid/api/command?debug=true'},400],
+  [{url:'http://private.staging.invalid/api/command',origin:'http://private.staging.invalid'},400],
+  [{url:'https://private.staging.invalid/api/command',method:'GET'},405],
+  [{url:'https://private.staging.invalid/api/command',body:'malformed'},400]
+ ];
+ for(const [opts,expect] of cases){
+  const res=await worker.fetch(f.makeRequest(f.ids.taskA,'done',opts),env);
+  assert.equal(res.status,expect,JSON.stringify(opts));
+ }
+ assert.equal(status(f,f.ids.taskA),'todo');
+ assert.deepEqual(logs(f),[]);
+ assert.equal(f.lookups,0);
+});

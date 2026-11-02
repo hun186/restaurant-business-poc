@@ -140,15 +140,18 @@ export async function revokeD1Session(db, request) {
   const p = await loadPrincipal(db,request);
   if (!p) return { status: 401, code: 'E_UNAUTHENTICATED' };
   if (!authorizedMutation(request,p,'staff')) return { status: 403, code: 'E_CSRF_ORIGIN' };
+  // Identity may expire after loadPrincipal; use the same cutoff for both
+  // statements in D1's atomic batch so expiry never generates a false logout audit.
+  const now = new Date().toISOString();
   const result = await db.batch([
-    // Guard audit and deletion against a revoked session between read and batch.
     db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,detail) '+
       "SELECT ?,u.id,u.username,'auth.logout','sessions','{}' FROM sessions s "+
-      'JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.active=1')
-      .bind(newId(),p.token_hash),
-    db.prepare('DELETE FROM sessions WHERE token_hash=? AND EXISTS '+
+      'JOIN users u ON u.id=s.user_id '+
+      'WHERE s.token_hash=? AND s.expires_at>? AND u.active=1')
+      .bind(newId(),p.token_hash,now),
+    db.prepare('DELETE FROM sessions WHERE token_hash=? AND expires_at>? AND EXISTS '+
       '(SELECT 1 FROM users WHERE id=? AND active=1)')
-      .bind(p.token_hash,p.id)
+      .bind(p.token_hash,now,p.id)
   ]);
   if (!Array.isArray(result) || result.length!==2 || result.some(x=>resultChanges(x)!==1))
     throw new Error('E_AUTH_ATOMIC');

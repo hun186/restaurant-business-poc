@@ -10,6 +10,52 @@ $DeadlineMs=8000
 function Fail([string]$stage,[string]$detail) {
  throw [System.InvalidOperationException]::new("E_PUBLIC_WORKER_READONLY|$stage|$detail")
 }
+# Only classify exception TYPES/status ENUMS. Never print exception messages,
+# proxy addresses, user names, certificate details or HTTP response contents.
+function Classify-NetworkFailure($exception) {
+ $current=$exception
+ for($depth=0;$null -ne $current -and $depth -lt 12;$depth++){
+  if($current -is [System.Net.Sockets.SocketException]){
+   switch([string]$current.SocketErrorCode){
+    'HostNotFound' {return 'DNS_LOOKUP_FAILED'}
+    'NoData' {return 'DNS_LOOKUP_FAILED'}
+    'TryAgain' {return 'DNS_LOOKUP_FAILED'}
+    'ConnectionRefused' {return 'TCP_CONNECT_FAILED'}
+    'HostUnreachable' {return 'NETWORK_UNREACHABLE'}
+    'NetworkUnreachable' {return 'NETWORK_UNREACHABLE'}
+    'TimedOut' {return 'REQUEST_TIMEOUT'}
+   }
+  }
+  if($current -is [System.Net.WebException]){
+   switch([string]$current.Status){
+    'NameResolutionFailure' {return 'DNS_LOOKUP_FAILED'}
+    'ProxyNameResolutionFailure' {return 'PROXY_DNS_FAILED'}
+    'ConnectFailure' {return 'TCP_CONNECT_FAILED'}
+    'Timeout' {return 'REQUEST_TIMEOUT'}
+    'SecureChannelFailure' {return 'TLS_FAILED'}
+    'TrustFailure' {return 'TLS_FAILED'}
+   }
+  }
+  if($current -is [System.Security.Authentication.AuthenticationException]){
+   return 'TLS_FAILED'
+  }
+  if($current -is [System.OperationCanceledException]){
+   return 'REQUEST_TIMEOUT'
+  }
+  $current=$current.InnerException
+ }
+ return 'REQUEST_UNAVAILABLE'
+}
+function Get-LocalDnsResult {
+ # Independent diagnostic for the hard-coded public hostname only.
+ # With a system proxy, local DNS failure does not prove remote DNS failure.
+ try{
+  $entries=[System.Net.Dns]::GetHostAddresses(
+    'restaurant-business-poc.hungyuan-chen.workers.dev')
+  if($entries.Length -gt 0){return 'RESOLVED'}
+  return 'NO_ADDRESSES'
+ }catch{return 'LOOKUP_FAILED'}
+}
 function Field($object,[string]$name) {
  if($null -eq $object){return $null}
  $p=$object.PSObject.Properties[$name]
@@ -91,7 +137,7 @@ function Invoke-FixedRequest($client,[string]$route,[string]$method) {
  }catch{
   $message=$_.Exception.Message
   if($message -like 'E_PUBLIC_WORKER_READONLY|*'){throw}
-  Fail $stage 'REQUEST_UNAVAILABLE'
+  Fail $stage (Classify-NetworkFailure $_.Exception)
  }finally{
   if($null -ne $stream){$stream.Dispose()}
   if($null -ne $response){$response.Dispose()}
@@ -107,6 +153,23 @@ function Run-SyntheticSelfTest {
   Validate-Reply $route 'GET' 503 'application/json' '' '{"code":"E_NOT_READY"}'
  }
  Validate-Reply '/' 'GET' 200 'text/html' '' '<p>公開示範版 · 全部為虛構資料</p>'
+ # Exercise network error categories with synthetic exceptions, no DNS/HTTP.
+ $fakeDns=[System.Net.Sockets.SocketException]::new(
+  [int][System.Net.Sockets.SocketError]::HostNotFound)
+ if((Classify-NetworkFailure $fakeDns) -ne 'DNS_LOOKUP_FAILED'){
+  Fail 'SELFTEST' 'ASSERTION'
+ }
+ $fakeTls=[System.Security.Authentication.AuthenticationException]::new('synthetic')
+ if((Classify-NetworkFailure $fakeTls) -ne 'TLS_FAILED'){
+  Fail 'SELFTEST' 'ASSERTION'
+ }
+ $fakeTimeout=[System.OperationCanceledException]::new('synthetic')
+ if((Classify-NetworkFailure $fakeTimeout) -ne 'REQUEST_TIMEOUT'){
+  Fail 'SELFTEST' 'ASSERTION'
+ }
+ if((Classify-NetworkFailure ([System.Exception]::new('synthetic'))) -ne 'REQUEST_UNAVAILABLE'){
+  Fail 'SELFTEST' 'ASSERTION'
+ }
  $failures=0
  foreach($case in @(
   @{path='/api/health';status=200;mime='application/json';cache='no-store';
@@ -158,10 +221,18 @@ try{
   $allowedDetails=@('REQUEST_UNAVAILABLE','RESPONSE_INVALID','REDIRECT_BLOCKED',
    'HTTP_STATUS','MIME','BODY_LIMIT_OR_INVALID','DEMO_ASSETS_MISSING',
    'JSON_INVALID','JSON_SHAPE','CACHE_CONTROL','PROD_GUARD',
-   'SCHEMA_NOT_READY','ROUTE_NOT_CLOSED','ASSERTION')
+   'SCHEMA_NOT_READY','ROUTE_NOT_CLOSED','ASSERTION',
+   'DNS_LOOKUP_FAILED','PROXY_DNS_FAILED','TCP_CONNECT_FAILED',
+   'NETWORK_UNREACHABLE','REQUEST_TIMEOUT','TLS_FAILED')
   if($allowedStages -contains $Matches[1]){$stage=$Matches[1]}
   if($allowedDetails -contains $Matches[2]){$detail=$Matches[2]}
  }
  [Console]::Error.WriteLine("PUBLIC_WORKER_READONLY_FAIL stage=$stage detail=$detail")
+ if($stage -eq 'API_HEALTH' -and $detail -in @(
+  'REQUEST_UNAVAILABLE','DNS_LOOKUP_FAILED','PROXY_DNS_FAILED',
+  'TCP_CONNECT_FAILED','NETWORK_UNREACHABLE','REQUEST_TIMEOUT','TLS_FAILED')){
+  [Console]::Error.WriteLine('PUBLIC_WORKER_LOCAL_DNS result='+ (Get-LocalDnsResult))
+  [Console]::Error.WriteLine('LOCAL_DNS_ONLY_NOT_REMOTE_OR_PROXY_PROOF')
+ }
  exit 1
 }

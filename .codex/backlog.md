@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 Local account session revocation evidence**：本機 SQLite `src/service.js` 角色/密碼/狀態/門市異動已經 transactionally 刪除 Sessions，毋須重新實作。改善稽核一致性：記錄實際 `revoked_sessions` 數量（無 Token/Password），集中撤銷 helper；HTTP 合成測試多裝置 Session、密碼重設前後、角色變更、門市 no-op/變更、帳號停用及 audit。Cloudflare D1 原生帳號變更交易尚未實作，不得假稱現有 localhost 代碼已保護未來的 D1 Account Admin API；必須另行設計/驗證。保持 Production Auth disabled、無 Zero Trust、D1 及 Owner 操作禁用。
+
+
 > **2026-11-02 Native Logout Audit/Expiry 一致性**：PR #106 HTTPS Session 已合併。針對 `revokeD1Session` 交易的 audit INSERT/DELETE 在載入 Principal 後未核對 Session expires_at 的細小競態，加入 shared ISO cutoff、合成 expiry/revoked race/rollback tests、閉鎖 SHA256，完成 Hosted CI＋Codex＋Clean 才合併。正式 Auth、Production D1、Owner、Restore 仍禁用，Zero Trust 不採用。
 
 

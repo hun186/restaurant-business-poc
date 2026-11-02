@@ -86,6 +86,13 @@ function move(db,u,x,kind,reference){
  db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id) VALUES(?,?,?,?,?,?,?,?)').run(id,ingredient.id,x.location_id,delta,kind,reference||null,cleanText(x.note||'',300),u.id);
  audit(db,u,'stock.'+kind,'stock_moves',id,x.location_id,{ingredient_id:ingredient.id,qty_delta:delta});return {id,on_hand:next};
 }
+// All account security changes and their session revocations run within
+// command()'s transaction. Only record counts, never bearer tokens.
+function revokeAccountSessions(db, userId) {
+ const outcome=db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId);
+ if(!Number.isSafeInteger(outcome?.changes)||outcome.changes<0)bad('Session 撤銷失敗',500);
+ return outcome.changes;
+}
 function command(db,u,action,x={}){
  if(!x||typeof x!=='object'||Array.isArray(x))bad('資料格式錯誤');
  const priced=pricing.pricingCommand(db,u,action,x,audit);if(priced!==null)return priced;
@@ -110,25 +117,29 @@ function command(db,u,action,x={}){
   if(!['owner','manager','staff'].includes(role)||target.id===u.id)bad('無法修改自身角色或指定無效角色');
   if(target.role==='owner'&&role!=='owner'&&db.prepare("SELECT count(*) AS n FROM users WHERE role='owner' AND active=1").get().n<=1)bad('不可移除最後一名業主');
   db.prepare('UPDATE users SET role=? WHERE id=?').run(role,target.id);
-  db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
-  audit(db,u,action,'users',target.id,null,{from:target.role,to:role});return {id:target.id};
+  const revoked=revokeAccountSessions(db,target.id);
+  audit(db,u,action,'users',target.id,null,{from:target.role,to:role,revoked_sessions:revoked});return {id:target.id};
  }
  case 'user.active':{
   requiredRole(u,'owner');const target=exists(db,'users',x.user_id);if(target.id===u.id)bad('不可停用自己');
   if(target.role==='owner'&&Number(x.active)===0&&db.prepare("SELECT count(*) AS n FROM users WHERE role='owner' AND active=1").get().n<=1)bad('不可停用最後一名業主');
-  const active=x.active===true?1:x.active===false?0:bad('active 需為布林值');db.prepare('UPDATE users SET active=? WHERE id=?').run(active,target.id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
-  audit(db,u,action,'users',target.id,null,{active});return {id:target.id};
+  const active=x.active===true?1:x.active===false?0:bad('active 需為布林值');
+  db.prepare('UPDATE users SET active=? WHERE id=?').run(active,target.id);
+  const revoked=revokeAccountSessions(db,target.id);
+  audit(db,u,action,'users',target.id,null,{active,revoked_sessions:revoked});return {id:target.id};
  }
  case 'user.password':{
   const target=exists(db,'users',x.user_id);if(u.role!=='owner'&&target.id!==u.id)bad('權限不足',403);
-  const ph=hashPassword(x.password);db.prepare('UPDATE users SET password_salt=?,password_hash=? WHERE id=?').run(ph.salt,ph.hash,target.id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
-  audit(db,u,action,'users',target.id,null,{password_changed:true});return {id:target.id};
+  const ph=hashPassword(x.password);
+  db.prepare('UPDATE users SET password_salt=?,password_hash=? WHERE id=?').run(ph.salt,ph.hash,target.id);
+  const revoked=revokeAccountSessions(db,target.id);
+  audit(db,u,action,'users',target.id,null,{password_changed:true,revoked_sessions:revoked});return {id:target.id};
  }
  case 'user.assign-location':{
   requiredRole(u,'owner');const target=exists(db,'users',x.user_id);scope(db,u,l);
   const change=db.prepare('INSERT OR IGNORE INTO user_locations(user_id,location_id) VALUES(?,?)').run(target.id,l);
-  if(change.changes)db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
-  audit(db,u,action,'user_locations',target.id,l,{new_assignment:!!change.changes,sessions_revoked:!!change.changes});return {id:target.id};
+  const revoked=change.changes?revokeAccountSessions(db,target.id):0;
+  audit(db,u,action,'user_locations',target.id,l,{new_assignment:!!change.changes,sessions_revoked:!!change.changes,revoked_sessions:revoked});return {id:target.id};
  }
  case 'task.create':{
   scope(db,u,l,'manager');const title=cleanText(x.title,120,true),assign=x.assigned_to?uid(x.assigned_to):null;

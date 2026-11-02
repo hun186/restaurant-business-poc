@@ -91,18 +91,22 @@ export async function loadPrincipal(db, request, now = new Date().toISOString())
     'SELECT ul.location_id FROM user_locations ul JOIN locations l ON l.id=ul.location_id ' +
     'WHERE ul.user_id=? AND l.active=1 ORDER BY ul.location_id'
   ).bind(u.id).all();
-  if (!Array.isArray(result?.results)) return null;
+  // A malformed store binding cannot yield a partially authorized principal.
+  if (!Array.isArray(result?.results) || !result.results.every(x =>
+    typeof x?.location_id === 'string' && x.location_id.length > 0)) return null;
   return {
     id: u.id, username: u.username, display_name: u.display_name, role: u.role,
     csrf: u.csrf_token, token_hash: u.token_hash,
-    locations: result.results.map(x => x.location_id).filter(x => typeof x === 'string')
+    locations: result.results.map(x => x.location_id)
   };
 }
 export function hasAccess(principal, minRole = 'staff', locationId = undefined) {
   if (!principal || !Object.hasOwn(ROLES, principal.role) || !Object.hasOwn(ROLES, minRole)) return false;
   if (ROLES[principal.role] < ROLES[minRole]) return false;
   if (locationId === undefined) return true; // for identity/non-scoped operations only
-  if (typeof locationId !== 'string' || !locationId) return false;
+  if (typeof locationId !== 'string' || !locationId ||
+      !Array.isArray(principal.locations) ||
+      !principal.locations.every(x => typeof x === 'string' && x.length > 0)) return false;
   return principal.role === 'owner' || principal.locations.includes(locationId);
 }
 export function authorizedMutation(request, principal, minRole = 'staff', locationId = undefined) {

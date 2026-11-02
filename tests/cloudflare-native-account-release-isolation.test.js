@@ -15,6 +15,15 @@ const dormant=new Set([
   path.join(cloudflareRoot,'account-security-internal.mjs')
 ]);
 const source=file=>fs.readFileSync(file,'utf8');
+function cloudflareSources(dir=cloudflareRoot){
+  const files=[];
+  for(const item of fs.readdirSync(dir,{withFileTypes:true})){
+    const file=path.join(dir,item.name);
+    if(item.isDirectory())files.push(...cloudflareSources(file));
+    else if(item.isFile()&&/\.(?:js|mjs)$/.test(item.name))files.push(file);
+  }
+  return files;
+}
 
 function inspectWorkerImports(read=source){
   const visited=new Set(),pending=[entry];
@@ -29,6 +38,10 @@ function inspectWorkerImports(read=source){
     // An opaque dynamic import prevents this deliberately conservative scan
     // from certifying the dependency graph. Review it before allowing release.
     assert.doesNotMatch(body,/\bimport\s*\(/,'E_DYNAMIC_IMPORT_NEEDS_REVIEW');
+    // Non-leading imports and import/comment combinations are valid ESM.
+    // Refuse them until the dependency scanner explicitly supports them.
+    assert.doesNotMatch(body,/;\s*import\b|\bimport\s*\/\*|;\s*export\s+(?:\*|\{)/,
+      'E_UNREVIEWED_WORKER_IMPORT_SYNTAX');
     const statements=(body.match(/^\s*import\s+(?!\()/gm)||[]).length+
       (body.match(/^\s*export\s+[^\n]*\sfrom\s+['"]/gm)||[]).length;
     // Named ESM imports may span multiple lines, as in login-service.mjs.
@@ -48,6 +61,14 @@ function inspectWorkerImports(read=source){
         'E_WORKER_IMPORT_OUTSIDE_CLOUDFLARE');
       pending.push(destination);
     }
+  }
+  // Independent of the ESM parser, all Cloudflare source modules must avoid
+  // literal references to either dormant admin implementation. This catches
+  // same-line/commented imports and imports through otherwise unvisited files.
+  for(const file of cloudflareSources()){
+    if(dormant.has(file))continue;
+    assert.doesNotMatch(read(file),/account-(?:access|security)-internal(?:\.mjs)?\b/,
+      'E_DORMANT_ACCOUNT_REFERENCE: '+path.relative(root,file));
   }
   return visited;
 }
@@ -75,6 +96,23 @@ test('import-graph guard fails on direct, transitive and dynamic exposure',()=>{
   assert.throws(()=>inspectWorkerImports(file=>file===entry?
     original+"\nconst accountModule = import('./account-access-internal.mjs');\n":source(file)),
     /E_DYNAMIC_IMPORT_NEEDS_REVIEW/);
+});
+
+test('same-line and comment-adjacent ESM imports cannot bypass the release guard',()=>{
+  const original=source(entry);
+  const first="import { inspectD1Contract } from './d1-readiness.mjs';";
+  assert.ok(original.includes(first));
+  for(const injected of [
+    first+" import './account-access-internal.mjs';",
+    first+" import './d1-readiness.mjs';",
+    "import/* inline comment */ './account-access-internal.mjs';\n"+original,
+    "import/* inline comment */ './d1-readiness.mjs';\n"+original
+  ]){
+    const mutated=injected.startsWith(first)?
+      original.replace(first,injected):injected;
+    assert.throws(()=>inspectWorkerImports(file=>file===entry?mutated:source(file)),
+      /E_UNREVIEWED_WORKER_IMPORT_SYNTAX|E_DORMANT_ACCOUNT_REFERENCE/);
+  }
 });
 
 test('Wrangler Production and Preview never activate an account administration stage',()=>{

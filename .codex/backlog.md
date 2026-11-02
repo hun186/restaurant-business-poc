@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 NEXT G0 Workers.dev/Preview Entry Points**：Run #41451512264 Cloudflare active 100% version/build/main SHA 實機唯讀 PASS。既有完整暴露面 inventory 要 Zone/Routes/Domain 的附加唯讀範圍；新增相同 main-only Protected Workflow 的 `CHECK_G0_WORKERS_DEV_ONLY` 模式（僅 Scripts GET、指定 Worker+Probe 的 subdomain flags），讓操作者用既有 Read Token 先證實 workers.dev 與 Preview URLs 開關，不要將其誤當 Access-policy 公網版本對照或全部 Routes 盤點。另待人工 Dashboard 確認 Preview Access Previews-only allowlist 並無痕拒絕測試；沒有進行登入、SQL Write、Owner、Restore 或 Deploy。
+
+
 > **2026-11-02 下一關：G0 GET HTTP 失敗分類與操作者唯讀 Token Scope**：main 手動 Run #41447620360 由 LOCAL_CONFIG 進至 HTTP_STATUS（非 2xx）；進一步確認 DEPLOYMENTS/BUILDS 失敗端點及 enum 狀態碼，再由操作員安全核對 GitHub cloudflare-g0-readonly Secret Token 的 user-scoped 與 Workers Scripts Read / Workers CI Read；不分享/回顯 Secret，不升權至 Write。更新 PR #102 的安全診斷測試和 SHA256，正式 Review 額度不足則保持 BLOCKED，勿合併。
 
 

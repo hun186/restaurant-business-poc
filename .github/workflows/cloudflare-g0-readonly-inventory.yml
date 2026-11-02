@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type CHECK_G0_READONLY (metadata only; never deployment)'
+        description: 'CHECK_G0_WORKERS_DEV_ONLY (Scripts Read) or CHECK_G0_READONLY (full; Zone/Routes Read)'
         required: true
         type: string
 
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   inventory:
-    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_G0_READONLY' }}
+    if: ${{ github.ref == 'refs/heads/main' && (inputs.confirm == 'CHECK_G0_READONLY' || inputs.confirm == 'CHECK_G0_WORKERS_DEV_ONLY') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     environment: cloudflare-g0-readonly
@@ -41,5 +41,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_G0_READONLY_TOKEN }}
         run: |
           set -euo pipefail
-          node tools/cloudflare-g0-remote-inventory.mjs inspect
+          case "$G0_READONLY_CONFIRM" in
+            CHECK_G0_WORKERS_DEV_ONLY)
+              node tools/cloudflare-g0-remote-inventory.mjs inspect-entrypoints ;;
+            CHECK_G0_READONLY)
+              node tools/cloudflare-g0-remote-inventory.mjs inspect ;;
+            *) exit 1 ;;
+          esac
           echo 'G0_INVENTORY_COLLECTED_NOT_RELEASE_CERTIFIED'

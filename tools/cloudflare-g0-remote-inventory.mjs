@@ -127,6 +127,48 @@ export function classifyInventory({scripts,domains,zones,routes,subdomains}) {
     release_authorized:false
   });
 }
+// Minimal first-stage workers.dev/Preview switch audit, without Zone/Routes rights.
+// NEVER infer that any custom domain, Access policy or concrete URL was verified.
+export async function collectWorkerEntryPoints(getJSON){
+  const scripts=rows(await getJSON('/accounts/'+ACCOUNT_ID+'/workers/scripts'));
+  const names=scripts.map(x=>x?.id);
+  ensure(names.every(n=>typeof n==='string'&&n.length>0)&&
+    new Set(names).size===names.length&&names.includes(WORKER));
+  const subdomains={};
+  for(const name of [WORKER,PROBE]){
+    if(names.includes(name))
+      subdomains[name]=strictSubdomain(await getJSON(
+        '/accounts/'+ACCOUNT_ID+'/workers/scripts/'+name+'/subdomain'));
+  }
+  return {scripts,subdomains};
+}
+export function classifyWorkerEntryPoints({scripts,subdomains}){
+  ensure(Array.isArray(scripts)&&subdomains&&typeof subdomains==='object'&&
+    !Array.isArray(subdomains));
+  const names=scripts.map(x=>x?.id);
+  ensure(names.every(n=>typeof n==='string'&&n.length>0)&&
+    new Set(names).size===names.length&&names.includes(WORKER));
+  const probe=names.includes(PROBE);
+  const target=subdomains[WORKER],secondary=subdomains[PROBE];
+  ensure(target&&typeof target.enabled==='boolean'&&
+    typeof target.previews_enabled==='boolean'&&
+    (!probe||(secondary&&typeof secondary.enabled==='boolean'&&
+     typeof secondary.previews_enabled==='boolean')));
+  return Object.freeze({
+    status:'G0_WORKERS_DEV_PREVIEW_SCOPED_READONLY_PASS',
+    worker_found:true,
+    target_workers_dev_enabled:target.enabled,
+    target_preview_urls_enabled:target.previews_enabled,
+    probe_worker_deployed:probe,
+    probe_workers_dev_enabled:probe?secondary.enabled:false,
+    probe_preview_urls_enabled:probe?secondary.previews_enabled:false,
+    custom_domains_verified:false,zone_routes_verified:false,
+    actual_public_hostname_response_verified:false,
+    public_hostname_version_verified:false,
+    access_policy_verified:false,production_login_or_write_enabled:false,
+    g0_certified:false,release_authorized:false
+  });
+}
 export async function collectCloudflareInventory(getJSON){
   // API Token must have Workers metadata, Custom Domains, Zone/Routes READ.
   // Missing coverage or API failure is an error, never an "empty" inventory.
@@ -167,17 +209,24 @@ export async function cloudflareGet(path,token){
 const script=fileURLToPath(import.meta.url);
 if(process.argv[1]&&path.resolve(process.argv[1])===script){
   try{
-    ensure(process.argv.length===3&&process.argv[2]==='inspect');
+    const mode=process.argv[2];
+    ensure(process.argv.length===3&&['inspect','inspect-entrypoints'].includes(mode));
     ensure(process.env.GITHUB_ACTIONS==='true'&&
       process.env.GITHUB_REF==='refs/heads/main'&&
-      process.env.G0_READONLY_CONFIRM==='CHECK_G0_READONLY');
+      process.env.G0_READONLY_CONFIRM===(mode==='inspect-entrypoints'?
+        'CHECK_G0_WORKERS_DEV_ONLY':'CHECK_G0_READONLY'));
     assertLocalIsolation(JSON.parse(fs.readFileSync('wrangler.jsonc','utf8')),
       JSON.parse(fs.readFileSync('wrangler.pbkdf2-hosted-disabled.jsonc','utf8')),
       process.env.CLOUDFLARE_ACCOUNT_ID);
     ensure(typeof process.env.CLOUDFLARE_API_TOKEN==='string'&&
       process.env.CLOUDFLARE_API_TOKEN.length>10);
-    const snapshot=await collectCloudflareInventory(p=>cloudflareGet(p,process.env.CLOUDFLARE_API_TOKEN));
-    console.log(JSON.stringify(classifyInventory(snapshot)));
+    const get=p=>cloudflareGet(p,process.env.CLOUDFLARE_API_TOKEN);
+    if(mode==='inspect-entrypoints'){
+      console.log(JSON.stringify(classifyWorkerEntryPoints(
+        await collectWorkerEntryPoints(get))));
+    }else{
+      console.log(JSON.stringify(classifyInventory(await collectCloudflareInventory(get))));
+    }
   }catch{
     // Do not print API error responses, token, account/domain/route IDs or paths.
     console.error('G0_READONLY_INVENTORY_FAILED');

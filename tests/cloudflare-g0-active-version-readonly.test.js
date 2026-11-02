@@ -129,6 +129,23 @@ test('fixed-account, fixed-worker GET-only fetch: no token/redirect leakage or w
  await assert.rejects(getter('/accounts/'+account+'/d1/database'),/E_G0_ACTIVE_DEPLOYMENT/);
  await assert.rejects(getter(dPath+'?delete=true'),/E_G0_ACTIVE_DEPLOYMENT/);
 });
+test('HTTP errors identify GET endpoint and safe status only, without credentials or response bodies',async()=>{
+ const m=await modulePromise;
+ const token='SENSITIVE_READ_TOKEN_SAMPLE';
+ for(const [pathName,scope] of [[dPath,'DEPLOYMENTS'],[bPath,'BUILDS']]){
+  for(const [status,expected] of [[401,'401'],[403,'403'],[404,'404'],
+   [429,'429'],[500,'5XX'],[503,'5XX'],[418,'OTHER']]){
+   const expectedStage='HTTP_'+scope+'_'+expected;
+   assert.equal(m.classifyHttpStatus(pathName,status),expectedStage);
+   await assert.rejects(
+    m.cloudflareReadOnlyGet(pathName,token,async()=>new Response(
+     'Sensitive source response body',{status})),
+    e=>e.message==='E_G0_ACTIVE_DEPLOYMENT'&&e.stage===expectedStage&&
+     !JSON.stringify(e).includes(token)&&
+     !JSON.stringify(e).includes('Sensitive source response body'));
+  }
+ }
+});
 test('Cloudflare transport and oversized responses never become false PASS',async()=>{
  const m=await modulePromise,token='X'.repeat(48);
  await assert.rejects(m.cloudflareReadOnlyGet(dPath,token,async()=>{throw Error('Secret token or URL');}),

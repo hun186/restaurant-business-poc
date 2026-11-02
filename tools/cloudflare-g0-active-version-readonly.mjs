@@ -14,7 +14,10 @@ function check(ok,stage){if(!ok)fail(stage);}
 function obj(v){return v!==null&&typeof v==='object'&&!Array.isArray(v);}
 function result(reply,stage){check(obj(reply)&&reply.success===true&&obj(reply.result),stage);return reply.result;}
 export function assertLocalGate(prod,accountId){
- check(accountId===ACCOUNT_ID&&prod?.name===SCRIPT&&
+ check(typeof accountId==='string'&&accountId.length>0,
+  'LOCAL_CONFIG_ACCOUNT_ID_MISSING');
+ check(accountId===ACCOUNT_ID,'LOCAL_CONFIG_ACCOUNT_ID_MISMATCH');
+ check(prod?.name===SCRIPT&&
   prod.main==='./cloudflare/worker.mjs'&&prod.workers_dev===true&&
   prod.vars?.CLOUD_AUTH_PHASE==='disabled'&&
   prod.previews?.vars?.CLOUD_AUTH_PHASE==='preview-readonly'&&
@@ -85,6 +88,14 @@ export function verifyVersionBuild(reply,versionId,expectedCommit){
   release_authorized:false
  });
 }
+export function classifyHttpStatus(pathname,status){
+ const p='/accounts/'+ACCOUNT_ID+'/';
+ const endpoint=pathname===p+'workers/scripts/'+SCRIPT+'/deployments'
+  ?'DEPLOYMENTS':'BUILDS';
+ const statusCode=[401,403,404,429].includes(status)?String(status):
+  Number.isInteger(status)&&status>=500&&status<=599?'5XX':'OTHER';
+ return 'HTTP_'+endpoint+'_'+statusCode;
+}
 export async function cloudflareReadOnlyGet(pathname,token,fetchImpl=globalThis.fetch){
  check(typeof token==='string'&&token.length>=16&&typeof fetchImpl==='function',
   'CREDENTIALS');
@@ -102,7 +113,7 @@ export async function cloudflareReadOnlyGet(pathname,token,fetchImpl=globalThis.
    signal:AbortSignal.timeout(10000)
   });
  }catch{fail('NETWORK');}
- check(response?.ok===true,'HTTP_STATUS');
+ if(response?.ok!==true)fail(classifyHttpStatus(pathname,response?.status));
  let raw;
  try{
   const length=response.headers.get('content-length');
@@ -148,10 +159,13 @@ if(process.argv[1]&&path.resolve(process.argv[1])===self){
    p,process.env.CLOUDFLARE_API_TOKEN),process.env.GITHUB_SHA);
   console.log(JSON.stringify(r));
  }catch(e){
-  const stages=new Set(['GATE','LOCAL_CONFIG','CREDENTIALS','NETWORK','HTTP_STATUS',
+  const stages=new Set(['GATE','LOCAL_CONFIG','LOCAL_CONFIG_ACCOUNT_ID_MISSING',
+   'LOCAL_CONFIG_ACCOUNT_ID_MISMATCH','CREDENTIALS','NETWORK','HTTP_STATUS',
    'BODY_LIMIT','JSON','DEPLOYMENTS','DEPLOYMENT_SHAPE','DEPLOYMENT_AMBIGUOUS',
    'SPLIT_TRAFFIC','BUILDS','BUILD_OUTCOME','BUILD_SOURCE','COMMIT_MISMATCH','ARGUMENTS','URL']);
-  const code=stages.has(e?.stage)?e.stage:stage==='LOCAL_CONFIG'?'LOCAL_CONFIG':'UNKNOWN';
+  const safeHttp=/^HTTP_(DEPLOYMENTS|BUILDS)_(401|403|404|429|5XX|OTHER)$/;
+  const code=stages.has(e?.stage)||safeHttp.test(e?.stage||'')
+   ?e.stage:stage==='LOCAL_CONFIG'?'LOCAL_CONFIG':'UNKNOWN';
   console.error('G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage='+code);
   process.exitCode=1;
  }

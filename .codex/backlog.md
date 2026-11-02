@@ -1,5 +1,11 @@
 # Backlog
 
+> **2026-11-02 下一關：G0 GET HTTP 失敗分類與操作者唯讀 Token Scope**：main 手動 Run #41447620360 由 LOCAL_CONFIG 進至 HTTP_STATUS（非 2xx）；進一步確認 DEPLOYMENTS/BUILDS 失敗端點及 enum 狀態碼，再由操作員安全核對 GitHub cloudflare-g0-readonly Secret Token 的 user-scoped 與 Workers Scripts Read / Workers CI Read；不分享/回顯 Secret，不升權至 Write。更新 PR #102 的安全診斷測試和 SHA256，正式 Review 額度不足則保持 BLOCKED，勿合併。
+
+
+> **2026-11-02 下一個人工依賴：G0 Protected Environment Secret**：真實手動 Run #41420086497 在 LOCAL_CONFIG 失敗；本地 Wrangler 綁定已匹配。核對 `cloudflare-g0-readonly` Environment 的 `CLOUDFLARE_ACCOUNT_ID` Secret 是否缺失或值錯，保持 `CLOUDFLARE_G0_READONLY_TOKEN` 只有唯讀權限；不可在 Public Repo 回顯 Secret。新 PR 限於改善缺值/錯值診斷與回歸。人工修正 Secret 後才可安全重跑 main-only G0 ReadOnly，仍無 Production Write/Release 授權。
+
+
 > **2026-11-02 NEXT — G0 Build 來源識別補強**：PR #100 已合併且 main Verify #41409626280 成功。原主線 G0 唯讀驗證需核對 build_trigger_metadata.provider_account_name=hun186 才可排除同名 repo／Fork 的來源歧義。建立小型純程式 PR 補上此條件、缺值 Fail Closed、離線合成回歸及 SHA256 更新；絕不可因此宣稱 Cloudflare 實站 Access／Active Version 通過，也不允許 Production Owner/SQL Write。後續仍須操作者執行受保護的 main-only G0 唯讀 Workflow。
 
 

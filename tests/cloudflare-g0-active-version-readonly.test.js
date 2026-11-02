@@ -27,6 +27,20 @@ function config(){return {name:'restaurant-business-poc',
  previews:{vars:{CLOUD_AUTH_PHASE:'preview-readonly'},
   d1_databases:[{database_id:'2c355bed-d9c3-449c-aa9b-1018f3bc1177'}]},
  d1_databases:[{database_id:'b882a6e8-0e56-49a6-bd41-1a6cadd726c9'}]};}
+test('G0 local config separates absent/mismatched account secret from Wrangler drift without leaking values',async()=>{
+ const m=await modulePromise;
+ for(const value of [undefined,'']){
+  assert.throws(()=>m.assertLocalGate(config(),value),e=>
+   e.stage==='LOCAL_CONFIG_ACCOUNT_ID_MISSING'&&
+   e.message==='E_G0_ACTIVE_DEPLOYMENT');
+ }
+ assert.throws(()=>m.assertLocalGate(config(),'0'.repeat(32)),e=>
+  e.stage==='LOCAL_CONFIG_ACCOUNT_ID_MISMATCH'&&
+  e.message==='E_G0_ACTIVE_DEPLOYMENT');
+ assert.throws(()=>m.assertLocalGate({...config(),vars:{CLOUD_AUTH_PHASE:'enabled'}},account),e=>
+  e.stage==='LOCAL_CONFIG');
+ assert.doesNotThrow(()=>m.assertLocalGate(config(),account));
+});
 test('active version matched with exact github main commit, still NO release authorization',async()=>{
  const m=await modulePromise;assert.doesNotThrow(()=>m.assertLocalGate(config(),account));
  const paths=[];
@@ -114,6 +128,23 @@ test('fixed-account, fixed-worker GET-only fetch: no token/redirect leakage or w
  }
  await assert.rejects(getter('/accounts/'+account+'/d1/database'),/E_G0_ACTIVE_DEPLOYMENT/);
  await assert.rejects(getter(dPath+'?delete=true'),/E_G0_ACTIVE_DEPLOYMENT/);
+});
+test('HTTP errors identify GET endpoint and safe status only, without credentials or response bodies',async()=>{
+ const m=await modulePromise;
+ const token='SENSITIVE_READ_TOKEN_SAMPLE';
+ for(const [pathName,scope] of [[dPath,'DEPLOYMENTS'],[bPath,'BUILDS']]){
+  for(const [status,expected] of [[401,'401'],[403,'403'],[404,'404'],
+   [429,'429'],[500,'5XX'],[503,'5XX'],[418,'OTHER']]){
+   const expectedStage='HTTP_'+scope+'_'+expected;
+   assert.equal(m.classifyHttpStatus(pathName,status),expectedStage);
+   await assert.rejects(
+    m.cloudflareReadOnlyGet(pathName,token,async()=>new Response(
+     'Sensitive source response body',{status})),
+    e=>e.message==='E_G0_ACTIVE_DEPLOYMENT'&&e.stage===expectedStage&&
+     !JSON.stringify(e).includes(token)&&
+     !JSON.stringify(e).includes('Sensitive source response body'));
+  }
+ }
 });
 test('Cloudflare transport and oversized responses never become false PASS',async()=>{
  const m=await modulePromise,token='X'.repeat(48);

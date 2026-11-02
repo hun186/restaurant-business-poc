@@ -5,6 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ACCOUNT_ID, PROD_ID, STAGING_ID} from './check-cloudflare-staging.mjs';
 const SCRIPT='restaurant-business-poc';
+const GITHUB_OWNER='hun186';
 const API='https://api.cloudflare.com/client/v4';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA=/^[0-9a-f]{40}$/i;
@@ -61,7 +62,8 @@ export function verifyVersionBuild(reply,versionId,expectedCommit){
   'BUILD_OUTCOME');
  const meta=b.build_trigger_metadata;
  check(obj(meta)&&meta.provider_type==='github'&&
-  meta.repo_name==='restaurant-business-poc'&&
+  meta.repo_name===SCRIPT&&
+  meta.provider_account_name===GITHUB_OWNER&&
   meta.branch==='main'&&SHA.test(meta.commit_hash),'BUILD_SOURCE');
  check(meta.commit_hash.toLowerCase()===expectedCommit.toLowerCase(),
   'COMMIT_MISMATCH');

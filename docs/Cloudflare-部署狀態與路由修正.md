@@ -10,6 +10,10 @@ Cloudflare 官方版本架構將 **Build、Worker Version、Deployment** 分開�
 - `.github/workflows/cloudflare-g0-active-version-readonly.yml`：手動 `workflow_dispatch`、只能選 `main`，要求輸入 `CHECK_ACTIVE_WORKER_READONLY`，使用既有人工核准 Environment `cloudflare-g0-readonly`，唯讀 Cloudflare API Token 只有執行工具的步驟取得，前置先執行原本閉鎖 SHA-256 preflight。此 Workflow **不會在 push/PR 自動跑**，不會修改任何 Cloudflare/SQL。
 - 合成測試涵蓋有效 Git SHA 對應、歷史部署、無部署、流量分割、版本缺建置、Build Fail、Repo Owner/Repo/Branch 不符、Commit mismatch、API 403/逾時/回應過大，全部 fail closed。任何遠端 API 失敗不輸出 Token、HTTP Body、帳戶 ID、Route、作者身分；僅有安全的 `G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage=...`。
 
+### G0 本機帳戶識別失敗（2026-11-02 受控診斷補強）
+
+操作員 [Run #41420086497](https://github.com/hun186/restaurant-business-poc/actions/runs/41420086497) 在 Cloudflare GET 前出現 `G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage=LOCAL_CONFIG`。核對目前 `main` 的 `wrangler.jsonc` Worker、Production/Staging D1 ID 與 phase 都符合閉鎖條件；最可能是 Protected Environment `cloudflare-g0-readonly` 的 `CLOUDFLARE_ACCOUNT_ID` Secret 不存在、不可見或填錯。**GitHub Connector 無法檢視這個 Secret，不可聲稱已確診其實際值。** 此 PR 只把本機檢查失敗分類為 `LOCAL_CONFIG_ACCOUNT_ID_MISSING`、`LOCAL_CONFIG_ACCOUNT_ID_MISMATCH`，兩者均維持 fail-closed；真正 Worker 設定不符仍為 `LOCAL_CONFIG`，且任何訊息不會印出帳戶 ID、Token 或原始例外。操作者應至 GitHub Settings → Environments → `cloudflare-g0-readonly`，在 Environment Secrets 設定正確的 `CLOUDFLARE_ACCOUNT_ID`（不要貼到聊天／Issue），並確認唯讀 Token Secret 存在。然後**僅在主線 PR 合併後**，於 main 手動重新執行相同的唯讀工作流程。這不能授權 D1 Write/Owner/Login/Deploy。
+
 ### 操作者唯讀設定與使用
 
 1. 在 GitHub Settings → Environments → `cloudflare-g0-readonly` 核對 Environment 仍受人工核准／授權控制；需要已有 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_G0_READONLY_TOKEN` 的 Environment Secrets。**若既有 G0 Read Token 尚無 `Workers CI Read` 權限，需由 Cloudflare 管理員重新核發／安全替換最小權限的 Read Token**，同時保留 `Workers Scripts Read`。請勿提供 Workers Scripts Write、Workers CI Write、D1 Write、Deploy Token 或 Global API Key。所有秘密只存 GitHub Secrets，不要貼在 issue、聊天或 log。GitHub Connector 本身無權讀取這些秘密或確認 Environment Policy，需操作者核對。

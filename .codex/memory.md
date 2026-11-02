@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-03 D1 Native 帳號密碼輪替＋Session 撤銷（內部合成實驗）**：接續 #108 main `6e5e3adb5e5217c3036fa37059a6e1281f89d051`，本分支 `feat/internal-d1-password-rotation-session-revoke-20261103` 新增 `cloudflare/account-security-internal.mjs` **未匯入 Worker、沒有公開 HTTP Route**。測試專用雙重 Gate（`CLOUD_AUTH_PHASE=preview-readonly` 且 `ACCOUNT_SECURITY_STAGE=internal-test-only`），必須有效 HTTPS Owner Session + Same-Origin/CSRF + schema v3；D1.batch 先寫入不含 Token/密碼的撤銷筆數 Audit，再校驗原憑證及 Owner Session 更新 PBKDF2 Hash，最後刪掉目標帳號全部 Session。SQL 在 batch 內重新驗證 Actor Role/Session TTL、Target active/舊密碼快照；測試涵蓋正常雙 Session/自己改密碼、Fail-Closed Gate/CSRF、競態（改角色、撤銷 Actor、目標密碼已輪替或停用）、Batch 失敗 rollback。**僅 Node SQLite/D1 合成，不使用 Cloudflare 真實 D1，也不啟用 Production Auth、Owner Enrollment、寫入、Restore 或 Zero Trust**。正式原生密碼管理 UI/業務 API 與部署驗收另案設計；PR 依 Hosted CI/Codex 最新 Head Gate。
+
+
 > **2026-11-02 Local account Session revocation audit（待 CI/Review）**：G0 Preview OFF、Demo GET/HEAD 已完成，main `1d42df30301919408c174a639e3839340cdd34d3`（#107 CI/Cloudflare Build SUCCESS）。本分支 `fix/audit-account-session-revocation-20261102` 沿用既有本機 SQLite 交易，為 `user.role`、`user.active`、`user.password`、`user.assign-location` 集中使用 revokeAccountSessions 並在 Audit `detail.revoked_sessions` 寫實際撤銷筆數，無密碼/Token 資料。HTTP + SQLite 合成測試涵蓋門市授權、冪等不重登、角色降權、同一使用者兩個 Session 在密碼重設後全面撤銷、舊密碼失效、新密碼有效、停用撤銷、稽核不外洩。Production Worker 原生登入仍 disabled、D1/Owner/Restore 未操作；不使用 Zero Trust。不等同 D1 原生帳號管理已上線。PR 須 Hosted CI/正式 Codex Review/Clean Gate 才可 Merge。
 
 

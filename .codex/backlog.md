@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 D1 Native 帳號安全實驗**：前一階段 #108 已實測本機 SQLite 角色/密碼異動撤銷多 Session + audit，本階段新增 *D1 internal-only* 帳號密碼輪替交易與合成測試。必須可證明同一 D1.batch 的 Audit、條件式 Hash 更新、所有 Session DELETE；Owner Session/CSRF/HTTPS、原憑證快照及 Actor Role 於執行交易時仍有效，不許改動已失效使用者；驗證同一人自改密碼、同步輪替與交易 rollback。新內部模組不被 public Worker import，Production Native Auth 一律 disabled；不得宣稱 D1 真實環境驗收、不能自動部署正式管理 API。後續仍需設計 Role/Location/Active D1 交易與帳號管理操作 Gate、資料保護、Runbook，並按正式安全授權實機驗收。不使用 Zero Trust/Access。
+
+
 > **2026-11-02 Local account session revocation evidence**：本機 SQLite `src/service.js` 角色/密碼/狀態/門市異動已經 transactionally 刪除 Sessions，毋須重新實作。改善稽核一致性：記錄實際 `revoked_sessions` 數量（無 Token/Password），集中撤銷 helper；HTTP 合成測試多裝置 Session、密碼重設前後、角色變更、門市 no-op/變更、帳號停用及 audit。Cloudflare D1 原生帳號變更交易尚未實作，不得假稱現有 localhost 代碼已保護未來的 D1 Account Admin API；必須另行設計/驗證。保持 Production Auth disabled、無 Zero Trust、D1 及 Owner 操作禁用。
 
 

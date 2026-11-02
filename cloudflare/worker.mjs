@@ -3,7 +3,7 @@ import { nativeLoginHttp } from './native-login-http.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
 import { previewAccessBusiness } from './access-business-readonly.mjs';
-import { previewAccessTaskStatus } from './access-task-status-write.mjs';
+import { previewAccessTaskStatus, previewCommandTaskStatus } from './access-task-status-write.mjs';
 import { previewOperationalData } from './operations-readonly.mjs';
 import { previewOperationalOverview } from './overview-readonly.mjs';
 // Cloudflare staging bootstrap: the D1-backed business API has NOT been ported.
@@ -27,6 +27,14 @@ export default {
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);
     if (pathname === '/api/access/task-status') return previewAccessTaskStatus(request, env);
+    if (pathname === '/api/command') {
+      // This is a separately approved Staging-only bridge for one action.
+      // Production remains disabled; no default command/write capability.
+      if (env?.CLOUD_AUTH_PHASE !== 'preview-readonly' ||
+          env?.CLOUD_ACCESS_COMMAND_GATE !== 'staging-task-status-only')
+        return json({ code: 'E_NOT_READY' }, 503);
+      return previewCommandTaskStatus(request, env);
+    }
     if (pathname === '/api/data') return previewOperationalData(request, env);
     if (pathname === '/api/overview') return previewOperationalOverview(request, env);
     if (pathname === '/api/health') {

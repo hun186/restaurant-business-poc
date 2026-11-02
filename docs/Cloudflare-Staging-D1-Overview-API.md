@@ -1,5 +1,21 @@
 # Cloudflare Staging D1 真正 Overview 唯讀 API（首個營運串接增量）
 
+## 2026-11-02｜Staging 標準業務命令路徑增量（僅 task.status）
+
+此增量針對 [P0 #34](https://github.com/hun186/restaurant-business-poc/issues/34) 中最短路徑「開始連接真實營運後端」，而不是新增雲端備份、建立正式 Owner 或繞過尚未驗證的遠端部署。既有 `POST /api/access/task-status` 已包含 Access JWT 簽章、Audience/Issuer/Subject 對應、D1 v3/使用者角色與門市授權、Task Status 競爭檢查，以及稽核與狀態更新的同一個 D1.batch。現在讓 **標準 `POST /api/command`** 在**獨立明示的 Staging Gate** 下只支援既有 `task.status`，重用完全同一套函式，不建立不同的交易分支。
+
+### 兩道實際開關（都要具備，否則 Fail Closed）
+
+- 僅 `CLOUD_AUTH_PHASE=preview-readonly` 且 `CLOUD_ACCESS_COMMAND_GATE=staging-task-status-only` 才會進入此標準命令入口。
+- 其後還必須具備既有獨立 `CLOUD_ACCESS_IDENTITY_GATE=staging-get-only`、`CLOUD_ACCESS_TASK_WRITE_GATE=staging-task-status-only`、正確設定 `CLOUD_ACCESS_ISSUER` / `CLOUD_ACCESS_AUDIENCE` 及 D1 v3。**程式不會改 `wrangler.jsonc` 或 Cloudflare Dashboard 的 Preview 設定，不會替操作員啟用上述環境變數。**
+- 需要有效且可由可信 Cloudflare Access 簽發的 JWT、資料庫有效 Subject Link；不得相信 JWT 角色或前端自行提供的門市 ID。HTTPS Origin 與 `Sec-Fetch-Site: same-origin`、`X-Staging-Intent: task.status` 均必須合格。
+- 唯一接受的 JSON 是 `{"action":"task.status","data":{"id":"有效 UUID","status":"todo|doing|done"}}`，上限 4096 bytes。其餘 action（例如 `order.receive`）、未認證、跨店、撤權、重複、其他方法、錯誤內容都 Fail Closed；不得把 `/api/command` 說成已可處理全部營運模組。
+- 真正的 Production `CLOUD_AUTH_PHASE=disabled`、Native Login Gate、`/api/health.production_ready=false` 與所有正式業務寫入仍維持未啟用。本增量沒有 SQL migration、正式 Owner、Production API/D1 寫入、遠端部署或 Cloudflare API 呼叫。
+
+### 後續驗收
+
+合成測試使用本機 SQLite/D1 模擬、固定虛構 Access RSA JWT，涵蓋 Staging 正常工作狀態異動與稽核、未授權門市、禁用 Gate、其他 action、跨站、HTTP/Query/JSON 異常；不得把 GitHub Hosted CI 當作受保護 Staging Worker 真正部署成功或營運完成。操作員日後先驗證 Cloudflare Access Preview URL/授權與部署 Gate，才可在**獨立審批後**對虛構資料進行 Staging Live UAT，不得直接改成 Production。
+
 本文件對應 P0 [Issue #34](https://github.com/hun186/restaurant-business-poc/issues/34)，讓下一個工作階段優先建立可用的餐廳營運 API，而不是繼續被自願延後的 G5 真實 Restore 演練阻擋。
 
 ## 這次新增（僅 PR 內合成測試；尚無新的 Cloudflare 遠端 API 端到端證據）

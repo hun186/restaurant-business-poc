@@ -27,6 +27,20 @@ function config(){return {name:'restaurant-business-poc',
  previews:{vars:{CLOUD_AUTH_PHASE:'preview-readonly'},
   d1_databases:[{database_id:'2c355bed-d9c3-449c-aa9b-1018f3bc1177'}]},
  d1_databases:[{database_id:'b882a6e8-0e56-49a6-bd41-1a6cadd726c9'}]};}
+test('G0 local config separates absent/mismatched account secret from Wrangler drift without leaking values',async()=>{
+ const m=await modulePromise;
+ for(const value of [undefined,'']){
+  assert.throws(()=>m.assertLocalGate(config(),value),e=>
+   e.stage==='LOCAL_CONFIG_ACCOUNT_ID_MISSING'&&
+   e.message==='E_G0_ACTIVE_DEPLOYMENT');
+ }
+ assert.throws(()=>m.assertLocalGate(config(),'0'.repeat(32)),e=>
+  e.stage==='LOCAL_CONFIG_ACCOUNT_ID_MISMATCH'&&
+  e.message==='E_G0_ACTIVE_DEPLOYMENT');
+ assert.throws(()=>m.assertLocalGate({...config(),vars:{CLOUD_AUTH_PHASE:'enabled'}},account),e=>
+  e.stage==='LOCAL_CONFIG');
+ assert.doesNotThrow(()=>m.assertLocalGate(config(),account));
+});
 test('active version matched with exact github main commit, still NO release authorization',async()=>{
  const m=await modulePromise;assert.doesNotThrow(()=>m.assertLocalGate(config(),account));
  const paths=[];

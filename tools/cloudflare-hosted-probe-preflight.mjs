@@ -125,6 +125,7 @@ export function inspectHostedProbeStatic(root){
     probe.vars.PROBE_ENABLED==='disabled','E_HOSTED_PROBE_NOT_DORMANT');
   assert(probe.name!==prod.name &&
     prod.main==='./cloudflare/worker.mjs' &&
+    prod.workers_dev===true && prod.preview_urls===false &&
     prod.vars?.CLOUD_AUTH_PHASE==='disabled' &&
     prod.previews?.vars?.CLOUD_AUTH_PHASE==='preview-readonly',
     'E_PROD_WORKER_ISOLATION');

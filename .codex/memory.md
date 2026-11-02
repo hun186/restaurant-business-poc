@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 Cloudflare Preview 關閉與 GitHub 同步（本 PR）**：使用者已在 Cloudflare Domains 手動關 Preview（Production workers.dev 保留），並提供 Settings → Builds → Previews Base 的 OFF 截圖；不使用 Zero Trust 或綁信用卡。此前 main `7edd2828f45a41406d0a72f399154a889c6aa12f` 的 `wrangler.jsonc preview_urls:true` 有重開風險。本 PR 改成 false，保留 Production demo、Auth disabled、D1 綁定，補回歸、static preflight 和 SHA 閉鎖。此 PR merge 可能引發 Cloudflare 自動 Production deploy，必須維持完整 CI/Codex/部署安全門檻；操作者 Dashboard 改動未被新的 Cloudflare API 驗證。不得啟用 Zero Trust、Production Login/Write、Owner 或 D1 Restore。
+
+
 > **2026-11-02 G0 Version/Build 遠端驗收完成；準備 Worker Entry Points ReadOnly 分層檢查**：操作員 Run #41451512264 completed/success，實際 log JSON `G0_ACTIVE_DEPLOYMENT_BUILD_READONLY_PASS`，active 100%、Version-to-Build=true、main SHA 5cf9ac2d2b9ebbdbea24cca9e614836ed8681189 匹配。其他 public hostname version、Access、Staging live、release 仍 false。新分支 `feat/g0-scoped-workers-dev-preview-readonly-20261102` 預計於既有 G0 exposure inventory workflow 增加主線人工模式 `CHECK_G0_WORKERS_DEV_ONLY`：只用 Cloudflare Workers Scripts Read 查 Worker scripts 與指定 subdomain enabled/previews_enabled，避免初次就要求 Zone/Routes Read；完整 `CHECK_G0_READONLY` 保留。所有 Access/Custom Domains/Routes/Client URL Version 未驗仍 false；無任何 Production D1/Cloudflare 寫入。只在本 PR HEAD CI/Codex/clean 完整過關才可合併。
 
 

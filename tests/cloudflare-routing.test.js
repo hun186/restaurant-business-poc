@@ -12,6 +12,12 @@ async function send(route, init) {
   return worker.fetch(new Request(`https://example.workers.dev${route}`, init), { ASSETS: assets });
 }
 
+test('unprotected Preview URLs remain disabled without disabling the public demo', () => {
+  assert.equal(config.preview_urls, false);
+  assert.equal(config.workers_dev, true);
+  assert.equal(config.vars.CLOUD_AUTH_PHASE, 'disabled');
+  assert.equal(config.previews.vars.CLOUD_AUTH_PHASE, 'preview-readonly');
+});
 test('Wrangler config uses demo assets and invokes Worker for API routes', () => {
   // Cloudflare Workers Builds invokes `wrangler preview` on PR branches.
   // `preview_urls` alone is not enough: Wrangler requires this block.

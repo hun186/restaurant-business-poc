@@ -82,9 +82,35 @@ test('manual workflow and Windows BAT have no tokens, shell deployment or write 
  assert.match(source,/credentials:'omit'/);
  assert.doesNotMatch(source,/method:'POST'|method:'PUT'|method:'PATCH'|method:'DELETE'|wrangler deploy/);
  assert.match(bat,/cloudflare-public-runtime-readonly\.mjs/);
+ assert.match(bat,/node -e/);
+ assert.match(bat,/powershell\.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass/);
+ assert.match(bat,/cloudflare-public-runtime-readonly\.ps1/);
  assert.doesNotMatch(bat,/CLOUDFLARE_API_TOKEN|wrangler deploy|--export/);
+ const ps=fs.readFileSync(path.join(root,'tools/cloudflare-public-runtime-readonly.ps1'),'utf8');
+ assert.equal(ps.charCodeAt(0),0xfeff); // PowerShell 5.1 must parse UTF-8 Chinese safely
+ assert.match(ps,/System.Net.Http.HttpClient/);
+ assert.match(ps,/AllowAutoRedirect=\$false/);
+ assert.match(ps,/UseCookies=\$false/);
+ assert.match(ps,/UseDefaultCredentials=\$false/);
+ assert.match(ps,/Read-Bounded/);
+ assert.match(ps,/PUBLIC_WORKER_READONLY_HTTP_PASS/);
+ assert.doesNotMatch(ps,/CLOUDFLARE_API_TOKEN|Invoke-RestMethod|Invoke-Expression|Start-Process|SendAsync\(.*Post/);
+
  assert.match(workflow,/workflow_dispatch:/);
  assert.match(workflow,/refs\/heads\/main/);
  assert.match(workflow,/cloudflare-public-runtime-readonly.mjs/);
  assert.doesNotMatch(workflow,/secrets\.|wrangler deploy|CLOUDFLARE_API_TOKEN/);
+});
+
+test('PowerShell 5.1 runtime self-test uses synthetic responses and no network',()=>{
+ if(process.platform!=='win32')return;
+ const {spawnSync}=require('node:child_process');
+ const script=path.join(__dirname,'..','tools','cloudflare-public-runtime-readonly.ps1');
+ const result=spawnSync('powershell.exe',[
+  '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script,'-SelfTest'
+ ],{encoding:'utf8',timeout:15000});
+ assert.equal(result.status,0,
+  'Windows PowerShell synthetic test failed: '+result.stderr);
+ assert.match(result.stdout,/PUBLIC_WORKER_POWERSHELL_SELFTEST_PASS/);
+ assert.doesNotMatch(result.stdout,/PUBLIC_WORKER_READONLY_HTTP_PASS/);
 });

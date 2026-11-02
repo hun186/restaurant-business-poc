@@ -78,6 +78,10 @@ export function csrfMatches(provided, expected) {
 }
 
 export async function loadPrincipal(db, request, now = new Date().toISOString()) {
+  // Secure cookies are not authorization over HTTP, even if a non-browser
+  // client manually injects a valid cookie header.
+  try { if (new URL(request?.url).protocol !== 'https:') return null; }
+  catch { return null; }
   const token = readSessionCookie(request);
   if (!token || !db || typeof db.prepare !== 'function') return null;
   const digest = await tokenSha256(token);

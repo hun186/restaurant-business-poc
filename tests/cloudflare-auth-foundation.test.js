@@ -122,6 +122,28 @@ test('malformed store bindings fail closed instead of granting partial RBAC prin
   }finally{f.db.close();}
 });
 
+test('native session lookup rejects HTTP, malformed and missing URL before D1 reads',async()=>{
+  const auth=await modulePromise, worker=(await workerPromise).default;
+  const f=await databaseForUser('manager');
+  try {
+    const cookie=auth.SESSION_COOKIE+'='+f.session;
+    const db=fakeD1(f.db);
+    const secure=request('/api/me',{headers:{cookie}});
+    assert.equal((await auth.loadPrincipal(db,secure))?.id,f.uid);
+    const insecure=new Request('http://example.workers.dev/api/me',{headers:{cookie}});
+    assert.equal(await auth.loadPrincipal(db,insecure),null);
+    const preview=await worker.fetch(insecure,{DB:db,...config.previews.vars});
+    assert.equal(preview.status,401);
+    assert.equal(await auth.loadPrincipal(db,{url:'not-a-url',headers:new Headers({cookie})}),null);
+    assert.equal(await auth.loadPrincipal(db,{headers:new Headers({cookie})}),null);
+    // No SQL lookup should run on non-TLS/malformed requests.
+    const rejectsDb={prepare(){throw Error('SESSION_QUERY_MUST_NOT_RUN');}};
+    assert.equal(await auth.loadPrincipal(rejectsDb,insecure),null);
+    assert.equal(await auth.loadPrincipal(rejectsDb,{url:'garbage',headers:new Headers({cookie})}),null);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,1);
+  }finally{f.db.close();}
+});
+
 test('role elevation and cross-store requests are denied; owner can manage scoped stores',async()=>{
   const auth=await modulePromise;
   const f=await databaseForUser('manager');

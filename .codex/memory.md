@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 下一階段原生 Session HTTPS fail-closed（待 CI/Review）**：最新 main 2c8c587d9876ebd7c9a6b85bdb1c0ac17e5a77af（PR #105 已完成並主線 CI 5/5、Workers Build PASS），Cloudflare Demo/Preview OFF 與 Active Build 主線前一版本已由使用者獨立驗證。未使用 Zero Trust，Production Native Login 仍 disabled。新分支 fix/native-session-require-https-20261102 在 dormant `auth-core.mjs loadPrincipal` 入口明確拒絕非 HTTPS 或 malformed request URL 的 Session，即使非瀏覽器自行附帶 Secure Cookie；在任何 D1 查詢之前 Fail Closed，擴充合成測試涵蓋 HTTP/不合法 URL、原生身份 API 401、HTTPS 正常、零 SQL 查詢，更新 SHA256 守衛。完全不涉及 Production Login/Owner/SQL Write/Restore。待最新 HEAD CI/Codex/clean Gate 後才可合併。
+
+
 > **2026-11-02 Native Auth RBAC fail-closed 補強（待驗證）**：既有 G0 Preview OFF/Active Version 100%+Main SHA PASS，Windows GET/HEAD Demo 由使用者回報 PASS。使用者不使用 Zero Trust，未授權 Production Login/Write。本次 Branch fix/native-auth-malformed-location-fail-closed-20261102 只在 dormant auth-core 將異常門市資料拒絕整個 principal，且 scoped hasAccess 遇格式異常一律 false（含 owner forged principal）；補離線合成測試、更新 exact-byte SHA256。提交後須 Hosted CI、正式 Codex Review、Clean Gate；不更動 Production D1、環境變數、部署配置、Owner、Restore。
 
 

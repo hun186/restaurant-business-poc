@@ -65,7 +65,11 @@ const PREDICATE=[
  'WHERE ul.user_id=? AND ul.location_id=t.location_id AND grant_l.active=1))',
  "AND (?<>'staff' OR t.assigned_to=?)"
 ].join(' ');
-export function createPreviewAccessTaskStatusHandler({fetchImpl,nowMs}={}){
+export function createPreviewAccessTaskStatusHandler({fetchImpl,nowMs,route='/api/access/task-status'}={}){
+ // Route is selected at construction by trusted server code, never a user
+ // header or D1 field. No generic business-command dispatcher is enabled.
+ if(route!=='/api/access/task-status'&&route!=='/api/command')
+  throw Error('E_TASK_ROUTE');
  let configKey=null,principalLookup=null,identityLookup=null;
  return Object.freeze({
   async handle(request,env){
@@ -80,7 +84,7 @@ export function createPreviewAccessTaskStatusHandler({fetchImpl,nowMs}={}){
    if(request?.method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
    try{
     const url=new URL(request.url);
-    if(url.protocol!=='https:'||url.pathname!=='/api/access/task-status'||url.search||url.hash)
+    if(url.protocol!=='https:'||url.pathname!==route||url.search||url.hash)
      return reply(400,{code:'E_BAD_REQUEST'});
     // An Access cookie can be ambient browser authority. A custom intent
     // header plus HTTPS same-Origin and Fetch Metadata deny cross-site CSRF.
@@ -150,3 +154,9 @@ export function createPreviewAccessTaskStatusHandler({fetchImpl,nowMs}={}){
  });
 }
 export const previewAccessTaskStatus=createPreviewAccessTaskStatusHandler().handle;
+// Separate endpoint reuses the identical Access subject, D1 authorisation,
+// atomic transaction and audit. The Worker requires an additional Staging-only
+// operator gate before routing requests here.
+export const previewCommandTaskStatus=createPreviewAccessTaskStatusHandler({
+ route:'/api/command'
+}).handle;

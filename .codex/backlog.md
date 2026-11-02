@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 D1 帳號管理發布隔離契約與防回歸測試**：內部 D1 Account Password/Role/Active/Store 合成交易已經 #109/#110 合併並完成 Main CI，但不得因未來某次 Worker refactor 意外匯入到公開 API。新增 static import graph/transitive/dynamic fail-closed tests、未知管理 HTTP route 503/no D1 read-write、Production/Preview internal Gate 缺失檢查；發布設計 Runbook 列出未來對外管理 API 還需實際授權矩陣、Session/CSRF/Source/Rate/Audit、安全審查及新的正式環境授權。若新測試失敗，必須修根因，不可以放寬安全檢查或偷偷設定 ACCOUNT_SECURITY_STAGE。使用者拒用 Zero Trust／Access，正式 Login/D1 Write/Owner/Restore 不開放。
+
+
 > **2026-11-03 D1 dormant Account Access 交易驗證**：完成 #109 內部 D1 密碼輪替後，補齊 `user.role`、`user.active`、`user.assign-location`、`user.unassign-location` 的獨立內部合成 D1.batch 交易、無敏感資料 Audit、所有目標 Session 撤銷。必須在交易內重新驗證 Owner Session、角色、有效期限、CSRF、目標快照及門市有效性，且不允許重複授權產生稽核／不必要登出；維持本機服務「不得自行降權／停用」政策。此模組不由公開 Worker 匯入，不添加生產設定、API 或 Migration。後續再建立更完整的 D1 business admin API 安全驗證／部署 Runbook，正式登入、實機 D1 操作需另外授權，不能以 Node SQLite 模擬 PASS 代替。使用者不使用 Zero Trust／Access、不綁信用卡。
 
 

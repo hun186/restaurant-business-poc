@@ -1,5 +1,25 @@
 # Cloudflare 部署：靜態版 404 與安全啟動修正
 
+## 2026-11-02｜Windows 真實連線阻斷：`API_HEALTH REQUEST_UNAVAILABLE`
+
+操作員使用 PR #98 的內建 PowerShell 5.1 備援執行 `run-cloudflare-public-readonly.bat`，成功印出 `using built-in Windows PowerShell`，但第一個固定網址 `GET /api/health` 回報 `PUBLIC_WORKER_READONLY_FAIL stage=API_HEALTH detail=REQUEST_UNAVAILABLE`。**這只表示 Windows 並未拿到 HTTP 回應，不能證明 Worker 壞掉、網站未部署、D1 異常、帳號或密碼錯誤。** GitHub Cloudflare Workers Build success 亦不能證明這個客戶端可連通。此執行完全唯讀，沒有任何 SQL 寫入或登入。
+
+### 安全診斷增量
+
+新 PR 以純粹例外**類型／狀態 enum**分類 Windows PowerShell 發出的連線失敗，不印出會包含本地 Proxy/URL/環境資訊的原始例外字串：
+
+- `DNS_LOOKUP_FAILED`、`PROXY_DNS_FAILED`：本機或 Proxy 名稱解析回報失敗。
+- `TCP_CONNECT_FAILED`、`NETWORK_UNREACHABLE`：基礎 TCP 或網路不可到達，並非 HTTP 503。
+- `TLS_FAILED`：傳輸層 TLS 驗證／通道失敗，**不會**關閉憑證驗證或降低 TLS 要求。
+- `REQUEST_TIMEOUT`：操作逾時／取消。
+- `REQUEST_UNAVAILABLE`：無法依例外型別可靠分類，保留不確定性。
+
+僅在第一個 `/api/health` 連線失敗時，再透過系統 DNS 解譯**固定**的 `restaurant-business-poc.hungyuan-chen.workers.dev`；回報 `PUBLIC_WORKER_LOCAL_DNS result=RESOLVED|NO_ADDRESSES|LOOKUP_FAILED`，並標示 `LOCAL_DNS_ONLY_NOT_REMOTE_OR_PROXY_PROOF`。這是本機解析情況，**不**能證明 HTTP 服務是否已部署、Worker 是否健康，Proxy 甚至可能由遠端代為解析 DNS。不得據此修改 Production D1／建 Owner／繞過 Access 或擅自啟用 Public Write。
+
+### 操作者後續
+
+更新 main 並執行原本 `run-cloudflare-public-readonly.bat` 即可，**不需** Node/Token/帳密。把 `PUBLIC_WORKER_READONLY_FAIL stage=... detail=...` 與 `PUBLIC_WORKER_LOCAL_DNS result=...` 的**安全代碼**貼回來，無需貼 Windows Proxy、Cookie、IP、帳密、HTTP body。也可使用原有 GitHub Actions main-only `Cloudflare public Worker runtime HTTP smoke (manual GET only)` 輸入 `CHECK_PUBLIC_RUNTIME_READONLY`，比較不同網路位置是否成功；此工作流程無 Token、無 POST，但 Hosted CI 成功**不替代** Windows 端的網路結果。若有疑問，可在本機 CMD 額外用 `nslookup restaurant-business-poc.hungyuan-chen.workers.dev` 查看本機 DNS，**不**要將 Proxy 認證資訊貼到 Issue。
+
 ## 2026-11-02｜Windows 無 Node.js 時的實機故障與安全替代
 
 操作員已 `git pull --ff-only origin main`（Already up to date），執行 `run-cloudflare-public-readonly.bat` 回報：

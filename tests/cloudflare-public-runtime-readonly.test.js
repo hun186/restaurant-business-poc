@@ -94,6 +94,17 @@ test('manual workflow and Windows BAT have no tokens, shell deployment or write 
  assert.match(ps,/UseDefaultCredentials=\$false/);
  assert.match(ps,/Read-Bounded/);
  assert.match(ps,/PUBLIC_WORKER_READONLY_HTTP_PASS/);
+ assert.match(ps,/Classify-NetworkFailure/);
+ assert.match(ps,/DNS_LOOKUP_FAILED/);
+ assert.match(ps,/PROXY_DNS_FAILED/);
+ assert.match(ps,/TCP_CONNECT_FAILED/);
+ assert.match(ps,/TLS_FAILED/);
+ assert.match(ps,/REQUEST_TIMEOUT/);
+ assert.match(ps,/Get-LocalDnsResult/);
+ assert.match(ps,/LOCAL_DNS_ONLY_NOT_REMOTE_OR_PROXY_PROOF/);
+ assert.match(ps,/PUBLIC_WORKER_LOCAL_DNS/);
+ assert.doesNotMatch(ps,/\[Console\]::Error\.WriteLine\(\$_\.Exception\.Message/);
+
  assert.doesNotMatch(ps,/CLOUDFLARE_API_TOKEN|Invoke-RestMethod|Invoke-Expression|Start-Process|SendAsync\(.*Post/);
 
  assert.match(workflow,/workflow_dispatch:/);

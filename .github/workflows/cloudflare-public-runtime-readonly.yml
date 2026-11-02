@@ -1,0 +1,30 @@
+name: Cloudflare public Worker runtime HTTP smoke (manual GET only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_PUBLIC_RUNTIME_READONLY to execute GET/HEAD only'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: restaurant-public-worker-readonly-runtime
+  cancel-in-progress: false
+jobs:
+  probe:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_PUBLIC_RUNTIME_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify reviewed executable graph and production isolation
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Public fixed-origin read-only HTTP contract (no Cloudflare token)
+        run: node tools/cloudflare-public-runtime-readonly.mjs

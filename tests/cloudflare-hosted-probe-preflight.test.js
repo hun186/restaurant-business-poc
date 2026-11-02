@@ -88,6 +88,8 @@ test('fails closed if production routing or auth phase changes',async()=>{
   const {inspectHostedProbeStatic}=await preflightPromise;
   for(const change of [
     x=>x.vars.CLOUD_AUTH_PHASE='enabled',
+    x=>x.preview_urls=true,
+    x=>x.workers_dev=false,
     x=>x.previews.vars.CLOUD_AUTH_PHASE='enabled',
     x=>x.main='./cloudflare/pbkdf2-hosted-access-worker.mjs'
   ]){

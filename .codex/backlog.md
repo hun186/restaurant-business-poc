@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 Native Admin v1 Contract + RBAC Test Matrix**：#109/#110 內部 D1 密碼與 Role/Active/Store 變更交易、#111 Worker 隔離已完成；本輪補上機器可讀 API v1 候選合約和 Owner/Manager/Staff × 五種動作的合成可驗證矩陣，記錄所有正式 HTTP Endpoint 尚不存在，絕不允許 PR CI PASS 自動啟用正式路由。持續確認 Unknown Admin URL 503/no DB，Owner 成功修改撤銷 Session，非 Owner 沒有資料異動／稽核；錯誤型別／未知欄位閉鎖拒絕。Production Native Login、D1 Write、Owner Enrollment、Restore、Access/Zero Trust 均不操作。下一階段若準備正式 API，須另做 Request parsing/resource quota、同來源及 CSRF、非同步衝突/Last Owner/回復、真實測試環境與獨立上線審查。
+
+
 > **2026-11-03 D1 帳號管理發布隔離契約與防回歸測試**：內部 D1 Account Password/Role/Active/Store 合成交易已經 #109/#110 合併並完成 Main CI，但不得因未來某次 Worker refactor 意外匯入到公開 API。新增 static import graph/transitive/dynamic fail-closed tests、未知管理 HTTP route 503/no D1 read-write、Production/Preview internal Gate 缺失檢查；發布設計 Runbook 列出未來對外管理 API 還需實際授權矩陣、Session/CSRF/Source/Rate/Audit、安全審查及新的正式環境授權。若新測試失敗，必須修根因，不可以放寬安全檢查或偷偷設定 ACCOUNT_SECURITY_STAGE。使用者拒用 Zero Trust／Access，正式 Login/D1 Write/Owner/Restore 不開放。
 
 

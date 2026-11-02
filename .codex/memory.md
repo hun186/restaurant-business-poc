@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 Local account Session revocation audit（待 CI/Review）**：G0 Preview OFF、Demo GET/HEAD 已完成，main `1d42df30301919408c174a639e3839340cdd34d3`（#107 CI/Cloudflare Build SUCCESS）。本分支 `fix/audit-account-session-revocation-20261102` 沿用既有本機 SQLite 交易，為 `user.role`、`user.active`、`user.password`、`user.assign-location` 集中使用 revokeAccountSessions 並在 Audit `detail.revoked_sessions` 寫實際撤銷筆數，無密碼/Token 資料。HTTP + SQLite 合成測試涵蓋門市授權、冪等不重登、角色降權、同一使用者兩個 Session 在密碼重設後全面撤銷、舊密碼失效、新密碼有效、停用撤銷、稽核不外洩。Production Worker 原生登入仍 disabled、D1/Owner/Restore 未操作；不使用 Zero Trust。不等同 D1 原生帳號管理已上線。PR 須 Hosted CI/正式 Codex Review/Clean Gate 才可 Merge。
+
+
 > **2026-11-02 Native Logout audit expiry race（PR 開發中）**：PR #106 已 Merge main `4df45e17fc2fced8ee01d46ab8dff5c8a8c6a4a5`，合併後 CI 5/5 PASS。本輪修補 dormant `revokeD1Session` 在 loadPrincipal 和 D1 batch 間 Session 恰巧到期可能仍寫出 `auth.logout` 成功紀錄的邊界：batch 的稽核 INSERT 和 Session DELETE 均使用相同 UTC ISO now cutoff；保留正常退出、到期/先被他方撤銷、batch rollback 的合成 SQLite/D1 測試；未打 Cloudflare D1，不啟用 Zero Trust、Production Login、Owner 或 Restore。需最新 HEAD CI/正式 Codex Review/clean Gate 再 Merge。
 
 

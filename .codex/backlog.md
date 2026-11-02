@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 Native Logout Audit/Expiry 一致性**：PR #106 HTTPS Session 已合併。針對 `revokeD1Session` 交易的 audit INSERT/DELETE 在載入 Principal 後未核對 Session expires_at 的細小競態，加入 shared ISO cutoff、合成 expiry/revoked race/rollback tests、閉鎖 SHA256，完成 Hosted CI＋Codex＋Clean 才合併。正式 Auth、Production D1、Owner、Restore 仍禁用，Zero Trust 不採用。
+
+
 > **2026-11-02 NEXT Native Session HTTPS Only**：已完成 PR #105 正式 Session/RBAC 異常門市資料 fail-closed（Postmerge CI 5/5 PASS）。原生 `loadPrincipal` 仍可能在 `http://` Request 上解析一枚外部手動注入的 Secure Session Cookie；新增入口強制 HTTPS，對不合法 URL 亦直接拒絕、不讀 D1；合成負測確保既有 HTTPS、CSRF/RBAC 沒有回歸，更新 reviewed SHA256。既有 Production Native Auth Gate 必須維持 disabled；不使用 Zero Trust，不向 Production D1 查寫或創建 Owner。
 
 

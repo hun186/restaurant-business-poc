@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-02 G0 Version/Build 遠端驗收完成；準備 Worker Entry Points ReadOnly 分層檢查**：操作員 Run #41451512264 completed/success，實際 log JSON `G0_ACTIVE_DEPLOYMENT_BUILD_READONLY_PASS`，active 100%、Version-to-Build=true、main SHA 5cf9ac2d2b9ebbdbea24cca9e614836ed8681189 匹配。其他 public hostname version、Access、Staging live、release 仍 false。新分支 `feat/g0-scoped-workers-dev-preview-readonly-20261102` 預計於既有 G0 exposure inventory workflow 增加主線人工模式 `CHECK_G0_WORKERS_DEV_ONLY`：只用 Cloudflare Workers Scripts Read 查 Worker scripts 與指定 subdomain enabled/previews_enabled，避免初次就要求 Zone/Routes Read；完整 `CHECK_G0_READONLY` 保留。所有 Access/Custom Domains/Routes/Client URL Version 未驗仍 false；無任何 Production D1/Cloudflare 寫入。只在本 PR HEAD CI/Codex/clean 完整過關才可合併。
+
+
 > **2026-11-02 G0 第二次實機 HTTP_STATUS（未完成遠端驗收）**：受控手動 Cloudflare 唯讀 Run #41447620360 使用 main b810c6d3aa16e85a852cfc6c65835410949ba891，已通過 LOCAL_CONFIG，但 Cloudflare API 回傳非 2xx，統一輸出 HTTP_STATUS；原始 GET 類別與 status 不明。現在擴充既有 PR #102，同一 G0 fail-closed 安全診斷任務，依 DEPLOYMENTS/BUILDS 和 401/403/404/429/5XX/OTHER 產生定值錯誤階段；不輸出 body/token，增補負測、closed SHA256。官方 Cloudflare Workers Builds API 要求 user-scoped Token（account-scoped 不支援），兩 GET 分別需 Scripts Read / CI Read。無 Secret 明文/新 API/Cloudflare 修改，PR 最新 HEAD Hosted CI/正式 Codex Review 才可 Merge；此前因審查額度不足導致 Review failed，不可繞過。
 
 

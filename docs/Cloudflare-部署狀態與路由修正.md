@@ -1,5 +1,21 @@
 # Cloudflare 部署：靜態版 404 與安全啟動修正
 
+## 2026-11-02｜Windows 無 Node.js 時的實機故障與安全替代
+
+操作員已 `git pull --ff-only origin main`（Already up to date），執行 `run-cloudflare-public-readonly.bat` 回報：
+
+```
+ERROR: Node.js 22.13 or later is required.
+```
+
+原因是原始 BAT 的 `where node` 在該 CMD PATH 找不到 Node，直接中止。**這不是 Cloudflare Build/Worker/Production D1 異常，也尚未發出任何 HTTP。** 不需修改 Cloudflare Token、重新 Export 或新增 D1。
+
+本 PR 改為 BAT 優先實際執行 `node -e` 檢查 Node 22.13+；找不到或版本不足時，自動轉用 Windows PowerShell 5.1+ 的 `tools/cloudflare-public-runtime-readonly.ps1`。不需要為了這個固定公網健康測試先安裝 Node.js。
+
+PowerShell 版本與 Node 版共用相同的**公開 HTTP 合約**：固定 workers.dev URL、只允許 GET/HEAD、無輸入網址、無 Cookie/Token/登入/SQL/POST/部署，禁止 Redirect、8 秒逾時、8 KiB 回應上限、明確 Demo/Health/schema_only/關閉的敏感路由/虛構靜態頁檢查、只輸出白名單錯誤碼。PowerShell 工具使用 UTF-8 BOM 相容 WinPS 5.1 的中文檢查，避免語系誤判。新增無網路 `-SelfTest` 合成測試，Windows GitHub CI 直接啟動 Windows PowerShell 版本，並更新原本封閉的 Exact SHA-256 審查清單。
+
+測試無須 Cloudflare 密碼或 Token。PR CI/Codex 審核與合併前**不能**把工具存在當成已獲實際公網 HTTP PASS；修正後需由操作者再執行一次同一 BAT，回報 `PUBLIC_WORKER_READONLY_HTTP_PASS` 或匿名 `PUBLIC_WORKER_READONLY_FAIL stage=... detail=...`。即使 HTTP PASS，Active Deployment Version / Access / Production Release 仍非本工具的驗收範圍。
+
 ## 2026-11-02｜真實 Worker 公開網址 HTTP 驗收工具（只讀，尚未實機 PASS）
 
 GitHub main `22d69c0d72c20c873efd74cb73cfbaf420590065` 的最新 Cloudflare Workers Builds check `success`，Build ID `5755c1a8-c70b-4f42-a65d-66ea810237fb`，說明先前 Issue #42 的 `assets-upload-session 10013` 在這次建置**沒有重新出現**；但仍需**實際**回應證據與 Active Deployment Version/Commit 對照才能完成部署驗收。

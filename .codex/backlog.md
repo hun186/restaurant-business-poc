@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 D1 dormant Account Access 交易驗證**：完成 #109 內部 D1 密碼輪替後，補齊 `user.role`、`user.active`、`user.assign-location`、`user.unassign-location` 的獨立內部合成 D1.batch 交易、無敏感資料 Audit、所有目標 Session 撤銷。必須在交易內重新驗證 Owner Session、角色、有效期限、CSRF、目標快照及門市有效性，且不允許重複授權產生稽核／不必要登出；維持本機服務「不得自行降權／停用」政策。此模組不由公開 Worker 匯入，不添加生產設定、API 或 Migration。後續再建立更完整的 D1 business admin API 安全驗證／部署 Runbook，正式登入、實機 D1 操作需另外授權，不能以 Node SQLite 模擬 PASS 代替。使用者不使用 Zero Trust／Access、不綁信用卡。
+
+
 > **2026-11-03 D1 Native 帳號安全實驗**：前一階段 #108 已實測本機 SQLite 角色/密碼異動撤銷多 Session + audit，本階段新增 *D1 internal-only* 帳號密碼輪替交易與合成測試。必須可證明同一 D1.batch 的 Audit、條件式 Hash 更新、所有 Session DELETE；Owner Session/CSRF/HTTPS、原憑證快照及 Actor Role 於執行交易時仍有效，不許改動已失效使用者；驗證同一人自改密碼、同步輪替與交易 rollback。新內部模組不被 public Worker import，Production Native Auth 一律 disabled；不得宣稱 D1 真實環境驗收、不能自動部署正式管理 API。後續仍需設計 Role/Location/Active D1 交易與帳號管理操作 Gate、資料保護、Runbook，並按正式安全授權實機驗收。不使用 Zero Trust/Access。
 
 

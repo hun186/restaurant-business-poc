@@ -1,5 +1,20 @@
 # Cloudflare 部署：靜態版 404 與安全啟動修正
 
+## 2026-11-02｜真實 Worker 公開網址 HTTP 驗收工具（只讀，尚未實機 PASS）
+
+GitHub main `22d69c0d72c20c873efd74cb73cfbaf420590065` 的最新 Cloudflare Workers Builds check `success`，Build ID `5755c1a8-c70b-4f42-a65d-66ea810237fb`，說明先前 Issue #42 的 `assets-upload-session 10013` 在這次建置**沒有重新出現**；但仍需**實際**回應證據與 Active Deployment Version/Commit 對照才能完成部署驗收。
+
+此增量新增：
+- Windows `run-cloudflare-public-readonly.bat`：無需 API Token 或密碼，不會呼叫 Cloudflare 管理 API、`wrangler deploy`、寫入 SQL 或登入；
+- 手動 GitHub Actions `Cloudflare public Worker runtime HTTP smoke (manual GET only)`：僅限 `main`，輸入固定 `CHECK_PUBLIC_RUNTIME_READONLY`，無需 Environment Secret，不會自動在 PR 或 Push 時發出對外流量；
+- 共用 `tools/cloudflare-public-runtime-readonly.mjs` 只向程式碼中固定的 `https://restaurant-business-poc.hungyuan-chen.workers.dev` 發出 **GET／HEAD**，TLS 及 HTTP Redirect 不放行、每次 8 秒逾時、回應主體 8 KiB 上限，沒有 Cookie、Token、任意 URL 或 POST。
+
+探測條件：`GET /api/health` 必須回 HTTP 200 + JSON `status=demo_only`、`api=not_implemented`、`database=schema_only`、`production_ready=false`、No-store；`HEAD /api/health` 回 200 且無 Body；`GET /api/command`、`/api/login`、`/api/data`、`/api/me` 只能回 503 `E_NOT_READY`；`GET /` 必須是標示虛構資料的 Demo HTML。這些 GET 不帶任何登入狀態或動作 Body，因此**不會觸發業務交易**。回應不符合時僅輸出白名單 `stage` / `detail`，不輸出原始 HTTP Body、URL、任何認證資訊或堆疊。
+
+成功僅輸出 `PUBLIC_WORKER_READONLY_HTTP_PASS`，也**不是** Worker Active Version ID / Git SHA、所有自訂域名、Access Policy、防繞過、正式 Owner 或可營運登入的完整驗收：以上欄位皆固定 `false`。如果無法解析 DNS 或 Access 保護導致 Redirect，也必須報告未取得 HTTP PASS，不能判斷 Worker 不存在、部署失敗，亦不能繞過保護。
+
+**目前狀態：**程式設計與合成測試需 Hosted CI + 正式 Codex Review；由操作者啟動 GitHub manual workflow 或 Windows BAT 的真實 HTTP 結果尚未提供。Production `CLOUD_AUTH_PHASE=disabled`，Owner 0、登入未放行；不重做已驗證的 C/D 雙實體磁碟加密備份、不自動部署／啟動 Staging Gate。
+
 ## 現象
 
 Cloudflare Workers Builds 顯示 `npx wrangler deploy` Success，且上傳 `public/` 靜態資源，但訪問 `/api/health` 出現 HTTP 404。這只證明原本部署沒有服務該 API；**不是 D1、登入或正式營運已完成的證據**。

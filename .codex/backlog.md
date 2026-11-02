@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-02 NEXT — G0 Build 來源識別補強**：PR #100 已合併且 main Verify #41409626280 成功。原主線 G0 唯讀驗證需核對 build_trigger_metadata.provider_account_name=hun186 才可排除同名 repo／Fork 的來源歧義。建立小型純程式 PR 補上此條件、缺值 Fail Closed、離線合成回歸及 SHA256 更新；絕不可因此宣稱 Cloudflare 實站 Access／Active Version 通過，也不允許 Production Owner/SQL Write。後續仍須操作者執行受保護的 main-only G0 唯讀 Workflow。
+
+
 > **2026-11-02 NEXT P0 — Active Worker 版本與目前 GitHub Commit 的唯讀對照**：Windows 公開 HTTPS 工具真實 `PUBLIC_WORKER_READONLY_HTTP_PASS`，不必再對這支工具重做 DNS/HTTP debug。新 GH main-only 手動 `Cloudflare G0 active Worker version attestation` 需 Protected Environment + 最小 `Workers Scripts Read` 與 `Workers CI Read` Token，先 GET Worker Deployments、選最新 100% 版本，再 GET builds?version_ids 精確映射 GitHub main SHA；Fail Closed 於權限不足、Split Traffic、版本/Build 不匹配。合成 CI/Codex PASS≠Cloudflare API 遠端 PASS，需後續受控手動 Run。即使驗證版本匹配，Public Host Version/Access/Preview Staging Live UAT 仍另外核對，Production Owner/Login/Write/Restore 未放行。
 
 > **2026-11-02 P0 — Public Worker Windows GET /api/health 連線問題定位**：使用者 PR #98 更新後無 Node 的 PowerShell fallback 正常，但 `PUBLIC_WORKER_READONLY_FAIL stage=API_HEALTH detail=REQUEST_UNAVAILABLE`；沒有收到 HTTP status/Content-Type。不能直接把 Cloudflare Builds SUCCESS 或 ERROR 當成 runtime diagnosis。先開增量 PR：PowerShell catch 用 WebException/SocketException/AuthenticationException/OperationCanceledException enum 分類 DNS/Proxy DNS/TCP/TLS/Timeout，無法判斷則 Unknown；額外固定 Host 的本機 DNS RESOLVED/NO_ADDRESSES/LOOKUP_FAILED，保持只讀、固定網址、8秒/8KiB、無 Token。PR CI（含 WinPS5 Synthetic）+ Codex + Clean Auto-Merge，再由 Windows 實機回報新白名單代碼，或 GitHub 手動 GET-only action 比對網路；不變更 Cloudflare Access/Production D1/Worker Deploy。

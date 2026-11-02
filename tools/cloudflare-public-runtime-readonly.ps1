@@ -1,4 +1,4 @@
-# Public Worker G0 smoke for Windows PowerShell 5.1+. Read-only GET/HEAD.
+﻿# Public Worker G0 smoke for Windows PowerShell 5.1+. Read-only GET/HEAD.
 # Fixed URL, no token/cookie/password, Cloudflare admin API, SQL or deployment.
 param([switch]$SelfTest)
 Set-StrictMode -Version Latest
@@ -72,7 +72,7 @@ function Invoke-FixedRequest($client,[string]$route,[string]$method) {
    [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead,$cts.Token).GetAwaiter().GetResult()
   $status=[int]$response.StatusCode
   if($status -ge 300 -and $status -lt 400){Fail $stage 'REDIRECT_BLOCKED'}
-  $mime=if($null -ne $response.Content.Headers.ContentType){
+  $mime=if($null -ne $response.Content -and $null -ne $response.Content.Headers.ContentType){
     $response.Content.Headers.ContentType.MediaType
    }else{''}
   $cache=if($null -ne $response.Headers.CacheControl){
@@ -80,6 +80,7 @@ function Invoke-FixedRequest($client,[string]$route,[string]$method) {
    }else{''}
   $body=''
   if($method -ne 'HEAD'){
+   if($null -eq $response.Content){Fail $stage 'BODY_LIMIT_OR_INVALID'}
    if($response.Content.Headers.ContentLength -gt $MaxBodyBytes){
     Fail $stage 'BODY_LIMIT_OR_INVALID'
    }

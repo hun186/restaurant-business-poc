@@ -88,6 +88,14 @@ export function verifyVersionBuild(reply,versionId,expectedCommit){
   release_authorized:false
  });
 }
+export function classifyHttpStatus(pathname,status){
+ const p='/accounts/'+ACCOUNT_ID+'/';
+ const endpoint=pathname===p+'workers/scripts/'+SCRIPT+'/deployments'
+  ?'DEPLOYMENTS':'BUILDS';
+ const statusCode=[401,403,404,429].includes(status)?String(status):
+  Number.isInteger(status)&&status>=500&&status<=599?'5XX':'OTHER';
+ return 'HTTP_'+endpoint+'_'+statusCode;
+}
 export async function cloudflareReadOnlyGet(pathname,token,fetchImpl=globalThis.fetch){
  check(typeof token==='string'&&token.length>=16&&typeof fetchImpl==='function',
   'CREDENTIALS');
@@ -105,7 +113,7 @@ export async function cloudflareReadOnlyGet(pathname,token,fetchImpl=globalThis.
    signal:AbortSignal.timeout(10000)
   });
  }catch{fail('NETWORK');}
- check(response?.ok===true,'HTTP_STATUS');
+ if(response?.ok!==true)fail(classifyHttpStatus(pathname,response?.status));
  let raw;
  try{
   const length=response.headers.get('content-length');
@@ -155,7 +163,9 @@ if(process.argv[1]&&path.resolve(process.argv[1])===self){
    'LOCAL_CONFIG_ACCOUNT_ID_MISMATCH','CREDENTIALS','NETWORK','HTTP_STATUS',
    'BODY_LIMIT','JSON','DEPLOYMENTS','DEPLOYMENT_SHAPE','DEPLOYMENT_AMBIGUOUS',
    'SPLIT_TRAFFIC','BUILDS','BUILD_OUTCOME','BUILD_SOURCE','COMMIT_MISMATCH','ARGUMENTS','URL']);
-  const code=stages.has(e?.stage)?e.stage:stage==='LOCAL_CONFIG'?'LOCAL_CONFIG':'UNKNOWN';
+  const safeHttp=/^HTTP_(DEPLOYMENTS|BUILDS)_(401|403|404|429|5XX|OTHER)$/;
+  const code=stages.has(e?.stage)||safeHttp.test(e?.stage||'')
+   ?e.stage:stage==='LOCAL_CONFIG'?'LOCAL_CONFIG':'UNKNOWN';
   console.error('G0_ACTIVE_DEPLOYMENT_READONLY_FAILED stage='+code);
   process.exitCode=1;
  }

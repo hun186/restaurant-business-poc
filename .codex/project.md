@@ -106,3 +106,5 @@
 - `STAGING_OWNER_PASSWORD` 必須由使用者另於 GitHub `d1-staging` Environment Secret 設定，僅初始建立使用，**目前尚未設定／沒有遠端執行／沒有初始業主帳號**。prod D1 沒有 schema migration，本次不修改正式庫。
 - 新 Workflow 固定 staging 資料庫、已存在資料拒絕啟動、SQL 隨機 salt / UUID 與私有 runner temp file、驗證唯一 active owner；正式 Login API 仍 503。
 - Cloudflare Free Worker CPU 10ms 可能不適合 PBKDF2 600k；Node Runner 產生 hash 成功不等於 Workers 可驗證。須安排真機性能驗收。此 PR Hosted CI / Codex 必須按最新 Head 獨立驗證，不得未授權 Merge 或執行人工工作流程。
+
+> **2026-11-03 Quota transport × Owner preflight integration synthetic-only (independent PR)**: Based on main #121 `54135d5de67bffd0e9b3f8ff288a94c508752083`; add separate integration tests for the already merged external atomic quota adapter and dormant Owner admission: Owner success, preauth deny/invalid/throwing, Owner scope deny, and Manager restriction, all no request body reads or D1 batch writes. No code to enable shared limit backend or public Worker; no production login, D1/Owner/Restore action. This independent PR may be reviewed alongside #122 but only merged when own latest HEAD 5/5 Hosted CI + Codex Completed zero findings + no conflicting Main updates.

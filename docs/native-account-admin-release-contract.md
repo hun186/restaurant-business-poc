@@ -55,3 +55,20 @@ An additional synthetic-only revision enforces a total 2000ms read deadline (not
 An independent `cloudflare/native-admin-admission-internal.mjs` tests a **fail-closed, non-mutating** admission boundary. It requires a synthetic-only dual gate and D1 interface, a caller-supplied quota provider with strict boolean `consume({scope, actorId?})` semantics, a preauthentication quota check **before D1 lookup**, an active Owner Session via existing `auth-core` primitives, matching HTTPS Origin and session-bound CSRF, then an Owner-specific quota check. It does not read the request body; the existing bounded JSON parser remains separate, and internal D1 mutations must re-validate authorization in their transaction. Failed checks return only stable status/code values without credentials or SQL.
 
 **Important limitations:** No production quota provider exists in this PR; an isolate-local Map is expressly not a substitute for durable distributed enforcement. This admission is not wired to `cloudflare/worker.mjs` or any deployed route; it does not dispatch commands or modify D1. Production Login remains disabled, Preview URLs OFF. Before public release, require independent source-IP trust design, durable global/subject quota policies, principal lifecycle checks, comprehensive actor race validation, hosted staging security UAT, production approval and recovery readiness.
+
+### 2026-11-03｜Synthetic Owner admission deadline (not deployed)
+
+The internal-only preflight now bounds **the entire** preauthentication quota, read-only
+D1 principal lookup and owner quota sequence to 2000 ms. Its optional second
+quota-provider argument is `{signal: AbortSignal}`; providers should abort
+outstanding network requests when signaled. Exhaustion or any async failure
+returns the generic `503 E_ADMIN_PREFLIGHT_UNAVAILABLE`, without body reads,
+account mutation, SQL or credential exposure. Late successful quota or identity
+reads cannot advance to the next admission stage after the deadline.
+
+This is a fail-closed response budget, **not** proof that a non-cooperating
+quota service or D1 read has been canceled, or that any durable rate limit
+exists. Production integration still needs a real shared provider, identity
+source-trust review, transaction-time authorization, security UAT and explicit
+release approval. Public Worker remains independent and returns 503 for the
+candidate admin endpoint.

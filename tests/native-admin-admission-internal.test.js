@@ -28,6 +28,7 @@ async function fixture(options={}){
             if(options.dbFailure)throw Error('SYNTHETIC_SQL_SECRET');
             if(!sql.includes('FROM sessions s JOIN users u'))throw Error('Unexpected SQL');
             if(options.revoked||options.expired||args[0]!==digest)return null;
+            if(options.holdSessionRead)await new Promise(resolve=>{options.holdSessionRead.release=resolve;});
             return {token_hash:digest,csrf_token:csrf,expires_at:new Date(Date.now()+3600000).toISOString(),
               id:actorId,username:'synthetic_owner',display_name:'Synthetic Owner',
               role:options.role||'owner'};
@@ -181,4 +182,59 @@ test('public Worker still cannot import or expose native admin admission',async(
   assert.equal(result.status,503);
   assert.equal((await result.json()).code,'E_NOT_READY');
   assert.equal(dbCalls,0);
+});
+
+test('a never-settling preauth quota ends with 503, aborts its signal and skips D1',async()=>{
+  const f=await fixture(),admit=(await admitPromise).preflightNativeAdminV1;
+  let signal,release;
+  const quota={consume(_payload,options){
+    signal=options.signal;
+    return new Promise(resolve=>{release=resolve;});
+  }};
+  const req=f.request(),start=Date.now();
+  assert.deepEqual(await admit(req,f.env,quota),
+    {status:503,code:'E_ADMIN_PREFLIGHT_UNAVAILABLE'});
+  assert.ok(Date.now()-start<5000,'quota admission must be time bounded');
+  assert.equal(signal?.aborted,true);
+  assert.equal(f.calls.queries,0);
+  assert.equal(f.calls.writes,0);
+  assert.equal(req.bodyUsed,false);
+  release(true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.calls.queries,0,'late quota success must not start D1 lookup');
+});
+
+test('a stalled D1 read times out without advancing to owner quota',async()=>{
+  const hold={},f=await fixture({holdSessionRead:hold});
+  const admit=(await admitPromise).preflightNativeAdminV1,req=f.request();
+  const start=Date.now();
+  assert.deepEqual(await admit(req,f.env,f.quota),
+    {status:503,code:'E_ADMIN_PREFLIGHT_UNAVAILABLE'});
+  assert.ok(Date.now()-start<5000,'identity read must be time bounded');
+  assert.deepEqual(f.calls.quota,[{scope:'native-admin-preauth'}]);
+  assert.equal(f.calls.writes,0);
+  assert.equal(req.bodyUsed,false);
+  assert.equal(typeof hold.release,'function');
+  hold.release();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(f.calls.quota,[{scope:'native-admin-preauth'}],
+    'late D1 success must not consume Owner quota');
+});
+
+test('a stalled owner quota fails closed after a successful identity lookup',async()=>{
+  const f=await fixture(),admit=(await admitPromise).preflightNativeAdminV1;
+  let ownerSignal,release;
+  const quota={consume(payload,{signal}){
+    if(payload.scope==='native-admin-preauth')return Promise.resolve(true);
+    ownerSignal=signal;
+    return new Promise(resolve=>{release=resolve;});
+  }};
+  const req=f.request();
+  assert.deepEqual(await admit(req,f.env,quota),
+    {status:503,code:'E_ADMIN_PREFLIGHT_UNAVAILABLE'});
+  assert.equal(ownerSignal?.aborted,true);
+  assert.equal(f.calls.queries,2);
+  assert.equal(f.calls.writes,0);
+  assert.equal(req.bodyUsed,false);
+  release(true);
 });

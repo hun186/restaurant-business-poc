@@ -1,5 +1,6 @@
 # Backlog
 
+> **2026-11-03 Dormant admission watchdog (new isolated PR; CI/Codex pending)**: #115 is already merged at main \`a351d180d10b87cb84e4031623a88a1af4e4b280\` with main Verify 5/5 PASS. This branch bounds the complete non-mutating preflight (preauth quota, D1 identity read, Owner quota) by 2000ms; an optional AbortSignal tells a cooperative quota backend to stop, and late async completions cannot advance to another admission stage. Synthetic tests cover never-settling quota/D1, late completion and no D1 writes. The public Worker remains 503, Production Auth disabled, Preview OFF. Neither remote quota cancellation nor staging/production readiness is verified; new HEAD Hosted CI and formal Codex Review are required before merge.\n\n
 > **2026-11-03 NEXT｜原生帳號管理 Session/CSRF 與外部限流准入（僅合成）**：在 #113/#114 的封閉 Body reader 上增設隔離式 `preflightNativeAdminV1`，要求測試雙 Gate、非空 D1、外部 quota provider；任何缺失都 503，quota 拒絕 429；先做 preauth quota 才讀 D1，再驗證 HTTPS/Origin/Owner Session/CSRF，最後做 Owner quota。不得在此 PR 中提供本機 Map 假扮可跨 Worker 的分散式限流、不得接上公開 Worker 或直接執行帳號 D1 異動。Owner+Quota 檢查通過不等於正式登入/授權放行，未來需要真正共用 quota backend、稽核、源 IP 可信性、transaction-time actor recheck、Staging UAT 與明確 Production 授權。
 
 

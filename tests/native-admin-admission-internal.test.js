@@ -81,11 +81,11 @@ test('Owner admission checks both quotas and live Session/CSRF before reading bo
 test('all five v1 commands share one Owner admission boundary',async()=>{
   const f=await fixture(),admit=(await admitPromise).preflightNativeAdminV1;
   for(const input of [
-    {action:'user.password',targetUserId,newPassword:'synthetic-pass-123456'},
+    {action:'user.password',targetUserId:targetId,newPassword:'synthetic-pass-123456'},
     base,
-    {action:'user.active',targetUserId,active:false},
-    {action:'user.assign-location',targetUserId,locationId},
-    {action:'user.unassign-location',targetUserId,locationId}
+    {action:'user.active',targetUserId:targetId,active:false},
+    {action:'user.assign-location',targetUserId:targetId,locationId},
+    {action:'user.unassign-location',targetUserId:targetId,locationId}
   ]){
     const req=f.request(input);
     assert.equal((await admit(req,f.env,f.quota)).status,200);

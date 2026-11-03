@@ -216,3 +216,12 @@ audit rows unchanged. No deployed Cloudflare D1 writes are performed.
 These synthetic checks do not replace live staging security UAT, durable
 cross-isolate quota, or explicit Production authorization. Public management
 endpoints remain closed with 503.
+
+### 2026-11-04｜External quota adapter fail-closed security
+
+The dormant injected quota adapter now rejects request-defined accessors,
+symbol keys, malformed Proxy reflective traps and forged abort signals before
+reaching the external backend. Any backend exception becomes a generic
+`E_QUOTA_CONTRACT_UNAVAILABLE` error without exposing backend diagnostics.
+These changes are synthetic; no shared quota service, preauth identity source,
+public administration route, Cloudflare binding or production D1 write exists.

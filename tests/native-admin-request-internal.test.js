@@ -129,3 +129,21 @@ test('public Worker stays closed and does not import dormant request decoder',as
   }
   assert.equal(dbCalls,0);
 });
+
+test('v1 request parser refuses alternate paths, query aliases and fragments without reading body',async()=>{
+  const {readAdminRequestV1:read}=await load();
+  const origin='https://restaurant.example.workers.dev';
+  for(const suffix of [
+    '/api/admin/account/','/api/admin/account?debug=1',
+    '/api/admin/account#frag','/api/admin/account%2F',
+    '/api/command','/api/admin/accounts'
+  ]){
+    const req=new Request(origin+suffix,{method:'POST',
+      headers:{origin,'content-type':'application/json'},body:JSON.stringify(base)});
+    assert.deepEqual(await read(req),bad,suffix);
+    assert.equal(req.bodyUsed,false,suffix);
+  }
+  assert.deepEqual(await read(new Request(origin+'/api/admin/account',{
+    method:'POST',headers:{origin,'content-type':'application/json'},
+    body:JSON.stringify(base)})),{ok:true,input:base});
+});

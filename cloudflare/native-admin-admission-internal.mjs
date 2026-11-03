@@ -38,6 +38,11 @@ export async function preflightNativeAdminV1(request,env,quota){
   if(request?.method!=='POST'||!request.headers ||
      typeof request.headers.get!=='function')
     return {status:400,code:'E_INVALID_INPUT'};
+  // Bind to the candidate v1 route before quota and D1 authorization work.
+  let url;
+  try{url=new URL(request.url);}catch{return {status:400,code:'E_INVALID_INPUT'};}
+  if(url.pathname!=='/api/admin/account'||url.search||url.hash)
+    return {status:400,code:'E_INVALID_INPUT'};
   try{
     if(!sameOrigin(request))return {status:403,code:'E_FORBIDDEN'};
   }catch{return {status:403,code:'E_FORBIDDEN'};}

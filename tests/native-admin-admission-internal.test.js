@@ -238,3 +238,23 @@ test('a stalled owner quota fails closed after a successful identity lookup',asy
   assert.equal(req.bodyUsed,false);
   release(true);
 });
+
+test('Owner preflight is bound to the exact candidate admin route before quota or D1',async()=>{
+  const f=await fixture(),admit=(await admitPromise).preflightNativeAdminV1;
+  const origin='https://private.example';
+  for(const suffix of [
+    '/api/admin/account/','/api/admin/account?debug=1',
+    '/api/admin/account#frag','/api/admin/account%2F',
+    '/api/command','/api/admin/accounts'
+  ]){
+    const valid=f.request();
+    const req=new Request(origin+suffix,{method:'POST',
+      headers:valid.headers,body:JSON.stringify(base)});
+    assert.deepEqual(await admit(req,f.env,f.quota),
+      {status:400,code:'E_INVALID_INPUT'},suffix);
+    assert.equal(req.bodyUsed,false,suffix);
+  }
+  assert.equal(f.calls.queries,0);
+  assert.equal(f.calls.writes,0);
+  assert.deepEqual(f.calls.quota,[]);
+});

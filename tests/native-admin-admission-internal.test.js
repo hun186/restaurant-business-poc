@@ -258,3 +258,30 @@ test('Owner preflight is bound to the exact candidate admin route before quota o
   assert.equal(f.calls.writes,0);
   assert.deepEqual(f.calls.quota,[]);
 });
+
+test('malformed JSON request headers fail before quota or D1 even for valid Owner cookies',async()=>{
+  const admit=(await admitPromise).preflightNativeAdminV1;
+  for(const headers of [
+    {'content-type':''},
+    {'content-type':'text/plain'},
+    {'content-type':'application/json; charset=iso-8859-1'},
+    {'content-encoding':'gzip'},
+    {'content-length':'2049'},
+    {'content-length':'03'},
+    {'content-length':'-1'},
+    {'content-length':'9999999999999999999999999'}
+  ]){
+    const f=await fixture(),req=f.request(base,headers);
+    assert.deepEqual(await admit(req,f.env,f.quota),
+      {status:400,code:'E_INVALID_INPUT'},JSON.stringify(headers));
+    assert.equal(req.bodyUsed,false);
+    assert.equal(f.calls.queries,0);
+    assert.equal(f.calls.writes,0);
+    assert.deepEqual(f.calls.quota,[]);
+  }
+  const f=await fixture(),req=f.request(base,{'content-type':'application/json; charset=utf-8'});
+  assert.deepEqual(await admit(req,f.env,f.quota),
+    {status:200,code:'OK',actorId});
+  assert.equal(req.bodyUsed,false);
+  assert.equal(f.calls.writes,0);
+});

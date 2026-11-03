@@ -172,3 +172,18 @@ These are inexpensive plausibility checks only: a producer may still provide
 oversize/invalid JSON or lock the stream after preflight. The bounded decoder
 must always run later and the D1 mutation must reauthorize in its transaction.
 No exposed admin route, remote quota backend, production login or D1 write.
+
+### 2026-11-03｜Shared path-only v1 routing predicate
+
+The dormant JSON decoder and synthetic Owner admission both use
+`validAdminPathV1` for the candidate `/api/admin/account` path.
+The helper rejects alternate paths, query/fragment, URL credentials and
+invalid absolute URLs. It deliberately does not replace HTTPS, same-Origin,
+POST, CSRF, quota or D1 transaction-time Owner checks; error-code precedence
+for insecure origins remains unchanged. Tests prove rejection of URL userinfo
+without body reads, quota or D1.
+
+The WHATWG URL and runtime Request normalize some path forms before
+`Request.url` is presented; this helper does not claim to detect raw HTTP
+octets lost during transport normalization. No public route or production
+operation is added.

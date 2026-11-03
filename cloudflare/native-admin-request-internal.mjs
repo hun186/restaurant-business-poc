@@ -16,6 +16,16 @@ const FIELDS=Object.freeze({
 const ROLES=new Set(['owner','manager','staff']);
 const bad=()=>({ok:false,code:'E_INVALID_INPUT'});
 
+// Shared path-only check. HTTPS, origin, method and authorization are separate.
+// URL normalization is performed by the platform before Request.url is exposed.
+export function validAdminPathV1(input){
+  try{
+    const url=new URL(input);
+    return url.pathname==='/api/admin/account'&&!url.search&&!url.hash&&
+      url.username===''&&url.password==='';
+  }catch{return false;}
+}
+
 // Single shared fail-closed contract for the cheap JSON body envelope.
 // This does not authenticate a request or check the actual streamed body size.
 export function validAdminBodyHeadersV1(headers){
@@ -62,8 +72,8 @@ export async function readAdminRequestV1(request){
   let url,len,reader;
   try{
     url=new URL(request.url);
-    // No alternate route, query/fragment or encoded path alias.
-    if(url.pathname!=='/api/admin/account'||url.search||url.hash)return bad();
+    // Both dormant parsers use the same exact route and URL-userinfo policy.
+    if(!validAdminPathV1(url))return bad();
     if(url.protocol!=='https:'||request.headers.get('origin')!==url.origin||
        !validAdminBodyHeadersV1(request.headers))return bad();
     len=request.headers.get('content-length');

@@ -220,3 +220,23 @@ test('synthetic stream errors and cleanup throwing cannot leak an exception',asy
   assert.equal(canceled,2);
   assert.equal(released,2);
 });
+
+test('one shared exact-route policy rejects aliases, URL credentials and query/fragment',async()=>{
+  const {validAdminPathV1:valid,readAdminRequestV1:read}=await load();
+  const origin='https://restaurant.example.workers.dev';
+  const endpoint=origin+'/api/admin/account';
+  assert.equal(valid(endpoint),true);
+  for(const url of [
+    origin+'/api/admin/account/',
+    origin+'/api/admin/account?debug=1',
+    origin+'/api/admin/account#frag',
+    origin+'/api/admin/account%2f',
+    origin+'/api/admin/accounts',
+    'https://user:pass@restaurant.example.workers.dev/api/admin/account',
+    'not a url'
+  ])assert.equal(valid(url),false,url);
+  const fake={method:'POST',url:'https://user:pass@restaurant.example.workers.dev/api/admin/account',
+    headers:new Headers({origin,'content-type':'application/json'}),
+    body:{getReader(){throw Error('SECRET_BODY');}}};
+  assert.deepEqual(await read(fake),bad);
+});

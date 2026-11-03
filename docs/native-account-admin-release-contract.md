@@ -72,3 +72,17 @@ exists. Production integration still needs a real shared provider, identity
 source-trust review, transaction-time authorization, security UAT and explicit
 release approval. Public Worker remains independent and returns 503 for the
 candidate admin endpoint.
+
+### 2026-11-03｜Exact admin-route parsing / admission boundary
+
+Both the dormant bounded JSON decoder and Owner/quota admission independently
+require the exact v1 contract path `/api/admin/account`, with no nonempty
+query string, fragment, encoded path alias or trailing slash. Off-contract
+URLs are rejected before reading the body, checking quotas or touching D1.
+The parser returns generic invalid input; admission returns `400 E_INVALID_INPUT`.
+Existing HTTPS, Origin, CSRF, Owner, quota and deadline checks remain intact.
+
+The guard prevents accidental handler reuse; it is not a new public HTTP
+route or authorization to deploy. Public Cloudflare Worker still returns
+`503 E_NOT_READY` and does not import these internal modules. No Cloudflare,
+Production D1, Owner enrollment or Restore changes were performed.

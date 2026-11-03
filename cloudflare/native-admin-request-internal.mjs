@@ -46,6 +46,9 @@ export async function readAdminRequestV1(request){
      typeof request.headers.get!=='function')return bad();
   let url;
   try{url=new URL(request.url);}catch{return bad();}
+  // A parser may never accept a body for a different HTTP route.
+  // No aliases, query strings, fragments or trailing slash in v1.
+  if(url.pathname!=='/api/admin/account'||url.search||url.hash)return bad();
   const type=request.headers.get('content-type')?.trim()||'';
   if(url.protocol!=='https:'||request.headers.get('origin')!==url.origin||
      !/^application\/json(?:;\s*charset=utf-8)?$/i.test(type)||

@@ -147,3 +147,33 @@ test('v1 request parser refuses alternate paths, query aliases and fragments wit
     method:'POST',headers:{origin,'content-type':'application/json'},
     body:JSON.stringify(base)})),{ok:true,input:base});
 });
+
+test('shared header envelope policy stays fail-closed for malformed MIME and length',async()=>{
+  const {validAdminBodyHeadersV1:valid,readAdminRequestV1:read}=await load();
+  const origin='https://restaurant.example.workers.dev';
+  const url=origin+'/api/admin/account';
+  for(const badHeaders of [
+    {'content-type':''},
+    {'content-type':'text/plain'},
+    {'content-type':'application/json; charset=latin-1'},
+    {'content-encoding':'gzip'},
+    {'content-encoding':''},
+    {'content-length':'2049'},
+    {'content-length':'03'},
+    {'content-length':'-1'},
+    {'content-length':'999999999999999999999999'}
+  ]){
+    const req=new Request(url,{method:'POST',headers:{
+      origin,'content-type':'application/json',...badHeaders},body:JSON.stringify(base)});
+    assert.equal(valid(req.headers),false,JSON.stringify(badHeaders));
+    assert.deepEqual(await read(req),bad);
+    assert.equal(req.bodyUsed,false);
+  }
+  assert.equal(valid({get(){throw Error('SYNTHETIC_HEADER_SECRET');},
+    has(){return false;}}),false);
+  assert.equal(valid({get(){return null;}}),false);
+  const req=new Request(url,{method:'POST',headers:{
+    origin,'content-type':'application/json; charset=UTF-8'},body:JSON.stringify(base)});
+  assert.equal(valid(req.headers),true);
+  assert.deepEqual(await read(req),{ok:true,input:base});
+});

@@ -16,6 +16,21 @@ const FIELDS=Object.freeze({
 const ROLES=new Set(['owner','manager','staff']);
 const bad=()=>({ok:false,code:'E_INVALID_INPUT'});
 
+// Single shared fail-closed contract for the cheap JSON body envelope.
+// This does not authenticate a request or check the actual streamed body size.
+export function validAdminBodyHeadersV1(headers){
+  if(!headers || typeof headers.get!=='function' ||
+     typeof headers.has!=='function')return false;
+  try{
+    const type=headers.get('content-type')?.trim()||'';
+    if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(type)||
+       headers.has('content-encoding'))return false;
+    const len=headers.get('content-length');
+    return len===null || (/^(?:0|[1-9][0-9]*)$/.test(len) &&
+      Number.isSafeInteger(Number(len)) && Number(len)<=MAX_ADMIN_BODY_BYTES);
+  }catch{return false;}
+}
+
 export function decodeAdminBodyV1(bytes){
   if(!(bytes instanceof Uint8Array)||!bytes.byteLength||
      bytes.byteLength>MAX_ADMIN_BODY_BYTES)return bad();
@@ -49,13 +64,9 @@ export async function readAdminRequestV1(request){
   // A parser may never accept a body for a different HTTP route.
   // No aliases, query strings, fragments or trailing slash in v1.
   if(url.pathname!=='/api/admin/account'||url.search||url.hash)return bad();
-  const type=request.headers.get('content-type')?.trim()||'';
   if(url.protocol!=='https:'||request.headers.get('origin')!==url.origin||
-     !/^application\/json(?:;\s*charset=utf-8)?$/i.test(type)||
-     request.headers.has('content-encoding'))return bad();
+     !validAdminBodyHeadersV1(request.headers))return bad();
   const len=request.headers.get('content-length');
-  if(len!==null&&(!/^(?:0|[1-9][0-9]*)$/.test(len)||
-     !Number.isSafeInteger(Number(len))||Number(len)>MAX_ADMIN_BODY_BYTES))return bad();
   if(!request.body||typeof request.body.getReader!=='function')return bad();
   const reader=request.body.getReader();
   const bytes=new Uint8Array(MAX_ADMIN_BODY_BYTES);

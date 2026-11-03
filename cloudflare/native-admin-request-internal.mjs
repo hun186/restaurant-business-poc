@@ -50,25 +50,22 @@ export async function readAdminRequestV1(request){
      !Number.isSafeInteger(Number(len))||Number(len)>MAX_ADMIN_BODY_BYTES))return bad();
   if(!request.body||typeof request.body.getReader!=='function')return bad();
   const reader=request.body.getReader();
-  const parts=[];
+  const bytes=new Uint8Array(MAX_ADMIN_BODY_BYTES);
   let size=0;
   try{
     for(;;){
       const next=await reader.read();
       if(next.done)break;
       if(!(next.value instanceof Uint8Array))return bad();
-      size+=next.value.byteLength;
-      if(size>MAX_ADMIN_BODY_BYTES){
+      if(next.value.byteLength>MAX_ADMIN_BODY_BYTES-size){
         void reader.cancel().catch(()=>{});
         return bad();
       }
-      parts.push(next.value);
+      bytes.set(next.value,size);
+      size+=next.value.byteLength;
     }
   }catch{return bad();}
   finally{reader.releaseLock();}
   if(len!==null&&Number(len)!==size)return bad();
-  const bytes=new Uint8Array(size);
-  let at=0;
-  for(const p of parts){bytes.set(p,at);at+=p.byteLength;}
-  return decodeAdminBodyV1(bytes);
+  return decodeAdminBodyV1(bytes.subarray(0,size));
 }

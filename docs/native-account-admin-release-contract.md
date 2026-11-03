@@ -225,3 +225,16 @@ reaching the external backend. Any backend exception becomes a generic
 `E_QUOTA_CONTRACT_UNAVAILABLE` error without exposing backend diagnostics.
 These changes are synthetic; no shared quota service, preauth identity source,
 public administration route, Cloudflare binding or production D1 write exists.
+
+### 2026-11-04｜Owner UUID validation before quota consumption
+
+Dormant Owner preflight now requires a canonical lowercase UUID from the
+read-only D1 principal before consuming Owner-scoped quota or returning a
+prepared command. Synthetic invalid, uppercase and null IDs yield a generic
+503 after preauth quota and read-only identity lookup, without reading JSON
+or dispatching D1 writes. This keeps the preflight and external transport
+actor-ID contracts aligned.
+
+This does not verify a real D1 schema, install a durable shared quota backend
+or authorize any public administration endpoint. Production D1 remains
+unmodified and login/admin routes stay closed.

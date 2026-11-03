@@ -363,3 +363,50 @@ test('Owner admission shares exact-route policy and rejects userinfo before quot
   assert.equal(f.calls.writes,0);
   assert.equal(from.bodyUsed,false);
 });
+
+test('private prepare sequence authorizes Owner before consuming a valid JSON body',async()=>{
+  const f=await fixture();
+  const {prepareNativeAdminCommandV1:prepare}=
+    await import('../cloudflare/native-admin-prepare-internal.mjs');
+  const req=f.request();
+  assert.equal(req.bodyUsed,false);
+  assert.deepEqual(await prepare(req,f.env,f.quota),
+    {status:200,code:'OK',actorId,input:base});
+  assert.equal(req.bodyUsed,true);
+  assert.deepEqual(f.calls.quota,[
+    {scope:'native-admin-preauth'}, {scope:'native-admin-owner',actorId}
+  ]);
+  assert.equal(f.calls.queries,2);
+  assert.equal(f.calls.writes,0);
+});
+
+test('private prepare never reads the body after preauth deny, no quota or non-Owner',async()=>{
+  const {prepareNativeAdminCommandV1:prepare}=
+    await import('../cloudflare/native-admin-prepare-internal.mjs');
+  for(const scenario of ['preauth-deny','no-quota','manager']){
+    const f=await fixture(
+      scenario==='preauth-deny'?{denyScope:'native-admin-preauth'}:
+      scenario==='manager'?{role:'manager'}:{}
+    );
+    const req=f.request();
+    const result=await prepare(req,f.env,scenario==='no-quota'?null:f.quota);
+    assert.equal(result.status,scenario==='preauth-deny'?429:scenario==='manager'?403:503);
+    assert.equal(req.bodyUsed,false,scenario);
+    assert.equal(f.calls.writes,0);
+    assert.equal(f.calls.queries,scenario==='manager'?2:0);
+  }
+});
+
+test('private prepare rejects invalid JSON fields only after admitted Owner; never dispatches writes',async()=>{
+  const f=await fixture();
+  const {prepareNativeAdminCommandV1:prepare}=
+    await import('../cloudflare/native-admin-prepare-internal.mjs');
+  const req=f.request({...base,role:'UNRECOGNIZED'});
+  assert.deepEqual(await prepare(req,f.env,f.quota),
+    {status:400,code:'E_INVALID_INPUT'});
+  assert.equal(req.bodyUsed,true);
+  assert.deepEqual(f.calls.quota,[
+    {scope:'native-admin-preauth'}, {scope:'native-admin-owner',actorId}
+  ]);
+  assert.equal(f.calls.writes,0);
+});

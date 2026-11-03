@@ -2,7 +2,7 @@
 // Synthetic-only: it makes no mutations, dispatches no account actions, and
 // does not consume a request body. Real release needs a separate security gate.
 import {loadPrincipal, authorizedMutation, sameOrigin} from './auth-core.mjs';
-import {MAX_ADMIN_BODY_BYTES} from './native-admin-request-internal.mjs';
+import {validAdminBodyHeadersV1} from './native-admin-request-internal.mjs';
 
 const unavailable=()=>({status:503,code:'E_NOT_READY'});
 const error=()=>({status:503,code:'E_ADMIN_PREFLIGHT_UNAVAILABLE'});
@@ -49,15 +49,7 @@ export async function preflightNativeAdminV1(request,env,quota){
   }catch{return {status:403,code:'E_FORBIDDEN'};}
   // Cheap header-envelope checks before any quota consumption or D1 read.
   // This does not replace the bounded body parser that follows admission.
-  if(typeof request.headers.has!=='function')
-    return {status:400,code:'E_INVALID_INPUT'};
-  const type=request.headers.get('content-type')?.trim()||'';
-  if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(type)||
-     request.headers.has('content-encoding'))
-    return {status:400,code:'E_INVALID_INPUT'};
-  const len=request.headers.get('content-length');
-  if(len!==null&&(!/^(?:0|[1-9][0-9]*)$/.test(len)||
-     !Number.isSafeInteger(Number(len))||Number(len)>MAX_ADMIN_BODY_BYTES))
+  if(!validAdminBodyHeadersV1(request.headers))
     return {status:400,code:'E_INVALID_INPUT'};
 
   const controller=new AbortController();

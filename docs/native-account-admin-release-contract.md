@@ -101,3 +101,28 @@ Content-Length does not prove actual body size. The bounded streaming parser
 still must run **after admission**; the public Worker still does not import
 the dormant implementation and keeps `503 E_NOT_READY`. No Production
 Auth/Owner/D1 write, deployment or Restore authorization is implied.
+
+### 2026-11-03｜Shared body-header policy (synthetic, not released)
+
+`validAdminBodyHeadersV1` is the sole cheap validation function for
+`Content-Type: application/json` with optional UTF-8 charset, absence of
+`Content-Encoding`, and a safe, canonical declared `Content-Length <= 2048`.
+Both dormant `readAdminRequestV1` and `preflightNativeAdminV1` now call
+the same fail-closed function, so a future policy adjustment cannot silently
+diverge across parsing and Owner/quota admission. Malformed header objects,
+unexpected types and thrown header getters are rejected without leaking
+their values. Synthetic tests cover MIME, encoding and declared lengths and
+prove early admission rejects before body/quota/D1 access.
+
+This helper is not an independent security check of streamed body contents
+or a distributed rate limiter; the bounded stream reader remains mandatory.
+Public Worker still does not import dormant admin modules and retains
+`503 E_NOT_READY`. Production Auth disabled, Preview URLs OFF, no D1 write,
+Owner enrollment, restore or Cloudflare deployment setting modified.
+
+Vercel deployment preference (operator, 2026-11-03): keep Preview Deployments
+disabled for `restaurant-business-poc`, and deploy Production only following
+a merge to `main`. The Vercel Connector accepted that project settings
+update earlier, but the available project read API does not expose that
+flag; do not claim live preview isolation verified without an independent
+read or harmless future event.

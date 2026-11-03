@@ -285,3 +285,31 @@ test('malformed JSON request headers fail before quota or D1 even for valid Owne
   assert.equal(req.bodyUsed,false);
   assert.equal(f.calls.writes,0);
 });
+
+test('Owner preflight and parser share the same cheap MIME and byte-length contract',async()=>{
+  const admit=(await admitPromise).preflightNativeAdminV1;
+  const parser=await decoderPromise;
+  for(const badHeaders of [
+    {'content-type':'text/plain'},
+    {'content-type':'application/json; charset=latin-1'},
+    {'content-encoding':'gzip'},
+    {'content-length':'2049'},
+    {'content-length':'03'},
+    {'content-length':'999999999999999999999999'}
+  ]){
+    const f=await fixture(),req=f.request(base,badHeaders);
+    assert.equal(parser.validAdminBodyHeadersV1(req.headers),false);
+    assert.deepEqual(await admit(req,f.env,f.quota),{status:400,code:'E_INVALID_INPUT'});
+    assert.equal(req.bodyUsed,false);
+    assert.equal(f.calls.queries,0);
+    assert.equal(f.calls.writes,0);
+    assert.deepEqual(f.calls.quota,[]);
+    assert.deepEqual(await parser.readAdminRequestV1(req),{ok:false,code:'E_INVALID_INPUT'});
+    assert.equal(req.bodyUsed,false);
+  }
+  const f=await fixture(),ok=f.request(base,{'content-type':'application/json;charset=UTF-8'});
+  assert.equal(parser.validAdminBodyHeadersV1(ok.headers),true);
+  assert.equal((await admit(ok,f.env,f.quota)).status,200);
+  assert.deepEqual(await parser.readAdminRequestV1(ok),{ok:true,input:base});
+  assert.equal(f.calls.writes,0);
+});

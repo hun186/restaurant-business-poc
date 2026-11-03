@@ -170,3 +170,27 @@ test('v1 contract: password rotation rejects manager and staff with no side effe
   assert.equal(JSON.parse(auditRows(f.db)[0].detail).revoked_sessions,2);
   assert.doesNotMatch(JSON.stringify(auditRows(f.db)),/synthetic-rotated-password-12345/);
 });
+
+test('password transaction rechecks CSRF, expiry and Owner activation at batch time',async t=>{
+  const svc=await securityPromise;
+  for(const race of ['csrf-rotated','session-expired','owner-deactivated']){
+    const f=await fixture(t),original=row(f.db,f.target);
+    const token=f.cookies.actor.split('=')[1],digest=await f.auth.tokenSha256(token);
+    f.env.DB=d1Adapter(f.db,{beforeBatch(){
+      if(race==='csrf-rotated')
+        f.db.prepare('UPDATE sessions SET csrf_token=? WHERE token_hash=?')
+          .run('synthetic-rotated-csrf',digest);
+      if(race==='session-expired')
+        f.db.prepare('UPDATE sessions SET expires_at=? WHERE token_hash=?')
+          .run('2000-01-01T00:00:00.000Z',digest);
+      if(race==='owner-deactivated')
+        f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.actor);
+    }});
+    assert.deepEqual(await svc.internalRotateD1Password(f.req(),f.env,{
+      targetUserId:f.target,newPassword:'synthetic-strong-password-20261103'
+    }),{status:409,code:'E_CONCURRENT_CHANGE'},race);
+    assert.deepEqual(row(f.db,f.target),original,race);
+    assert.equal(sessionCount(f.db,f.target),2,race);
+    assert.equal(auditRows(f.db).length,0,race);
+  }
+});

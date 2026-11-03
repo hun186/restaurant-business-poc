@@ -244,3 +244,34 @@ test('v1 contract: malformed action types or extra fields never produce D1 write
   assert.equal(account(f).active,1);
   assert.deepEqual(grants(f),[f.ids.storeA]);
 });
+
+test('transaction-time actor CSRF, expiry and deactivation block all access actions',async t=>{
+  const commands=[
+    x=>({action:'user.role',targetUserId:x.ids.target,role:'manager'}),
+    x=>({action:'user.active',targetUserId:x.ids.target,active:false}),
+    x=>({action:'user.assign-location',targetUserId:x.ids.target,locationId:x.ids.storeB}),
+    x=>({action:'user.unassign-location',targetUserId:x.ids.target,locationId:x.ids.storeA})
+  ];
+  for(const race of ['csrf-rotated','session-expired','owner-deactivated']){
+    for(const input of commands){
+      const f=await fixture(t),accountBefore=account(f),grantsBefore=grants(f);
+      const token=f.cookies.owner.split('=')[1],digest=await f.auth.tokenSha256(token);
+      f.env.DB=adapter(f.db,{beforeBatch(){
+        if(race==='csrf-rotated')
+          f.db.prepare('UPDATE sessions SET csrf_token=? WHERE token_hash=?')
+            .run('synthetic-rotated-csrf',digest);
+        if(race==='session-expired')
+          f.db.prepare('UPDATE sessions SET expires_at=? WHERE token_hash=?')
+            .run('2000-01-01T00:00:00.000Z',digest);
+        if(race==='owner-deactivated')
+          f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.actor);
+      }});
+      assert.deepEqual(await run(f,input(f)),
+        {status:409,code:'E_CONCURRENT_CHANGE'},race);
+      assert.deepEqual(account(f),accountBefore,race);
+      assert.deepEqual(grants(f),grantsBefore,race);
+      assert.equal(sessions(f),2,race);
+      assert.equal(logs(f).length,0,race);
+    }
+  }
+});

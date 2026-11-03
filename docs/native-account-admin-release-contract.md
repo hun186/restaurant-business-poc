@@ -126,3 +126,21 @@ a merge to `main`. The Vercel Connector accepted that project settings
 update earlier, but the available project read API does not expose that
 flag; do not claim live preview isolation verified without an independent
 read or harmless future event.
+
+### 2026-11-03｜External atomic quota transport candidate (synthetic only)
+
+The private `createExternalNativeAdminQuotaV1(transport)` adapter accepts only
+the preauth or Owner scope, validates a canonical Owner UUID, strips all
+unlisted fields, requires a live AbortSignal, and treats nonboolean backend
+decisions and post-abort completions as unavailable. Only a specifically
+provided `consumeAtomic(payload,{signal})` transport is delegated to;
+no local counters, request body, cookies, credentials, IP headers, storage or
+network calls are introduced. A `false` result means deny; throws and malformed
+results result in a fail-closed 503 when passed through the existing preflight.
+
+This does **not** implement a shared quota service. Before any release, a
+durable cross-isolate backend, verified atomic decision semantics, trusted
+preauth identity/key source, quota-window policy, and staging tests must be
+designed and audited separately. In particular, a single global preauth
+bucket may cause denial of service and is not approved. Public Worker and
+Production Login remain disabled; no Cloudflare binding, D1 write or deployment.

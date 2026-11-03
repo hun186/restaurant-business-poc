@@ -38,3 +38,10 @@
 5. **驗收證據分離**：Hosted CI、正式 Codex Review、GitHub Merge、Cloudflare Build、Cloudflare Active Deployment、公開 HTTP、實際 D1 權限交易各自需要符合其範圍的獨立證據，不得混稱已通過。
 
 本文件是未來對外介接前的最小契約，不取代正式安全設計或營運簽核。
+
+## 2026-11-03｜Native Admin v1 request decoding: dormant and synthetic only
+
+- New `cloudflare/native-admin-request-internal.mjs` implements an isolated 2048-byte maximum body decoder: strict UTF-8/JSON, v1 exact action keys/types/UUID, and a bounded Request reader checking HTTPS, POST, same-origin and JSON Content-Type. It is **not** imported by public `cloudflare/worker.mjs`.
+- New synthetic `tests/native-admin-request-internal.test.js` checks five actions, malformed input, 2048/2049-byte boundary, invalid encoding, unknown properties, rejected origins and streaming cutoff. The Worker import isolation tests and reviewed SHA256 inventory include this module.
+- **Not release-ready:** the reader does not implement slow-drip read deadlines, credential/session validation, Owner RBAC, CSRF, rate limiting or deployment gates. It must not be used in any live endpoint until those controls and deployment/UAT are separately reviewed.
+- Production `CLOUD_AUTH_PHASE=disabled`, Preview URLs OFF, and proposed `POST /api/admin/account` still returns 503 without D1. No Production D1 write, enrollment, Restore, or Worker deployment is performed by this PR.

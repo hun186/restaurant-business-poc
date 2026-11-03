@@ -12,7 +12,8 @@ const entry=path.join(cloudflareRoot,'worker.mjs');
 const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
 const dormant=new Set([
   path.join(cloudflareRoot,'account-access-internal.mjs'),
-  path.join(cloudflareRoot,'account-security-internal.mjs')
+  path.join(cloudflareRoot,'account-security-internal.mjs'),
+  path.join(cloudflareRoot,'native-admin-request-internal.mjs')
 ]);
 const source=file=>fs.readFileSync(file,'utf8');
 function cloudflareSources(dir=cloudflareRoot){
@@ -67,7 +68,7 @@ function inspectWorkerImports(read=source){
   // same-line/commented imports and imports through otherwise unvisited files.
   for(const file of cloudflareSources()){
     if(dormant.has(file))continue;
-    assert.doesNotMatch(read(file),/account-(?:access|security)-internal(?:\.mjs)?\b/,
+    assert.doesNotMatch(read(file),/(?:account-(?:access|security)-internal|native-admin-request-internal)(?:\.mjs)?\b/,
       'E_DORMANT_ACCOUNT_REFERENCE: '+path.relative(root,file));
   }
   return visited;

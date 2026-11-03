@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 NEXT｜Dormant v1 Admin Request Parsing**：本增量僅建立內部 2048-byte JSON/UTF-8/UUID/五種操作欄位及 Same-Origin/HTTPS/POST/Content-Type 的 bounded parser 和合成回歸，維持公網 Worker 拒絕管理路由。進一步的 slow-drip deadline、Rate Limiting、合法 Origin/CSRF/Session/Owner 整合、交易與回復及正式 Staging UAT 應另開 PR 並取得上線授權。沒有 Production D1/Owner/Cloudflare 部署操作；不能用合成 CI PASS 宣告已上線。
+
+
 > **2026-11-03 Native Admin v1 Contract + RBAC Test Matrix**：#109/#110 內部 D1 密碼與 Role/Active/Store 變更交易、#111 Worker 隔離已完成；本輪補上機器可讀 API v1 候選合約和 Owner/Manager/Staff × 五種動作的合成可驗證矩陣，記錄所有正式 HTTP Endpoint 尚不存在，絕不允許 PR CI PASS 自動啟用正式路由。持續確認 Unknown Admin URL 503/no DB，Owner 成功修改撤銷 Session，非 Owner 沒有資料異動／稽核；錯誤型別／未知欄位閉鎖拒絕。Production Native Login、D1 Write、Owner Enrollment、Restore、Access/Zero Trust 均不操作。下一階段若準備正式 API，須另做 Request parsing/resource quota、同來源及 CSRF、非同步衝突/Last Owner/回復、真實測試環境與獨立上線審查。
 
 

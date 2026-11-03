@@ -624,3 +624,5 @@
 - `public/app.js`：表單提供隔日語意、跨日紀錄下班欄標示「隔日」。不改 SQL Schema/UserVersion、帳號權限、Cloudflare D1。
 - `tests/shifts-overnight.test.js`：隔日資料、前後相交、跨店、跨年／閏日、非法日期與權限失敗無持久變更；更新 exact SHA-256 fail-closed 測試／程式白名單。
 - RB-006 其餘排班月曆、換班、假別、工時／人力需求及請假衝突仍需另行設計、測試與場域驗收。本輪程式與測試尚待新 Head Hosted CI、正式 Codex Review；未授權不得 Merge。
+
+> **2026-11-03 Quota transport × Owner preflight integration synthetic-only (independent PR)**: Based on main #121 `54135d5de67bffd0e9b3f8ff288a94c508752083`; add separate integration tests for the already merged external atomic quota adapter and dormant Owner admission: Owner success, preauth deny/invalid/throwing, Owner scope deny, and Manager restriction, all no request body reads or D1 batch writes. No code to enable shared limit backend or public Worker; no production login, D1/Owner/Restore action. This independent PR may be reviewed alongside #122 but only merged when own latest HEAD 5/5 Hosted CI + Codex Completed zero findings + no conflicting Main updates.

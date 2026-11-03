@@ -238,5 +238,6 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/wrangler.preview-migrations.example.jsonc":"3e4a8feb7459c9bcfa08a2a36f8d7b4e45bac1a1dbbfe020bf8466b22d2b2f67",
   "db/backup.sql":"2823994610ca8373e11d342358392144532f1414570ad5fdbc95b470891d53ce",
   "db/pricing.sql":"9f39233e8ca336d9a7cc7747ba262250ff5b4e6e434d92cc00ec1cb4175adadd",
+  "tests/native-admin-quota-preflight-integration.test.js":"4d66495f162c351a8fa9ef52c93bf1ba7ec8751f57911c0325e9b50c3e1394f9",
   "db/schema.sql":"81b2be4f700f34e0fb978a7054677d79ede35255f91cb5a9d58d518c3339e2ce",
 });

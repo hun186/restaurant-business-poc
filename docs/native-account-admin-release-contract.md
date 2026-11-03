@@ -187,3 +187,20 @@ The WHATWG URL and runtime Request normalize some path forms before
 `Request.url` is presented; this helper does not claim to detect raw HTTP
 octets lost during transport normalization. No public route or production
 operation is added.
+
+### 2026-11-03｜Dormant Owner preflight + JSON preparation sequence
+
+An isolated synthetic `prepareNativeAdminCommandV1` composes the existing
+read-only Owner/quota preflight **before** the bounded JSON stream decoder.
+Missing quotas, invalid Owner/CSRF and rate-limit denial never consume the body;
+accepted Owners can decode the five v1 command shapes. This is not an HTTP
+handler, action dispatcher or D1 mutation executor. Successful preparation
+MUST NOT be treated as transaction authorization: the independently verified
+transaction-time Owner/Session/CSRF checks remain mandatory.
+
+Tests assert quota-before-body ordering, no D1 batch writes, and fail-closed
+invalid JSON responses. The public Cloudflare Worker remains 503 and cannot
+import the dormant preparation module. No production login, D1 write or
+Cloudflare deployment was authorized. This PR is staged under an integration
+branch to avoid unnecessary Vercel production builds; only an approved final
+release PR to main will attempt a production build.

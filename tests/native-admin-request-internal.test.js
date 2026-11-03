@@ -72,6 +72,18 @@ test('synthetic Request rejects insecure methods, origins, headers and overlong 
   });
   assert.deepEqual(await read(new Request(url,{...init(body),duplex:'half'})),bad);
   assert.equal(cancelCalled,true);
+  // Thousands of zero-length chunks do not consume the 2048-byte buffer.
+  // Request deadline/CPU accounting still needs separate release review.
+  let emptyCount=0;
+  const emptyChunks=new ReadableStream({
+    pull(controller){
+      if(emptyCount++<5000){controller.enqueue(new Uint8Array());return;}
+      controller.enqueue(bytes(base));controller.close();
+    }
+  });
+  assert.deepEqual(await read(new Request(url,{...init(emptyChunks),duplex:'half'})),
+    {ok:true,input:base});
+  assert.ok(emptyCount>=5000);
 });
 
 test('public Worker stays closed and does not import dormant request decoder',async()=>{

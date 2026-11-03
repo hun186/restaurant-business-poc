@@ -39,7 +39,7 @@ async function fixture(role='owner'){
     method:'POST',headers:{origin:'https://private.example',
       'content-type':'application/json',
       cookie:auth.SESSION_COOKIE+'='+token,'x-csrf-token':csrf},
-    body:JSON.stringify({action:'user.role',role:'manager',targetUserId})
+    body:JSON.stringify({action:'user.role',role:'manager',targetUserId:targetId})
   });
   return {env,calls,request};
 }

@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Profile
 
+> **2026-11-03 Dormant Native Admin Owner Admission（本 PR，待 Hosted CI / Codex）**：接續已合併 #114 main `2f33102f9ae6b0ab80f2e5f4831540edf4f984fb`，建立 `test/native-admin-owner-admission-20261103`。獨立新增 `cloudflare/native-admin-admission-internal.mjs`：雙重 test Gate、不讀取請求 Body、必須外部提供嚴格布林型預認證 quota（缺失 503、拒絕 429）、再以既有 `loadPrincipal`／`authorizedMutation` 驗證 HTTPS、Same Origin、有效 Owner Session 與綁定 CSRF，接著執行 Owner scope quota。各階段失敗不回傳 Cookie、Token 或 SQL，不能執行 D1.batch；合成測 Owner/Manager/Staff、過期與撤銷 Session、異常 Origin/CSRF、quota failure/deny、全部五種操作及原 Worker 503。這**不是可部署的 quota 或新公開 API**：需要獨立共享限流服務、身分／邊界驗收、交易內二次檢查與正式上線審批；未操作 Cloudflare、Production D1、Owner、Restore，Production Auth disabled、Preview OFF。需最新 HEAD CI + 正式 Codex Review 完成、無阻擋 Finding 才可 Merge。
+
+
 > **2026-11-03 Native Admin stream resource budget（新 PR，CI/Review 待驗）**：PR #113 已 Squash Merge main `bec1750240116adb86144aff8456913e9ab23c81`；第一輪 Codex P2「零長度 chunk 無界累積」已改固定 2048-byte buffer、合成負測與閉合 SHA256，HEAD CI 5/5 + Codex re-review 0 new findings，原 Thread resolved。新工作 `fix/native-admin-stream-budget-deadline-20261103` 限縮**未發布**讀取器讀取總期限 2000ms（計時不因後續 chunk 重設）、4096 chunks 上限，合成測 stalled stream/zero-byte flood/正常有限空片段，未從 Worker import、不打 D1。仍需正式 Owner/Session/CSRF、Rate Limit、Response secrecy、Staging UAT、Production 授權才能發布；CI/Review/合併狀態不可提前宣稱。Production Auth disabled、Preview OFF，沒有生產 DB/Owner/Restore/部署變更。
 
 

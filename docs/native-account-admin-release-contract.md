@@ -204,3 +204,15 @@ import the dormant preparation module. No production login, D1 write or
 Cloudflare deployment was authorized. This PR is staged under an integration
 branch to avoid unnecessary Vercel production builds; only an approved final
 release PR to main will attempt a production build.
+
+### 2026-11-03｜Synthetic transaction-time Owner invalidation matrix
+
+After the read-only Owner/Session/CSRF lookup, local SQLite/D1 adapter tests
+invalidate the Owner in three ways just before the transaction: CSRF rotation,
+Session expiry and user deactivation. All four access commands and password
+rotation must reject with 409 while leaving target data, target Sessions and
+audit rows unchanged. No deployed Cloudflare D1 writes are performed.
+
+These synthetic checks do not replace live staging security UAT, durable
+cross-isolate quota, or explicit Production authorization. Public management
+endpoints remain closed with 503.

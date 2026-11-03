@@ -66,7 +66,14 @@ export function decodeAdminBodyV1(bytes){
 
 // Bounded parser, not an HTTP handler. Owner/CSRF/RBAC, slow-drip deadlines and
 // rate limiting require separate review BEFORE any public endpoint can use it.
-export async function readAdminRequestV1(request){
+export async function readAdminRequestV1(request,options=undefined){
+  // A caller may only shrink this decoder budget, never extend it.
+  let readTimeoutMs;
+  try{
+    readTimeoutMs=options===undefined?MAX_ADMIN_READ_MS:options?.readTimeoutMs;
+    if(!Number.isSafeInteger(readTimeoutMs)||readTimeoutMs<1||
+       readTimeoutMs>MAX_ADMIN_READ_MS)return bad();
+  }catch{return bad();}
   if(!request||request.method!=='POST'||!request.headers||
      typeof request.headers.get!=='function')return bad();
   let url,len,reader;
@@ -91,7 +98,7 @@ export async function readAdminRequestV1(request){
   const bytes=new Uint8Array(MAX_ADMIN_BODY_BYTES);
   let size=0,reads=0,timer;
   const deadline=new Promise((_,reject)=>{
-    timer=setTimeout(()=>reject(new Error('E_READ_DEADLINE')),MAX_ADMIN_READ_MS);
+    timer=setTimeout(()=>reject(new Error('E_READ_DEADLINE')),readTimeoutMs);
   });
   try{
     for(;;){

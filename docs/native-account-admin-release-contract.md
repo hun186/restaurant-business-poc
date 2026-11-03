@@ -238,3 +238,16 @@ actor-ID contracts aligned.
 This does not verify a real D1 schema, install a durable shared quota backend
 or authorize any public administration endpoint. Production D1 remains
 unmodified and login/admin routes stay closed.
+
+### 2026-11-04｜Shared admission-to-reader time budget
+
+The dormant `prepareNativeAdminCommandV1` uses a monotonic time budget that
+begins before Owner/quota preflight. After admission, the bounded decoder only
+receives the **remaining** milliseconds, not a fresh 2000ms. An internal-only
+optional test budget may reduce the default, but never increase it; invalid
+budgets fail closed without quota/D1 reads or Body consumption. Tests cover
+slow synthetic preauth and shortened reader deadlines.
+
+This is a best-effort bound for the non-mutating preparation path, not a hard
+guarantee if external services ignore cancellation or the event loop stalls.
+No live shared quota, public API, Production D1 write or Cloudflare deployment.

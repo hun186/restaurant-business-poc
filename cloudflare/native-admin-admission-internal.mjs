@@ -51,6 +51,15 @@ export async function preflightNativeAdminV1(request,env,quota){
   // This does not replace the bounded body parser that follows admission.
   if(!validAdminBodyHeadersV1(request.headers))
     return {status:400,code:'E_INVALID_INPUT'};
+  // A missing, already consumed or locked body cannot be decoded later.
+  // Reject it before incurring preauth quota or read-only D1 identity work.
+  // This does not read, lock, allocate or parse any body bytes.
+  try{
+    const body=request.body;
+    if(request.bodyUsed!==false||!body||
+       typeof body.getReader!=='function'||body.locked!==false)
+      return {status:400,code:'E_INVALID_INPUT'};
+  }catch{return {status:400,code:'E_INVALID_INPUT'};}
 
   const controller=new AbortController();
   let expired=false,timeoutId;

@@ -313,3 +313,38 @@ test('Owner preflight and parser share the same cheap MIME and byte-length contr
   assert.deepEqual(await parser.readAdminRequestV1(ok),{ok:true,input:base});
   assert.equal(f.calls.writes,0);
 });
+
+test('Owner preflight rejects missing, consumed and locked bodies before quota or D1',async()=>{
+  const admit=(await admitPromise).preflightNativeAdminV1;
+  for(const kind of ['missing','consumed','locked']){
+    const f=await fixture();
+    let req,reader;
+    if(kind==='missing'){
+      const withHeaders=f.request();
+      req=new Request(ENDPOINT,{method:'POST',headers:withHeaders.headers});
+    }else{
+      req=f.request();
+      if(kind==='consumed')await req.text();
+      else reader=req.body.getReader();
+    }
+    try{
+      assert.deepEqual(await admit(req,f.env,f.quota),
+        {status:400,code:'E_INVALID_INPUT'},kind);
+      assert.equal(f.calls.queries,0);
+      assert.equal(f.calls.writes,0);
+      assert.deepEqual(f.calls.quota,[]);
+    }finally{reader?.releaseLock();}
+  }
+});
+
+test('malformed body getter in synthetic request is rejected without quota or D1',async()=>{
+  const f=await fixture(),admit=(await admitPromise).preflightNativeAdminV1;
+  const valid=f.request();
+  const malformed={method:'POST',url:ENDPOINT,headers:valid.headers,
+    bodyUsed:false,get body(){throw Error('SECRET_BODY_GETTER');}};
+  assert.deepEqual(await admit(malformed,f.env,f.quota),
+    {status:400,code:'E_INVALID_INPUT'});
+  assert.deepEqual(f.calls.quota,[]);
+  assert.equal(f.calls.queries,0);
+  assert.equal(f.calls.writes,0);
+});

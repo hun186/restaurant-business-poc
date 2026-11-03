@@ -47,6 +47,8 @@ async function fixture(options={}){
     ACCOUNT_SECURITY_STAGE:'internal-test-only',DB};
   const quota={async consume(scope){
     calls.quota.push(scope);
+    if(options.preauthDelayMs&&scope.scope==='native-admin-preauth')
+      await new Promise(resolve=>setTimeout(resolve,options.preauthDelayMs));
     if(options.quotaThrows)throw Error('SYNTHETIC_QUOTA_SECRET');
     if(options.denyScope===scope.scope)return false;
     if(options.quotaInvalid)return {allowed:true};
@@ -430,4 +432,32 @@ test('malformed D1 Owner ID never reaches Owner quota or JSON body preparation',
     assert.equal(f.calls.writes,0);
     assert.equal(f.calls.quota.filter(x=>x.scope==='native-admin-owner').length,0);
   }
+});
+
+test('private prepare cannot restore spent preflight time to the JSON reader',async()=>{
+  const {prepareNativeAdminCommandV1:prepare}=
+    await import('../cloudflare/native-admin-prepare-internal.mjs');
+  const f=await fixture({preauthDelayMs:65}),req=f.request();
+  assert.deepEqual(await prepare(req,f.env,f.quota,{budgetMs:20}),
+    {status:503,code:'E_ADMIN_PREPARE_UNAVAILABLE'});
+  assert.equal(req.bodyUsed,false);
+  assert.equal(f.calls.writes,0);
+  assert.deepEqual(f.calls.quota,[
+    {scope:'native-admin-preauth'}, {scope:'native-admin-owner',actorId}
+  ]);
+});
+
+test('invalid private prepare budgets fail before any quota, D1 or body read',async()=>{
+  const {prepareNativeAdminCommandV1:prepare}=
+    await import('../cloudflare/native-admin-prepare-internal.mjs');
+  const f=await fixture();
+  for(const budget of [0,-1,2001,0.5,null]){
+    const req=f.request();
+    assert.deepEqual(await prepare(req,f.env,f.quota,{budgetMs:budget}),
+      {status:503,code:'E_ADMIN_PREPARE_UNAVAILABLE'});
+    assert.equal(req.bodyUsed,false);
+  }
+  assert.deepEqual(f.calls.quota,[]);
+  assert.equal(f.calls.queries,0);
+  assert.equal(f.calls.writes,0);
 });

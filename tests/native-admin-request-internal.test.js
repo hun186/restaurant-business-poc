@@ -240,3 +240,27 @@ test('one shared exact-route policy rejects aliases, URL credentials and query/f
     body:{getReader(){throw Error('SECRET_BODY');}}};
   assert.deepEqual(await read(fake),bad);
 });
+
+test('internal caller can only shrink reader time budget, never extend it',async()=>{
+  const {readAdminRequestV1:read,MAX_ADMIN_READ_MS}=await load();
+  const origin='https://restaurant.example.workers.dev';
+  let acquired=0,canceled=0,released=0;
+  const req={method:'POST',url:origin+'/api/admin/account',
+    headers:new Headers({origin,'content-type':'application/json'}),
+    body:{getReader(){acquired++;return {
+      read(){return new Promise(()=>{});},
+      cancel(){canceled++;return Promise.resolve();},
+      releaseLock(){released++;}
+    };}}
+  };
+  for(const budget of [0,-1,MAX_ADMIN_READ_MS+1,1.5,null]){
+    assert.deepEqual(await read(req,{readTimeoutMs:budget}),bad);
+  }
+  assert.equal(acquired,0);
+  const started=Date.now();
+  assert.deepEqual(await read(req,{readTimeoutMs:30}),bad);
+  assert.ok(Date.now()-started<1000,'short deadline should not wait the original 2s');
+  assert.equal(acquired,1);
+  assert.equal(canceled,1);
+  assert.equal(released,1);
+});

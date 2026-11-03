@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-03 Native Admin stream resource budget（新 PR，CI/Review 待驗）**：PR #113 已 Squash Merge main `bec1750240116adb86144aff8456913e9ab23c81`；第一輪 Codex P2「零長度 chunk 無界累積」已改固定 2048-byte buffer、合成負測與閉合 SHA256，HEAD CI 5/5 + Codex re-review 0 new findings，原 Thread resolved。新工作 `fix/native-admin-stream-budget-deadline-20261103` 限縮**未發布**讀取器讀取總期限 2000ms（計時不因後續 chunk 重設）、4096 chunks 上限，合成測 stalled stream/zero-byte flood/正常有限空片段，未從 Worker import、不打 D1。仍需正式 Owner/Session/CSRF、Rate Limit、Response secrecy、Staging UAT、Production 授權才能發布；CI/Review/合併狀態不可提前宣稱。Production Auth disabled、Preview OFF，沒有生產 DB/Owner/Restore/部署變更。
+
+
 > **2026-11-03 Native Admin v1 parser（本分支，CI / Codex Review 待查）**：從已合併 #112 的 main `0143a9b52515f6981cc68f57b21db154d0c905fd` 建立 `feat/native-admin-v1-bounded-request-parser-20261103`。純隔離模組新增 2048-byte bounded body/UTF-8/JSON exact-key/type/UUID、HTTPS/POST/Origin/Content-Type 前置解析，僅合成負測；公開 Worker 不匯入，預定帳號管理路由仍 503。同步更新閉合 SHA256、隔離驗證與 release 契約。尚無 slow-drip deadline、Rate Limit、Owner/Session/CSRF/RBAC 的正式 HTTP 整合，Production Auth disabled／Preview OFF，未授權任何 Prod D1/Owner/Restore/部署。本 PR 最新 HEAD Hosted CI 與正式 Codex Review 必須完成，且 clean Gate 才可 Auto-Merge；不可將 PR 合成 PASS 當成正式營運授權。
 
 

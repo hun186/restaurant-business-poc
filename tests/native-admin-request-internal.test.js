@@ -77,13 +77,34 @@ test('synthetic Request rejects insecure methods, origins, headers and overlong 
   let emptyCount=0;
   const emptyChunks=new ReadableStream({
     pull(controller){
-      if(emptyCount++<5000){controller.enqueue(new Uint8Array());return;}
+      if(emptyCount++<500){controller.enqueue(new Uint8Array());return;}
       controller.enqueue(bytes(base));controller.close();
     }
   });
   assert.deepEqual(await read(new Request(url,{...init(emptyChunks),duplex:'half'})),
     {ok:true,input:base});
-  assert.ok(emptyCount>=5000);
+  assert.ok(emptyCount>=500);
+});
+
+test('synthetic stream has finite chunk and wall-clock read budgets',async()=>{
+  const {readAdminRequestV1:read,MAX_ADMIN_READ_CHUNKS,MAX_ADMIN_READ_MS}=await load();
+  assert.equal(MAX_ADMIN_READ_CHUNKS,4096);
+  assert.equal(MAX_ADMIN_READ_MS,2000);
+  const url='https://restaurant.example.workers.dev/api/admin/account';
+  const init=body=>({method:'POST',duplex:'half',body,
+    headers:{origin:'https://restaurant.example.workers.dev',
+      'content-type':'application/json'}});
+  let count=0;
+  const unboundedEmpty=new ReadableStream({
+    pull(controller){count++;controller.enqueue(new Uint8Array());}
+  });
+  assert.deepEqual(await read(new Request(url,init(unboundedEmpty))),bad);
+  assert.ok(count>=MAX_ADMIN_READ_CHUNKS);
+  // A producer which never supplies a chunk must not hold an awaited read forever.
+  const stalled=new ReadableStream({start(){}});
+  const start=Date.now();
+  assert.deepEqual(await read(new Request(url,init(stalled))),bad);
+  assert.ok(Date.now()-start<10000);
 });
 
 test('public Worker stays closed and does not import dormant request decoder',async()=>{

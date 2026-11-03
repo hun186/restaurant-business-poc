@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Profile
 
+> 2026-11-03 新增 Dormant Native Admin v1 Request parser 分支，僅離線合成測試、Worker 相依隔離與 2048-byte strict body/json/URL/Origin 前置解析；正式管理 HTTP API 不存在，Production Login disabled，Preview URLs OFF。main 起點是已合併 #112 的 `0143a9b52515f6981cc68f57b21db154d0c905fd`。此分支尚待最新 HEAD Hosted CI、正式 Codex Review；不等於真實雲端部署/Owner Enrollment/D1 Write。後續仍需 owner/session/CSRF、slow-drip/rate-limit、防濫用與受控 UAT；任何正式配置與 D1 寫入須獨立核准。
+
+
 ## Current State
 
 > 2026-10-30 P0 G5/#46：使用者表示已完成 `d1-recovery-drill-write` 的 `main` 分支限制及非敏感 Variables；GitHub Connector 不支援 Environment 設定讀取，屬人工回報、非 API 驗證。Repo 無協作者，Required reviewers 雙人審核不可用。主線 PR #48 已 Squash Merge `0dd0484889f3332e9a84b4b9dfde97d5b6aa0326`、Postmerge CI #40973179539 5/5 PASS。現在新增獨立 G5 唯讀 Cloudflare Worker Versions／Pages Project D1 Binding 盤點工具（手動 main-only workflow、合成失敗封閉測試、SHA-256 指紋），只在新 PR 審核；**未呼叫 Cloudflare、未實證無綁定、未授權 Restore**。需人工配置單獨 Read Token/Environment；`G5_DRILL_RESTORE_APPROVED` 必須保持未設定、Write Token 不預置。正式 Production Migration／登入／業務寫入、加密異地備份、RPO/RTO 繼續未完成。

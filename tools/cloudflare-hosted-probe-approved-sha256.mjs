@@ -184,7 +184,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-d1-login-indexes.test.js":"b9f5fd472f3a4cee2f9b46d1223305af2b2c0234a5af5130cc786bbb11d6f252",
   "tests/cloudflare-source-ip-canonicalization.test.js":"89cb552af9df0828628b4d13eaf7e59f3f72c46254b3c98a73daaaf3e378507d",
   "tests/cloudflare-native-account-release-isolation.test.js":"d9ac565ebc2cf178e593c91f4a4930ea0a92cebc5fbfdb7939d0dd72b7ea64a9",
-  "tests/native-admin-admission-internal.test.js":"bafc4045be2b1e6758fb4e41bbbe20afe756dbfda5e6df97e27b816e8a641a9b",
+  "tests/native-admin-admission-internal.test.js":"9054d03b4a3c21839f83815b756fb1787f7ebc2b9487b7047ef3a08ec46495b5",
   "tests/native-admin-request-internal.test.js":"48bec896f65d9d1813bf9d7c80ea0a8eae379093d432cab1a33d876370827a83",
   "tests/native-account-admin-api-contract-v1.test.js":"b59e0bff10120ba486d631024e53c96a1b04f393123f410f95c69e96a08d4aad",
   "tests/cloudflare-d1-account-access-internal.test.js":"fb47c0c895c5c6cecb58d12bc7d8dff24c48911ef25734743522abf89a6d26a1",

@@ -2,7 +2,7 @@
 // Synthetic-only: it makes no mutations, dispatches no account actions, and
 // does not consume a request body. Real release needs a separate security gate.
 import {loadPrincipal, authorizedMutation, sameOrigin} from './auth-core.mjs';
-import {validAdminBodyHeadersV1} from './native-admin-request-internal.mjs';
+import {validAdminBodyHeadersV1,validAdminPathV1} from './native-admin-request-internal.mjs';
 
 const unavailable=()=>({status:503,code:'E_NOT_READY'});
 const error=()=>({status:503,code:'E_ADMIN_PREFLIGHT_UNAVAILABLE'});
@@ -40,9 +40,7 @@ export async function preflightNativeAdminV1(request,env,quota){
      typeof request.headers.get!=='function')
     return {status:400,code:'E_INVALID_INPUT'};
   // Bind to the candidate v1 route before quota and D1 authorization work.
-  let url;
-  try{url=new URL(request.url);}catch{return {status:400,code:'E_INVALID_INPUT'};}
-  if(url.pathname!=='/api/admin/account'||url.search||url.hash)
+  if(!validAdminPathV1(request.url))
     return {status:400,code:'E_INVALID_INPUT'};
   try{
     if(!sameOrigin(request))return {status:403,code:'E_FORBIDDEN'};

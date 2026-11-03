@@ -348,3 +348,18 @@ test('malformed body getter in synthetic request is rejected without quota or D1
   assert.equal(f.calls.queries,0);
   assert.equal(f.calls.writes,0);
 });
+
+test('Owner admission shares exact-route policy and rejects userinfo before quota or D1',async()=>{
+  const f=await fixture(),admit=(await admitPromise).preflightNativeAdminV1;
+  const from=f.request();
+  const request={method:'POST',
+    url:'https://synthetic-user:synthetic-secret@private.example/api/admin/account',
+    headers:from.headers,bodyUsed:false,body:from.body};
+  assert.equal((await decoderPromise).validAdminPathV1(request.url),false);
+  assert.deepEqual(await admit(request,f.env,f.quota),
+    {status:400,code:'E_INVALID_INPUT'});
+  assert.deepEqual(f.calls.quota,[]);
+  assert.equal(f.calls.queries,0);
+  assert.equal(f.calls.writes,0);
+  assert.equal(from.bodyUsed,false);
+});

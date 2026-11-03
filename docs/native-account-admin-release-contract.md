@@ -45,3 +45,7 @@
 - New synthetic `tests/native-admin-request-internal.test.js` checks five actions, malformed input, 2048/2049-byte boundary, invalid encoding, unknown properties, rejected origins and streaming cutoff. The Worker import isolation tests and reviewed SHA256 inventory include this module.
 - **Not release-ready:** the reader does not implement slow-drip read deadlines, credential/session validation, Owner RBAC, CSRF, rate limiting or deployment gates. It must not be used in any live endpoint until those controls and deployment/UAT are separately reviewed.
 - Production `CLOUD_AUTH_PHASE=disabled`, Preview URLs OFF, and proposed `POST /api/admin/account` still returns 503 without D1. No Production D1 write, enrollment, Restore, or Worker deployment is performed by this PR.
+
+### 2026-11-03｜Unreleased stream read time and chunk budget
+
+An additional synthetic-only revision enforces a total 2000ms read deadline (not refreshed by each stream chunk) and a 4096-chunk maximum including empty chunks. A stalled producer or high-rate zero-byte flood is denied without raw-body echo; an ordinary bounded JSON body still works. A timer and chunk cap are defense-in-depth, **not** a production rate-limiter, authentication substitute or comprehensive CPU/resource guarantee. Live endpoint integration remains blocked behind separate review, threat modeling and Owner/session/CSRF/rate-limit/UAT authorization.

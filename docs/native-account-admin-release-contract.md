@@ -251,3 +251,24 @@ slow synthetic preauth and shortened reader deadlines.
 This is a best-effort bound for the non-mutating preparation path, not a hard
 guarantee if external services ignore cancellation or the event loop stalls.
 No live shared quota, public API, Production D1 write or Cloudflare deployment.
+
+### 2026-11-04｜Dormant Durable Object atomic quota candidate
+
+A candidate `NativeAdminQuotaDurableObject` (not connected to Wrangler or the
+public Worker) calls a pure fixed-window quota core that uses
+`ctx.storage.transaction()` for per-object read-modify-write. The matching
+private transport routes `preauth` using an externally derived, trusted 64-
+hex-character subject partition and routes the Owner scope using a canonical
+UUID. It does not derive subject identity from spoofable HTTP headers or
+introduce an all-users global preauth bucket. Synthetic example thresholds
+are **3 preauth / minute** and **2 Owner / minute** solely for unit tests, not
+approved production limits. Tests cover overlapping synthetic callers sharing
+a transaction store, rollover, corrupt storage, Owner partition separation,
+aborted/invalid RPC and Worker import isolation.
+
+**Not deployable as-is:** there is no reviewed trusted per-request HMAC subject
+derivation, Durable Object Wrangler binding/migration, actual cross-isolate
+Workers RPC test, real storage race UAT, load measurements, retry/idempotency
+policy, or operational security sign-off. An aborted in-flight RPC may still
+consume quota; callers must fail closed and never auto-retry. No Production D1
+write, Cloudflare deployment or public administration route was performed.

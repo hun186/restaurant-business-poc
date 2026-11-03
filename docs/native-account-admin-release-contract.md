@@ -159,3 +159,16 @@ Real Cloudflare Request objects normally expose compliant Web Stream interfaces.
 These synthetic guards do not constitute a deployed administration endpoint or
 a replacement for rate limits, a shared quota service and transaction-time RBAC.
 Production login/Worker admin route/D1 write remain disabled.
+
+### 2026-11-03｜Early missing/consumed/locked body rejection
+
+Before spending preauthentication quota or reading D1 identity, the dormant
+Owner preflight now checks that the Request has an unconsumed, unlocked
+ReadableStream-like body. Missing, consumed, locked and throwing body getters
+fail closed as 400. This check does not read bytes or acquire the stream lock.
+Synthetic tests show zero quota and SQL calls for those inputs.
+
+These are inexpensive plausibility checks only: a producer may still provide
+oversize/invalid JSON or lock the stream after preflight. The bounded decoder
+must always run later and the D1 mutation must reauthorize in its transaction.
+No exposed admin route, remote quota backend, production login or D1 write.

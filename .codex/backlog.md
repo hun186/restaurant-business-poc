@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 NEXT｜原生帳號管理 Session/CSRF 與外部限流准入（僅合成）**：在 #113/#114 的封閉 Body reader 上增設隔離式 `preflightNativeAdminV1`，要求測試雙 Gate、非空 D1、外部 quota provider；任何缺失都 503，quota 拒絕 429；先做 preauth quota 才讀 D1，再驗證 HTTPS/Origin/Owner Session/CSRF，最後做 Owner quota。不得在此 PR 中提供本機 Map 假扮可跨 Worker 的分散式限流、不得接上公開 Worker 或直接執行帳號 D1 異動。Owner+Quota 檢查通過不等於正式登入/授權放行，未來需要真正共用 quota backend、稽核、源 IP 可信性、transaction-time actor recheck、Staging UAT 與明確 Production 授權。
+
+
 > **2026-11-03 NEXT｜Native Admin 讀取時間與片段預算**：在 #113 固定大小緩衝區上，增加 2000ms 全讀取期限、4096 個分塊（含空塊）的嚴格上限；合成測連續空片段和永不完成的 stream，要求不能過度分配記憶體、不能無限 Await。這些是**內部合成守衛**，不是正式 Rate Limit、帳號授權、CSRF 或 Production 放行。保持相依隔離、SHA 閉合與 503 ；新 PR 最新 HEAD Hosted CI/正式 Codex Review + Clean Gate 才可 Merge。
 
 

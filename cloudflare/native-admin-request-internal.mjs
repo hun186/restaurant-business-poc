@@ -1,5 +1,10 @@
 // Dormant native admin v1 decoder. Synthetic only; NO Worker route or D1 access.
 export const MAX_ADMIN_BODY_BYTES=2048;
+// A chunk budget prevents an endless chain of synchronously resolved empty reads
+// from starving timers. The monotonic total timer covers slow-drip producers.
+// Both are synthetic guards only; live threat-model approval is still required.
+export const MAX_ADMIN_READ_CHUNKS=4096;
+export const MAX_ADMIN_READ_MS=2000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FIELDS=Object.freeze({
   'user.password':['action','newPassword','targetUserId'],
@@ -51,11 +56,18 @@ export async function readAdminRequestV1(request){
   if(!request.body||typeof request.body.getReader!=='function')return bad();
   const reader=request.body.getReader();
   const bytes=new Uint8Array(MAX_ADMIN_BODY_BYTES);
-  let size=0;
+  let size=0,reads=0,timer;
+  const deadline=new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(new Error('E_READ_DEADLINE')),MAX_ADMIN_READ_MS);
+  });
   try{
     for(;;){
-      const next=await reader.read();
+      const next=await Promise.race([reader.read(),deadline]);
       if(next.done)break;
+      if(++reads>MAX_ADMIN_READ_CHUNKS){
+        void reader.cancel().catch(()=>{});
+        return bad();
+      }
       if(!(next.value instanceof Uint8Array))return bad();
       if(next.value.byteLength>MAX_ADMIN_BODY_BYTES-size){
         void reader.cancel().catch(()=>{});
@@ -64,8 +76,13 @@ export async function readAdminRequestV1(request){
       bytes.set(next.value,size);
       size+=next.value.byteLength;
     }
-  }catch{return bad();}
-  finally{reader.releaseLock();}
+  }catch{
+    void reader.cancel().catch(()=>{});
+    return bad();
+  }finally{
+    clearTimeout(timer);
+    reader.releaseLock();
+  }
   if(len!==null&&Number(len)!==size)return bad();
   return decodeAdminBodyV1(bytes.subarray(0,size));
 }

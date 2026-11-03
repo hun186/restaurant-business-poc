@@ -144,3 +144,18 @@ preauth identity/key source, quota-window policy, and staging tests must be
 designed and audited separately. In particular, a single global preauth
 bucket may cause denial of service and is not approved. Public Worker and
 Production Login remain disabled; no Cloudflare binding, D1 write or deployment.
+
+### 2026-11-03｜Malformed stream and header-object fault containment
+
+The dormant request decoder now catches errors from untrusted/mock Header
+getters (including an Origin getter or Content-Length changing between
+validation and use), Body/getReader setup, and nonstandard reader cancellation
+and release. It returns a stable invalid-input result, not a leaked exception
+or backend diagnostic. Tests exercise throwing and malformed synthetic stream
+interfaces, rejection before body reads, and cleanup. The 2048-byte bound,
+2000ms deadline, 4096-chunk budget and v1 shape validation remain unchanged.
+
+Real Cloudflare Request objects normally expose compliant Web Stream interfaces.
+These synthetic guards do not constitute a deployed administration endpoint or
+a replacement for rate limits, a shared quota service and transaction-time RBAC.
+Production login/Worker admin route/D1 write remain disabled.

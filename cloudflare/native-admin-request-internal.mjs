@@ -59,16 +59,25 @@ export function decodeAdminBodyV1(bytes){
 export async function readAdminRequestV1(request){
   if(!request||request.method!=='POST'||!request.headers||
      typeof request.headers.get!=='function')return bad();
-  let url;
-  try{url=new URL(request.url);}catch{return bad();}
-  // A parser may never accept a body for a different HTTP route.
-  // No aliases, query strings, fragments or trailing slash in v1.
-  if(url.pathname!=='/api/admin/account'||url.search||url.hash)return bad();
-  if(url.protocol!=='https:'||request.headers.get('origin')!==url.origin||
-     !validAdminBodyHeadersV1(request.headers))return bad();
-  const len=request.headers.get('content-length');
-  if(!request.body||typeof request.body.getReader!=='function')return bad();
-  const reader=request.body.getReader();
+  let url,len,reader;
+  try{
+    url=new URL(request.url);
+    // No alternate route, query/fragment or encoded path alias.
+    if(url.pathname!=='/api/admin/account'||url.search||url.hash)return bad();
+    if(url.protocol!=='https:'||request.headers.get('origin')!==url.origin||
+       !validAdminBodyHeadersV1(request.headers))return bad();
+    len=request.headers.get('content-length');
+    if(!request.body||typeof request.body.getReader!=='function')return bad();
+    reader=request.body.getReader();
+    if(!reader||typeof reader.read!=='function'||
+       typeof reader.cancel!=='function'||
+       typeof reader.releaseLock!=='function')return bad();
+  }catch{return bad();}
+  // Synchronous exceptions from a nonstandard reader's cancel/release path
+  // must not turn a failed parse into an unhandled error.
+  const cancel=()=>{
+    try{Promise.resolve(reader.cancel()).catch(()=>{});}catch{}
+  };
   const bytes=new Uint8Array(MAX_ADMIN_BODY_BYTES);
   let size=0,reads=0,timer;
   const deadline=new Promise((_,reject)=>{
@@ -79,23 +88,23 @@ export async function readAdminRequestV1(request){
       const next=await Promise.race([reader.read(),deadline]);
       if(next.done)break;
       if(++reads>MAX_ADMIN_READ_CHUNKS){
-        void reader.cancel().catch(()=>{});
+        cancel();
         return bad();
       }
-      if(!(next.value instanceof Uint8Array))return bad();
+      if(!(next.value instanceof Uint8Array)){cancel();return bad();}
       if(next.value.byteLength>MAX_ADMIN_BODY_BYTES-size){
-        void reader.cancel().catch(()=>{});
+        cancel();
         return bad();
       }
       bytes.set(next.value,size);
       size+=next.value.byteLength;
     }
   }catch{
-    void reader.cancel().catch(()=>{});
+    cancel();
     return bad();
   }finally{
     clearTimeout(timer);
-    reader.releaseLock();
+    try{reader.releaseLock();}catch{}
   }
   if(len!==null&&Number(len)!==size)return bad();
   return decodeAdminBodyV1(bytes.subarray(0,size));

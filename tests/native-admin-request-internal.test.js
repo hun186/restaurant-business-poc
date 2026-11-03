@@ -177,3 +177,46 @@ test('shared header envelope policy stays fail-closed for malformed MIME and len
   assert.equal(valid(req.headers),true);
   assert.deepEqual(await read(req),{ok:true,input:base});
 });
+
+test('synthetic malformed Headers getters and changing length never escape decoder',async()=>{
+  const {readAdminRequestV1:read}=await load();
+  const url='https://restaurant.example.workers.dev/api/admin/account';
+  const origin='https://restaurant.example.workers.dev';
+  const obj=(headers,body={getReader(){throw Error('SECRET_STREAM');}})=>
+    ({url,method:'POST',headers,body});
+  const good={get(key){return key==='origin'?origin:
+    key==='content-type'?'application/json':null;},has(){return false;}};
+  assert.deepEqual(await read(obj({...good,
+    get(key){if(key==='origin')throw Error('SECRET_ORIGIN');return good.get(key);}})),bad);
+  let lengthReads=0;
+  assert.deepEqual(await read(obj({...good,
+    get(key){if(key==='content-length'&&++lengthReads>1)throw Error('SECRET_LENGTH');
+      return good.get(key);}})),bad);
+  assert.deepEqual(await read(obj(good)),bad,
+    'throwing getReader must fail with a stable invalid-input result');
+  assert.deepEqual(await read(obj(good,{getReader(){return null;}})),bad);
+});
+
+test('synthetic stream errors and cleanup throwing cannot leak an exception',async()=>{
+  const {readAdminRequestV1:read}=await load();
+  const url='https://restaurant.example.workers.dev/api/admin/account';
+  const origin='https://restaurant.example.workers.dev';
+  const headers=new Headers({origin,'content-type':'application/json'});
+  let released=0,canceled=0;
+  const body={getReader(){return {
+    read(){throw Error('SECRET_READ');},
+    cancel(){canceled++;throw Error('SECRET_CANCEL');},
+    releaseLock(){released++;throw Error('SECRET_RELEASE');}
+  };}};
+  assert.deepEqual(await read({url,method:'POST',headers,body}),bad);
+  assert.equal(canceled,1);
+  assert.equal(released,1);
+  const invalidChunk={getReader(){return {
+    async read(){return {done:false,value:'not-a-byte-array'};},
+    cancel(){canceled++;return undefined;},
+    releaseLock(){released++;throw Error('SECRET_RELEASE');}
+  };}};
+  assert.deepEqual(await read({url,method:'POST',headers,body:invalidChunk}),bad);
+  assert.equal(canceled,2);
+  assert.equal(released,2);
+});

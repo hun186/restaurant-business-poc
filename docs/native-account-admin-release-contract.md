@@ -86,3 +86,18 @@ The guard prevents accidental handler reuse; it is not a new public HTTP
 route or authorization to deploy. Public Cloudflare Worker still returns
 `503 E_NOT_READY` and does not import these internal modules. No Cloudflare,
 Production D1, Owner enrollment or Restore changes were performed.
+
+### 2026-11-03｜Cheap admin request envelope before expensive Owner admission
+
+The dormant `preflightNativeAdminV1` now mirrors the parser's inexpensive
+`Content-Type: application/json` (optional `charset=utf-8`), no
+`Content-Encoding`, and strictly numeric declared `Content-Length <= 2048`
+rules before preauth quota or D1 principal queries. Limits reuse the
+decoder's `MAX_ADMIN_BODY_BYTES` constant. Bad envelopes return generic
+`400 E_INVALID_INPUT` without reading the body, consuming quota or reading D1.
+
+This validates only the declared header envelope: an absent or forged
+Content-Length does not prove actual body size. The bounded streaming parser
+still must run **after admission**; the public Worker still does not import
+the dormant implementation and keeps `503 E_NOT_READY`. No Production
+Auth/Owner/D1 write, deployment or Restore authorization is implied.

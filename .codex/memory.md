@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-03 Dormant native admin cheap header envelope (new PR; CI/Codex pending)**: #117 Squash Merged main `7b5b9560588d3ec4c1c59b48f38c739cc4fb00c2`; postmerge Verify #41613772440 succeeded 5/5. The new synthetic-only admission revision validates Content-Type JSON/optional UTF-8 charset, rejects any Content-Encoding and malformed/oversized declared Content-Length **before** quota or D1 read. It imports the parser's shared 2048-byte constant and adds malformed-header zero-side-effect tests. This is not body-size proof or an HTTP route. Public Worker remains 503, Production Auth disabled and Preview OFF; no Cloudflare or D1 writes. Latest HEAD Hosted CI and formal Codex Review are required before merge.
+
+
 > **2026-11-03 Exact v1 admin route guard (new PR; CI/Codex pending)**: #116 was Squash Merged as main `bb0826a7e4e82305d9eb2c7ded4e3cdfb6261c20`, and postmerge Main Verify #41612626525 passed 5/5. This isolated PR requires exact `/api/admin/account` (no query, fragment, trailing slash or encoded alias) in both synthetic request parsing and Owner admission; off-contract URLs reject before body/quota/D1. No public route or Worker import, Cloudflare deploy config or D1 write. New HEAD Hosted CI and formal Codex Review remain mandatory before merge.
 
 

@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-03 Native Admin v1 parser（本分支，CI / Codex Review 待查）**：從已合併 #112 的 main `0143a9b52515f6981cc68f57b21db154d0c905fd` 建立 `feat/native-admin-v1-bounded-request-parser-20261103`。純隔離模組新增 2048-byte bounded body/UTF-8/JSON exact-key/type/UUID、HTTPS/POST/Origin/Content-Type 前置解析，僅合成負測；公開 Worker 不匯入，預定帳號管理路由仍 503。同步更新閉合 SHA256、隔離驗證與 release 契約。尚無 slow-drip deadline、Rate Limit、Owner/Session/CSRF/RBAC 的正式 HTTP 整合，Production Auth disabled／Preview OFF，未授權任何 Prod D1/Owner/Restore/部署。本 PR 最新 HEAD Hosted CI 與正式 Codex Review 必須完成，且 clean Gate 才可 Auto-Merge；不可將 PR 合成 PASS 當成正式營運授權。
+
+
 > **2026-11-03 Native Account Admin v1 機器可讀契約／RBAC 驗證（新 PR 待 CI/Review）**：接續已合併 #111 main `875879ffdbf25da21d4fb1748ec6d4cc9433ce13`（公開 Worker 相依隔離＋預定 Admin 路由 503/no D1）。本分支 `test/native-account-admin-v1-contract-rbac-20261103` 新增 `docs/native-account-admin-api-contract-v1.json`：五個 D1 內部帳號 Action 的 exact keys/types、Owner-only、Session 全撤銷、安全 Audit、預定 `POST /api/admin/account`（**設計候選，沒有公開路由**）、2048-byte HTTPS/Origin/CSRF 設計條件，明示 Production Gate 未授權。新增合成 RBAC × 各操作矩陣：Manager 即使有門市授權、Staff 都不得修改；Owner 操作成功才撤銷雙 Session/記錄稽核；負向型別不造成 D1 Side Effects；密碼更新同樣不可由 Manager/Staff 執行。新增候選 URL 在 Disabled/Preview 即使 synthetic gates 被注入仍 503/no D1 的測試；文件與 Reviewed SHA256 同步。Production Login disabled、Preview URLs OFF，不使用 Zero Trust，沒有 Production D1／Owner／Restore 或新 API。最新 HEAD Hosted CI 與正式 Codex Review 需 completed/zero findings、clean Gate 才 Merge。
 
 

@@ -216,3 +216,38 @@ audit rows unchanged. No deployed Cloudflare D1 writes are performed.
 These synthetic checks do not replace live staging security UAT, durable
 cross-isolate quota, or explicit Production authorization. Public management
 endpoints remain closed with 503.
+
+### 2026-11-04｜External quota adapter fail-closed security
+
+The dormant injected quota adapter now rejects request-defined accessors,
+symbol keys, malformed Proxy reflective traps and forged abort signals before
+reaching the external backend. Any backend exception becomes a generic
+`E_QUOTA_CONTRACT_UNAVAILABLE` error without exposing backend diagnostics.
+These changes are synthetic; no shared quota service, preauth identity source,
+public administration route, Cloudflare binding or production D1 write exists.
+
+### 2026-11-04｜Owner UUID validation before quota consumption
+
+Dormant Owner preflight now requires a canonical lowercase UUID from the
+read-only D1 principal before consuming Owner-scoped quota or returning a
+prepared command. Synthetic invalid, uppercase and null IDs yield a generic
+503 after preauth quota and read-only identity lookup, without reading JSON
+or dispatching D1 writes. This keeps the preflight and external transport
+actor-ID contracts aligned.
+
+This does not verify a real D1 schema, install a durable shared quota backend
+or authorize any public administration endpoint. Production D1 remains
+unmodified and login/admin routes stay closed.
+
+### 2026-11-04｜Shared admission-to-reader time budget
+
+The dormant `prepareNativeAdminCommandV1` uses a monotonic time budget that
+begins before Owner/quota preflight. After admission, the bounded decoder only
+receives the **remaining** milliseconds, not a fresh 2000ms. An internal-only
+optional test budget may reduce the default, but never increase it; invalid
+budgets fail closed without quota/D1 reads or Body consumption. Tests cover
+slow synthetic preauth and shortened reader deadlines.
+
+This is a best-effort bound for the non-mutating preparation path, not a hard
+guarantee if external services ignore cancellation or the event loop stalls.
+No live shared quota, public API, Production D1 write or Cloudflare deployment.

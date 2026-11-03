@@ -58,7 +58,7 @@ test('nonboolean results, thrown transport and late success after abort fail clo
   assert.equal(await make({async consumeAtomic(){return false;}})
     .consume(payload,{signal:sig().signal}),false);
   await assert.rejects(make({async consumeAtomic(){throw Error('BACKEND_SECRET');}})
-    .consume(payload,{signal:sig().signal}),/BACKEND_SECRET/);
+    .consume(payload,{signal:sig().signal}),/E_QUOTA_CONTRACT_UNAVAILABLE/);
   const ctl=sig(),quota=make({consumeAtomic:()=>new Promise(resolve=>{
     queueMicrotask(()=>{ctl.abort();resolve(true);});
   })});
@@ -73,4 +73,43 @@ test('adapter stays internal; public Worker and Wrangler expose no quota binding
   assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
   assert.equal(config.preview_urls,false);
   assert.equal(Object.hasOwn(config.vars,'NATIVE_ADMIN_QUOTA_BINDING'),false);
+});
+
+test('hostile getters, symbols and proxy traps never reach quota storage',async()=>{
+  const {createExternalNativeAdminQuotaV1:make}=await load();
+  let called=0,getters=0;
+  const quota=make({async consumeAtomic(){called++;return true;}});
+  const a={};Object.defineProperty(a,'scope',{enumerable:true,get(){
+    getters++;throw Error('SECRET_SCOPE');
+  }});
+  const b={scope:'native-admin-owner'};
+  Object.defineProperty(b,'actorId',{enumerable:true,get(){
+    getters++;throw Error('SECRET_ACTOR');
+  }});
+  const bad=[
+    a,b,{scope:'native-admin-preauth',[Symbol('extra')]:1},
+    new Proxy({scope:'native-admin-preauth'},{ownKeys(){throw Error('SECRET_KEYS');}}),
+    new Proxy({scope:'native-admin-preauth'},{getPrototypeOf(){throw Error('SECRET_PROTO');}})
+  ];
+  for(const decision of bad)
+    await assert.rejects(quota.consume(decision,{signal:sig().signal}),
+      /E_QUOTA_CONTRACT_UNAVAILABLE/);
+  assert.equal(called,0);assert.equal(getters,0);
+});
+
+test('backend exceptions, hostile transport getter and forged AbortSignal fail closed',async()=>{
+  const {createExternalNativeAdminQuotaV1:make}=await load();
+  assert.equal(make({get consumeAtomic(){throw Error('SECRET_TRANSPORT');}}),null);
+  let called=0;
+  const quota=make({async consumeAtomic(){called++;throw Error('SECRET_BACKEND');}});
+  await assert.rejects(quota.consume({scope:'native-admin-preauth'},{
+    signal:{aborted:false,addEventListener(){}}
+  }),/E_QUOTA_CONTRACT_UNAVAILABLE/);
+  assert.equal(called,0);
+  const error=await quota.consume({scope:'native-admin-preauth'},{
+    signal:sig().signal
+  }).then(()=>null,e=>e);
+  assert.equal(error.message,'E_QUOTA_CONTRACT_UNAVAILABLE');
+  assert.doesNotMatch(error.stack||'',/SECRET_BACKEND|SECRET_TRANSPORT/);
+  assert.equal(called,1);
 });

@@ -4,6 +4,7 @@
 import {loadPrincipal, authorizedMutation, sameOrigin} from './auth-core.mjs';
 import {validAdminBodyHeadersV1,validAdminPathV1} from './native-admin-request-internal.mjs';
 
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const unavailable=()=>({status:503,code:'E_NOT_READY'});
 const error=()=>({status:503,code:'E_ADMIN_PREFLIGHT_UNAVAILABLE'});
 const validDb=db=>!!db && typeof db.prepare==='function' &&
@@ -75,7 +76,9 @@ export async function preflightNativeAdminV1(request,env,quota){
          !authorizedMutation(request,principal,'owner'))
         return {status:403,code:'E_FORBIDDEN'};
     }catch{return {status:403,code:'E_FORBIDDEN'};}
-    if(typeof principal.id!=='string'||!principal.id)
+    // Match the external quota transport's canonical Owner scope. A corrupt
+    // identity row must not be passed to any Owner-specific quota provider.
+    if(typeof principal.id!=='string'||!UUID.test(principal.id))
       return error();
     const ownerQuota=await consumeQuota(quota,'native-admin-owner',principal.id,controller.signal);
     if(expired)return error();

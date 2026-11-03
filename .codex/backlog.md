@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-03 NEXT｜Native Admin 讀取時間與片段預算**：在 #113 固定大小緩衝區上，增加 2000ms 全讀取期限、4096 個分塊（含空塊）的嚴格上限；合成測連續空片段和永不完成的 stream，要求不能過度分配記憶體、不能無限 Await。這些是**內部合成守衛**，不是正式 Rate Limit、帳號授權、CSRF 或 Production 放行。保持相依隔離、SHA 閉合與 503 ；新 PR 最新 HEAD Hosted CI/正式 Codex Review + Clean Gate 才可 Merge。
+
+
 > **2026-11-03 NEXT｜Dormant v1 Admin Request Parsing**：本增量僅建立內部 2048-byte JSON/UTF-8/UUID/五種操作欄位及 Same-Origin/HTTPS/POST/Content-Type 的 bounded parser 和合成回歸，維持公網 Worker 拒絕管理路由。進一步的 slow-drip deadline、Rate Limiting、合法 Origin/CSRF/Session/Owner 整合、交易與回復及正式 Staging UAT 應另開 PR 並取得上線授權。沒有 Production D1/Owner/Cloudflare 部署操作；不能用合成 CI PASS 宣告已上線。
 
 

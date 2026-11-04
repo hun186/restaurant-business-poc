@@ -184,7 +184,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/audit-ip.test.js":"9974730145e40f52fdc4217698e2fa799f56e249b62a94b52cf62ad3b00d76f1",
   "tests/backup-manager.test.js":"5908e5dc61d65f2dd08bcac5eed82bd11bcf017aaaf1991baf3907fe50ae6e5d",
   "tests/cloudflare-auth-foundation.test.js":"67400cd8105935c7971358ec7f0a64b2001590979c823b9349fb0e8d20076f00",
-  "tests/cloudflare-d1-bindings.test.js":"1c61b03ea084414055820c0f81e15ab2469e1b42756337b8d35698f59e2b7b2b",
+  "tests/cloudflare-d1-bindings.test.js":"6ae5ff7927c54ddda1d37ae5905bf86133410c9f12ffd2e45aa53b98cb2e7366",
   "tests/cloudflare-d1-login-indexes.test.js":"b9f5fd472f3a4cee2f9b46d1223305af2b2c0234a5af5130cc786bbb11d6f252",
   "tests/cloudflare-source-ip-canonicalization.test.js":"89cb552af9df0828628b4d13eaf7e59f3f72c46254b3c98a73daaaf3e378507d",
   "tests/cloudflare-native-account-release-isolation.test.js":"90c159019c70d1b521a52bd4dc58c89b2686c1007db3ff8090d34256ea4d714e",

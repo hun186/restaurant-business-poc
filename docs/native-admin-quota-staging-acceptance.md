@@ -45,3 +45,20 @@ bucket, and failure-before-body on missing trusted key or backend errors.
 **These synthetic tests do not establish real multi-isolate semantics.**
 The candidate is not connected to Cloudflare; staging remains blocked until
 items 1–8 are independently evidenced.
+
+## 2026-11-04 HMAC partition primitive (not identity proof)
+
+A new dormant WebCrypto `deriveVerifiedPreauthPartitionV1` accepts an
+**already-verified** namespaced gateway subject and a non-extractable,
+minimum-256-bit HMAC SHA-256 `CryptoKey`, producing a stable 64-hex digest
+with explicit domain separation. Offline tests compare Node and WebCrypto
+vectors, reject malformed inputs/weak keys and prove DO routing exposes only
+an opaque partition token, never the subject itself.
+
+**Still blocked:** the public Worker does NOT verify gateway identity or
+derive this key. No gateway attestation/key management is configured, no
+signed ingress contract exists and raw headers/IP addresses are not
+authoritative. Key rotation changes DO partitions and must be handled by a
+reviewed migration/replay policy; a token cannot prove a subject is authentic
+unless the caller independently validates its provenance. This helper is not
+connected to Wrangler, public routes or production secret storage.

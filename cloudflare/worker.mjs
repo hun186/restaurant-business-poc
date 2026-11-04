@@ -1,6 +1,7 @@
 import { inspectD1Contract } from './d1-readiness.mjs';
 import { nativeLoginHttp,nativeLoginEnabled } from './native-login-http.mjs';
 import { nativeBusinessReadHttp } from './native-business-http.mjs';
+import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
 import { previewAccessBusiness } from './access-business-readonly.mjs';
@@ -26,9 +27,11 @@ export default {
     if (pathname === '/api/native/status') {
       if (request.method !== 'GET') return json({code:'METHOD_NOT_ALLOWED'},405);
       return json({mode:nativeLoginEnabled(env)?'native':'demo',
-        login_enabled:nativeLoginEnabled(env)});
+        login_enabled:nativeLoginEnabled(env),
+        task_write_enabled:nativeTaskWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
+    if (pathname === '/api/task') return nativeTaskHttp(request,env);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);

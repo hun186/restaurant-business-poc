@@ -23,7 +23,7 @@ test('Workers D1 production and PR Preview are bound to different existing datab
     'PR Previews must NEVER point at owner production data');
   assert.equal(prod.migrations_dir,'cloudflare/migrations');
   assert.equal(config.assets.directory,'./vercel-demo');
-  assert.deepEqual(config.assets.run_worker_first,['/api/*']);
+  assert.deepEqual(config.assets.run_worker_first,['/api/*','/']);
   assert.equal(config.main,'./cloudflare/worker.mjs');
   assert.equal(config.previews.d1_databases[0].migrations_dir,undefined,
     'staging migrations must be performed separately, not by Preview Builds');

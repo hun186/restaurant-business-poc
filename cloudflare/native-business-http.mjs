@@ -1,0 +1,55 @@
+// Native-session D1 read service. Only reachable after operator-released gates.
+import {nativeLoginEnabled} from './native-login-http.mjs';
+import {loadPrincipal,hasAccess} from './auth-core.mjs';
+import {queryFor} from './operations-readonly.mjs';
+import {metricQueries} from './overview-readonly.mjs';
+
+const ENTITIES=new Set(['locations','ingredients','training_courses','tasks',
+  'purchase_orders','repairs','shifts','stock']);
+const HEADERS=Object.freeze({'Content-Type':'application/json; charset=utf-8',
+  'Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff',
+  'Referrer-Policy':'no-referrer'});
+const reply=(status,data)=>new Response(JSON.stringify(data),{status,headers:HEADERS});
+
+export async function nativeBusinessReadHttp(request,env){
+  if(!nativeLoginEnabled(env))return reply(503,{code:'E_NOT_READY'});
+  if(request?.method!=='GET')return reply(405,{code:'METHOD_NOT_ALLOWED'});
+  try{
+    const url=new URL(request.url);
+    if(url.protocol!=='https:'||url.hash||url.search.length>100)
+      return reply(400,{code:'E_BAD_QUERY'});
+    const isData=url.pathname==='/api/data',isOverview=url.pathname==='/api/overview';
+    if(!isData&&!isOverview)return reply(404,{code:'E_NOT_FOUND'});
+    let entity=null;
+    if(isData){
+      const keys=[...url.searchParams.keys()];
+      if(keys.length!==1||keys[0]!=='entity')return reply(400,{code:'E_BAD_QUERY'});
+      entity=url.searchParams.get('entity');
+      if(!ENTITIES.has(entity))return reply(404,{code:'E_UNKNOWN_ENTITY'});
+    }else if(url.search)return reply(400,{code:'E_BAD_QUERY'});
+    const principal=await loadPrincipal(env.DB,request);
+    if(!hasAccess(principal,'staff'))return reply(401,{code:'E_UNAUTHENTICATED'});
+    const schema=await env.DB.prepare(
+      'SELECT contract_version FROM cloud_schema_contract WHERE id=1').first();
+    if(Number(schema?.contract_version)!==3)
+      return reply(503,{code:'E_SCHEMA_NOT_READY'});
+    if(isData){
+      const plan=queryFor(entity,principal);
+      if(!plan)return reply(404,{code:'E_UNKNOWN_ENTITY'});
+      const result=await env.DB.prepare(plan.sql).bind(...plan.params).all();
+      if(!Array.isArray(result?.results)||result.results.length>500)
+        throw Error('E_D1_INVALID_ROWS');
+      return reply(200,{mode:'native_d1',entity,rows:result.results});
+    }
+    const metrics={};
+    for(const [name,sql,args] of metricQueries(principal)){
+      const statement=env.DB.prepare(sql);
+      const metric=await (args.length?statement.bind(...args):statement).first();
+      if(!Number.isSafeInteger(metric?.n)||metric.n<0)throw Error('E_D1_INVALID_METRIC');
+      metrics[name]=metric.n;
+    }
+    return reply(200,{mode:'native_d1',metrics});
+  }catch{
+    return reply(503,{code:'E_BUSINESS_UNAVAILABLE'});
+  }
+}

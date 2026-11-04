@@ -39,5 +39,10 @@ jobs:
         run: node tools/cloudflare-hosted-probe-preflight.mjs
       - name: Install fixed local workerd tooling without Cloudflare credentials
         run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Compile production Worker without deploying (Wrangler dry run)
+        env:
+          CLOUDFLARE_API_TOKEN: ''
+          CLOUDFLARE_ACCOUNT_ID: ''
+        run: ./node_modules/.bin/wrangler deploy --dry-run --config wrangler.jsonc --outdir /tmp/cloudflare-bundle-dryrun
       - name: Verify actual loopback POST transport and reject nonempty inputs
         run: node tools/run-pbkdf2-local-workerd.mjs --smoke

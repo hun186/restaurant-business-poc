@@ -20,7 +20,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/d1-production-recovery-readonly-g5.yml":"938c1cacb3b88536b00a2d86a886b1e5f732040a632ed8fe6d6b12dbee0e9744",
   ".github/workflows/d1-production-initialize-g5.yml":"9de0af5b5c1885f5a24f4bfd8ba04c0a8d5d4f6bfd448f1bf043fb197e19292c",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
-  ".github/workflows/verify.yml":"5fe5443aad6d62b183a1f78fdedfd8902789ea7a7173cac9aefb958a120ff296",
+  ".github/workflows/verify.yml":"496bee102e9e3f08a6cf29761193af9d6e7e4b7a100d28dc30283d17843cb609",
   ".github/workflows/d1-staging-migration.yml":"24171173e1030ef0bf15e7012f537300b1d2c335c71664da13b6e0383b2e3e98",
   ".github/workflows/d1-staging-owner-bootstrap.yml":"783bf2c5eebf0adaa13d01370dbc6ac99fa957097c11d00a8fa69eba3a5981c9",
   ".github/workflows/d1-staging-incremental-0002.yml":"ba9eb0142278e47ed5d24218256d8cced1bba41f301000ffefc6e8237727e694",

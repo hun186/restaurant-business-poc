@@ -36,3 +36,34 @@ Vercel Root 仍保留獨立虛構展示，不能當作正式資料庫。
    業主可以真實登入並完成核心業務操作後才能宣告正式上線。
 
 測試採用本機合成 SQLite D1 Adapter；PASS 不等於遠端業主實機驗收。
+
+## 2026-11-04｜第一個真實 D1 工作異動（程式碼已實作，正式寫入未啟用）
+
+正式工作台可讓業主與主管選擇有效門市新增工作（task.create），
+業主／主管及被分派的員工可修改工作狀態（task.status）。
+POST /api/task 僅在現有 native-production + operator-released 登入 Gate
+**以及獨立 CLOUD_NATIVE_TASK_WRITE_GATE=operator-released** 全部啟用時
+才接受請求；目前 wrangler.jsonc 不含這個值，因此 Production 仍不會寫入。
+
+Server 每次操作重新驗證 Secure Session、同源 Origin、CSRF 與
+角色／門市；建立、更新及稽核寫入在同一個 D1 batch，
+交易內再查有效 Session、角色與門市，拒絕權限被撤銷或工作已變動的
+競爭情況。寫入逾時／結果不明時 UI 提示先重新查詢，
+不直接重新傳送以避免重複建立。輸入有 4 KiB 上限與讀取期限。
+
+合成 SQLite/D1 測試包含完整 Owner 登入後建立→D1 查詢→更新狀態→
+稽核、主管跨店拒絕、員工不可建立／修改他人工作、
+CSRF／Origin 失敗、交易回滾與權限在執行前撤銷。
+**這些不等於真正 Production D1 已接受寫入。**
+
+## 真正業主正式使用前的最後關卡
+
+1. 取得 Production D1 的最新只讀前檢、備份／還原證據，
+   確認 Owner 狀態，不能沿用舊的 Owner=0 假設。
+2. 另經授權完成一次性 Owner 建立及稽核／Session 後檢。
+3. 以受控測試帳號驗證 Cloudflare 原生登入、Store 權限、
+   Cookie／CSRF／限流與安全登出。
+4. 獨立核准登入及工作寫入 Gate，執行一筆可回復的真實 D1 工作
+   建立／狀態變更，核對 UI、D1 與 Audit 三方一致。
+5. 未驗收的其他模組（叫貨、盤點、員工權限維護等）仍保持
+   **只讀**，不可稱為全部正式營運 CRUD 已上線。

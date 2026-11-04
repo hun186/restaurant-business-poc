@@ -5,7 +5,7 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   locations:'門市',training_courses:'訓練'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
-let csrf=null,view='overview',revision=0,controller=null;
+let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false;
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
 async function api(url,opts={}){
@@ -56,13 +56,85 @@ function render(data){
     throw Error('營運資料格式不正確。');
   content.append(data.rows.length?table(data.rows):el('p','此門市目前沒有符合條件的資料。'));
 }
+
+const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
+async function writeTask(action,data){
+  if(!writeEnabled||!csrf)return;
+  try{
+    say('正在儲存真實 D1 工作資料，請勿重複送出…');
+    const result=await api('/api/task',{method:'POST',referrerPolicy:'same-origin',
+      headers:{Accept:'application/json','Content-Type':'application/json',
+        'X-CSRF-Token':csrf},
+      body:JSON.stringify({action,data})});
+    if(result?.ok!==true)throw Error('伺服器未確認寫入。');
+    await refresh();
+  }catch(e){
+    if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+    say((e.message||'寫入結果不明')+' 請先重新整理確認結果，不要直接重複送出。',true);
+  }
+}
+async function taskActions(rows,marker){
+  const content=$('content');
+  if(!writeEnabled){
+    content.append(el('p','工作狀態目前唯讀；正式寫入尚待管理員授權。'));return;
+  }
+  if(role==='owner'||role==='manager'){
+    const stores=await api('/api/data?entity=locations',{signal:controller.signal});
+    if(marker!==revision)return;
+    if(stores?.mode!=='native_d1'||!Array.isArray(stores.rows))
+      throw Error('門市列表未取得，無法新增工作。');
+    const pane=el('section'),title=el('h3','新增工作');
+    pane.className='panel';
+    const form=el('form'),select=el('select'),input=el('input'),submit=el('button','新增工作');
+    input.placeholder='輸入工作內容';input.required=true;input.maxLength=120;
+    for(const store of stores.rows){
+      if(store.active!==1||typeof store.id!=='string'||!taskId.test(store.id))continue;
+      const option=el('option',store.name);option.value=store.id;select.append(option);
+    }
+    submit.type='submit';submit.disabled=!select.options.length;
+    form.append(el('label','門市 '),select,el('label','工作內容 '),input,submit);
+    form.addEventListener('submit',async ev=>{
+      ev.preventDefault();const title=input.value.trim();
+      if(!title||title.length>120||!taskId.test(select.value))return;
+      submit.disabled=true;
+      await writeTask('task.create',{location_id:select.value,title});
+      submit.disabled=false;
+    });
+    pane.append(title,form);content.prepend(pane);
+  }
+  const list=el('section');list.className='panel';
+  list.append(el('h3','更新工作狀態'));
+  let count=0;
+  for(const row of rows){
+    if(!taskId.test(row.id)||!['todo','doing','done'].includes(row.status))continue;
+    const container=el('div'),select=el('select'),save=el('button','儲存狀態');
+    container.style.marginBottom='12px';
+    for(const [value,label] of Object.entries({todo:'待辦',doing:'處理中',done:'已完成'})){
+      const opt=el('option',label);opt.value=value;opt.selected=value===row.status;select.append(opt);
+    }
+    save.type='button';
+    save.disabled=true;
+    select.addEventListener('change',()=>{save.disabled=select.value===row.status;});
+    save.addEventListener('click',async()=>{
+      if(save.disabled||!window.confirm('確定更新真實 D1 工作狀態？'))return;
+      save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value});
+    });
+    container.append(el('strong',row.title||'工作'),el('span',' · '),select,save);
+    list.append(container);count++;
+  }
+  if(count)content.append(list);
+}
+
 async function refresh(){
   const marker=++revision;if(controller)controller.abort();
   controller=new AbortController();$('content').replaceChildren();say('正在讀取真實 D1 資料…');
   try{
     const url=view==='overview'?'/api/overview':'/api/data?entity='+encodeURIComponent(view);
     const data=await api(url,{signal:controller.signal});
-    if(marker!==revision)return;render(data);say('已取得授權範圍內的最新資料。');
+    if(marker!==revision)return;
+    render(data);
+    if(view==='tasks')await taskActions(data.rows,marker);
+    if(marker===revision)say('已取得授權範圍內的最新資料。');
   }catch(e){if(marker!==revision||e.name==='AbortError')return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
     say(e.message||'無法讀取資料。',true);
@@ -70,7 +142,7 @@ async function refresh(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  csrf=me.csrf;$('login').hidden=true;$('workspace').hidden=false;
+  csrf=me.csrf;role=me.user.role;$('login').hidden=true;$('workspace').hidden=false;
   $('identity').textContent=me.user.display_name+'（'+
     ({owner:'業主',manager:'主管',staff:'員工'}[me.user.role]||'')+'）';
   refresh();
@@ -82,6 +154,7 @@ async function start(){
     if(status.mode!=='native'||status.login_enabled!==true){
       say('正式營運服務尚未由管理員啟用；公開 Demo 不接受真實帳密。',true);return;
     }
+    writeEnabled=status.task_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
   }catch(e){say(e.message||'無法確認正式服務狀態。',true);}

@@ -89,3 +89,13 @@ Owner／Manager、有效 Session、建立門市授權與受指派員工的有效
 重新檢查。已完成工作、舊指派不符或重複操作回 409；
 若交易未完成，不留下「改派成功」Audit。沒有開放新 Production Gate、
 任何 D1 Migration、Owner 建立或 Secrets 變更。
+
+## 2026-11-08｜工作日期與期限異動（待本 PR Review/CI）
+
+不更動 D1 schema；使用既有 `tasks.due_date`。新建工作可設定有效
+西曆 YYYY-MM-DD 日期，嚴格檢驗月份／大小月／閏年，不添加時區解讀。
+業主／主管可對未完成工作發出 `task.due`，攜帶原期限供比對後變更
+或清除期限；後端角色、有效 Session、同源、CSRF、門市在 D1 batch
+交易內重檢，Audit 與工作變更同交易。舊期限不一致回 409。
+本變更不包含 Production D1 寫入授權、Owner 初始化、Secrets 或
+Cloudflare Release Gate 操作；仍須最新 HEAD CI 與正式 Codex Review。

@@ -99,3 +99,29 @@ Owner／Manager、有效 Session、建立門市授權與受指派員工的有效
 交易內重檢，Audit 與工作變更同交易。舊期限不一致回 409。
 本變更不包含 Production D1 寫入授權、Owner 初始化、Secrets 或
 Cloudflare Release Gate 操作；仍須最新 HEAD CI 與正式 Codex Review。
+
+## 2026-11-08｜Owner D1 門市與食材建立（待 PR 檢驗）
+
+原生工作台新增業主專用新增門市和食材主檔，不再需要操作員直接
+在 D1 中手填 SQL。此功能獨立要求
+`CLOUD_NATIVE_CATALOG_WRITE_GATE=operator-released` 並繼承 Native
+Login Gate；預設正式部署未設定 Gate，不能寫入。
+後端在 D1.batch 交易內確認 Owner 仍有效、Session 未過期、
+CSRF/同源前檢通過，並於建檔後建立 Audit。食材代碼唯一，
+食材數量下限固定三位小數的安全範圍；不新增 D1 Migration。
+合成測試不等於真實 Production Owner 設定／實機驗收。
+
+## 2026-11-08｜真正 D1 叫貨→核准→驗收入庫（待本 PR CI/Review）
+
+原生工作台提供門市內工作人員建立**單品項**叫貨單
+`order.create`，由業主／主管執行 `order.approve`、
+`order.cancel`、`order.receive`。
+所有 API 只在 Native Login 正式 Gate 及**獨立**
+`CLOUD_NATIVE_ORDER_WRITE_GATE=operator-released` 啟用後才可使用；
+預設正式部署沒有此 Gate。後端驗證 Session、CSRF、Origin、
+啟用門市／食材、角色與有效門市授權，且在 D1.batch 交易內重驗。
+已核准的單品項訂單才能驗收入庫，並將
+`purchase_orders.status=received`、唯一的進貨 `stock_moves`
+與 Audit **同交易**完成；不直接寫入庫存餘額，也不自動重試不明寫入。
+重複驗收、狀態被更新及已有入庫流水均拒絕；舊有多品項分單
+在未實作整張交易前保持只讀。合成 D1 測試不是正式實機 UAT。

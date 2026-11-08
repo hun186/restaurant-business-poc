@@ -232,3 +232,77 @@ test('assignment is reauthorized inside transaction after staff location revocat
   assert.equal(taskCount(f.db),1);
   assert.equal(taskAudit(f.db).length,0);
 });
+
+test('Owner reassigns a pending task with persisted audit and staff takes over',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager'),
+    staff=await f.login('staff');
+  const first=await f.write(owner,'task.assign',{
+    id:f.ids.task,assigned_to:f.ids.manager,expected_assigned_to:f.ids.staff});
+  assert.equal(first.status,200);
+  assert.equal(f.db.prepare('SELECT assigned_to FROM tasks WHERE id=?')
+    .get(f.ids.task).assigned_to,f.ids.manager);
+  assert.equal((await f.write(staff,'task.status',{id:f.ids.task,status:'doing'})).status,404);
+  const second=await f.write(manager,'task.assign',{
+    id:f.ids.task,assigned_to:f.ids.staff,expected_assigned_to:f.ids.manager});
+  assert.equal(second.status,200);
+  assert.equal((await f.write(staff,'task.status',{id:f.ids.task,status:'doing'})).status,200);
+  assert.deepEqual(taskAudit(f.db).map(x=>x.action),['task.assign','task.assign','task.status']);
+});
+
+test('task assignment refuses staff, stale expected ID, and malformed commands',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),staff=await f.login('staff');
+  const cmd={id:f.ids.task,assigned_to:null,expected_assigned_to:f.ids.staff};
+  assert.equal((await f.write(staff,'task.assign',cmd)).status,403);
+  assert.equal((await f.write(owner,'task.assign',{...cmd,expected_assigned_to:null})).status,409);
+  assert.equal((await f.write(owner,'task.assign',{...cmd,assigned_to:'not-uuid'})).status,400);
+  assert.equal((await f.write(owner,'task.assign',{...cmd,extra:'forged'})).status,400);
+  assert.equal((await f.write(owner,'task.assign',{...cmd,assigned_to:f.ids.staff})).status,409);
+  assert.equal(taskAudit(f.db).length,0);
+  assert.equal(f.db.prepare('SELECT assigned_to FROM tasks WHERE id=?')
+    .get(f.ids.task).assigned_to,f.ids.staff);
+});
+
+test('assignment refuses cross-store or disabled staff, and done task changes',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager');
+  const create=await f.write(owner,'task.create',{location_id:f.ids.b,title:'Store B'});
+  assert.equal(create.status,200);
+  const id=(await create.json()).result.id;
+  const result=await f.write(owner,'task.assign',{id,assigned_to:f.ids.staff,
+    expected_assigned_to:null});
+  assert.equal(result.status,409);
+  assert.equal((await f.write(manager,'task.assign',{
+    id,assigned_to:null,expected_assigned_to:null})).status,404);
+  f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.staff);
+  assert.equal((await f.write(owner,'task.assign',{
+    id:f.ids.task,assigned_to:f.ids.staff,expected_assigned_to:null})).status,409);
+  f.db.prepare("UPDATE tasks SET status='done' WHERE id=?").run(f.ids.task);
+  assert.equal((await f.write(owner,'task.assign',{
+    id:f.ids.task,assigned_to:null,expected_assigned_to:f.ids.staff})).status,409);
+  assert.deepEqual(taskAudit(f.db).map(x=>x.action),['task.create']);
+});
+
+test('reassignment preflight revocation and D1 rollback leave no false audit',async t=>{
+  let f,revoke=false;
+  f=await fixture(t,{beforeBatch(){
+    if(revoke)f.db.prepare('DELETE FROM user_locations WHERE user_id=? AND location_id=?')
+      .run(f.ids.manager,f.ids.a);
+  }});
+  const manager=await f.login('manager');
+  revoke=true;
+  assert.equal((await f.write(manager,'task.assign',{id:f.ids.task,assigned_to:null,
+    expected_assigned_to:f.ids.staff})).status,409);
+  assert.equal(taskAudit(f.db).length,0);
+  assert.equal(f.db.prepare('SELECT assigned_to FROM tasks WHERE id=?')
+    .get(f.ids.task).assigned_to,f.ids.staff);
+});
+
+test('D1 assignment audit failure rolls back assignment atomically',async t=>{
+  const options={failAt:1};
+  const f=await fixture(t,options),owner=await f.login('owner');
+  options.failNow=true;
+  assert.equal((await f.write(owner,'task.assign',{id:f.ids.task,assigned_to:null,
+    expected_assigned_to:f.ids.staff})).status,503);
+  assert.equal(taskAudit(f.db).length,0);
+  assert.equal(f.db.prepare('SELECT assigned_to FROM tasks WHERE id=?')
+    .get(f.ids.task).assigned_to,f.ids.staff);
+});

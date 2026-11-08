@@ -27,6 +27,8 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/native-owner-public-assets-readonly.ps1":"218e656912beb15b07f68e28490a0bdb7395e363136d86afae4134256091f0cc",
+  "run-native-owner-public-readonly.bat":"f7a148e7eca258dfe0d324396fcc1910eba00e116cfa0ab0709d56527906b814",
   "tools/cloudflare-g0-active-version-readonly.mjs":"43e8c76ee962656f8920f903f118a4e310124bf4c737f0612677daee8a8ec9e9",
   "tools/cloudflare-public-runtime-readonly.ps1":"d654f202f4604c969ab9a514241ca211e11123a4670a76509fb0c50fc451bd06",
   "run-cloudflare-public-readonly.bat":"ca19dde7f55d9d4cec7a773fbd2583c47b2e57975b4216985dac466551df38e7",
@@ -73,6 +75,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/native-owner-public-assets-readonly.test.js":"054e630667f7793aaeb2eb0574c29aa6eb45225fa6b883d807cc5aa2ba3feca7",
   "tests/cloudflare-native-owner-readable-tables.test.js":"419055feaa6fc0028458d19b7775c484efe5ad37c3e4f184a1d8c8d7dd5be2b2",
   "vercel-demo/native-owner-display.mjs":"06068c648f1e97af8b6d8d26129fdba2bb987ea1b679d974d22425bb130b155c",
   "tests/cloudflare-native-owner-ui-parity.test.js":"ff1c83a6ebb84c37f32a2ebfdecf9bc8aa54855307329e02ecdf0bf00cb02606",

@@ -61,13 +61,13 @@ test('production still disabled by default and native status rejects demo creden
       assert.equal(response.status,503,route);
     }
     const response=await f.send('/api/native/status',{},env);
-    assert.deepEqual(await response.json(),{mode:'demo',login_enabled:false,task_write_enabled:false,catalog_write_enabled:false,order_write_enabled:false});
+    assert.deepEqual(await response.json(),{mode:'demo',login_enabled:false,task_write_enabled:false,catalog_write_enabled:false,order_write_enabled:false,stocktake_write_enabled:false});
   }
   assert.equal(f.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,0);
 });
 test('native Owner login -> real D1 dashboard and role-scoped rows',async t=>{
   const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager');
-  assert.deepEqual(await (await f.send('/api/native/status')).json(),{mode:'native',login_enabled:true,task_write_enabled:false,catalog_write_enabled:false,order_write_enabled:false});
+  assert.deepEqual(await (await f.send('/api/native/status')).json(),{mode:'native',login_enabled:true,task_write_enabled:false,catalog_write_enabled:false,order_write_enabled:false,stocktake_write_enabled:false});
   const me=await f.send('/api/me',{headers:{cookie:owner.cookie}});
   assert.equal((await me.json()).user.role,'owner');
   const summary=await f.send('/api/overview',{headers:{cookie:owner.cookie}});

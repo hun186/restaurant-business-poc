@@ -75,6 +75,7 @@ async function writeTask(action,data){
 }
 async function taskActions(rows,marker){
   const content=$('content');
+  let candidatePeople=[];
   if(!writeEnabled){
     content.append(el('p','工作狀態目前唯讀；正式寫入尚待管理員授權。'));return;
   }
@@ -86,6 +87,7 @@ async function taskActions(rows,marker){
     if(stores?.mode!=='native_d1'||!Array.isArray(stores.rows)||
        people?.mode!=='native_d1'||!Array.isArray(people.rows))
       throw Error('門市與可指派人員未取得，無法新增工作。');
+    candidatePeople=people.rows;
     const pane=el('section'),title=el('h3','新增工作');
     pane.className='panel';
     const form=el('form'),select=el('select'),assignee=el('select'),
@@ -139,6 +141,35 @@ async function taskActions(rows,marker){
       save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value});
     });
     container.append(el('strong',row.title||'工作'),el('span',' · '),select,save);
+    if((role==='owner'||role==='manager')&&row.status!=='done'&&
+       taskId.test(row.location_id)&&
+       (row.assigned_to===null||taskId.test(row.assigned_to))){
+      const original=row.assigned_to??null;
+      const assignee=el('select'),assignSave=el('button','更新指派');
+      let empty=el('option','暫不指派');empty.value='';assignee.append(empty);
+      for(const person of candidatePeople){
+        if(person.location_id!==row.location_id||!taskId.test(person.id)||
+           !['staff','manager'].includes(person.role))continue;
+        const option=el('option',person.display_name||'員工');
+        option.value=person.id;assignee.append(option);
+      }
+      // A no-longer-active assignee cannot be newly selected; retain old ID
+      // only for compare-and-set, so an authorized manager can unassign.
+      assignee.value=original&&[...assignee.options].some(x=>x.value===original)
+        ? original:'';
+      assignSave.type='button';
+      assignSave.disabled=(assignee.value||null)===original;
+      assignee.addEventListener('change',()=>{
+        assignSave.disabled=(assignee.value||null)===original;
+      });
+      assignSave.addEventListener('click',async()=>{
+        if(assignSave.disabled||!window.confirm('確定變更真實 D1 工作指派？'))return;
+        assignSave.disabled=true;
+        await writeTask('task.assign',{id:row.id,assigned_to:assignee.value||null,
+          expected_assigned_to:original});
+      });
+      container.append(el('span',' · 指派 '),assignee,assignSave);
+    }
     list.append(container);count++;
   }
   if(count)content.append(list);

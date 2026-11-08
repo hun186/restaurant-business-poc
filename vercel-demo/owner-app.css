@@ -67,3 +67,15 @@ table{border-collapse:collapse;width:100%;min-width:590px;text-align:left}th,td{
 }
 @media(max-width:390px){.grid{grid-template-columns:1fr}.heading{flex-wrap:wrap}.top-right #identity{max-width:110px}}
 @media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
+
+/* Native D1: readable, allowlisted business columns and local-only search. */
+.native-data-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.native-data-toolbar label{display:flex;align-items:center;gap:8px;flex:1;min-width:200px;color:#526a78;font-weight:700}
+.native-data-toolbar input[type=search]{flex:1;min-width:120px;max-width:400px;padding:9px 11px;border-radius:9px;border:1px solid var(--line)}
+.native-data-count{font-size:12px;color:#617989}
+.native-data-caption{text-align:left;font-weight:750;color:#385363;margin-bottom:6px}
+.native-status{display:inline-block;padding:3px 9px;border-radius:99px;background:#ecf3f5;color:#466470;font-weight:700;white-space:nowrap;font-size:12px}
+.native-status.ok{background:#dff5ea;color:#176b58}.native-status.warn{background:#fff0d8;color:#946b25}
+.native-status.muted{background:#f0f2f4;color:#667b87}
+.native-search-empty{padding:28px 12px;text-align:center;color:var(--muted)}
+.native-owner td,.native-owner th{overflow-wrap:anywhere}

@@ -17,7 +17,7 @@ function Decode([byte[]]$bytes){
 }
 function Canonical([byte[]]$bytes){
  $value=Decode $bytes
- return $Utf8.GetBytes($value.Replace("`r`n","`n"))
+ return ,($Utf8.GetBytes($value.Replace("`r`n","`n")))
 }
 function Fingerprint([byte[]]$bytes){
  $h=[System.Security.Cryptography.SHA256]::Create()

@@ -136,3 +136,14 @@ CSRF/同源前檢通過，並於建檔後建立 Audit。食材代碼唯一，
 獨立 `CLOUD_NATIVE_STOCKTAKE_WRITE_GATE=operator-released`，
 預設正式部署未設此 Gate，無 Production D1、Secrets、Owner、
 Wrangler 變更、Migration 或真實驗收。
+
+## 2026-11-08｜原生 D1 報修、指派、結案（本 PR 驗證中）
+
+員工可在授權門市提交設備與故障描述；業主／主管能指派同門市仍有效
+的主管／員工、改派或結案。所有操作以 D1 交易內的 Session、角色、
+門市授權與受指派人有效狀態重新檢驗，使用報修單預期狀態與
+預期舊指派值進行 CAS，以防止多人同時編輯覆蓋結果；資料與稽核
+同交易。結案後不可再直接改派。獨立
+`CLOUD_NATIVE_REPAIR_WRITE_GATE=operator-released` 預設關閉，
+本 PR 不建立正式帳號、不啟用 Production Gate、不碰 Secrets、
+D1 Migration 或正式資料。

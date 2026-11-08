@@ -5,6 +5,7 @@ import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
 import { nativeStocktakeHttp,nativeStocktakeWriteEnabled } from './native-stocktake-http.mjs';
+import { nativeRepairHttp,nativeRepairWriteEnabled } from './native-repair-http.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
 import { previewAccessBusiness } from './access-business-readonly.mjs';
@@ -34,13 +35,15 @@ export default {
         task_write_enabled:nativeTaskWriteEnabled(env),
         catalog_write_enabled:nativeCatalogWriteEnabled(env),
         order_write_enabled:nativeOrderWriteEnabled(env),
-        stocktake_write_enabled:nativeStocktakeWriteEnabled(env)});
+        stocktake_write_enabled:nativeStocktakeWriteEnabled(env),
+        repair_write_enabled:nativeRepairWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/task') return nativeTaskHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
     if (pathname === '/api/order') return nativeOrderHttp(request,env);
     if (pathname === '/api/stocktake') return nativeStocktakeHttp(request,env);
+    if (pathname === '/api/repair') return nativeRepairHttp(request,env);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);

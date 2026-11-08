@@ -58,6 +58,16 @@ async function boundedJson(request){
        typeof data.data.id==='string'&&UUID.test(data.data.id)&&
        STATES.has(data.data.status))return {action:'task.status',
          id:data.data.id,status:data.data.status};
+    if(data.action==='task.assign'&&
+       Object.keys(data.data).sort().join(',')==='assigned_to,expected_assigned_to,id'&&
+       typeof data.data.id==='string'&&UUID.test(data.data.id)&&
+       (data.data.assigned_to===null||
+         (typeof data.data.assigned_to==='string'&&UUID.test(data.data.assigned_to)))&&
+       (data.data.expected_assigned_to===null||
+         (typeof data.data.expected_assigned_to==='string'&&UUID.test(data.data.expected_assigned_to))))
+      return {action:'task.assign',id:data.data.id,
+        assigned_to:data.data.assigned_to,
+        expected_assigned_to:data.data.expected_assigned_to};
     return null;
   }catch{return null;}
   finally{
@@ -108,6 +118,55 @@ async function changeStatus(db,principal,cmd){
   if(!Array.isArray(results)||results.length!==3||
      results.some(x=>changes(x)!==1))return respond(409,{code:'E_CONCURRENT_CHANGE'});
   return respond(200,{ok:true,result:{id:cmd.id,status:cmd.status}});
+}
+// Reassignment uses an exact old-value comparison to reject stale browser tabs.
+// Audit + business mutation are atomic and recheck actor and assignee in D1.
+async function assignTask(db,principal,cmd){
+  if(!hasAccess(principal,'manager'))return respond(403,{code:'E_FORBIDDEN'});
+  const item=await db.prepare(
+    'SELECT t.id,t.location_id,t.assigned_to,t.status,l.active FROM tasks t '+
+    'JOIN locations l ON l.id=t.location_id WHERE t.id=? LIMIT 1'
+  ).bind(cmd.id).first();
+  if(!item||item.active!==1||!hasAccess(principal,'manager',item.location_id))
+    return respond(404,{code:'E_TASK_NOT_FOUND'});
+  if(item.status==='done'||item.assigned_to!==cmd.expected_assigned_to||
+     item.assigned_to===cmd.assigned_to)
+    return respond(409,{code:'E_TASK_ASSIGNMENT_CONFLICT'});
+  const now=new Date().toISOString(),auditId=crypto.randomUUID();
+  const where=[
+    "t.id=? AND t.assigned_to IS ? AND t.status<>'done'",
+    'AND EXISTS(SELECT 1 FROM locations l WHERE l.id=t.location_id AND l.active=1)',
+    'AND EXISTS(SELECT 1 FROM users u JOIN sessions s ON s.user_id=u.id',
+    "WHERE u.id=? AND u.active=1 AND u.role=? AND u.role IN ('owner','manager')",
+    'AND s.token_hash=? AND s.expires_at>?)',
+    "AND (?='owner' OR EXISTS(SELECT 1 FROM user_locations ul",
+    'WHERE ul.user_id=? AND ul.location_id=t.location_id))',
+    'AND (? IS NULL OR EXISTS(SELECT 1 FROM users assignee',
+    'JOIN user_locations granted ON granted.user_id=assignee.id',
+    'WHERE assignee.id=? AND assignee.active=1',
+    "AND assignee.role IN ('staff','manager')",
+    'AND granted.location_id=t.location_id))'
+  ].join(' ');
+  const args=[cmd.id,cmd.expected_assigned_to,principal.id,principal.role,
+    principal.token_hash,now,principal.role,principal.id,
+    cmd.assigned_to,cmd.assigned_to];
+  const audit=db.prepare(
+    "INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) "+
+    "SELECT ?,?,?,'task.assign','tasks',t.id,t.location_id,? FROM tasks t WHERE "+where
+  ).bind(auditId,principal.id,principal.username,JSON.stringify({
+    from:cmd.expected_assigned_to,to:cmd.assigned_to}),...args);
+  const update=db.prepare('UPDATE tasks AS t SET assigned_to=? WHERE '+where+
+    " AND EXISTS(SELECT 1 FROM audit_logs a WHERE a.id=? AND a.entity='tasks' AND a.entity_id=t.id)"
+  ).bind(cmd.assigned_to,...args,auditId);
+  // Failing an assertion must roll back both audit and assignment.
+  const validate=db.prepare('UPDATE audit_logs SET detail=CASE WHEN EXISTS('+
+    'SELECT 1 FROM tasks t WHERE t.id=? AND t.location_id=? AND t.assigned_to IS ?'+
+    ') THEN detail ELSE NULL END WHERE id=?'
+  ).bind(cmd.id,item.location_id,cmd.assigned_to,auditId);
+  const results=await db.batch([audit,update,validate]);
+  if(!Array.isArray(results)||results.length!==3||
+     results.some(x=>changes(x)!==1))return respond(409,{code:'E_CONCURRENT_CHANGE'});
+  return respond(200,{ok:true,result:{id:cmd.id,assigned_to:cmd.assigned_to}});
 }
 async function createTask(db,principal,cmd){
   if(!hasAccess(principal,'manager'))return respond(403,{code:'E_FORBIDDEN'});
@@ -168,8 +227,8 @@ export async function nativeTaskHttp(request,env){
     const version=await env.DB.prepare('SELECT contract_version FROM cloud_schema_contract WHERE id=1').first();
     if(Number(version?.contract_version)!==3)
       return respond(503,{code:'E_SCHEMA_NOT_READY'});
-    return cmd.action==='task.create'
-      ? await createTask(env.DB,principal,cmd)
-      : await changeStatus(env.DB,principal,cmd);
+    if(cmd.action==='task.create')return await createTask(env.DB,principal,cmd);
+    if(cmd.action==='task.assign')return await assignTask(env.DB,principal,cmd);
+    return await changeStatus(env.DB,principal,cmd);
   }catch{return respond(503,{code:'E_TASK_UNAVAILABLE'});}
 }

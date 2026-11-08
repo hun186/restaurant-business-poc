@@ -23,19 +23,42 @@ export function nativeLoginEnabled(env){
     typeof env?.DB?.prepare==='function' &&
     typeof env?.DB?.batch==='function';
 }
-async function bodyWithinLimit(request) {
+// A byte limit alone does not bound a never-ending or zero-byte chunked upload.
+// The deadline is absolute, not refreshed by every read. Tests can tighten it,
+// but untrusted HTTP input cannot change the production 2-second limit.
+export async function bodyWithinLimit(request,{maxDurationMs=2000}={}){
+  if(!Number.isSafeInteger(maxDurationMs)||maxDurationMs<1||maxDurationMs>2000)
+    throw Error('E_BODY_INVALID');
   const reader=request.body?.getReader();
   if(!reader)return '';
-  const chunks=[];let size=0;
+  const deadline=performance.now()+maxDurationMs;
+  const chunks=[];let size=0,chunkCount=0;
   try{
     for(;;){
-      const next=await reader.read();
+      const remaining=Math.ceil(deadline-performance.now());
+      if(remaining<=0)throw Error('E_BODY_DEADLINE');
+      let timer;
+      let next;
+      try{
+        next=await Promise.race([
+          reader.read(),
+          new Promise((_,reject)=>{
+            timer=setTimeout(()=>reject(Error('E_BODY_DEADLINE')),remaining);
+          })
+        ]);
+      }finally{clearTimeout(timer);}
       if(next.done)break;
-      size+=next.value?.byteLength ?? MAX_BODY_BYTES+1;
+      if(++chunkCount>256)throw Error('E_BODY_CHUNKS');
+      if(!(next.value instanceof Uint8Array))throw Error('E_BODY_INVALID');
+      size+=next.value.byteLength;
       if(size>MAX_BODY_BYTES)throw Error('E_BODY_TOO_LARGE');
       chunks.push(next.value);
     }
-  }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
+  }finally{
+    // Never await a malicious or broken cancellation promise after timeout.
+    try{Promise.resolve(reader.cancel()).catch(()=>{});}catch{}
+    try{reader.releaseLock();}catch{}
+  }
   const b=new Uint8Array(size);let at=0;
   for(const chunk of chunks){b.set(chunk,at);at+=chunk.byteLength;}
   return new TextDecoder('utf-8',{fatal:true}).decode(b);
@@ -92,6 +115,9 @@ export async function nativeLoginHttp(request,env){
     return reply(r.status,{code:r.code},r.cookie);
   }catch(e){
     if(e?.message==='E_BODY_TOO_LARGE')return reply(413,{code:'E_AUTH_REQUEST'});
+    if(e?.message==='E_BODY_DEADLINE')return reply(408,{code:'E_AUTH_REQUEST'});
+    if(e?.message==='E_BODY_CHUNKS'||e?.message==='E_BODY_INVALID')
+      return reply(400,{code:'E_AUTH_REQUEST'});
     return reply(503,{code:'E_AUTH_UNAVAILABLE'});
   }
 }

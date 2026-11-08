@@ -10,6 +10,7 @@ import {createInterface} from 'node:readline/promises';
 import {setTimeout as delay} from 'node:timers/promises';
 import {localProductionTarget,inspectProductionOwner} from './cloudflare-prod-owner-operator.mjs';
 import {verifyExactMigrations} from './cloudflare-prod-d1-init.mjs';
+import {EMPTY_TABLES} from './cloudflare-production-owner.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const APPROVAL='EXPORT_PRODUCTION_D1_TO_ENCRYPTED_LOCAL_BACKUP';
@@ -76,11 +77,39 @@ export function verifyLocalSql(sql) {
   if(JSON.stringify(indexNames)!==JSON.stringify(expectedIndexes.sort()))fail('SQL_SCHEMA');
   const contract=db.prepare('SELECT id,contract_version FROM cloud_schema_contract').all();
   const ledger=db.prepare('SELECT name FROM d1_migrations ORDER BY id').all().map(x=>x.name);
-  const owners=db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='owner' AND active=1").get()?.n;
   if(contract.length!==1||contract[0].id!==1||contract[0].contract_version!==3||
-     JSON.stringify(ledger)!==JSON.stringify(['0001_initial_v3.sql','0002_login_attempts_window_indexes.sql'])||
-     !Number.isSafeInteger(owners)||owners>1)fail('SQL_SCHEMA');
+     JSON.stringify(ledger)!==JSON.stringify(['0001_initial_v3.sql','0002_login_attempts_window_indexes.sql']))
+    fail('SQL_SCHEMA');
+  // An exported pre-UAT database must be either pristine or contain EXACTLY
+  // the single audited Owner bootstrap. Reject partial/mixed states, real
+  // business data, login attempts, live sessions, or additional users/audits.
+  const counts=Object.fromEntries(EMPTY_TABLES.map(table=>{
+    const n=db.prepare('SELECT COUNT(*) AS n FROM '+table).get()?.n;
+    if(!Number.isSafeInteger(n)||n<0)fail('SQL_OWNER_STATE');
+    return [table,n];
+  }));
+  const empty=EMPTY_TABLES.every(table=>counts[table]===0);
+  const enrolled=EMPTY_TABLES.every(table=>
+    counts[table]===(table==='users'||table==='audit_logs'?1:0));
+  if(!empty&&!enrolled)fail('SQL_OWNER_STATE');
+  if(enrolled){
+    const owner=db.prepare('SELECT id,username,role,active,password_salt,password_hash FROM users').get();
+    const audit=db.prepare('SELECT actor_name,action,entity,entity_id,detail FROM audit_logs').get();
+    let detail;
+    try{detail=JSON.parse(audit?.detail);}catch{fail('SQL_OWNER_STATE');}
+    if(typeof owner?.id!=='string'||!owner.id||
+       owner.username!=='owner'||owner.role!=='owner'||owner.active!==1||
+       !/^[0-9a-f]{32}$/.test(owner.password_salt||'')||
+       !/^pbkdf2-sha256\\$100000\\$[0-9a-f]{64}$/.test(owner.password_hash||'')||
+       audit?.actor_name!=='production-bootstrap'||audit?.action!=='auth.owner_bootstrap'||
+       audit?.entity!=='users'||audit?.entity_id!==owner.id||
+       !detail||typeof detail!=='object'||Array.isArray(detail)||
+       Object.keys(detail).length!==1||detail.hash_version!=='pbkdf2-sha256$100000')
+      fail('SQL_OWNER_STATE');
+  }
+  const owners=enrolled?1:0;
   return Object.freeze({schema_version:3,applied_migrations:2,owner_count:owners,
+   owner_enrollment_audits:owners,
    local_sqlite_replay_verified:true,production_restore_performed:false,
    remote_restore_rehearsal_verified:false,offsite_encrypted_backup_verified:false});
  }catch(e){if(e.message===FAIL)throw e;fail('SQL_REPLAY');}
@@ -140,7 +169,8 @@ export async function remoteExport({token,transport=fetch,pause=ms=>delay(ms)}){
  if(!eqTarget(meta))fail('TARGET');
  let read;
  try{read=await inspectProductionOwner(token,transport);}catch{fail('OWNER_STATE');}
- if(read.status!=='PRODUCTION_OWNER_READY_TO_ENROLL_READONLY')fail('OWNER_STATE');
+ if(read.status!=='PRODUCTION_OWNER_READY_TO_ENROLL_READONLY' &&
+    read.status!=='PRODUCTION_OWNER_ALREADY_ENROLLED_READONLY')fail('OWNER_STATE');
  const endpoint=prefix+'/export';
  let bookmark='',signed='';
  for(let i=0;i<16;i++){
@@ -329,7 +359,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   const safe=new Set(['ARGS','CHECKOUT','APPROVAL','PASSPHRASE','TOKEN','TARGET','OWNER_STATE',
    'NETWORK','HTTP','API_SHAPE','EXPORT_API','EXPORT_TIMEOUT','SIGNED_URL','DOWNLOAD',
    'DOWNLOAD_SIZE','DOWNLOAD_ENCODING','SQL_SIZE','SQL_INTEGRITY','SQL_FK','SQL_SCHEMA',
-   'SQL_REPLAY','ARCHIVE_SIZE','ARCHIVE_FORMAT','ARCHIVE_AUTH','ARCHIVE_VERIFY',
+   'SQL_REPLAY','SQL_OWNER_STATE','ARCHIVE_SIZE','ARCHIVE_FORMAT','ARCHIVE_AUTH','ARCHIVE_VERIFY',
    'OUTPUT_PATH','SAVE','VERIFY_PATH','COPY_PATH','COPY_SAME_FILE','COPY_MISMATCH','TTY']);
   const detail=e.reason==='EXPORT_API'&&FAIL_DETAILS.has(e.safeDetail)
    ?' detail='+e.safeDetail:'';

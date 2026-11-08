@@ -5,7 +5,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   locations:'門市',training_courses:'訓練'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
-let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false;
+let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
+  catalogWriteEnabled=false;
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
 async function api(url,opts={}){
@@ -72,6 +73,57 @@ async function writeTask(action,data){
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
     say((e.message||'寫入結果不明')+' 請先重新整理確認結果，不要直接重複送出。',true);
   }
+}
+async function catalogActions(marker){
+  if(!catalogWriteEnabled||role!=='owner')return;
+  if(view!=='locations'&&view!=='ingredients')return;
+  const pane=el('section');pane.className='panel';
+  const form=el('form'),submit=el('button',view==='locations'?'建立門市':'建立食材');
+  submit.type='submit';
+  pane.append(el('h3',view==='locations'?'新增門市':'新增食材主檔'));
+  const field=(label,options={})=>{
+    const input=el('input');input.type=options.type||'text';
+    input.placeholder=label;input.required=options.required!==false;
+    if(options.maxLength)input.maxLength=options.maxLength;
+    if(options.step)input.step=options.step;
+    if(options.min!==undefined)input.min=String(options.min);
+    if(options.max!==undefined)input.max=String(options.max);
+    input.setAttribute('aria-label',label);
+    form.append(el('label',label+' '),input);return input;
+  };
+  const isStore=view==='locations';
+  const name=field(isStore?'門市名稱':'食材名稱',{maxLength:120});
+  let sku,unit,minimum;
+  if(!isStore){
+    sku=field('食材代碼（英文數字、底線或連字號）',{maxLength:40});
+    unit=field('單位（例如 kg、包）',{maxLength:20});
+    minimum=field('最低庫存',{type:'number',required:false,step:'0.001',min:0,max:1000000});
+    minimum.value='0';
+  }
+  form.append(submit);
+  form.addEventListener('submit',async ev=>{
+    ev.preventDefault();
+    if(!catalogWriteEnabled||!csrf||submit.disabled)return;
+    const data=isStore?{name:name.value.trim()}:{
+      name:name.value.trim(),sku:sku.value.trim(),unit:unit.value.trim(),
+      min_stock:Number(minimum.value||0)};
+    if(!data.name)return;
+    submit.disabled=true;
+    try{
+      say('正在儲存 D1 主檔，請勿重複送出…');
+      const result=await api('/api/catalog',{method:'POST',
+        headers:{Accept:'application/json','Content-Type':'application/json',
+          'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        body:JSON.stringify({action:isStore?'location.create':'ingredient.create',data})});
+      if(result?.ok!==true)throw Error('未確認主檔已儲存。');
+      await refresh();
+    }catch(e){
+      if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+      say((e.status===409?'門市名稱或食材代碼已存在。':e.message||'寫入結果不明')+
+        ' 請先重新整理確認，不要直接重複送出。',true);
+    }finally{submit.disabled=false;}
+  });
+  pane.append(form);$('content').prepend(pane);
 }
 async function taskActions(rows,marker){
   const content=$('content');
@@ -206,6 +258,7 @@ async function refresh(){
     if(marker!==revision)return;
     render(data);
     if(view==='tasks')await taskActions(data.rows,marker);
+    if(view==='locations'||view==='ingredients')await catalogActions(marker);
     if(marker===revision)say('已取得授權範圍內的最新資料。');
   }catch(e){if(marker!==revision||e.name==='AbortError')return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
@@ -227,6 +280,7 @@ async function start(){
       say('正式營運服務尚未由管理員啟用；公開 Demo 不接受真實帳密。',true);return;
     }
     writeEnabled=status.task_write_enabled===true;
+    catalogWriteEnabled=status.catalog_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
   }catch(e){say(e.message||'無法確認正式服務狀態。',true);}

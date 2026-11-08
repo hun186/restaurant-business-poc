@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..'),asset=name=>fs.readFileSync(path.join(root,
 
 test('native Owner shell mirrors dashboard navigation without using demo entry points',()=>{
   const html=asset('owner-app.html'),css=asset('owner-app.css'),js=asset('owner-app.js');
-  for(const id of ['login','login-form','workspace','sidebar','nav','menu-btn','nav-backdrop','identity','avatar','crumb','notice','title','section-hint','capability','content','logout','refresh']){
+  for(const id of ['locked','login','login-form','workspace','sidebar','nav','menu-btn','nav-backdrop','identity','avatar','crumb','notice','title','section-hint','capability','content','logout','refresh']){
     assert.match(html,new RegExp('id="'+id+'"'));
   }
   for(const entity of ['overview','tasks','repairs','ingredients','stock','purchase_orders','stocktakes','shifts','training_courses','locations']){
@@ -31,6 +31,9 @@ test('native Owner shell mirrors dashboard navigation without using demo entry p
 
 test('native status must be checked before exposing credentials or enabling write controls',()=>{
   const js=asset('owner-app.js'),html=asset('owner-app.html');
+  assert.match(html,/<section id="locked"[^>]*hidden/);
+  assert.match(js,/\$\('locked'\)\.hidden=false/);
+  assert.match(html,/前往公開功能展示（全部為虛構資料）/);
   assert.match(html,/<section id="login"[^>]*hidden/);
   assert.match(html,/<div id="workspace"[^>]*hidden/);
   assert.match(js,/await api\('\/api\/native\/status'\)/);

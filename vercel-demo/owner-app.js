@@ -32,7 +32,7 @@ async function api(url,opts={}){
 }
 function showLogin(message){
   csrf=null;revision++;if(controller)controller.abort();closeMenu();
-  $('workspace').hidden=true;$('login').hidden=false;
+  $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
 function table(rows){
@@ -559,7 +559,8 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  csrf=me.csrf;role=me.user.role;$('login').hidden=true;$('workspace').hidden=false;
+  csrf=me.csrf;role=me.user.role;$('locked').hidden=true;
+  $('login').hidden=true;$('workspace').hidden=false;
   const name=String(me.user.display_name||'');
   $('identity').textContent=name+'（'+
     ({owner:'業主',manager:'主管',staff:'員工'}[me.user.role]||'')+'）';
@@ -567,10 +568,11 @@ function showWorkspace(me){
   syncView();closeMenu();refresh();
 }
 async function start(){
-  $('login').hidden=true;$('workspace').hidden=true;
+  $('login').hidden=true;$('workspace').hidden=true;$('locked').hidden=true;
   try{
     const status=await api('/api/native/status');
     if(status.mode!=='native'||status.login_enabled!==true){
+      $('locked').hidden=false;
       say('正式營運服務尚未由管理員啟用；公開 Demo 不接受真實帳密。',true);return;
     }
     writeEnabled=status.task_write_enabled===true;
@@ -580,7 +582,7 @@ async function start(){
     repairWriteEnabled=status.repair_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
-  }catch(e){say(e.message||'無法確認正式服務狀態。',true);}
+  }catch(e){$('locked').hidden=false;say(e.message||'無法確認正式服務狀態。',true);}
 }
 $('login-form').addEventListener('submit',async ev=>{
   ev.preventDefault();const f=ev.currentTarget,btn=$('login-submit');

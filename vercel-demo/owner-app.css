@@ -41,6 +41,13 @@ table{border-collapse:collapse;width:100%;min-width:590px;text-align:left}th,td{
 .panel .row,.panel .item{padding:10px 0;border-bottom:1px solid var(--line)}
 .workarea footer,#landing-footer{text-align:center;color:#95a5af;font-size:11px;padding:15px 12px}
 #landing-footer{padding:16px}
+.locked-screen{min-height:calc(100vh - 90px);display:grid;place-items:center;padding:30px 16px;background:linear-gradient(135deg,#103347,#1b6470)}
+.locked-card{width:min(100%,490px);background:white;border-radius:20px;padding:37px;text-align:center;box-shadow:0 20px 70px #052a3770}
+.locked-card h1{font-size:27px;margin:14px 0 0}.locked-eyebrow{font-size:13px;color:var(--teal);font-weight:700}
+.locked-card h2{font-size:18px;margin:22px 0 8px}.locked-card p:not(.locked-eyebrow){color:#5d7180}
+.locked-card small{display:block;color:var(--muted);font-size:11px;margin-top:16px}
+.demo-link{display:block;border-radius:9px;background:var(--teal);color:white;text-decoration:none;padding:10px 16px;margin-top:22px;font-weight:700}
+.demo-link:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
 .login-screen{min-height:calc(100vh - 90px);display:grid;place-items:center;padding:30px 16px;background:linear-gradient(135deg,#103347,#1b6470)}
 .auth-card{width:min(100%,420px);background:white;border-radius:20px;padding:34px;text-align:center;box-shadow:0 20px 70px #052a3770}
 .auth-card h1{font-size:25px;margin:15px 0 1px}.auth-subtitle{margin:0 0 24px;color:var(--muted)}

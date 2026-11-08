@@ -6,7 +6,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
-  catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false;
+  catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
+  repairWriteEnabled=false;
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
 async function api(url,opts={}){
@@ -289,6 +290,103 @@ async function stocktakeActions(rows,marker){
   }
   if(shown)$('content').append(controls);
 }
+
+async function writeRepair(action,data){
+  if(!repairWriteEnabled||!csrf)return;
+  try{
+    say('正在儲存真實 D1 維修資料，請勿重複送出…');
+    const result=await api('/api/repair',{method:'POST',
+      headers:{Accept:'application/json','Content-Type':'application/json',
+        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+      body:JSON.stringify({action,data})});
+    if(result?.ok!==true)throw Error('伺服器未確認報修異動。');
+    await refresh();
+  }catch(e){
+    if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+    say((e.status===409?'報修單已變更或受指派人失去權限。':
+      e.message||'寫入結果不明')+
+      ' 請先重新整理核對，不要直接重複送出。',true);
+  }
+}
+async function repairActions(rows,marker){
+  if(!repairWriteEnabled)return;
+  const isManager=role==='manager'||role==='owner';
+  const [stores,people]=await Promise.all([
+    api('/api/data?entity=locations',{signal:controller.signal}),
+    isManager?api('/api/data?entity=assignable_staff',{signal:controller.signal}):
+      Promise.resolve({mode:'native_d1',rows:[]})]);
+  if(marker!==revision)return;
+  if(stores?.mode!=='native_d1'||people?.mode!=='native_d1'||
+     !Array.isArray(stores.rows)||!Array.isArray(people.rows))
+    throw Error('無法取得維修所需的門市與人員清單。');
+  const pane=el('section');pane.className='panel';
+  pane.append(el('h3','新增設備報修'));
+  const form=el('form'),store=el('select'),equipment=el('input'),
+    description=el('textarea'),submit=el('button','送出報修');
+  equipment.placeholder='設備名稱';equipment.required=true;equipment.maxLength=120;
+  description.placeholder='故障情況';description.required=true;description.maxLength=1000;
+  for(const x of stores.rows){
+    if(x.active!==1||!taskId.test(x.id))continue;
+    const opt=el('option',x.name);opt.value=x.id;store.append(opt);
+  }
+  submit.type='submit';submit.disabled=!store.options.length;
+  form.append(el('label','門市 '),store,el('label','設備 '),equipment,
+    el('label','故障內容 '),description,submit);
+  form.addEventListener('submit',async ev=>{
+    ev.preventDefault();
+    if(submit.disabled||!taskId.test(store.value))return;
+    const data={location_id:store.value,equipment:equipment.value.trim(),
+      description:description.value.trim()};
+    if(!data.equipment||!data.description)return;
+    submit.disabled=true;
+    try{await writeRepair('repair.create',data);}
+    finally{submit.disabled=false;}
+  });
+  pane.append(form);$('content').prepend(pane);
+  if(!isManager)return;
+  const controls=el('section');controls.className='panel';
+  controls.append(el('h3','報修指派與結案'));
+  let count=0;
+  for(const row of rows){
+    if(!taskId.test(row.id)||!['reported','assigned'].includes(row.status))continue;
+    const line=el('div');line.style.marginBottom='12px';
+    line.append(el('strong',(row.equipment||'設備')+' · '+
+      (row.status==='reported'?'待分派':'處理中')));
+    const sel=el('select');
+    const empty=el('option','選擇處理人');empty.value='';sel.append(empty);
+    for(const p of people.rows){
+      if(p.location_id!==row.location_id||!taskId.test(p.id)||
+         !['staff','manager'].includes(p.role))continue;
+      const option=el('option',p.display_name||'員工');option.value=p.id;sel.append(option);
+    }
+    const previous=row.assigned_to??null;
+    if(previous&&[...sel.options].some(x=>x.value===previous))sel.value=previous;
+    const assign=el('button','指派');assign.type='button';
+    assign.disabled=!sel.value||(row.status==='assigned'&&previous===sel.value);
+    sel.addEventListener('change',()=>{
+      assign.disabled=!sel.value||(row.status==='assigned'&&previous===sel.value);
+    });
+    assign.addEventListener('click',async()=>{
+      if(assign.disabled||!window.confirm('確定指派真實 D1 維修工作？'))return;
+      assign.disabled=true;
+      try{await writeRepair('repair.update',{id:row.id,
+        expected_status:row.status,expected_assigned_to:previous,
+        status:'assigned',assigned_to:sel.value});}
+      finally{assign.disabled=false;}
+    });
+    const close=el('button','結案');close.type='button';
+    close.addEventListener('click',async()=>{
+      if(close.disabled||!window.confirm('確定將真實 D1 報修單結案？'))return;
+      close.disabled=true;
+      try{await writeRepair('repair.update',{id:row.id,
+        expected_status:row.status,expected_assigned_to:previous,status:'closed'});}
+      finally{close.disabled=false;}
+    });
+    line.append(el('span',' · 處理人 '),sel,assign,close);
+    controls.append(line);count++;
+  }
+  if(count)$('content').append(controls);
+}
 async function taskActions(rows,marker){
   const content=$('content');
   let candidatePeople=[];
@@ -425,6 +523,7 @@ async function refresh(){
     if(view==='locations'||view==='ingredients')await catalogActions(marker);
     if(view==='purchase_orders')await orderActions(data.rows,marker);
     if(view==='stocktakes')await stocktakeActions(data.rows,marker);
+    if(view==='repairs')await repairActions(data.rows,marker);
     if(marker===revision)say('已取得授權範圍內的最新資料。');
   }catch(e){if(marker!==revision||e.name==='AbortError')return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
@@ -449,6 +548,7 @@ async function start(){
     catalogWriteEnabled=status.catalog_write_enabled===true;
     orderWriteEnabled=status.order_write_enabled===true;
     stocktakeWriteEnabled=status.stocktake_write_enabled===true;
+    repairWriteEnabled=status.repair_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
   }catch(e){say(e.message||'無法確認正式服務狀態。',true);}

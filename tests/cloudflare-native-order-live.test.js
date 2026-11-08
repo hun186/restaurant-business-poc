@@ -87,7 +87,7 @@ test('full D1 staff request -> manager approval -> one stock receipt and audit',
   const stock=f.db.prepare(
     "SELECT qty_delta,reference_id,location_id,ingredient_id,move_type FROM stock_moves"
   ).get();
-  assert.deepEqual(stock,{qty_delta:2.125,reference_id:item.id,
+  assert.deepEqual({...stock},{qty_delta:2.125,reference_id:item.id,
     location_id:f.ids.a,ingredient_id:f.ids.ingredient,move_type:'purchase'});
   const balance=await f.send('/api/data?entity=stock',{headers:{cookie:manager.cookie}});
   assert.equal(balance.status,200);

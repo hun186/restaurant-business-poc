@@ -125,3 +125,14 @@ CSRF/同源前檢通過，並於建檔後建立 Audit。食材代碼唯一，
 與 Audit **同交易**完成；不直接寫入庫存餘額，也不自動重試不明寫入。
 重複驗收、狀態被更新及已有入庫流水均拒絕；舊有多品項分單
 在未實作整張交易前保持只讀。合成 D1 測試不是正式實機 UAT。
+
+## 2026-11-08｜原生 D1 盤點與差異帳本（本 PR 驗證中）
+
+工作台新增「盤點」頁：員工建立盤點記錄，D1 交易內由 `stock_moves`
+帳本取得預期庫存快照；主管或業主確認尚未完成的盤點。若盤點後
+庫存已異動、門市或食材停用、權限／Session 撤銷、盤點已完成則拒絕。
+確認時，`stocktakes.status`、`stock_moves` adjustment 與 Audit
+同 D1.batch 交易處理；沒有差異時不建立零數量流水。
+獨立 `CLOUD_NATIVE_STOCKTAKE_WRITE_GATE=operator-released`，
+預設正式部署未設此 Gate，無 Production D1、Secrets、Owner、
+Wrangler 變更、Migration 或真實驗收。

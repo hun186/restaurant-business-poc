@@ -100,7 +100,7 @@ export function verifyLocalSql(sql) {
     if(typeof owner?.id!=='string'||!owner.id||
        owner.username!=='owner'||owner.role!=='owner'||owner.active!==1||
        !/^[0-9a-f]{32}$/.test(owner.password_salt||'')||
-       !/^pbkdf2-sha256\\$100000\\$[0-9a-f]{64}$/.test(owner.password_hash||'')||
+       !/^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/.test(owner.password_hash||'')||
        audit?.actor_name!=='production-bootstrap'||audit?.action!=='auth.owner_bootstrap'||
        audit?.entity!=='users'||audit?.entity_id!==owner.id||
        !detail||typeof detail!=='object'||Array.isArray(detail)||

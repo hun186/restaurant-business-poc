@@ -166,3 +166,69 @@ test('native Owner browser never loads mock and has real task command wiring',()
   assert.match(js,/task\.status/);
   assert.doesNotMatch(js,/localStorage|sessionStorage|mock\.js/);
 });
+test('owner assigns work to active staff in same store; assignee can complete it',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),staff=await f.login('staff');
+  const response=await f.write(owner,'task.create',{
+    location_id:f.ids.a,title:'門市打烊清點',assigned_to:f.ids.staff});
+  assert.equal(response.status,200);
+  const created=(await response.json()).result;
+  assert.equal(created.assigned_to,f.ids.staff);
+  const saved=f.db.prepare('SELECT assigned_to,location_id,status FROM tasks WHERE id=?').get(created.id);
+  assert.equal(saved.assigned_to,f.ids.staff);assert.equal(saved.location_id,f.ids.a);
+  assert.equal((await f.write(staff,'task.status',{id:created.id,status:'doing'})).status,200);
+  assert.deepEqual(taskAudit(f.db).map(x=>x.action),['task.create','task.status']);
+});
+
+test('invalid, inactive, unbound and owner assignees cannot create work',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager');
+  for(const [user,location] of [
+    [f.ids.staff,f.ids.b],       // active staff, but not a member of store b
+    [f.ids.owner,f.ids.a]        // owner cannot be selected as assigned staff
+  ]){
+    const result=await f.write(owner,'task.create',{
+      location_id:location,title:'Not assigned',assigned_to:user});
+    assert.equal(result.status,409);
+  }
+  assert.equal((await f.write(manager,'task.create',{
+    location_id:f.ids.b,title:'Cross-store manager',assigned_to:f.ids.staff})).status,409);
+  f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.staff);
+  assert.equal((await f.write(owner,'task.create',{
+    location_id:f.ids.a,title:'Inactive user',assigned_to:f.ids.staff})).status,409);
+  assert.equal((await f.write(owner,'task.create',{
+    location_id:f.ids.a,title:'Malformed',assigned_to:'NOT-A-UUID'})).status,400);
+  assert.equal(taskCount(f.db),1);
+  assert.equal(taskAudit(f.db).length,0);
+});
+
+test('assignable staff read API is role-gated, active-only and location-scoped',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager'),
+    staff=await f.login('staff');
+  const read=login=>f.send('/api/data?entity=assignable_staff',{
+    headers:{cookie:login.cookie}});
+  assert.equal((await read(staff)).status,403);
+  const managerRows=await read(manager);
+  assert.equal(managerRows.status,200);
+  const people=(await managerRows.json()).rows;
+  assert(people.some(x=>x.id===f.ids.staff&&x.location_id===f.ids.a));
+  assert(people.every(x=>x.location_id===f.ids.a&&x.role!=='owner'));
+  const ownerRows=await read(owner);
+  assert.equal(ownerRows.status,200);
+  assert((await ownerRows.json()).rows.some(x=>x.id===f.ids.manager));
+  f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.staff);
+  assert(!(await (await read(owner)).json()).rows.some(x=>x.id===f.ids.staff));
+});
+
+test('assignment is reauthorized inside transaction after staff location revocation',async t=>{
+  let f,revoke=false;
+  f=await fixture(t,{beforeBatch(){
+    if(revoke)f.db.prepare('DELETE FROM user_locations WHERE user_id=? AND location_id=?')
+      .run(f.ids.staff,f.ids.a);
+  }});
+  const owner=await f.login('owner');
+  revoke=true;
+  const result=await f.write(owner,'task.create',{
+    location_id:f.ids.a,title:'Stale staff grant',assigned_to:f.ids.staff});
+  assert.equal(result.status,409);
+  assert.equal(taskCount(f.db),1);
+  assert.equal(taskAudit(f.db).length,0);
+});

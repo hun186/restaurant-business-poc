@@ -20,6 +20,11 @@ test('native Owner shell mirrors dashboard navigation without using demo entry p
   assert.match(js,/\$\('menu-btn'\)\.addEventListener/);
   assert.match(js,/setAttribute\('aria-current'/);
   assert.match(js,/\$\('nav-backdrop'\)\.addEventListener/);
+  assert.ok(js.includes("window.matchMedia('(max-width: 760px)')"));
+  assert.ok(js.includes("$('sidebar').inert=mobileNav.matches"));
+  assert.ok(js.includes("$('sidebar').inert=false"));
+  assert.ok(js.includes("closeMenu(true)"));
+  assert.ok(js.includes("mobileNav.addEventListener('change'"));
   for(const source of [html,js]){
     assert.doesNotMatch(source,/mock\.js|(?:localStorage|sessionStorage)|demo-reset|restaurantDemoReset|\/api\/access\/|\/api\/command/);
   }

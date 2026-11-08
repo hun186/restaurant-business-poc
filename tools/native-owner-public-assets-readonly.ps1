@@ -130,8 +130,10 @@ try{
  $client.Timeout=[TimeSpan]::FromMilliseconds($TimeoutMs)
  try{
   Assert-Status (Decode (Get-Only $client '/api/native/status' 'application/json' $MaxStatusBytes))
+  # Default Cloudflare html_handling redirects /owner-app.html to /owner-app.
+  # Check canonical 200 route directly; never follow redirects.
   $assets=@(
-   @{route='/owner-app.html';file='vercel-demo/owner-app.html';mime='text/html'},
+   @{route='/owner-app';file='vercel-demo/owner-app.html';mime='text/html'},
    @{route='/owner-app.css';file='vercel-demo/owner-app.css';mime='text/css'},
    @{route='/owner-app.js';file='vercel-demo/owner-app.js';mime='text/javascript'},
    @{route='/native-owner-display.mjs';file='vercel-demo/native-owner-display.mjs';mime='text/javascript'}

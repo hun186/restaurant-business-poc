@@ -79,25 +79,44 @@ async function taskActions(rows,marker){
     content.append(el('p','工作狀態目前唯讀；正式寫入尚待管理員授權。'));return;
   }
   if(role==='owner'||role==='manager'){
-    const stores=await api('/api/data?entity=locations',{signal:controller.signal});
+    const [stores,people]=await Promise.all([
+      api('/api/data?entity=locations',{signal:controller.signal}),
+      api('/api/data?entity=assignable_staff',{signal:controller.signal})]);
     if(marker!==revision)return;
-    if(stores?.mode!=='native_d1'||!Array.isArray(stores.rows))
-      throw Error('門市列表未取得，無法新增工作。');
+    if(stores?.mode!=='native_d1'||!Array.isArray(stores.rows)||
+       people?.mode!=='native_d1'||!Array.isArray(people.rows))
+      throw Error('門市與可指派人員未取得，無法新增工作。');
     const pane=el('section'),title=el('h3','新增工作');
     pane.className='panel';
-    const form=el('form'),select=el('select'),input=el('input'),submit=el('button','新增工作');
+    const form=el('form'),select=el('select'),assignee=el('select'),
+      input=el('input'),submit=el('button','新增工作');
     input.placeholder='輸入工作內容';input.required=true;input.maxLength=120;
     for(const store of stores.rows){
       if(store.active!==1||typeof store.id!=='string'||!taskId.test(store.id))continue;
       const option=el('option',store.name);option.value=store.id;select.append(option);
     }
+    const updateAssignees=()=>{
+      assignee.replaceChildren();
+      const unassigned=el('option','暫不指派');unassigned.value='';assignee.append(unassigned);
+      for(const person of people.rows){
+        if(person.location_id!==select.value||!taskId.test(person.id)||
+           !['staff','manager'].includes(person.role))continue;
+        const option=el('option',person.display_name||'員工');
+        option.value=person.id;assignee.append(option);
+      }
+    };
+    select.addEventListener('change',updateAssignees);
+    updateAssignees();
     submit.type='submit';submit.disabled=!select.options.length;
-    form.append(el('label','門市 '),select,el('label','工作內容 '),input,submit);
+    form.append(el('label','門市 '),select,el('label','指派給 '),assignee,
+      el('label','工作內容 '),input,submit);
     form.addEventListener('submit',async ev=>{
       ev.preventDefault();const title=input.value.trim();
       if(!title||title.length>120||!taskId.test(select.value))return;
       submit.disabled=true;
-      await writeTask('task.create',{location_id:select.value,title});
+      const data={location_id:select.value,title};
+      if(assignee.value&&taskId.test(assignee.value))data.assigned_to=assignee.value;
+      await writeTask('task.create',data);
       submit.disabled=false;
     });
     pane.append(title,form);content.prepend(pane);

@@ -4,7 +4,7 @@ import {loadPrincipal,hasAccess} from './auth-core.mjs';
 import {queryFor} from './operations-readonly.mjs';
 import {metricQueries} from './overview-readonly.mjs';
 
-const ENTITIES=new Set(['locations','ingredients','training_courses','tasks',
+const ENTITIES=new Set(['locations','ingredients','training_courses','tasks','assignable_staff',
   'purchase_orders','repairs','shifts','stock']);
 const HEADERS=Object.freeze({'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff',
@@ -34,6 +34,26 @@ export async function nativeBusinessReadHttp(request,env){
     if(Number(schema?.contract_version)!==3)
       return reply(503,{code:'E_SCHEMA_NOT_READY'});
     if(isData){
+      // Assignment candidates are never available to ordinary staff.
+      // Store membership and active role are checked again inside the task INSERT.
+      if(entity==='assignable_staff'){
+        if(!hasAccess(principal,'manager'))return reply(403,{code:'E_FORBIDDEN'});
+        const sql="SELECT u.id,u.display_name,u.role,ul.location_id FROM users u "+
+          "JOIN user_locations ul ON ul.user_id=u.id "+
+          "JOIN locations l ON l.id=ul.location_id "+
+          "WHERE u.active=1 AND l.active=1 AND u.role IN ('manager','staff') "+
+          (principal.role==='owner'?'':"AND ul.location_id IN ("+
+            "SELECT grants.location_id FROM user_locations grants "+
+            "JOIN locations allowed ON allowed.id=grants.location_id AND allowed.active=1 "+
+            "WHERE grants.user_id=?) ")+
+          "ORDER BY u.display_name,u.id LIMIT 500";
+        const args=principal.role==='owner'?[]:[principal.id];
+        const statement=env.DB.prepare(sql);
+        const list=await (args.length?statement.bind(...args):statement).all();
+        if(!Array.isArray(list?.results)||list.results.length>500)
+          throw Error('E_D1_INVALID_ROWS');
+        return reply(200,{mode:'native_d1',entity,rows:list.results});
+      }
       const plan=queryFor(entity,principal);
       if(!plan)return reply(404,{code:'E_UNKNOWN_ENTITY'});
       const result=await env.DB.prepare(plan.sql).bind(...plan.params).all();

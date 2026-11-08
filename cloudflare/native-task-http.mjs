@@ -43,12 +43,15 @@ async function boundedJson(request){
        Object.keys(data).sort().join(',')!=='action,data'||!data.data||
        typeof data.data!=='object'||Array.isArray(data.data))return null;
     if(data.action==='task.create'&&
-       Object.keys(data.data).sort().join(',')==='location_id,title'&&
+       ['location_id,title','assigned_to,location_id,title'].includes(Object.keys(data.data).sort().join(','))&&
        typeof data.data.location_id==='string'&&UUID.test(data.data.location_id)&&
-       typeof data.data.title==='string'){
+       typeof data.data.title==='string'&&
+       (!Object.hasOwn(data.data,'assigned_to')||
+         (typeof data.data.assigned_to==='string'&&UUID.test(data.data.assigned_to)))){
       const title=data.data.title.trim();
       if(title&&title.length<=120)return {action:'task.create',
-        location_id:data.data.location_id,title};
+        location_id:data.data.location_id,title,
+        assigned_to:data.data.assigned_to??null};
     }
     if(data.action==='task.status'&&
        Object.keys(data.data).sort().join(',')==='id,status'&&
@@ -112,17 +115,23 @@ async function createTask(db,principal,cmd){
   // The authorization check is repeated INSIDE the transactional INSERT,
   // not based only on a previously loaded Session.
   const insert=db.prepare(
-    'INSERT INTO tasks(id,location_id,title,description,created_by) '+
-    'SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users u '+
+    'INSERT INTO tasks(id,location_id,title,description,created_by,assigned_to) '+
+    'SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users u '+
     'JOIN sessions s ON s.user_id=u.id WHERE u.id=? AND u.active=1 '+
     "AND u.role=? AND u.role IN ('owner','manager') "+
     'AND s.token_hash=? AND s.expires_at>?) '+
     'AND EXISTS(SELECT 1 FROM locations l WHERE l.id=? AND l.active=1 '+
     "AND (?='owner' OR EXISTS(SELECT 1 FROM user_locations ul "+
-    'WHERE ul.location_id=l.id AND ul.user_id=?)))'
-  ).bind(id,cmd.location_id,cmd.title,'',principal.id,
+    'WHERE ul.location_id=l.id AND ul.user_id=?))) '+
+    'AND (? IS NULL OR EXISTS(SELECT 1 FROM users assignee '+
+    'JOIN user_locations assigned_store ON assigned_store.user_id=assignee.id '+
+    'WHERE assignee.id=? AND assignee.active=1 '+
+    "AND assignee.role IN ('manager','staff') "+
+    'AND assigned_store.location_id=?))'
+  ).bind(id,cmd.location_id,cmd.title,'',principal.id,cmd.assigned_to,
     principal.id,principal.role,principal.token_hash,now,
-    cmd.location_id,principal.role,principal.id);
+    cmd.location_id,principal.role,principal.id,
+    cmd.assigned_to,cmd.assigned_to,cmd.location_id);
   const audit=db.prepare(
     "INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) "+
     "SELECT ?,?,?,'task.create','tasks',t.id,t.location_id,? FROM tasks t "+
@@ -138,7 +147,8 @@ async function createTask(db,principal,cmd){
   const results=await db.batch([insert,audit,check]);
   if(!Array.isArray(results)||results.length!==3||
      results.some(x=>changes(x)!==1))return respond(409,{code:'E_CONCURRENT_CHANGE'});
-  return respond(200,{ok:true,result:{id,location_id:cmd.location_id,title:cmd.title}});
+  return respond(200,{ok:true,result:{id,location_id:cmd.location_id,title:cmd.title,
+    assigned_to:cmd.assigned_to}});
 }
 export async function nativeTaskHttp(request,env){
   if(!nativeTaskWriteEnabled(env))return respond(503,{code:'E_NOT_READY'});

@@ -147,3 +147,18 @@ Wrangler 變更、Migration 或真實驗收。
 `CLOUD_NATIVE_REPAIR_WRITE_GATE=operator-released` 預設關閉，
 本 PR 不建立正式帳號、不啟用 Production Gate、不碰 Secrets、
 D1 Migration 或正式資料。
+
+## 2026-11-08｜整合發布基底調整與驗證責任
+
+盤點功能已在 PR #149 以 `01ea2106209befd148be48f4dfc534c9e27b4523`
+Squash Merge 到 Integration。維修功能開發分支原本從盤點 PR 的
+提交建立，故指向 Integration 的 PR #150 與 squash 產生的提交
+歷史分歧，曾顯示 `mergeable=false`。不使用 Force Push、Force Merge、
+跳過 Review 或重新部署；PR #150 改以其原始共同祖先 Main
+`4298edcf067cc3ca2fd43c6bb0850d33dc75ab55` 為基底，並經 GitHub
+確認是單向 ahead、無 behind、`mergeable_state=clean`。
+
+因此 PR #150 是「盤點＋維修」單次 Main 發布，必須由**調整後的新
+最新 HEAD** 自己完成五組 Hosted CI 及正式 Codex Review，舊 #149
+審查不能取代；Main 合併後再次驗證 Cloudflare Build、Vercel 和
+五組 CI，且 Production Auth/各功能寫入 Gate 仍保持關閉。

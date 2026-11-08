@@ -8,8 +8,10 @@ const bat=fs.readFileSync(path.join(root,'run-native-owner-public-readonly.bat')
 test('PowerShell 5.1 script checks only four public Owner assets and native status',()=>{
  assert.equal(ps.charCodeAt(0),0xfeff);
  assert.match(ps,/https:\/\/restaurant-business-poc\.hungyuan-chen\.workers\.dev/);
- for(const url of ['/api/native/status','/owner-app.html','/owner-app.css','/owner-app.js','/native-owner-display.mjs'])
+ for(const url of ['/api/native/status','/owner-app','/owner-app.css','/owner-app.js','/native-owner-display.mjs'])
   assert(ps.includes(url),url);
+ assert(ps.includes("route='/owner-app';file='vercel-demo/owner-app.html'"));
+ assert(!ps.includes("route='/owner-app.html'"));
  assert.match(ps,/HttpMethod\]::Get/);
  assert.match(ps,/AllowAutoRedirect=\$false/);
  assert.match(ps,/UseCookies=\$false/);

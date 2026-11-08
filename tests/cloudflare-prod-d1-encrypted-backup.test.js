@@ -13,6 +13,11 @@ const SQL=v3+'\n'+delta+'\n'+[
  "INSERT INTO d1_migrations(id,name) VALUES(1,'0001_initial_v3.sql');",
  "INSERT INTO d1_migrations(id,name) VALUES(2,'0002_login_attempts_window_indexes.sql');"
 ].join('\n');
+// Synthetic one-time Owner and exactly one bootstrap audit; NO real credentials.
+const OWNER_SQL=SQL+'\n'+[
+ "INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES('synthetic-owner','owner','Synthetic Owner','owner','"+'b'.repeat(32)+"','pbkdf2-sha256$100000$"+'a'.repeat(64)+"',1);",
+ "INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,detail) VALUES('synthetic-audit','production-bootstrap','auth.owner_bootstrap','users','synthetic-owner','{\"hash_version\":\"pbkdf2-sha256$100000\"}');"
+].join('\n');
 const TOKEN='a'.repeat(24);
 const before={
  contract_version:3,migration_total:2,migration_1:1,migration_2:1,
@@ -23,8 +28,10 @@ const before={
 };
 const after={contract_version:3,migration_total:2,users:0,owners:0,
  sessions:0,login_attempts:0,audit_logs:0,owner_enrollment_audits:0};
+const ownerBefore={...before,users:1,audit_logs:1};
+const ownerAfter={...after,users:1,owners:1,audit_logs:1,owner_enrollment_audits:1};
 const envelope=x=>({ok:true,status:200,text:async()=>JSON.stringify(x),json:async()=>x});
-function mockTransport({tamper=false,badUrl=false,
+function mockTransport({tamper=false,badUrl=false,ownerEnrolled=false,
  bookmark='aaaaaaaa-bbbbbbbb-cccccccc-'+'d'.repeat(32),omitType=false,
  progressStatus=undefined}={}){
  let queries=0,posts=0,gets=0,downloads=0;const calls=[];
@@ -47,9 +54,10 @@ function mockTransport({tamper=false,badUrl=false,
   }
   if(url.includes('/signed?')){
    downloads++;assert.equal(opts.method,'GET');assert.equal(opts.headers,undefined);
+   const dump=ownerEnrolled?OWNER_SQL:SQL;
    let first=true;
-   return {ok:true,status:200,headers:{get:()=>String(Buffer.byteLength(SQL))},
-    body:{getReader:()=>({read:async()=>first?(first=false,{done:false,value:Buffer.from(SQL)}):
+   return {ok:true,status:200,headers:{get:()=>String(Buffer.byteLength(dump))},
+    body:{getReader:()=>({read:async()=>first?(first=false,{done:false,value:Buffer.from(dump)}):
       {done:true},releaseLock(){}})}};
   }
   assert.ok(url.startsWith('https://api.cloudflare.com/client/v4/accounts/'));
@@ -58,8 +66,8 @@ function mockTransport({tamper=false,badUrl=false,
    queries++;assert.equal(opts.method,'POST');
    const data=JSON.parse(opts.body),sql=data.sql;
    let results;
-   if(sql.includes('FROM cloud_schema_contract')&&sql.includes('migration_1'))results=[tamper?{...before,users:1}:before];
-   else if(sql.includes('owner_enrollment_audits'))results=[after];
+   if(sql.includes('FROM cloud_schema_contract')&&sql.includes('migration_1'))results=[tamper?{...before,users:1}:(ownerEnrolled?ownerBefore:before)];
+   else if(sql.includes('owner_enrollment_audits'))results=[ownerEnrolled?ownerAfter:after];
    else if(sql==='PRAGMA quick_check;')results=[{quick_check:'ok'}];
    else if(sql==='PRAGMA foreign_key_check;')results=[];
    else throw Error('unexpected reviewed query');
@@ -88,6 +96,34 @@ test('AES-GCM archive roundtrip and offline SQL replay validates v3 and migratio
  const corrupt=JSON.parse(sealed.toString());
  corrupt.ciphertext=(corrupt.ciphertext[0]==='a'?'b':'a')+corrupt.ciphertext.slice(1);
  assert.throws(()=>m.decryptSql(Buffer.from(JSON.stringify(corrupt)),'synthetic-lab-password-123456'),/E_PRODUCTION_D1_BACKUP/);
+});
+test('post-bootstrap Owner=1 archive replays only one audited active Owner and no sessions',async()=>{
+ const m=await mod;
+ const verified=m.verifyLocalSql(OWNER_SQL);
+ assert.equal(verified.owner_count,1);
+ assert.equal(verified.owner_enrollment_audits,1);
+ assert.equal(verified.production_restore_performed,false);
+ const encrypted=m.encryptSql(OWNER_SQL,'synthetic-lab-password-123456');
+ assert.equal(m.verifyLocalSql(m.decryptSql(encrypted,'synthetic-lab-password-123456')).owner_count,1);
+ const mock=mockTransport({ownerEnrolled:true});
+ const downloaded=await m.remoteExport({token:TOKEN,transport:mock.transport,pause:async()=>{}});
+ assert.equal(downloaded,OWNER_SQL);
+ assert.equal(mock.queries,4);assert.equal(mock.posts,2);assert.equal(mock.downloads,1);
+ assert.equal(mock.calls.some(x=>/\/(?:import|restore|delete|migrations)/.test(x.url)),false);
+});
+test('post-bootstrap export refuses missing audit, extra users and login/business activity',async()=>{
+ const m=await mod;
+ const wrong=[
+  OWNER_SQL.replace("'auth.owner_bootstrap'","'auth.login'"),
+  OWNER_SQL.replace("'synthetic-owner','owner','Synthetic Owner','owner'","'synthetic-owner','owner','Synthetic Owner','staff'"),
+  OWNER_SQL.replace("'pbkdf2-sha256$100000$"+'a'.repeat(64)+"'","'bad-hash'"),
+  OWNER_SQL+"\nINSERT INTO login_attempts(id,username,ip_hash,success) VALUES('attempt1','owner','source',0);",
+  OWNER_SQL+"\nINSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES('unexpected-user','staff','Extra Staff','staff','"+'b'.repeat(32)+"','bad-hash');",
+  OWNER_SQL+"\nINSERT INTO audit_logs(id,actor_name,action,entity,detail) VALUES('extra-audit','synthetic','x','users','{}');",
+  SQL+"\nINSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES('orphan','owner','Orphan','owner','"+'b'.repeat(32)+"','pbkdf2-sha256$100000$"+'a'.repeat(64)+"');"
+ ];
+ for(const sql of wrong)assert.throws(()=>m.verifyLocalSql(sql),
+  e=>e?.message==='E_PRODUCTION_D1_BACKUP'&&e?.reason==='SQL_OWNER_STATE');
 });
 test('invalid or incomplete dump fails closed without writing remote D1',async()=>{
  const m=await mod;

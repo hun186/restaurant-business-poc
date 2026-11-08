@@ -5,6 +5,7 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   locations:'門市',training_courses:'訓練'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
+const mobileNav=window.matchMedia('(max-width: 760px)');
 const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
   purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
@@ -535,10 +536,13 @@ async function refresh(){
     say(e.message||'無法讀取資料。',true);
   }
 }
-function closeMenu(){
+function closeMenu(returnFocus=false){
+  const wasOpen=$('sidebar').classList.contains('open');
   $('sidebar').classList.remove('open');
+  $('sidebar').inert=mobileNav.matches;
   $('menu-btn').setAttribute('aria-expanded','false');
   $('nav-backdrop').hidden=true;
+  if(returnFocus&&wasOpen&&mobileNav.matches)$('menu-btn').focus();
 }
 function syncView(){
   $('crumb').textContent=labels[view];
@@ -610,14 +614,19 @@ for(const b of document.querySelectorAll('#nav button[data-view]'))
   b.addEventListener('click',()=>{
     if(!Object.hasOwn(labels,b.dataset.view))return;
     view=b.dataset.view;$('title').textContent=labels[view];
-    syncView();closeMenu();refresh();
+    syncView();closeMenu(true);refresh();
   });
 $('menu-btn').addEventListener('click',()=>{
   const opened=$('sidebar').classList.toggle('open');
+  $('sidebar').inert=false;
   $('menu-btn').setAttribute('aria-expanded',String(opened));
   $('nav-backdrop').hidden=!opened;
+  if(opened)$('nav').querySelector('button[data-view]')?.focus();
+  else closeMenu(true);
 });
-$('nav-backdrop').addEventListener('click',closeMenu);
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+$('nav-backdrop').addEventListener('click',()=>closeMenu(true));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu(true);});
+mobileNav.addEventListener('change',()=>closeMenu());
 $('refresh').addEventListener('click',refresh);
+closeMenu();
 start();

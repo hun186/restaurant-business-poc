@@ -99,3 +99,14 @@ Owner／Manager、有效 Session、建立門市授權與受指派員工的有效
 交易內重檢，Audit 與工作變更同交易。舊期限不一致回 409。
 本變更不包含 Production D1 寫入授權、Owner 初始化、Secrets 或
 Cloudflare Release Gate 操作；仍須最新 HEAD CI 與正式 Codex Review。
+
+## 2026-11-08｜Owner D1 門市與食材建立（待 PR 檢驗）
+
+原生工作台新增業主專用新增門市和食材主檔，不再需要操作員直接
+在 D1 中手填 SQL。此功能獨立要求
+`CLOUD_NATIVE_CATALOG_WRITE_GATE=operator-released` 並繼承 Native
+Login Gate；預設正式部署未設定 Gate，不能寫入。
+後端在 D1.batch 交易內確認 Owner 仍有效、Session 未過期、
+CSRF/同源前檢通過，並於建檔後建立 Audit。食材代碼唯一，
+食材數量下限固定三位小數的安全範圍；不新增 D1 Migration。
+合成測試不等於真實 Production Owner 設定／實機驗收。

@@ -75,6 +75,7 @@ async function writeTask(action,data){
 }
 async function taskActions(rows,marker){
   const content=$('content');
+  let candidatePeople=[];
   if(!writeEnabled){
     content.append(el('p','工作狀態目前唯讀；正式寫入尚待管理員授權。'));return;
   }
@@ -86,10 +87,12 @@ async function taskActions(rows,marker){
     if(stores?.mode!=='native_d1'||!Array.isArray(stores.rows)||
        people?.mode!=='native_d1'||!Array.isArray(people.rows))
       throw Error('門市與可指派人員未取得，無法新增工作。');
+    candidatePeople=people.rows;
     const pane=el('section'),title=el('h3','新增工作');
     pane.className='panel';
     const form=el('form'),select=el('select'),assignee=el('select'),
-      input=el('input'),submit=el('button','新增工作');
+      input=el('input'),due=el('input'),submit=el('button','新增工作');
+    due.type='date';due.setAttribute('aria-label','工作期限（選填）');
     input.placeholder='輸入工作內容';input.required=true;input.maxLength=120;
     for(const store of stores.rows){
       if(store.active!==1||typeof store.id!=='string'||!taskId.test(store.id))continue;
@@ -109,13 +112,14 @@ async function taskActions(rows,marker){
     updateAssignees();
     submit.type='submit';submit.disabled=!select.options.length;
     form.append(el('label','門市 '),select,el('label','指派給 '),assignee,
-      el('label','工作內容 '),input,submit);
+      el('label','工作內容 '),input,el('label','期限（選填） '),due,submit);
     form.addEventListener('submit',async ev=>{
       ev.preventDefault();const title=input.value.trim();
       if(!title||title.length>120||!taskId.test(select.value))return;
       submit.disabled=true;
       const data={location_id:select.value,title};
       if(assignee.value&&taskId.test(assignee.value))data.assigned_to=assignee.value;
+      if(due.value)data.due_date=due.value;
       await writeTask('task.create',data);
       submit.disabled=false;
     });
@@ -139,6 +143,55 @@ async function taskActions(rows,marker){
       save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value});
     });
     container.append(el('strong',row.title||'工作'),el('span',' · '),select,save);
+    if((role==='owner'||role==='manager')&&row.status!=='done'&&
+       taskId.test(row.location_id)&&
+       (row.assigned_to===null||taskId.test(row.assigned_to))){
+      const original=row.assigned_to??null;
+      const assignee=el('select'),assignSave=el('button','更新指派');
+      let empty=el('option','暫不指派');empty.value='';assignee.append(empty);
+      for(const person of candidatePeople){
+        if(person.location_id!==row.location_id||!taskId.test(person.id)||
+           !['staff','manager'].includes(person.role))continue;
+        const option=el('option',person.display_name||'員工');
+        option.value=person.id;assignee.append(option);
+      }
+      // A no-longer-active assignee cannot be newly selected; retain old ID
+      // only for compare-and-set, so an authorized manager can unassign.
+      assignee.value=original&&[...assignee.options].some(x=>x.value===original)
+        ? original:'';
+      assignSave.type='button';
+      assignSave.disabled=(assignee.value||null)===original;
+      assignee.addEventListener('change',()=>{
+        assignSave.disabled=(assignee.value||null)===original;
+      });
+      assignSave.addEventListener('click',async()=>{
+        if(assignSave.disabled||!window.confirm('確定變更真實 D1 工作指派？'))return;
+        assignSave.disabled=true;
+        await writeTask('task.assign',{id:row.id,assigned_to:assignee.value||null,
+          expected_assigned_to:original});
+      });
+      container.append(el('span',' · 指派 '),assignee,assignSave);
+    }
+    if((role==='owner'||role==='manager')&&row.status!=='done'&&
+       taskId.test(row.location_id)&&
+       (row.due_date===null||typeof row.due_date==='string'&&
+         /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.due_date))){
+      const previous=row.due_date??null,date=el('input'),
+        saveDue=el('button','更新期限');
+      date.type='date';date.value=previous||'';
+      date.setAttribute('aria-label','工作期限');
+      saveDue.type='button';saveDue.disabled=(date.value||null)===previous;
+      date.addEventListener('change',()=>{
+        saveDue.disabled=(date.value||null)===previous;
+      });
+      saveDue.addEventListener('click',async()=>{
+        if(saveDue.disabled||!window.confirm('確定更新真實 D1 工作期限？'))return;
+        saveDue.disabled=true;
+        await writeTask('task.due',{id:row.id,due_date:date.value||null,
+          expected_due_date:previous});
+      });
+      container.append(el('span',' · 期限 '),date,saveDue);
+    }
     list.append(container);count++;
   }
   if(count)content.append(list);

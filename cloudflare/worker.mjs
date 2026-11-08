@@ -3,6 +3,7 @@ import { nativeLoginHttp,nativeLoginEnabled } from './native-login-http.mjs';
 import { nativeBusinessReadHttp } from './native-business-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
+import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
 import { previewAccessBusiness } from './access-business-readonly.mjs';
@@ -30,11 +31,13 @@ export default {
       return json({mode:nativeLoginEnabled(env)?'native':'demo',
         login_enabled:nativeLoginEnabled(env),
         task_write_enabled:nativeTaskWriteEnabled(env),
-        catalog_write_enabled:nativeCatalogWriteEnabled(env)});
+        catalog_write_enabled:nativeCatalogWriteEnabled(env),
+        order_write_enabled:nativeOrderWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/task') return nativeTaskHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
+    if (pathname === '/api/order') return nativeOrderHttp(request,env);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);

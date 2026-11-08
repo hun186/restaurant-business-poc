@@ -67,3 +67,15 @@ CSRF／Origin 失敗、交易回滾與權限在執行前撤銷。
    建立／狀態變更，核對 UI、D1 與 Audit 三方一致。
 5. 未驗收的其他模組（叫貨、盤點、員工權限維護等）仍保持
    **只讀**，不可稱為全部正式營運 CRUD 已上線。
+
+## 2026-11-08｜工作指派到門市員工（待本 PR Hosted 驗證）
+
+業主或主管在建立工作時可選擇同門市、仍有效的主管／員工，亦可不指派。
+候選清單為 `GET /api/data?entity=assignable_staff`，僅 Owner／Manager
+能查詢，回傳必要的姓名、角色、門市及 UUID，不含密碼、Session 或登入資訊；
+主管只能讀取已授權的有效門市。員工不能讀取候選名單。
+
+`task.create` 接受可選的 `assigned_to` UUID。後端 D1 交易內同時驗證
+Owner／Manager、有效 Session、建立門市授權與受指派員工的有效角色與門市關聯，
+授權撤銷或不符即拒絕整筆工作與稽核寫入。尚未另外核准正式環境登入、
+寫入或 Owner bootstrap；在 Production Gate disabled 時所有新增能力均不可操作。

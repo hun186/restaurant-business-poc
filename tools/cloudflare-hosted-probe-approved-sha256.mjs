@@ -32,7 +32,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "run-cloudflare-public-readonly.bat":"ca19dde7f55d9d4cec7a773fbd2583c47b2e57975b4216985dac466551df38e7",
   "tools/cloudflare-public-runtime-readonly.mjs":"3dc8ab6f861ef55fed4cf344265acfca16c65b68ce976430232142eef41a5371",
   "run-production-d1-backup.bat":"450d32dd2f39779155e7e244b876f244a0d7243e9ae307d07ed95856a4c2e09d",
-  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"e476888aeb9e16c86d605d58a397bfd7833eec6c0fc4344abdb3967c7f095ea3",
+  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"5d63d5e03c704281fc5ee22831890a621157adc75809e558d9f7a46c7746c147",
   "run-disposable-d1-batch-lab.sh":"6fb818548beb4f8816ef513c02282705276ea74c9f1feaeae9e00576b377840e",
   "run-disposable-d1-batch-lab.bat":"9dd023fe4731ace777828c5064b1c6aa8adb8a3755a97f068cea41418a45f396",
   "tools/cloudflare-d1-rest-batch-lab.mjs":"78b730304723a7331d05b26fc5ea0feeac936f96be05b1456a212a857f4629cc",

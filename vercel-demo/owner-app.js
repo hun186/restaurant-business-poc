@@ -1,3 +1,4 @@
+import {presentNativeRows} from './native-owner-display.mjs';
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
@@ -36,17 +37,45 @@ function showLogin(message){
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
-function table(rows){
-  const frame=el('div');frame.className='scroll';
-  const table=el('table'),thead=el('thead'),head=el('tr'),body=el('tbody');
-  const columns=Object.keys(rows[0]).filter(k=>!['password_hash','password_salt',
-    'token_hash','csrf_token'].includes(k)).slice(0,12);
-  for(const col of columns)head.append(el('th',col));
-  for(const row of rows){const tr=el('tr');
-    for(const col of columns)tr.append(el('td',row[col]===undefined||row[col]===null?'—':row[col]));
-    body.append(tr);
+function table(entity,rows){
+ const model=presentNativeRows(entity,rows);
+ const wrapper=el('div'),toolbar=el('div'),label=el('label','快速搜尋 '),
+   input=el('input'),count=el('span'),empty=el('p','沒有符合搜尋條件的資料。');
+ toolbar.className='native-data-toolbar';count.className='native-data-count';
+ input.type='search';input.maxLength=80;input.placeholder='搜尋目前已載入的資料';
+ label.append(input);toolbar.append(label,count);
+ const frame=el('div');frame.className='scroll';
+ const grid=el('table'),caption=el('caption',labels[entity]+'資料清單');
+ caption.className='native-data-caption';
+ const header=el('thead'),head=el('tr'),body=el('tbody');
+ for(const col of model.columns){
+  const th=el('th',col.label);th.scope='col';head.append(th);
+ }
+ header.append(head);grid.append(caption,header,body);frame.append(grid);
+ empty.className='native-search-empty';empty.hidden=true;
+ function draw(){
+  const term=input.value.trim().toLocaleLowerCase('zh-TW');
+  const shown=term?model.entries.filter(row=>row.search.includes(term)):model.entries;
+  const fragment=document.createDocumentFragment();
+  for(const entry of shown){
+   const tr=el('tr');
+   for(const cell of entry.cells){
+    const td=el('td');
+    if(cell.tone){
+     const badge=el('span',cell.text);badge.className='native-status '+cell.tone;
+     td.append(badge);
+    }else td.textContent=cell.text;
+    tr.append(td);
+   }
+   fragment.append(tr);
   }
-  thead.append(head);table.append(thead,body);frame.append(table);return frame;
+  body.replaceChildren(fragment);
+  count.textContent='顯示 '+shown.length+' / '+model.entries.length+
+   ' 筆（只搜尋已載入的資料，伺服器最多提供 500 筆）';
+  empty.hidden=shown.length!==0;
+ }
+ input.addEventListener('input',draw);
+ wrapper.append(toolbar,frame,empty);draw();return wrapper;
 }
 function render(data){
   if(data?.mode!=='native_d1')throw Error('伺服器資料模式不正確。');
@@ -62,7 +91,7 @@ function render(data){
   }
   if(data.entity!==view||!Array.isArray(data.rows)||data.rows.length>500)
     throw Error('營運資料格式不正確。');
-  content.append(data.rows.length?table(data.rows):el('p','此門市目前沒有符合條件的資料，請確認目前門市權限或稍後重新整理。'));
+  content.append(data.rows.length?table(view,data.rows):el('p','此門市目前沒有符合條件的資料，請確認目前門市權限或稍後重新整理。'));
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;

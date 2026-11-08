@@ -5,6 +5,11 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   locations:'門市',training_courses:'訓練'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
+const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
+  purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
+  stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
+  shifts:'班表資訊（目前唯讀）',ingredients:'食材及安全庫存主檔',
+  locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false;
@@ -26,7 +31,7 @@ async function api(url,opts={}){
   return json;
 }
 function showLogin(message){
-  csrf=null;revision++;if(controller)controller.abort();
+  csrf=null;revision++;if(controller)controller.abort();closeMenu();
   $('workspace').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
@@ -56,7 +61,7 @@ function render(data){
   }
   if(data.entity!==view||!Array.isArray(data.rows)||data.rows.length>500)
     throw Error('營運資料格式不正確。');
-  content.append(data.rows.length?table(data.rows):el('p','此門市目前沒有符合條件的資料。'));
+  content.append(data.rows.length?table(data.rows):el('p','此門市目前沒有符合條件的資料，請確認目前門市權限或稍後重新整理。'));
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
@@ -530,12 +535,36 @@ async function refresh(){
     say(e.message||'無法讀取資料。',true);
   }
 }
+function closeMenu(){
+  $('sidebar').classList.remove('open');
+  $('menu-btn').setAttribute('aria-expanded','false');
+  $('nav-backdrop').hidden=true;
+}
+function syncView(){
+  $('crumb').textContent=labels[view];
+  $('section-hint').textContent=viewHints[view];
+  const writable=(view==='tasks'&&writeEnabled)||
+    ((view==='ingredients'||view==='locations')&&catalogWriteEnabled&&role==='owner')||
+    (view==='purchase_orders'&&orderWriteEnabled)||
+    (view==='stocktakes'&&stocktakeWriteEnabled)||
+    (view==='repairs'&&repairWriteEnabled);
+  $('capability').textContent=writable?'操作已啟用':'唯讀';
+  $('capability').classList.toggle('enabled',Boolean(writable));
+  for(const b of document.querySelectorAll('#nav button[data-view]')){
+    const selected=b.dataset.view===view;
+    b.classList.toggle('active',selected);
+    if(selected)b.setAttribute('aria-current','page');
+    else b.removeAttribute('aria-current');
+  }
+}
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
   csrf=me.csrf;role=me.user.role;$('login').hidden=true;$('workspace').hidden=false;
-  $('identity').textContent=me.user.display_name+'（'+
+  const name=String(me.user.display_name||'');
+  $('identity').textContent=name+'（'+
     ({owner:'業主',manager:'主管',staff:'員工'}[me.user.role]||'')+'）';
-  refresh();
+  $('avatar').textContent=Array.from(name)[0]||'餐';
+  syncView();closeMenu();refresh();
 }
 async function start(){
   $('login').hidden=true;$('workspace').hidden=true;
@@ -568,7 +597,7 @@ $('login-form').addEventListener('submit',async ev=>{
 });
 $('logout').addEventListener('click',async()=>{
   if(!csrf)return;const token=csrf;csrf=null;
-  revision++;if(controller)controller.abort();$('workspace').hidden=true;
+  revision++;if(controller)controller.abort();closeMenu();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','X-CSRF-Token':token}});
@@ -579,7 +608,14 @@ for(const b of document.querySelectorAll('#nav button[data-view]'))
   b.addEventListener('click',()=>{
     if(!Object.hasOwn(labels,b.dataset.view))return;
     view=b.dataset.view;$('title').textContent=labels[view];
-    refresh();
+    syncView();closeMenu();refresh();
   });
+$('menu-btn').addEventListener('click',()=>{
+  const opened=$('sidebar').classList.toggle('open');
+  $('menu-btn').setAttribute('aria-expanded',String(opened));
+  $('nav-backdrop').hidden=!opened;
+});
+$('nav-backdrop').addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
 $('refresh').addEventListener('click',refresh);
 start();

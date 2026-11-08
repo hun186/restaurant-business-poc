@@ -1,20 +1,73 @@
 <!doctype html>
-<html lang="zh-Hant"><head>
+<html lang="zh-Hant">
+<head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#102f43">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'">
-<meta name="robots" content="noindex,nofollow"><title>餐廳好管家｜業主工作台</title>
-<link rel="stylesheet" href="/owner-app.css"><script type="module" src="/owner-app.js"></script>
-</head><body class="native-owner"><header><h1>餐廳好管家 · 正式營運工作台</h1>
-<p id="notice" role="status" aria-live="polite">正在檢查服務啟用狀態</p></header>
-<section id="login" class="panel" hidden><h2>個人帳號登入</h2>
-<form id="login-form"><label>帳號 <input name="username" autocomplete="username" maxlength="40" required></label>
-<label>密碼 <input name="password" type="password" autocomplete="current-password" minlength="12" maxlength="256" required></label>
-<button id="login-submit" type="submit">登入</button></form></section>
-<div id="workspace" hidden><p id="identity"></p><button id="logout" type="button">登出</button>
-<nav id="nav"><button data-view="overview">今日總覽</button><button data-view="tasks">工作</button>
-<button data-view="purchase_orders">叫貨</button><button data-view="stock">庫存</button><button data-view="stocktakes">盤點</button>
-<button data-view="repairs">維修</button><button data-view="shifts">排班</button>
-<button data-view="ingredients">食材</button><button data-view="locations">門市</button>
-<button data-view="training_courses">訓練</button></nav>
-<main class="panel"><h2 id="title">今日總覽</h2><button id="refresh" type="button">重新整理</button><section id="content"></section></main></div>
-<footer>所有正式資料由登入後的同源 D1 API 取得，不使用公開 Demo 模擬資料。</footer></body></html>
+<meta name="robots" content="noindex,nofollow">
+<title>餐廳好管家｜正式業主工作台</title>
+<link rel="stylesheet" href="/owner-app.css">
+<script type="module" src="/owner-app.js"></script>
+</head>
+<body class="native-owner">
+<div class="service-banner" role="status"><span class="service-dot" aria-hidden="true"></span><span id="notice" aria-live="polite">正在確認正式營運服務狀態…</span><span class="service-source">正式環境 · 真實 D1 資料</span></div>
+<section id="login" class="login-screen" hidden aria-labelledby="login-title">
+  <div class="auth-card">
+    <div class="brand-mark large" aria-hidden="true">♜</div>
+    <h1 id="login-title">餐廳好管家</h1>
+    <p class="auth-subtitle">餐飲營運管理系統 · 個人帳號登入</p>
+    <form id="login-form">
+      <label>帳號<input name="username" autocomplete="username" maxlength="40" placeholder="輸入個人帳號" required></label>
+      <label>密碼<input name="password" type="password" autocomplete="current-password" minlength="12" maxlength="256" placeholder="輸入個人密碼" required></label>
+      <button id="login-submit" class="btn primary wide" type="submit">安全登入</button>
+    </form>
+    <p class="auth-note">僅於正式登入服務受控啟用時提供登入。本頁不使用展示帳號或模擬資料。</p>
+  </div>
+</section>
+<div id="workspace" class="shell" hidden>
+  <aside id="sidebar" class="sidebar" aria-label="營運工作空間">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">♜</span><span><strong>餐廳好管家</strong><small>餐飲營運管理系統</small></span></div>
+    <div class="nav-label">營運工作空間</div>
+    <nav id="nav" aria-label="主要功能">
+      <button type="button" class="active" data-view="overview" aria-current="page"><span aria-hidden="true">▦</span> 今日營運總覽</button>
+      <details open><summary>☷ 日常營運 <span aria-hidden="true">⌄</span></summary><div class="nav-children">
+        <button type="button" data-view="tasks">☑ 今日工作</button>
+        <button type="button" data-view="repairs">⚒ 設備維修</button>
+      </div></details>
+      <details open><summary>⬡ 採購與庫存 <span aria-hidden="true">⌄</span></summary><div class="nav-children">
+        <button type="button" data-view="ingredients">♧ 食材主檔</button>
+        <button type="button" data-view="stock">▣ 庫存管理</button>
+        <button type="button" data-view="purchase_orders">▤ 叫貨管理</button>
+        <button type="button" data-view="stocktakes">☷ 食材盤點</button>
+      </div></details>
+      <details><summary>♙ 人事與訓練 <span aria-hidden="true">⌄</span></summary><div class="nav-children">
+        <button type="button" data-view="shifts">▦ 人事排班</button>
+        <button type="button" data-view="training_courses">▥ 教育訓練</button>
+      </div></details>
+      <details><summary>⚙ 系統管理 <span aria-hidden="true">⌄</span></summary><div class="nav-children">
+        <button type="button" data-view="locations">⌂ 門市管理</button>
+      </div></details>
+    </nav>
+    <div class="side-bottom"><div class="mode-label">◉ 正式 D1 · 權限與寫入依後端設定</div><p>僅顯示已接入的正式資料功能</p><button id="logout" type="button" class="logout-btn">↪ 安全登出</button></div>
+  </aside>
+  <button id="nav-backdrop" class="nav-backdrop" type="button" aria-label="關閉導覽" hidden></button>
+  <div class="workarea">
+    <header class="topbar">
+      <button type="button" id="menu-btn" aria-label="開啟導覽" aria-controls="sidebar" aria-expanded="false">☰</button>
+      <div class="crumb">餐飲管理 / <strong id="crumb">今日總覽</strong></div>
+      <div class="top-right"><span id="identity"></span><span class="avatar" id="avatar" aria-hidden="true">餐</span></div>
+    </header>
+    <main id="main">
+      <div class="heading">
+        <div><div class="eyebrow">NATIVE OPERATIONS · REAL D1</div><h1 id="title">今日總覽</h1><p id="section-hint">授權範圍內的即時營運資訊</p></div>
+        <button id="refresh" class="btn" type="button">↻ 重新整理</button>
+      </div>
+      <div class="capability-strip"><span id="capability" class="capability-badge">唯讀</span><span>只顯示目前後端授權的真實資料與可用操作，未開放的功能不會產生寫入。</span></div>
+      <section id="content" class="panel" aria-live="polite"></section>
+    </main>
+    <footer>餐廳好管家 · 正式業主工作台 · 所有資料來自同源 D1 API，並受角色／門市授權限制</footer>
+  </div>
+</div>
+<footer id="landing-footer">登入與業務操作由正式環境開關控制。本頁不接受 Demo 模擬登入。</footer>
+</body>
+</html>

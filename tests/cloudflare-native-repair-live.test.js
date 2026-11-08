@@ -183,3 +183,17 @@ test('default production gate stays disabled and avoids data writes',async t=>{
   assert.equal(Object.hasOwn(cfg.vars,'CLOUD_NATIVE_REPAIR_WRITE_GATE'),false);
   assert.equal(f.db.prepare('SELECT COUNT(*) n FROM repairs').get().n,0);
 });
+
+test('max-length Chinese equipment and description fit strict UTF-8 byte envelope',async t=>{
+  const f=await fixture(t),owner=await f.login('owner');
+  const result=await f.write(owner,'repair.create',{
+    location_id:f.ids.a,equipment:'設'.repeat(120),description:'測'.repeat(1000)});
+  assert.equal(result.status,200);
+  assert.equal(repair(f.db).equipment.length,120);
+  assert.equal(repair(f.db).description.length,1000);
+  const reject=await f.write(owner,'repair.create',{
+    location_id:f.ids.a,equipment:'設備',description:'甲'.repeat(1500)});
+  assert.equal(reject.status,400);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM repairs').get().n,1);
+  assert.equal(audits(f.db).length,1);
+});

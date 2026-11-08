@@ -1,12 +1,12 @@
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
-  stock:'庫存',repairs:'維修',shifts:'排班',ingredients:'食材',
+  stock:'庫存',stocktakes:'盤點',repairs:'維修',shifts:'排班',ingredients:'食材',
   locations:'門市',training_courses:'訓練'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
-  catalogWriteEnabled=false,orderWriteEnabled=false;
+  catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false;
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
 async function api(url,opts={}){
@@ -210,6 +210,85 @@ async function orderActions(rows,marker){
   }
   if(shown)$('content').append(controls);
 }
+
+async function writeStocktake(action,data){
+  if(!stocktakeWriteEnabled||!csrf)return;
+  try{
+    say('正在儲存真實 D1 盤點資料，請勿重複送出…');
+    const result=await api('/api/stocktake',{method:'POST',
+      headers:{Accept:'application/json','Content-Type':'application/json',
+        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+      body:JSON.stringify({action,data})});
+    if(result?.ok!==true)throw Error('伺服器未確認盤點異動。');
+    await refresh();
+  }catch(e){
+    if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+    say((e.status===409?'盤點已過期或庫存已變動，請重新盤點。':
+      e.message||'盤點結果不明')+
+      ' 請先重新整理查詢帳本，勿直接重複確認。',true);
+  }
+}
+async function stocktakeActions(rows,marker){
+  if(!stocktakeWriteEnabled)return;
+  const [stores,ingredients]=await Promise.all([
+    api('/api/data?entity=locations',{signal:controller.signal}),
+    api('/api/data?entity=ingredients',{signal:controller.signal})]);
+  if(marker!==revision)return;
+  if(stores?.mode!=='native_d1'||ingredients?.mode!=='native_d1'||
+     !Array.isArray(stores.rows)||!Array.isArray(ingredients.rows))
+    throw Error('門市或食材資料無法取得。');
+  const pane=el('section');pane.className='panel';
+  pane.append(el('h3','建立盤點記錄'));
+  const form=el('form'),store=el('select'),ingredient=el('select'),
+    counted=el('input'),submit=el('button','建立待核准盤點');
+  for(const x of stores.rows){
+    if(x.active!==1||!taskId.test(x.id))continue;
+    const opt=el('option',x.name);opt.value=x.id;store.append(opt);
+  }
+  for(const x of ingredients.rows){
+    if(x.active!==1||!taskId.test(x.id))continue;
+    const opt=el('option',x.name+'（'+x.unit+'）');
+    opt.value=x.id;ingredient.append(opt);
+  }
+  counted.type='number';counted.step='0.001';counted.min='0';
+  counted.max='1000000';counted.required=true;counted.placeholder='實際盤點數量';
+  submit.type='submit';submit.disabled=!store.options.length||!ingredient.options.length;
+  form.append(el('label','門市 '),store,el('label','食材 '),ingredient,
+    el('label','實際數量 '),counted,submit);
+  form.addEventListener('submit',async ev=>{
+    ev.preventDefault();
+    if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
+    const count=Number(counted.value);
+    if(!Number.isFinite(count)||count<0||count>1000000)return;
+    submit.disabled=true;
+    try{await writeStocktake('stocktake.create',{
+      location_id:store.value,ingredient_id:ingredient.value,counted_qty:count});
+    }finally{submit.disabled=false;}
+  });
+  pane.append(form);$('content').prepend(pane);
+  if(role!=='manager'&&role!=='owner')return;
+  const controls=el('section');controls.className='panel';
+  controls.append(el('h3','主管確認盤點'));
+  let shown=0;
+  for(const row of rows){
+    if(!taskId.test(row.id)||row.status!=='pending')continue;
+    const line=el('div');line.style.marginBottom='12px';
+    line.append(el('strong',(row.ingredient_name||'食材')+' · 帳面 '+row.expected_qty+
+      ' / 實點 '+row.counted_qty+' '+(row.unit||'')));
+    const button=el('button','確認並入帳');button.type='button';
+    button.style.marginLeft='8px';
+    button.addEventListener('click',async()=>{
+      if(button.disabled||!window.confirm(
+        '確定盤點差異並寫入真實 D1 庫存流水？若盤點後庫存已變動，系統將拒絕。'))return;
+      button.disabled=true;
+      try{await writeStocktake('stocktake.confirm',
+        {id:row.id,expected_status:'pending'});}
+      finally{button.disabled=false;}
+    });
+    line.append(button);controls.append(line);shown++;
+  }
+  if(shown)$('content').append(controls);
+}
 async function taskActions(rows,marker){
   const content=$('content');
   let candidatePeople=[];
@@ -345,6 +424,7 @@ async function refresh(){
     if(view==='tasks')await taskActions(data.rows,marker);
     if(view==='locations'||view==='ingredients')await catalogActions(marker);
     if(view==='purchase_orders')await orderActions(data.rows,marker);
+    if(view==='stocktakes')await stocktakeActions(data.rows,marker);
     if(marker===revision)say('已取得授權範圍內的最新資料。');
   }catch(e){if(marker!==revision||e.name==='AbortError')return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
@@ -368,6 +448,7 @@ async function start(){
     writeEnabled=status.task_write_enabled===true;
     catalogWriteEnabled=status.catalog_write_enabled===true;
     orderWriteEnabled=status.order_write_enabled===true;
+    stocktakeWriteEnabled=status.stocktake_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
   }catch(e){say(e.message||'無法確認正式服務狀態。',true);}

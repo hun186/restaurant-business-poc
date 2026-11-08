@@ -5,7 +5,7 @@ import {queryFor} from './operations-readonly.mjs';
 import {metricQueries} from './overview-readonly.mjs';
 
 const ENTITIES=new Set(['locations','ingredients','training_courses','tasks','assignable_staff',
-  'purchase_orders','repairs','shifts','stock']);
+  'purchase_orders','repairs','shifts','stock','stocktakes']);
 const HEADERS=Object.freeze({'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff',
   'Referrer-Policy':'no-referrer'});
@@ -50,6 +50,22 @@ export async function nativeBusinessReadHttp(request,env){
         const args=principal.role==='owner'?[]:[principal.id];
         const statement=env.DB.prepare(sql);
         const list=await (args.length?statement.bind(...args):statement).all();
+        if(!Array.isArray(list?.results)||list.results.length>500)
+          throw Error('E_D1_INVALID_ROWS');
+        return reply(200,{mode:'native_d1',entity,rows:list.results});
+      }
+      if(entity==='stocktakes'){
+        const owner=principal.role==='owner',staff=principal.role==='staff';
+        const scope=owner?'':' WHERE t.location_id IN ('+
+          'SELECT ul.location_id FROM user_locations ul JOIN locations l2 '+
+          'ON l2.id=ul.location_id AND l2.active=1 WHERE ul.user_id=?) '+
+          (staff?'AND t.created_by=? ':'');
+        const sql='SELECT t.*,i.name AS ingredient_name,i.unit,l.name AS location_name '+
+          'FROM stocktakes t JOIN ingredients i ON i.id=t.ingredient_id '+
+          'JOIN locations l ON l.id=t.location_id'+scope+
+          ' ORDER BY t.created_at DESC LIMIT 500';
+        const args=owner?[]:staff?[principal.id,principal.id]:[principal.id];
+        const list=await env.DB.prepare(sql).bind(...args).all();
         if(!Array.isArray(list?.results)||list.results.length>500)
           throw Error('E_D1_INVALID_ROWS');
         return reply(200,{mode:'native_d1',entity,rows:list.results});

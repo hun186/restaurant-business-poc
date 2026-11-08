@@ -82,7 +82,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-production-owner-bootstrap.test.js":"6c737d07e3bfff389721cc17dada264b92f2c82ae656d3013d43ca3c548f6b00",
   "tests/cloudflare-prod-first-init-gate.test.js":"54939a686b4ec83a9139550d0f89ee4f51be01f56a6f45cadaaee4aaf66ac060",
   "tests/cloudflare-native-task-live.test.js":"bb82882c056f898af7e16ebb4cbf872df94ddcaaa918bec8a4a3137660523731",
-  "tests/cloudflare-native-owner-business-http.test.js":"75b04cc3e0bc023328f43d992f97b123c2b54b44720aa1b26bcae9763e71cb3f",
+  "tests/cloudflare-native-owner-business-http.test.js":"5fb79e7e26699c1503fa6c7a445f96861d41feda7b05f401733055790335d6ca",
   "tests/cloudflare-native-login-http.test.js":"5a8fc37b5915977ae4cccf9c27736b98ca8bd72e18470ebaeb748108677fabe8",
   "cloudflare/native-login-http.mjs":"3e509f7d4115432220f8c5df0bd2b2481f46387af08edd5c954804eb996aeefb",
   "tests/cloudflare-staging-access-owner-enroll.test.js":"41d98f45cfaa7ccf23473a802795b4077b3599b5e3bf134346ff81523f4e9676",

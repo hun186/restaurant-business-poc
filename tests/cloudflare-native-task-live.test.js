@@ -85,7 +85,7 @@ test('default and partial gates do not consume task body or write D1',async t=>{
     ...f.env,CLOUD_NATIVE_TASK_WRITE_GATE:undefined});
   assert.deepEqual(await off.json(),{
     mode:'native',login_enabled:true,task_write_enabled:false,
-    catalog_write_enabled:false,order_write_enabled:false});
+    catalog_write_enabled:false,order_write_enabled:false,stocktake_write_enabled:false,repair_write_enabled:false});
   assert.equal(taskCount(f.db),1);
   assert.equal(taskAudit(f.db).length,0);
   const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));

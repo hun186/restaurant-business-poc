@@ -125,3 +125,40 @@ CSRF/同源前檢通過，並於建檔後建立 Audit。食材代碼唯一，
 與 Audit **同交易**完成；不直接寫入庫存餘額，也不自動重試不明寫入。
 重複驗收、狀態被更新及已有入庫流水均拒絕；舊有多品項分單
 在未實作整張交易前保持只讀。合成 D1 測試不是正式實機 UAT。
+
+## 2026-11-08｜原生 D1 盤點與差異帳本（本 PR 驗證中）
+
+工作台新增「盤點」頁：員工建立盤點記錄，D1 交易內由 `stock_moves`
+帳本取得預期庫存快照；主管或業主確認尚未完成的盤點。若盤點後
+庫存已異動、門市或食材停用、權限／Session 撤銷、盤點已完成則拒絕。
+確認時，`stocktakes.status`、`stock_moves` adjustment 與 Audit
+同 D1.batch 交易處理；沒有差異時不建立零數量流水。
+獨立 `CLOUD_NATIVE_STOCKTAKE_WRITE_GATE=operator-released`，
+預設正式部署未設此 Gate，無 Production D1、Secrets、Owner、
+Wrangler 變更、Migration 或真實驗收。
+
+## 2026-11-08｜原生 D1 報修、指派、結案（本 PR 驗證中）
+
+員工可在授權門市提交設備與故障描述；業主／主管能指派同門市仍有效
+的主管／員工、改派或結案。所有操作以 D1 交易內的 Session、角色、
+門市授權與受指派人有效狀態重新檢驗，使用報修單預期狀態與
+預期舊指派值進行 CAS，以防止多人同時編輯覆蓋結果；資料與稽核
+同交易。結案後不可再直接改派。獨立
+`CLOUD_NATIVE_REPAIR_WRITE_GATE=operator-released` 預設關閉，
+本 PR 不建立正式帳號、不啟用 Production Gate、不碰 Secrets、
+D1 Migration 或正式資料。
+
+## 2026-11-08｜整合發布基底調整與驗證責任
+
+盤點功能已在 PR #149 以 `01ea2106209befd148be48f4dfc534c9e27b4523`
+Squash Merge 到 Integration。維修功能開發分支原本從盤點 PR 的
+提交建立，故指向 Integration 的 PR #150 與 squash 產生的提交
+歷史分歧，曾顯示 `mergeable=false`。不使用 Force Push、Force Merge、
+跳過 Review 或重新部署；PR #150 改以其原始共同祖先 Main
+`4298edcf067cc3ca2fd43c6bb0850d33dc75ab55` 為基底，並經 GitHub
+確認是單向 ahead、無 behind、`mergeable_state=clean`。
+
+因此 PR #150 是「盤點＋維修」單次 Main 發布，必須由**調整後的新
+最新 HEAD** 自己完成五組 Hosted CI 及正式 Codex Review，舊 #149
+審查不能取代；Main 合併後再次驗證 Cloudflare Build、Vercel 和
+五組 CI，且 Production Auth/各功能寫入 Gate 仍保持關閉。

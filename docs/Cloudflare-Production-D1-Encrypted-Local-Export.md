@@ -1,5 +1,17 @@
 # Cloudflare Production D1：加密本機匯出與離線重播驗證（無新增 D1）
 
+## 2026-11-08｜Production Owner 已建立後的加密備份（UAT 前置，尚未實機執行）
+
+此版本的 `run-production-d1-backup.bat` 選項 **1** 已補上 **Owner=1、唯一 `auth.owner_bootstrap` 稽核** 的嚴格驗證，並繼續支援 Owner=0 空庫舊備份的離線驗證；不是遠端 Recovery/Restore 已簽核。
+
+- [x] 工具與合成測試能接受 *完全未啟用登入、無其他業務資料、無 Session／登入嘗試* 的單一 Owner 狀態；同時嚴格拒絕 Owner 雜湊格式錯誤、Audit 不符、非 Owner 帳號、登入後異動及其他資料表非空。Export 前使用 Production D1 四項唯讀 Owner 預檢；匯出的整份 SQL 在本機 SQLite 完整重播、檢查 Schema/FK/quick_check，並驗證 Owner+Audit 確實存在。
+- [ ] 使用者尚未在 **Owner 建立後** 親自完成新的 Production D1 Export/Verify。操作員需在低流量維護時段選 1，使用 Cloudflare Production D1 **Read/Export** Token（未授權 D1 寫入）、私密備份密碼，並記錄無機密的 `PROD_D1_ENCRYPTED_LOCAL_EXPORT_PASS` 與 `owner_count=1`。Export API 雖為 `POST`，但**沒有寫入 SQL**；官方指出可能短暫阻塞 D1 查詢，必須先選好維護時段。
+- [ ] 透過同 BAT 的選項 2 **離線**驗證剛建立的加密檔，確認 `PROD_D1_ENCRYPTED_LOCAL_VERIFY_PASS`／Owner=1；再複製密文檔到受保護的第二份儲存媒體，選項 3 比對並離線重播兩份（`PROD_D1_ENCRYPTED_COPY_VERIFY_PASS`）。路徑與密碼不可貼入對話。
+- **維持安全邊界**：只保證 UAT 前 Owner-only 初始狀態，登入 UAT 開始產生 Session/Login Attempt/Audit 後的正式資料庫會被工具保守拒絕；本 PR 不允許定期營運備份、遠端 Restore 或啟用 `CLOUD_AUTH_PHASE`。備份密文加密驗證不等於異地實體位置、回復簽核或 RTO/RPO。
+
+---
+
+
 ## 2026-11-02｜真實 Production 備份及本機離線驗證雙 PASS（操作者實機）
 
 使用者已實際執行 Windows 選項 **1** 與 **2**，回報 `PROD_D1_ENCRYPTED_LOCAL_EXPORT_PASS` 與 `PROD_D1_ENCRYPTED_LOCAL_VERIFY_PASS`，兩次 `archive_sha256` 完全相同。Schema v3、兩筆 migration、Owner0，`local_sqlite_replay_verified=true`、`source_file_unchanged=true`、`production_write_performed=false`。**這是使用者回報之真實 Production 匯出＋獨立本機解密重播實機證據，不是 Hosted CI 合成結果**。在公開 Repo 僅記錄非機密狀態，不納入 Windows 本機完整路徑、密碼、Cloudflare Token、SQL 或備份原文。

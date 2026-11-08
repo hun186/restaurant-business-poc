@@ -25,7 +25,7 @@ test('Wrangler config uses demo assets and invokes Worker for API routes', () =>
   assert.ok(Array.isArray(config.previews.d1_databases));
   assert.equal(config.main, './cloudflare/worker.mjs');
   assert.equal(config.assets.directory, './vercel-demo');
-  assert.deepEqual(config.assets.run_worker_first, ['/api/*']);
+  assert.deepEqual(config.assets.run_worker_first, ['/api/*','/']);
   assert.ok(fs.existsSync(path.join(projectDir, config.assets.directory, 'index.html')));
 });
 

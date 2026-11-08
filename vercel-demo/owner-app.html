@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'">
+<meta name="robots" content="noindex,nofollow"><title>餐廳好管家｜業主工作台</title>
+<link rel="stylesheet" href="/owner-app.css"><script type="module" src="/owner-app.js"></script>
+</head><body class="native-owner"><header><h1>餐廳好管家 · 正式營運工作台</h1>
+<p id="notice" role="status" aria-live="polite">正在檢查服務啟用狀態</p></header>
+<section id="login" class="panel" hidden><h2>個人帳號登入</h2>
+<form id="login-form"><label>帳號 <input name="username" autocomplete="username" maxlength="40" required></label>
+<label>密碼 <input name="password" type="password" autocomplete="current-password" minlength="12" maxlength="256" required></label>
+<button id="login-submit" type="submit">登入</button></form></section>
+<div id="workspace" hidden><p id="identity"></p><button id="logout" type="button">登出</button>
+<nav id="nav"><button data-view="overview">今日總覽</button><button data-view="tasks">工作</button>
+<button data-view="purchase_orders">叫貨</button><button data-view="stock">庫存</button>
+<button data-view="repairs">維修</button><button data-view="shifts">排班</button>
+<button data-view="ingredients">食材</button><button data-view="locations">門市</button>
+<button data-view="training_courses">訓練</button></nav>
+<main class="panel"><h2 id="title">今日總覽</h2><button id="refresh" type="button">重新整理</button><section id="content"></section></main></div>
+<footer>所有正式資料由登入後的同源 D1 API 取得，不使用公開 Demo 模擬資料。</footer></body></html>

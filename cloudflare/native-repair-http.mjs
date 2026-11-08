@@ -14,7 +14,9 @@ const changes=r=>{
   return n;
 };
 async function parse(request){
-  const LIMIT=2048;
+  // 1,000 CJK characters in a valid description require > 3 KiB UTF-8.
+  // This limit accommodates the maximum equipment + description + JSON envelope.
+  const LIMIT=4096;
   if(request.headers.get('content-type')!=='application/json')return null;
   const length=request.headers.get('content-length');
   if(length!==null&&(!/^(0|[1-9][0-9]*)$/.test(length)||Number(length)>LIMIT))

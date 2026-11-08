@@ -79,3 +79,13 @@ CSRF／Origin 失敗、交易回滾與權限在執行前撤銷。
 Owner／Manager、有效 Session、建立門市授權與受指派員工的有效角色與門市關聯，
 授權撤銷或不符即拒絕整筆工作與稽核寫入。尚未另外核准正式環境登入、
 寫入或 Owner bootstrap；在 Production Gate disabled 時所有新增能力均不可操作。
+
+## 2026-11-08｜工作改派（開發中，待本 PR CI 與正式複審）
+
+正式工作台新增未完成工作的改派／取消指派。僅業主／主管能操作：
+`task.assign` 需精確提供工作 UUID、預期的舊指派 UUID（可 null）、
+新的指派 UUID（可 null）。後端檢查角色、有效門市、本人門市授權、
+有效 Session/CSRF、被指派人的門市與啟用狀態，並於 D1 batch 交易內
+重新檢查。已完成工作、舊指派不符或重複操作回 409；
+若交易未完成，不留下「改派成功」Audit。沒有開放新 Production Gate、
+任何 D1 Migration、Owner 建立或 Secrets 變更。

@@ -52,7 +52,7 @@ test('local store edit, last-active guard and session revocation on deactivate',
   const two=command(db,actor,'location.create',{name:'第二店'}).id;
   const prior={name:'第一店'};
   command(db,actor,'location.update',{id:one,expected:prior,changes:{name:'新第一店'}});
-  expectFail(()=>command(db,actor,'location.update',{id:one,expected:prior,changes:{name:'改壞的'}),409);
+  expectFail(()=>command(db,actor,'location.update',{id:one,expected:prior,changes:{name:'改壞的'}}),409);
   db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)').run(actor.id,two);
   db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
    .run('synthetic-hash','synthetic-csrf',actor.id,'2099-01-01T00:00:00Z');

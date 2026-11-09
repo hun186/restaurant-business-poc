@@ -16,6 +16,7 @@ let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false;
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
+const labeledField=(caption,control)=>{const label=el('label',caption);label.append(control);return label;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
 async function api(url,opts={}){
   const r=await fetch(url,{method:'GET',mode:'same-origin',credentials:'same-origin',
@@ -143,7 +144,7 @@ async function catalogActions(marker){
     if(options.min!==undefined)input.min=String(options.min);
     if(options.max!==undefined)input.max=String(options.max);
     input.setAttribute('aria-label',label);
-    form.append(el('label',label+' '),input);return input;
+    form.append(labeledField(label,input));return input;
   };
   const isStore=view==='locations';
   const name=field(isStore?'門市名稱':'食材名稱',{maxLength:120});
@@ -221,8 +222,8 @@ async function orderActions(rows,marker){
     const opt=el('option',x.name+'（'+x.unit+'）');opt.value=x.id;ingredient.append(opt);
   }
   submit.type='submit';submit.disabled=!store.options.length||!ingredient.options.length;
-  form.append(el('label','門市 '),store,el('label','食材 '),ingredient,
-    el('label','供應商 '),supplier,el('label','數量 '),qty,submit);
+  form.append(labeledField('門市',store),labeledField('食材',ingredient),
+    labeledField('供應商',supplier),labeledField('數量',qty),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
     if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
@@ -307,8 +308,8 @@ async function stocktakeActions(rows,marker){
   counted.type='number';counted.step='0.001';counted.min='0';
   counted.max='1000000';counted.required=true;counted.placeholder='實際盤點數量';
   submit.type='submit';submit.disabled=!store.options.length||!ingredient.options.length;
-  form.append(el('label','門市 '),store,el('label','食材 '),ingredient,
-    el('label','實際數量 '),counted,submit);
+  form.append(labeledField('門市',store),labeledField('食材',ingredient),
+    labeledField('實際數量',counted),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
     if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
@@ -383,8 +384,8 @@ async function repairActions(rows,marker){
     const opt=el('option',x.name);opt.value=x.id;store.append(opt);
   }
   submit.type='submit';submit.disabled=!store.options.length;
-  form.append(el('label','門市 '),store,el('label','設備 '),equipment,
-    el('label','故障內容 '),description,submit);
+  form.append(labeledField('門市',store),labeledField('設備',equipment),
+    labeledField('故障內容',description),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
     if(submit.disabled||!taskId.test(store.value))return;
@@ -478,8 +479,8 @@ async function taskActions(rows,marker){
     select.addEventListener('change',updateAssignees);
     updateAssignees();
     submit.type='submit';submit.disabled=!select.options.length;
-    form.append(el('label','門市 '),select,el('label','指派給 '),assignee,
-      el('label','工作內容 '),input,el('label','期限（選填） '),due,submit);
+    form.append(labeledField('門市',select),labeledField('指派給',assignee),
+      labeledField('工作內容',input),labeledField('期限（選填）',due),submit);
     form.addEventListener('submit',async ev=>{
       ev.preventDefault();const title=input.value.trim();
       if(!title||title.length>120||!taskId.test(select.value))return;

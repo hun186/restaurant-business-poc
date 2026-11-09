@@ -76,10 +76,10 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/catalog-local-demo-crud.test.js":"228878da2a228e0b5999ab542d3bef3d1e8c9897f8348d5198f32dc5a1e985b4",
-  "vercel-demo/catalog-crud-contract.mjs":"58f8e4bf71b898a07497916fc6bd44bcc0f5d167874f21d702249aa76c59d724",
-  "public/catalog-crud-contract.mjs":"58f8e4bf71b898a07497916fc6bd44bcc0f5d167874f21d702249aa76c59d724",
-  "tests/catalog-three-platform-contract.test.js":"6bdbeb4bf95a91f6abc1743ca5ae8273d1eb383f17bf8ffe059886f36f24e89e",
-  "src/catalog-crud-contract.mjs":"58f8e4bf71b898a07497916fc6bd44bcc0f5d167874f21d702249aa76c59d724",
+  "vercel-demo/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
+  "public/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
+  "tests/catalog-three-platform-contract.test.js":"fe030e13758ec854352250add42c9cb4b07324d0ae5ebe6a42395952e178c139",
+  "src/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
 
   "tests/native-owner-public-assets-readonly.test.js":"96c612ef61879d010174325313d5e00c80e73fc6d94723c31b4c8f8231b396b0",
   "tests/cloudflare-native-owner-readable-tables.test.js":"e70b5986c1f8481fc4b0b56556116fe76fd876bebc3d4742437f45be91a9ac4c",
@@ -247,9 +247,9 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/native-admin-quota-subject-internal.mjs":"00bca920fff60eb2bf5c0d4cb5e62d2a9012d38947e724c83937ea210c6201c5",
   "tests/native-admin-quota-subject.test.js":"f54bf55df612f54913d003696342de727f24efd6bfbc186e6d54fcb7e4942b57",
   "cloudflare/native-business-http.mjs":"b635e00047635ef034b4b1703fd975bb0678496a1c39a2e52b51af8360b964f2",
-  "cloudflare/catalog-crud-contract.mjs":"58f8e4bf71b898a07497916fc6bd44bcc0f5d167874f21d702249aa76c59d724",
+  "cloudflare/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
   "cloudflare/native-catalog-http.mjs":"1a4fc1d325c7c25f982a4b48573c8cac9631d25a3992e2f3e3d46c7e86a50f68",
-  "tests/cloudflare-native-catalog-live.test.js":"5c057ca2dd8b8e623da0e49fd83eb3bc54a877e25480a2e048bd87909b7de746",
+  "tests/cloudflare-native-catalog-live.test.js":"99524949f6f91cee6b67b905b0e4564bf958a80594fd3a5655773f69d7529e1a",
   "cloudflare/native-order-http.mjs":"3fe11e78a0825392390e002f53af3763ea2d40bf92008a06ab9ed5242a65c299",
   "cloudflare/native-stocktake-http.mjs":"f4427b26887baadcdf8a654a9b6a013e73769e481ce7b119ea8e72257a1405f9",
   "cloudflare/native-repair-http.mjs":"d7a4651965c63f18190da60837c25bd76ed8eb294d392f6133d90985cd6f7eb7",

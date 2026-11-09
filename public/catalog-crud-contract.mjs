@@ -49,7 +49,7 @@ const fields=(resource,data,variant)=>{
   const out={};
   for(const k of required){
     if(k==='sku')out[k]=text(data[k],40);
-    else if(k==='name')out[k]=text(data[k],resource===CATALOG_RESOURCES.locations?60:120);
+    else if(k==='name')out[k]=text(data[k],resource===CATALOG_RESOURCES.locations?(variant==='snapshot'?120:60):120);
     else if(k==='unit')out[k]=text(data[k],20);
     else if(k==='min_stock')out[k]=number(data[k]);
     else throw Error('E_CATALOG_UNKNOWN_FIELD');
@@ -66,7 +66,7 @@ export function normalizeCatalogCommand(action,payload){
   if(action===resource.create)return fields(resource,payload,'create');
   if(action===resource.update){
     exact(payload,['id','expected','changes']);
-    const expected=fields(resource,payload.expected,'create');
+    const expected=fields(resource,payload.expected,'snapshot');
     const changes=fields(resource,payload.changes,'update');
     // Updates must not silently change the immutable ingredient SKU.
     return {id:id(payload.id),expected,changes};

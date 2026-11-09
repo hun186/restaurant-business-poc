@@ -240,3 +240,15 @@ test('D1 owner role revoked at batch start blocks mutation and audit',async t=>{
   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='location.update'")
     .get().n,0);
 });
+
+test('native D1 accepts 61-120 character existing store snapshots for renaming',async t=>{
+ const f=await fixture(t),owner=await f.login('owner');
+ const oldName='長門市'.repeat(24);
+ const creation=await f.write(owner,'location.create',{name:oldName});
+ assert.equal(creation.status,200);
+ const id=(await creation.json()).result.id;
+ const updated=await f.write(owner,'location.update',{
+  id,expected:{name:oldName},changes:{name:'短名稱'}});
+ assert.equal(updated.status,200);
+ assert.equal(f.db.prepare('SELECT name FROM locations WHERE id=?').get(id).name,'短名稱');
+});

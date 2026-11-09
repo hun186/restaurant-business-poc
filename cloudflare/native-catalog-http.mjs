@@ -1,7 +1,7 @@
 // Native Owner-only D1 store/ingredient setup. Disabled unless separately
 // released by an operator; never creates owners, users or permissions.
 import {nativeLoginEnabled} from './native-login-http.mjs';
-import {normalizeCatalogCommand} from '../src/catalog-crud-contract.mjs';
+import {normalizeCatalogCommand} from './catalog-crud-contract.mjs';
 import {loadPrincipal,authorizedMutation,hasAccess} from './auth-core.mjs';
 
 const HEADERS={'Content-Type':'application/json; charset=utf-8',

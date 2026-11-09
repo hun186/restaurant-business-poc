@@ -79,3 +79,11 @@ table{border-collapse:collapse;width:100%;min-width:590px;text-align:left}th,td{
 .native-status.muted{background:#f0f2f4;color:#667b87}
 .native-search-empty{padding:28px 12px;text-align:center;color:var(--muted)}
 .native-owner td,.native-owner th{overflow-wrap:anywhere}
+
+/* Client-only pagination for the authorized, bounded D1 row set. */
+.native-data-pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:14px;color:#526a78;font-size:12px}
+.native-data-pagination label{display:flex;align-items:center;gap:7px;min-width:0}
+.native-data-pagination select{padding:7px;border:1px solid var(--line);border-radius:8px;background:white}
+.native-data-pagination button{padding:7px 12px;min-width:68px}
+.native-page-info{font-variant-numeric:tabular-nums}
+@media(max-width:760px){.native-data-pagination{justify-content:center;gap:8px}.native-data-pagination button{flex:1;max-width:140px}}

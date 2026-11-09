@@ -241,7 +241,8 @@ function command(db,u,action,x={}){
   return move(db,u,{...x,qty:x.qty},'usage',null);
  }
  case 'order.create':{
-  scope(db,u,l);exists(db,'ingredients',x.ingredient_id);
+  scope(db,u,l);const orderIngredient=exists(db,'ingredients',x.ingredient_id);
+  if(!orderIngredient.active)bad('食材已停用',409);
   const qty=nonneg(x.qty,true),supplier=cleanText(x.supplier,120,true),number='PO-'+Date.now().toString(36).toUpperCase()+'-'+id.slice(0,6).toUpperCase();
   db.prepare('INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,created_by) VALUES(?,?,?,?,?,?,?)').run(id,number,l,x.ingredient_id,supplier,qty,u.id);
   audit(db,u,action,'purchase_orders',id,l,{number,ingredient_id:x.ingredient_id,qty});return {id,number};
@@ -265,7 +266,8 @@ function command(db,u,action,x={}){
   audit(db,u,action,'purchase_orders',o.id,o.location_id,{from:o.status});return {id:o.id};
  }
  case 'stocktake.create':{
-  scope(db,u,l);exists(db,'ingredients',x.ingredient_id);const counted=nonneg(x.counted_qty),expected=balance(db,x.ingredient_id,l);
+  scope(db,u,l);const stockIngredient=exists(db,'ingredients',x.ingredient_id);
+  if(!stockIngredient.active)bad('食材已停用',409);const counted=nonneg(x.counted_qty),expected=balance(db,x.ingredient_id,l);
   db.prepare('INSERT INTO stocktakes(id,location_id,ingredient_id,expected_qty,counted_qty,created_by) VALUES(?,?,?,?,?,?)').run(id,l,x.ingredient_id,expected,counted,u.id);
   audit(db,u,action,'stocktakes',id,l,{expected,counted});return {id};
  }

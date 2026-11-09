@@ -3,8 +3,10 @@ const {uuid,hashPassword,cleanText,nonneg,requiredRole}=require('./security');
 const {inTransaction}=require('./db');
 const pricing=require('./pricing');
 const batches=require('./order-batches');
+const {normalizeCatalogCommand}=require('./catalog-crud-contract.mjs');
 const {requestIp}=require('./request-ip');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
+const catalogInput=(action,payload)=>{try{return normalizeCatalogCommand(action,payload);}catch{bad('主檔欄位格式錯誤',400);}};
 const day=v=>{const s=cleanText(v,10,true);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(new Date(s+'T00:00:00Z').valueOf())||new Date(s+'T00:00:00Z').toISOString().slice(0,10)!==s)bad('日期格式需為 YYYY-MM-DD');return s;};
 const time=v=>{const s=cleanText(v,5,true);if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))bad('時間格式錯誤');return s;};
 const uid=v=>{if(typeof v!=='string'||!/^[0-9a-f-]{36}$/i.test(v))bad('識別碼格式不正確');return v;};
@@ -158,6 +160,78 @@ function command(db,u,action,x={}){
   db.prepare('INSERT INTO ingredients(id,sku,name,unit,min_stock) VALUES(?,?,?,?,?)').run(id,sku,name,unit,minimum);
   audit(db,u,action,'ingredients',id,null,{sku,name,unit,min_stock:minimum});return {id};
  }
+ case 'ingredient.update':{
+  requiredRole(u,'manager');
+  const cmd=catalogInput(action,x),t=exists(db,'ingredients',uid(cmd.id));
+  if(t.active!==1)bad('食材已停用，請先恢復',409);
+  const e=cmd.expected,c=cmd.changes;
+  if(t.sku!==e.sku||t.name!==e.name||t.unit!==e.unit||
+      Number(t.min_stock)!==e.min_stock)bad('資料已更新，請重新整理',409);
+  // Ledger quantities are stored without per-movement unit; relabeling would
+  // silently reinterpret historical inventory. Protect prices and recipes too.
+  if(t.unit!==c.unit){
+    for(const table of ['stock_moves','purchase_orders','stocktakes','ingredient_prices','dish_ingredients']){
+      if(db.prepare('SELECT 1 FROM '+table+' WHERE ingredient_id=? LIMIT 1').get(t.id))
+        bad('食材已有庫存、交易、價格或配方紀錄，不能直接修改計量單位；請建立新食材',409);
+    }
+  }
+  if(t.name===c.name&&t.unit===c.unit&&Number(t.min_stock)===c.min_stock)
+    bad('沒有要更新的內容',409);
+  const out=db.prepare('UPDATE ingredients SET name=?,unit=?,min_stock=? '+
+    'WHERE id=? AND sku=? AND name=? AND unit=? AND min_stock=? AND active=1')
+    .run(c.name,c.unit,c.min_stock,t.id,e.sku,e.name,e.unit,e.min_stock);
+  if(out.changes!==1)bad('資料已更新，請重新整理',409);
+  audit(db,u,action,'ingredients',t.id,null,{before:e,after:c});
+  return {id:t.id};
+ }
+ case 'ingredient.active':{
+  requiredRole(u,'manager');
+  const cmd=catalogInput(action,x),t=exists(db,'ingredients',uid(cmd.id));
+  if(t.active!==cmd.expected_active)bad('食材狀態已改變，請重新整理',409);
+  if(cmd.active===0&&(
+    db.prepare("SELECT 1 FROM purchase_orders WHERE ingredient_id=? AND status IN ('requested','approved') LIMIT 1").get(t.id)||
+    db.prepare("SELECT 1 FROM stocktakes WHERE ingredient_id=? AND status='pending' LIMIT 1").get(t.id)
+  ))bad('食材仍有待辦叫貨或盤點，不可停用',409);
+  const out=db.prepare('UPDATE ingredients SET active=? WHERE id=? AND active=?')
+    .run(cmd.active,t.id,cmd.expected_active);
+  if(out.changes!==1)bad('食材狀態已改變，請重新整理',409);
+  audit(db,u,action,'ingredients',t.id,null,{from:cmd.expected_active,to:cmd.active});
+  return {id:t.id,active:cmd.active};
+ }
+ case 'location.update':{
+  requiredRole(u,'owner');
+  const cmd=catalogInput(action,x),t=db.prepare('SELECT * FROM locations WHERE id=?').get(uid(x.id));
+  if(!t)bad('找不到門市',404);
+  if(t.name!==cmd.expected.name)bad('門市已更新，請重新整理',409);
+  if(t.name===cmd.changes.name)bad('沒有要更新的內容',409);
+  const out=db.prepare('UPDATE locations SET name=? WHERE id=? AND name=?')
+    .run(cmd.changes.name,t.id,cmd.expected.name);
+  if(out.changes!==1)bad('門市已更新，請重新整理',409);
+  audit(db,u,action,'locations',t.id,t.id,{before:cmd.expected.name,after:cmd.changes.name});
+  return {id:t.id};
+ }
+ case 'location.active':{
+  requiredRole(u,'owner');
+  const cmd=catalogInput(action,x),t=db.prepare('SELECT * FROM locations WHERE id=?').get(uid(x.id));
+  if(!t)bad('找不到門市',404);
+  if(t.active!==cmd.expected_active)bad('門市狀態已改變，請重新整理',409);
+  if(cmd.active===0){
+    if(db.prepare("SELECT COUNT(*) AS n FROM locations WHERE active=1").get().n<=1)
+      bad('至少必須保留一間啟用門市',409);
+    if(db.prepare("SELECT 1 FROM purchase_orders WHERE location_id=? AND status IN ('requested','approved') LIMIT 1").get(t.id)||
+       db.prepare("SELECT 1 FROM stocktakes WHERE location_id=? AND status='pending' LIMIT 1").get(t.id))
+      bad('門市仍有待辦叫貨或盤點，不可停用',409);
+  }
+  const out=db.prepare('UPDATE locations SET active=? WHERE id=? AND active=?')
+    .run(cmd.active,t.id,cmd.expected_active);
+  if(out.changes!==1)bad('門市狀態已改變，請重新整理',409);
+  // Disable all assigned users' sessions when a store loses active status.
+  const revoked=cmd.active===0?db.prepare('DELETE FROM sessions WHERE user_id IN ('+
+    'SELECT user_id FROM user_locations WHERE location_id=?)').run(t.id).changes:0;
+  audit(db,u,action,'locations',t.id,t.id,
+    {from:cmd.expected_active,to:cmd.active,revoked_sessions:revoked});
+  return {id:t.id,active:cmd.active};
+ }
  case 'stock.purchase':{
   requiredRole(u,'manager');
   // External receipts are authorized only via order.receive (approved PO).
@@ -176,7 +250,8 @@ function command(db,u,action,x={}){
   return move(db,u,{...x,qty:x.qty},'usage',null);
  }
  case 'order.create':{
-  scope(db,u,l);exists(db,'ingredients',x.ingredient_id);
+  scope(db,u,l);const orderIngredient=exists(db,'ingredients',x.ingredient_id);
+  if(!orderIngredient.active)bad('食材已停用',409);
   const qty=nonneg(x.qty,true),supplier=cleanText(x.supplier,120,true),number='PO-'+Date.now().toString(36).toUpperCase()+'-'+id.slice(0,6).toUpperCase();
   db.prepare('INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,created_by) VALUES(?,?,?,?,?,?,?)').run(id,number,l,x.ingredient_id,supplier,qty,u.id);
   audit(db,u,action,'purchase_orders',id,l,{number,ingredient_id:x.ingredient_id,qty});return {id,number};
@@ -200,7 +275,8 @@ function command(db,u,action,x={}){
   audit(db,u,action,'purchase_orders',o.id,o.location_id,{from:o.status});return {id:o.id};
  }
  case 'stocktake.create':{
-  scope(db,u,l);exists(db,'ingredients',x.ingredient_id);const counted=nonneg(x.counted_qty),expected=balance(db,x.ingredient_id,l);
+  scope(db,u,l);const stockIngredient=exists(db,'ingredients',x.ingredient_id);
+  if(!stockIngredient.active)bad('食材已停用',409);const counted=nonneg(x.counted_qty),expected=balance(db,x.ingredient_id,l);
   db.prepare('INSERT INTO stocktakes(id,location_id,ingredient_id,expected_qty,counted_qty,created_by) VALUES(?,?,?,?,?,?)').run(id,l,x.ingredient_id,expected,counted,u.id);
   audit(db,u,action,'stocktakes',id,l,{expected,counted});return {id};
  }

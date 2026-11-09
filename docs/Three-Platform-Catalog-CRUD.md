@@ -23,3 +23,10 @@
 3. 前端單列「查看／編輯／停用或恢復／歷程」需根據 API 可用能力顯示；未接線的能力標「待提供」，不可給假成功。
 4. 貨品與門市一旦被業務流水引用，**永不物理刪除**；停用後應阻止新交易（後端確認）但允許閱讀舊紀錄。
 5. Phase 1（此 PR）僅建置經檢查的契約及回歸測試，尚**沒有**新增正式 CRUD 端點或畫面；Phase 2 本機 SQLite 與 Vercel 虛構演示接線、Phase 3 Cloudflare gated D1、Phase 4 完成三平台門市與食材測試。不可將第一階段當成 CRUD 功能已上線。
+
+## Phase 2（本機 SQLite＋Vercel Demo 編輯、停用與恢復）
+
+- 本機：`ingredient.update/active`、`location.update/active` 以同一共用合約正規化，Node SQLite 在交易中 Compare-And-Set、角色驗證、稽核、待辦叫貨／盤點阻擋停用、保留至少一間啟用門市、停用門市時撤銷其授權使用者 Session，歷史交易與庫存流水不物理刪除。
+- Vercel Demo：同樣編輯／停用／恢復的操作名稱與前端 UI，但 `mock.js` 僅變更瀏覽器虛構資料，不提供真實帳號、實際 Session 或 D1 寫入。
+- `src/catalog-crud-contract.mjs` 是權威來源；`public/`、`vercel-demo/` 的模組副本必須完全相同，新增回歸測試會於副本失同步時 FAIL。合約改動須同步修正三處並逐平台驗證，不得任意直接改某個副本。
+- **Cloudflare Native D1 API 在本階段仍維持原有功能和安全 Gate，未提供新的編輯／停用 endpoint**；正式部署有新版前端資產不等於 Owner CRUD 已開通。

@@ -72,6 +72,7 @@
  function changeStock(location_id,ingredient_id,delta,type,note){
   const ing=lookup('ingredients',ingredient_id);
   if(!ing)throw Error('請選擇食材');
+  if(ing.active===0||lookup('locations',location_id)?.active===0)throw Error('食材或門市已停用');
   let item=stockFor(location_id,ingredient_id);
   if(!item){item={id:makeId(),location_id,location_name:lName(location_id),ingredient_id,name:ing.name,unit:ing.unit,min_stock:Number(ing.min_stock),on_hand:0};db.stock.push(item);}
   const next=Number(item.on_hand)+Number(delta);
@@ -82,7 +83,7 @@
  const overview=()=>({
   todo:db.tasks.filter(x=>x.status!=='done').length,
   late:db.tasks.filter(x=>x.status!=='done'&&x.due_date&&x.due_date<day(0)).length,
-  low:db.stock.filter(x=>Number(x.on_hand)<Number(x.min_stock)).length,
+  low:db.stock.filter(x=>Number(x.on_hand)<Number(x.min_stock)&&lookup('ingredients',x.ingredient_id)?.active!==0&&lookup('locations',x.location_id)?.active!==0).length,
   orders:db.purchase_orders.filter(x=>x.status==='requested').length,
   repairs:db.repairs.filter(x=>x.status!=='closed').length,
   trainingPending:db.training_records.filter(x=>x.score===null).length
@@ -91,10 +92,59 @@
   if(entity==='staff_directory')return db.users.map(x=>({id:x.id,display_name:x.display_name,role:x.role,active:x.active}));
   if(entity==='purchase_supplier_suggestions')return orders.suppliers(db);
   if(entity==='purchase_orders')return rows.map(r=>({...r,group_number:orders.groupOf(r.number)}));
+  if(entity==='stock')return rows.filter(x=>lookup('ingredients',x.ingredient_id)?.active!==0&&lookup('locations',x.location_id)?.active!==0);
   const projected=pricing.rows(db,entity);if(projected)return projected;
   return rows;
  };
- function command(action,d){
+ async function command(action,d){
+  if(['ingredient.update','ingredient.active','location.update','location.active'].includes(action)){
+   const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
+   const cmd=normalizeCatalogCommand(action,d);
+   const group=action.startsWith('ingredient.')?'ingredients':'locations';
+   const row=lookup(group,cmd.id);if(!row)throw Error('找不到示範資料');
+   if(action.endsWith('.update')){
+    if(row.active===0)throw Error('已停用，請先恢復');
+    if(Object.keys(cmd.expected).some(k=>row[k]!==cmd.expected[k]))
+      throw Error('資料已變更，請重新整理');
+    if(group==='ingredients'&&row.unit!==cmd.changes.unit&&
+       ['stock','stock_moves','purchase_orders','stocktakes','ingredient_prices','dish_ingredients']
+       .some(key=>(db[key]||[]).some(item=>item.ingredient_id===row.id)))
+      throw Error('已有庫存、交易、價格或配方，不能修改計量單位；請新增另一個食材');
+    if(Object.keys(cmd.changes).every(k=>row[k]===cmd.changes[k]))
+      throw Error('沒有要更新的內容');
+    Object.assign(row,cmd.changes);
+   }else{
+    if((row.active===0?0:1)!==cmd.expected_active)
+      throw Error('資料狀態已變更，請重新整理');
+    if(cmd.active===0){
+     if(group==='locations'&&db.locations.filter(x=>x.active!==0).length<=1)
+      throw Error('至少保留一間啟用門市');
+     const pendingOrders=db.purchase_orders.some(x=>
+      x[group==='locations'?'location_id':'ingredient_id']===row.id&&['requested','approved'].includes(x.status));
+     const pendingCounts=db.stocktakes.some(x=>
+      x[group==='locations'?'location_id':'ingredient_id']===row.id&&x.status==='pending');
+     if(pendingOrders||pendingCounts)throw Error('仍有待辦叫貨或盤點，不能停用');
+    }
+    row.active=cmd.active;
+   }
+   if(action.endsWith('.update')){
+    for(const values of Object.values(db)){
+     if(!Array.isArray(values))continue;
+     for(const item of values){
+      if(group==='ingredients'&&item.ingredient_id===row.id){
+       if('ingredient_name' in item)item.ingredient_name=row.name;
+       if('name' in item&&'on_hand' in item)item.name=row.name;
+       if('min_stock' in item&&'on_hand' in item)item.min_stock=row.min_stock;
+       if('unit' in item&&'on_hand' in item)item.unit=row.unit;
+      }
+      if(group==='locations'&&item.location_id===row.id&&'location_name' in item)
+       item.location_name=row.name;
+     }
+    }
+   }
+   log(action,group,row.id);save();return {id:row.id,active:row.active===0?0:1};
+  }
+
   if(action.startsWith('order.batch-')){
    // Simulate an atomic transaction: a failed second line cannot leak the
    // first line's stock movement, price or state into persisted mock data.
@@ -123,6 +173,9 @@
   };
   if(defs[action]){
    const group=defs[action],r={...d,id:makeId(),created_at:createdAt()};
+   if(['purchase_orders','stocktakes'].includes(group)&&
+      (lookup('ingredients',r.ingredient_id)?.active===0||lookup('locations',r.location_id)?.active===0))
+    throw Error('食材或門市已停用');
    if(r.location_id)r.location_name=lName(r.location_id);
    if(r.ingredient_id){r.ingredient_name=iName(r.ingredient_id);if(group==='stocktakes'){r.expected_qty=stockFor(r.location_id,r.ingredient_id)?.on_hand||0;r.status='pending';}}
    if(r.user_id){r.staff_name=uName(r.user_id);}
@@ -132,7 +185,7 @@
    if(group==='repairs')r.status='reported';
    if(group==='leave_requests')r.status='pending';
    if(group==='training_records'){r.course_title=lookup('training_courses',r.course_id)?.title||'示範課程';r.score=null;r.completed_on=null;}
-   if(group==='ingredients')r.min_stock=Number(r.min_stock);
+   if(group==='ingredients'){r.min_stock=Number(r.min_stock);r.active=1;}
    if(group==='locations')r.active=1;
    db[group].unshift(r);log(action,group,r.id);save();return r;
   }
@@ -181,7 +234,7 @@
    else if(url.pathname==='/api/overview')result={overview:overview()};
    else if(url.pathname==='/api/data'){const entity=url.searchParams.get('entity');result={rows:copy(enrich(entity,entity==='staff_directory'?[]:(db[entity]||[])))};}
    else if(url.pathname==='/api/order-batch'&&method==='GET')result=orders.detail(db,url.searchParams.get('number'));
-    else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:command(body.action,body.data||{})};}
+    else if(url.pathname==='/api/command'&&method==='POST'){const body=JSON.parse(options.body);result={ok:true,result:await command(body.action,body.data||{})};}
    else if(url.pathname==='/api/logout')result={ok:true};
    else if(url.pathname==='/api/login')result={error:'展示模式沒有真實帳號登入'} ,status=403;
    else result={error:'展示路由不存在'},status=404;

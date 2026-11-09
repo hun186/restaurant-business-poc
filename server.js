@@ -126,8 +126,8 @@ function makeHandler(db,backups=null){
    }
    if(req.method!=='GET'&&req.method!=='HEAD')return safeJson(res,405,{error:'方法不允許'});
    let filename=route==='/'?'/index.html':route;
-   if(!['/index.html','/styles.css','/app.js','/backup-ui.js','/xlsx-lite.js','/report-ui.js','/order-batch-ui.js'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
-   const abs=path.join(APP_ROOT,filename.slice(1)),types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
+   if(!['/index.html','/styles.css','/app.js','/backup-ui.js','/xlsx-lite.js','/report-ui.js','/order-batch-ui.js','/catalog-crud-contract.mjs'].includes(filename))return safeJson(res,404,{error:'檔案不存在'});
+   const abs=path.join(APP_ROOT,filename.slice(1)),types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.mjs':'application/javascript; charset=utf-8'};
    res.writeHead(200,{'Content-Type':types[path.extname(abs)],'Cache-Control':'no-store'});
    if(req.method==='HEAD')return res.end();fs.createReadStream(abs).pipe(res);
   }catch(e){const status=e.status||({E_CONFIG:400,E_BACKUP:404,E_BACKUP_BUSY:409}[e.code])||(/constraint|UNIQUE|FOREIGN KEY/.test(String(e))?409:500);

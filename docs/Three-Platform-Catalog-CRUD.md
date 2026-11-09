@@ -30,3 +30,11 @@
 - Vercel Demo：同樣編輯／停用／恢復的操作名稱與前端 UI，但 `mock.js` 僅變更瀏覽器虛構資料，不提供真實帳號、實際 Session 或 D1 寫入。
 - `src/catalog-crud-contract.mjs` 是權威來源；`public/`、`vercel-demo/` 的模組副本必須完全相同，新增回歸測試會於副本失同步時 FAIL。合約改動須同步修正三處並逐平台驗證，不得任意直接改某個副本。
 - **Cloudflare Native D1 API 在本階段仍維持原有功能和安全 Gate，未提供新的編輯／停用 endpoint**；正式部署有新版前端資產不等於 Owner CRUD 已開通。
+
+## Phase 3A（2026-11-10｜Cloudflare Native D1 後端 CAS 變更）
+
+正式 D1 的既有 /api/catalog（HTTPS／同源／Owner Session／CSRF／獨立 Catalog Write Gate）新增四種命令：ingredient.update、ingredient.active、location.update、location.active，與本機／Vercel 使用相同欄位及 compare-and-set 操作名稱。
+
+後端在 D1 交易內重新確認 Owner Session、舊值快照、啟用狀態、未完成叫貨／盤點、最後一間啟用門市；食材已有庫存、交易、價格或配方引用時，拒絕改變計量單位。使用 D1.batch 原子更新、稽核，停用門市時撤銷該店所屬使用者 Session，不物理刪除既有門市／食材／帳本。
+
+**範圍限制：**此階段只增加正式 D1 後端命令和合成 SQLite adapter 回歸，尚未提供 Native Owner 正式瀏覽器的編輯／停用控制項，不能宣稱 Cloudflare 已驗收或發布。CLOUD_AUTH_PHASE、五種業務 Write Gate、Cloudflare Secret、正式 D1 Schema 和遠端資料均不修改，預設維持 fail-closed。

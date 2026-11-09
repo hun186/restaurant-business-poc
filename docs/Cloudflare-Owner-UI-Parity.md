@@ -15,6 +15,12 @@
 - 搜尋或變更每頁筆數會回第 1 頁，上一頁／下一頁停在合法邊界，空搜尋結果顯示零筆並停用分頁。使用 DOM textContent、ARIA，且不引入假資料、儲存密碼、模擬授權或新套件。
 - 不修改 Worker 路由、D1、權限、Cloudflare Variables/Secrets 或五項寫入 Gate。正式 Owner 真實瀏覽器、登入／登出及 Session UAT 仍需操作者獨立驗證。
 
+## 原生表單欄位與標籤一致性（2026-11-09，待 CI／Codex）
+
+- 叫貨、盤點、維修、工作、門市與食材的正式 D1 表單，原先將 label 與 input/select/textarea 當作**分開的 flex item** 放入 form，視覺上可能形成標籤與控制項錯排，亦未形成 label-control 關聯。共用 `labeledField()` 讓原生控制項實際嵌在可見 label 裡，鍵盤與輔助科技能對應欄位。
+- 手機保留完整欄寬與可換行布局；無更改欄位值、表單提交參數、角色／門市授權、CSRF、API、Cloudflare Gate 或 D1。
+- 測試要求所有五種表單使用嵌套標籤及禁用 Demo/localStorage/innerHTML；真正 390/1440 瀏覽器與登入 UAT 仍待操作者獨立確認。
+
 ## 交付與驗收界限
 
 1. `npm run check`（Node >=22.13）、GitHub Hosted Verify、正式 Codex Review 和最新 HEAD 合併檢查須分別通過，才可考慮合併。

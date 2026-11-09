@@ -37,6 +37,11 @@ test('local SQLite deactivates/reenables ingredient without deleting ledger; sta
   const move=crypto.randomUUID();
   db.prepare("INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,note,actor_id) VALUES(?,?,?,?,?,?,?)")
    .run(move,ing,store,5,'purchase','保留歷史',actor.id);
+  const before={sku:'B',name:'茶',unit:'包',min_stock:0};
+  expectFail(()=>command(db,actor,'ingredient.update',{
+   id:ing,expected:before,changes:{name:'茶',unit:'g',min_stock:0}
+  }),409);
+  assert.equal(db.prepare('SELECT unit FROM ingredients WHERE id=?').get(ing).unit,'包');
   command(db,actor,'ingredient.active',{id:ing,expected_active:1,active:0});
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM stock_moves WHERE id=?').get(move).n,1);
   expectFail(()=>command(db,{...actor,role:'staff'},'ingredient.active',{id:ing,expected_active:0,active:1}),403);
@@ -74,6 +79,7 @@ test('shared contract served in local/Vercel and demo never reuses real D1 authe
   assert.match(code,/ingredient\.active/);assert.match(code,/location\.active/);
   assert.match(code,/import\('\/catalog-crud-contract\.mjs'\)/);
   assert.match(code,/expected_active/);
+  assert.match(code,/ingredient.update','location.update'\]/);
  }
  assert.match(read('server.js'),/\/catalog-crud-contract\.mjs/);
  assert.match(read('vercel-demo/mock.js'),/await command\(body\.action/);

@@ -59,3 +59,7 @@ test('three deployed surfaces are distinct; baseline must not spoof D1 or silent
  assert.doesNotMatch(native,/mock\.js|sessionStorage|localStorage/);
  assert.match(cfg,/"CLOUD_AUTH_PHASE": "disabled"/);
 });
+
+test('Cloudflare-only catalog mirror is byte-identical to canonical source',()=>{
+ assert.equal(source('cloudflare/catalog-crud-contract.mjs'),source('src/catalog-crud-contract.mjs'));
+});

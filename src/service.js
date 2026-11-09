@@ -6,6 +6,7 @@ const batches=require('./order-batches');
 const {normalizeCatalogCommand}=require('./catalog-crud-contract.mjs');
 const {requestIp}=require('./request-ip');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
+const catalogInput=(action,payload)=>{try{return normalizeCatalogCommand(action,payload);}catch{bad('主檔欄位格式錯誤',400);}};
 const day=v=>{const s=cleanText(v,10,true);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(new Date(s+'T00:00:00Z').valueOf())||new Date(s+'T00:00:00Z').toISOString().slice(0,10)!==s)bad('日期格式需為 YYYY-MM-DD');return s;};
 const time=v=>{const s=cleanText(v,5,true);if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))bad('時間格式錯誤');return s;};
 const uid=v=>{if(typeof v!=='string'||!/^[0-9a-f-]{36}$/i.test(v))bad('識別碼格式不正確');return v;};
@@ -161,7 +162,7 @@ function command(db,u,action,x={}){
  }
  case 'ingredient.update':{
   requiredRole(u,'manager');
-  const cmd=normalizeCatalogCommand(action,x),t=exists(db,'ingredients',uid(cmd.id));
+  const cmd=catalogInput(action,x),t=exists(db,'ingredients',uid(cmd.id));
   if(t.active!==1)bad('食材已停用，請先恢復',409);
   const e=cmd.expected,c=cmd.changes;
   if(t.sku!==e.sku||t.name!==e.name||t.unit!==e.unit||
@@ -177,7 +178,7 @@ function command(db,u,action,x={}){
  }
  case 'ingredient.active':{
   requiredRole(u,'manager');
-  const cmd=normalizeCatalogCommand(action,x),t=exists(db,'ingredients',uid(cmd.id));
+  const cmd=catalogInput(action,x),t=exists(db,'ingredients',uid(cmd.id));
   if(t.active!==cmd.expected_active)bad('食材狀態已改變，請重新整理',409);
   if(cmd.active===0&&(
     db.prepare("SELECT 1 FROM purchase_orders WHERE ingredient_id=? AND status IN ('requested','approved') LIMIT 1").get(t.id)||
@@ -191,7 +192,7 @@ function command(db,u,action,x={}){
  }
  case 'location.update':{
   requiredRole(u,'owner');
-  const cmd=normalizeCatalogCommand(action,x),t=db.prepare('SELECT * FROM locations WHERE id=?').get(uid(x.id));
+  const cmd=catalogInput(action,x),t=db.prepare('SELECT * FROM locations WHERE id=?').get(uid(x.id));
   if(!t)bad('找不到門市',404);
   if(t.name!==cmd.expected.name)bad('門市已更新，請重新整理',409);
   if(t.name===cmd.changes.name)bad('沒有要更新的內容',409);
@@ -203,7 +204,7 @@ function command(db,u,action,x={}){
  }
  case 'location.active':{
   requiredRole(u,'owner');
-  const cmd=normalizeCatalogCommand(action,x),t=db.prepare('SELECT * FROM locations WHERE id=?').get(uid(x.id));
+  const cmd=catalogInput(action,x),t=db.prepare('SELECT * FROM locations WHERE id=?').get(uid(x.id));
   if(!t)bad('找不到門市',404);
   if(t.active!==cmd.expected_active)bad('門市狀態已改變，請重新整理',409);
   if(cmd.active===0){

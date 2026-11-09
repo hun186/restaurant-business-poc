@@ -76,8 +76,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/native-owner-public-assets-readonly.test.js":"96c612ef61879d010174325313d5e00c80e73fc6d94723c31b4c8f8231b396b0",
-  "tests/cloudflare-native-owner-readable-tables.test.js":"419055feaa6fc0028458d19b7775c484efe5ad37c3e4f184a1d8c8d7dd5be2b2",
-  "vercel-demo/native-owner-display.mjs":"06068c648f1e97af8b6d8d26129fdba2bb987ea1b679d974d22425bb130b155c",
+  "tests/cloudflare-native-owner-readable-tables.test.js":"e70b5986c1f8481fc4b0b56556116fe76fd876bebc3d4742437f45be91a9ac4c",
+  "vercel-demo/native-owner-display.mjs":"568efef0caf3e1f443f3d4f4033c71c1c1fe81c51fe36efa0bc922167fe81ed8",
   "tests/cloudflare-native-owner-ui-parity.test.js":"ff1c83a6ebb84c37f32a2ebfdecf9bc8aa54855307329e02ecdf0bf00cb02606",
   "tests/cloudflare-g0-active-version-readonly.test.js":"d4854973406026b6583abccfa11354c4aefe58d6d4ea0d71ee4b7a3a80f7c559",
   "tests/cloudflare-public-runtime-readonly.test.js":"e7009ab6561f7015366cb2483bd47003ec923f0714ad80b28866a938ce704176",
@@ -102,8 +102,8 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/access-task-status-write.mjs":"99e35093756eaaf8a130c0edf57e712d3b6001b81a474f5fe40c64dabef00a3f",
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
   "vercel-demo/owner-app.html":"c9881efde3098ae12bc77e2cae071def288e574e51dcd3ac0cd5741ba8b2bc81",
-  "vercel-demo/owner-app.css":"57cb6960308b88b18adbb0508d3ea2dbd6ab32a5ce83f8bc4defd19618b5f0a0",
-  "vercel-demo/owner-app.js":"8326cd938584e835127acdafe3a0a46cf26b94ed6a739043fa5b12631dc9917a",
+  "vercel-demo/owner-app.css":"5ec88b9ed98bb35def1a7688bd11daa942444fc150a19c98490d0367cf047cb6",
+  "vercel-demo/owner-app.js":"5aca5d34013c56da2c2f4206eec3c3fa60b877a9f1a23c418931794296280ae8",
   "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",

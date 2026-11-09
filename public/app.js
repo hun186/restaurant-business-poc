@@ -190,7 +190,7 @@ async function operation(action,id,status){try{
   await api('/api/command','POST',{action,data});
   toast(on?'已恢復':'已停用');await refresh();return;
  }
- if(['training.score','user.role','user.password','user.assign-location','dish.price','order.receive'].includes(action))return showForm(action,id);
+ if(['training.score','user.role','user.password','user.assign-location','dish.price','order.receive','ingredient.update','location.update'].includes(action))return showForm(action,id);
  if(['order.receive','stocktake.confirm','order.cancel','user.active','repair.status','leave.review'].includes(action)&&!window.confirm('確定執行「'+label(status||action)+'」？此操作會留下稽核紀錄。'))return;
  if(action==='dish.active'||action==='recipe.delete'){
    const prompt=action==='recipe.delete'

@@ -1,4 +1,4 @@
-import {presentNativeRows} from './native-owner-display.mjs';
+import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs';
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
@@ -44,6 +44,18 @@ function table(entity,rows){
  toolbar.className='native-data-toolbar';count.className='native-data-count';
  input.type='search';input.maxLength=80;input.placeholder='搜尋目前已載入的資料';
  label.append(input);toolbar.append(label,count);
+ const pager=el('nav'),sizeLabel=el('label','每頁筆數 '),sizeSelect=el('select'),
+   previous=el('button','上一頁'),next=el('button','下一頁'),pageInfo=el('span');
+ pager.className='native-data-pagination';
+ pager.setAttribute('aria-label','資料分頁');
+ pageInfo.className='native-page-info';pageInfo.setAttribute('aria-live','polite');
+ sizeSelect.setAttribute('aria-label','每頁筆數');
+ for(const n of [25,50,100]){
+  const opt=el('option',n+' 筆');opt.value=String(n);sizeSelect.append(opt);
+ }
+ sizeLabel.append(sizeSelect);previous.type='button';next.type='button';
+ pager.append(sizeLabel,previous,pageInfo,next);
+ let page=1,pageSize=25;
  const frame=el('div');frame.className='scroll';
  const grid=el('table'),caption=el('caption',labels[entity]+'資料清單');
  caption.className='native-data-caption';
@@ -56,8 +68,9 @@ function table(entity,rows){
  function draw(){
   const term=input.value.trim().toLocaleLowerCase('zh-TW');
   const shown=term?model.entries.filter(row=>row.search.includes(term)):model.entries;
+  const paged=pageNativeEntries(shown,page,pageSize);page=paged.page;
   const fragment=document.createDocumentFragment();
-  for(const entry of shown){
+  for(const entry of paged.rows){
    const tr=el('tr');
    for(const cell of entry.cells){
     const td=el('td');
@@ -70,12 +83,17 @@ function table(entity,rows){
    fragment.append(tr);
   }
   body.replaceChildren(fragment);
-  count.textContent='顯示 '+shown.length+' / '+model.entries.length+
+  count.textContent='符合 '+shown.length+' / '+model.entries.length+
    ' 筆（只搜尋已載入的資料，伺服器最多提供 500 筆）';
+  pageInfo.textContent='第 '+paged.from+'–'+paged.to+' 筆 · '+paged.page+' / '+paged.pages+' 頁';
+  previous.disabled=paged.page<=1;next.disabled=paged.page>=paged.pages;
   empty.hidden=shown.length!==0;
  }
- input.addEventListener('input',draw);
- wrapper.append(toolbar,frame,empty);draw();return wrapper;
+ input.addEventListener('input',()=>{page=1;draw();});
+ sizeSelect.addEventListener('change',()=>{pageSize=Number(sizeSelect.value);page=1;draw();});
+ previous.addEventListener('click',()=>{if(page>1){page--;draw();}});
+ next.addEventListener('click',()=>{page++;draw();});
+ wrapper.append(toolbar,frame,empty,pager);draw();return wrapper;
 }
 function render(data){
   if(data?.mode!=='native_d1')throw Error('伺服器資料模式不正確。');

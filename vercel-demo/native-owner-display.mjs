@@ -58,3 +58,15 @@ export function presentNativeRows(entity,rows){
   return {cells,search:cells.map(c=>c.text).join(' ').toLocaleLowerCase('zh-TW')};
  })};
 }
+
+const NATIVE_PAGE_SIZES=Object.freeze([25,50,100]);
+export function pageNativeEntries(entries,page=1,pageSize=25){
+ if(!Array.isArray(entries)||entries.length>500||!Number.isSafeInteger(page)||
+    page<1||!NATIVE_PAGE_SIZES.includes(pageSize))
+  throw Error('E_NATIVE_PAGE_INVALID');
+ const pages=Math.max(1,Math.ceil(entries.length/pageSize));
+ const current=Math.min(page,pages),start=(current-1)*pageSize;
+ return {rows:entries.slice(start,start+pageSize),page:current,pages,
+  total:entries.length,from:entries.length?start+1:0,
+  to:Math.min(start+pageSize,entries.length)};
+}

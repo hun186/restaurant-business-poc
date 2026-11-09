@@ -9,6 +9,12 @@
 - 五個寫入 Gate 由後端 Status 的嚴格布林值決定；UI 僅顯示相應的「操作已啟用」或「唯讀」資訊，既有寫入函式仍依 Gate、Role、CSRF 防護。未開放功能的唯讀清單不顯示假操作。
 - `owner-app.js` 不載入 `mock.js` 或 Demo `app.js`；不使用 localStorage/sessionStorage；資料用 `textContent` / DOM 節點顯示，不以 `innerHTML` 拼接回應。CSP、同源 Cookie、CSRF 與登出撤銷程序保持原樣。
 
+## 已載入清單分頁（2026-11-09，CI／正式 Codex Review 待驗）
+
+- 原生清單仍受最多 500 筆的既有 D1 API 上限約束；僅在瀏覽器內把已授權、已載入資料分成每頁 25／50／100 筆，避免一次渲染所有資料。搜尋只覆蓋已載入的列，不提供跨頁後端搜尋。
+- 搜尋或變更每頁筆數會回第 1 頁，上一頁／下一頁停在合法邊界，空搜尋結果顯示零筆並停用分頁。使用 DOM textContent、ARIA，且不引入假資料、儲存密碼、模擬授權或新套件。
+- 不修改 Worker 路由、D1、權限、Cloudflare Variables/Secrets 或五項寫入 Gate。正式 Owner 真實瀏覽器、登入／登出及 Session UAT 仍需操作者獨立驗證。
+
 ## 交付與驗收界限
 
 1. `npm run check`（Node >=22.13）、GitHub Hosted Verify、正式 Codex Review 和最新 HEAD 合併檢查須分別通過，才可考慮合併。

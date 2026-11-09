@@ -64,12 +64,43 @@ test('reject malformed native data and do not display unknown states as approved
  assert.equal(x.entries[0].cells[6].text,'未識別');
  assert.equal(x.entries[0].cells[4].text,'—');
 });
+test('local pagination respects page boundaries, empty rows and the 500-row cap',async()=>{
+ const {presentNativeRows,pageNativeEntries}=await display;
+ const entries=presentNativeRows('tasks',Array.from({length:500},(_,i)=>({
+  title:'工作'+i,status:i%2?'todo':'done'
+ }))).entries;
+ const first=pageNativeEntries(entries);
+ assert.deepEqual([first.page,first.pages,first.total,first.from,first.to,first.rows.length],
+  [1,20,500,1,25,25]);
+ const second=pageNativeEntries(entries,2,25);
+ assert.equal(second.rows[0],entries[25]);
+ assert.deepEqual([second.from,second.to,second.rows.length],[26,50,25]);
+ const last=pageNativeEntries(entries,99,100);
+ assert.deepEqual([last.page,last.pages,last.from,last.to,last.rows.length],[5,5,401,500,100]);
+ const filtered=entries.filter(row=>row.search.includes('工作1'));
+ const afterSearch=pageNativeEntries(filtered,1,25);
+ assert.equal(afterSearch.total,filtered.length);
+ assert.equal(afterSearch.from,1);
+ assert.deepEqual(pageNativeEntries([],4,50),{
+  rows:[],page:1,pages:1,total:0,from:0,to:0
+ });
+ for(const args of [[entries,0,25],[entries,-1,25],[entries,1.5,25],
+  [entries,1,0],[entries,1,500],[entries,1,'25'],
+  [new Array(501),1,25],[null,1,25]]){
+  assert.throws(()=>pageNativeEntries(...args),/E_NATIVE_PAGE_INVALID/);
+ }
+ assert.equal(entries.length,500);
+});
 test('native Owner browser uses only DOM text and scoped, loaded rows for search',()=>{
  const js=src('owner-app.js'),projection=src('native-owner-display.mjs');
- assert(js.includes("import {presentNativeRows} from './native-owner-display.mjs'"));
+ assert(js.includes("import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs'"));
  assert(js.includes('table(view,data.rows)'));
  assert(js.includes('presentNativeRows(entity,rows)'));
  assert(js.includes('document.createDocumentFragment()'));
+ assert(js.includes('pageNativeEntries(shown,page,pageSize)'));
+ assert(js.includes("input.addEventListener('input',()=>{page=1;draw();})"));
+ assert(js.includes("sizeSelect.addEventListener('change'"));
+ assert(js.includes("pager.setAttribute('aria-label','資料分頁')"));
  assert(js.includes('只搜尋已載入的資料'));
  assert(js.includes('/api/native/status'));
  for(const source of [js,projection]){

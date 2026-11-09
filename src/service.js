@@ -167,6 +167,14 @@ function command(db,u,action,x={}){
   const e=cmd.expected,c=cmd.changes;
   if(t.sku!==e.sku||t.name!==e.name||t.unit!==e.unit||
       Number(t.min_stock)!==e.min_stock)bad('資料已更新，請重新整理',409);
+  // Ledger quantities are stored without per-movement unit; relabeling would
+  // silently reinterpret historical inventory. Protect prices and recipes too.
+  if(t.unit!==c.unit){
+    for(const table of ['stock_moves','purchase_orders','stocktakes','ingredient_prices','dish_ingredients']){
+      if(db.prepare('SELECT 1 FROM '+table+' WHERE ingredient_id=? LIMIT 1').get(t.id))
+        bad('食材已有庫存、交易、價格或配方紀錄，不能直接修改計量單位；請建立新食材',409);
+    }
+  }
   if(t.name===c.name&&t.unit===c.unit&&Number(t.min_stock)===c.min_stock)
     bad('沒有要更新的內容',409);
   const out=db.prepare('UPDATE ingredients SET name=?,unit=?,min_stock=? '+

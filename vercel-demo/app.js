@@ -80,6 +80,14 @@ function rowActions(page,r){const a=[];
  if(page==='leave_requests'&&can('manager')&&r.status==='pending'&&r.user_id!==S.me.id)a.push(btn('leave.review','核准',{status:'approved'}),btn('leave.review','駁回',{status:'rejected'}));
  if(page==='training_records'&&can('manager')&&r.score===null)a.push(btn('training.score','登記成績'));
  if(false&&page==='users'&&can('owner')&&r.id!==S.me.id)a.push(btn('user.assign-location','加授門市'),btn('user.active',r.active?'停用':'啟用',{status:r.active?'off':'on'}),btn('user.role','變更角色'),btn('user.password','重設密碼'));
+ if(page==='ingredients'&&can('manager')){
+  if(r.active===0)a.push(btn('ingredient.active','恢復食材',{status:'on'}));
+  else a.push(btn('ingredient.update','編輯'),btn('ingredient.active','停用',{status:'off'}));
+ }
+ if(page==='locations'&&can('owner')){
+  if(r.active===0)a.push(btn('location.active','恢復門市',{status:'on'}));
+  else a.push(btn('location.update','編輯'),btn('location.active','停用',{status:'off'}));
+ }
  return a.join('');
 }
 async function dataPage(page){
@@ -104,6 +112,7 @@ async function getLists(){for(const k of ['locations','ingredients','staff_direc
 const field=(name,display,type='text',required=true,extra={})=>({name,display,type,required,...extra});
 const def={
  'location.create':{title:'新增門市',fields:[field('name','門市名稱')]},
+ 'location.update':{title:'編輯門市',fields:[field('name','門市名稱')]},
  'user.create':{title:'新增員工帳號',fields:[field('username','登入帳號（英文與數字）'),field('display_name','員工姓名'),field('password','初始密碼（至少 12 字元）','password'),field('role','角色','role'),field('location_id','授權門市','locations')]},
  'price.record':{title:'新增食材歷史單價',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('unit_price_twd','單價（元）','number'),field('unit','計價單位（例如：公斤、顆）'),field('price_date','生效日期','date',true,{value:new Date().toLocaleDateString('sv-SE')}),field('supplier','供應商','text',false)]},
  'dish.create':{title:'新增菜品',fields:[field('name','菜品名稱'),field('sale_price_twd','售價（元）','number')]},
@@ -112,6 +121,7 @@ const def={
  'order.receive':{title:'示範驗收入庫（可選填進價）',fields:[field('unit_price_twd','本次進價（元；不填則不記價格）','number',false),field('unit','計價單位（例如：公斤）','text',false),field('price_date','價格生效日','date',false),field('supplier','供應商','text',false)]},
  'task.create':{title:'新增工作',fields:[field('location_id','所屬門市','locations'),field('title','工作名稱'),field('due_date','期限','date',false),field('assigned_to','指派員工','users',false),field('description','工作說明','textarea',false)]},
  'ingredient.create':{title:'新增食材',fields:[field('sku','料號'),field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
+ 'ingredient.update':{title:'編輯食材',fields:[field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'stock.usage':{title:'登錄食材耗用',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','耗用數量','number'),field('note','用途說明','textarea',false)]},
  'stock.opening':{title:'建立期初庫存（不可重複）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','期初數量','number'),field('note','期初庫存來源','textarea',false)]},
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
@@ -133,7 +143,7 @@ function options(type){let data=S.cache[type]||[];
  if(type==='role')return [['staff','一般員工'],['manager','主管'],['owner','業主']];
  return data.filter(x=>x.active!==0).map(x=>[x.id,x.display_name||x.name||x.title]);
 }
-function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(f.value||''),label=E(f.display);
+function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(f.value??''),label=E(f.display);
  if(['role','locations','ingredients','users','training_courses','menu_dishes'].includes(f.type)){const opts=options(f.type);return `<label>${label}<select name="${name}" ${req}><option value="">請選擇…</option>${opts.map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('')}</select></label>`;}
  if(f.type==='textarea')return `<label class="full">${label}<textarea name="${name}" rows="3" ${req}></textarea></label>`;
  const step=f.type==='number'?'step="any" min="0"':'';
@@ -141,7 +151,12 @@ function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(
 }
 function invalidateModalOpens(root){return (root.__openTicket=(root.__openTicket||0)+1);}
 async function showForm(action,id){
- const d=def[action];if(!d){toast('此操作目前未提供表單');return;}
+ const base=def[action];if(!base){toast('此操作目前未提供表單');return;}
+ const editing=action==='ingredient.update'||action==='location.update';
+ const entity=action.startsWith('ingredient.')?'ingredients':'locations';
+ const snapshot=editing?(S.cache[entity]||[]).find(r=>r.id===id):null;
+ if(editing&&!snapshot){toast('資料已變更，請先重新整理');return;}
+ const d=editing?{...base,fields:base.fields.map(f=>({...f,value:snapshot[f.name]}))}:base;
  // Invalidate pending batch preview/create GETs *before* await getLists().
  const root=$('#modal-root'),ticket=invalidateModalOpens(root),epoch=S.authEpoch,userId=S.me?.id;
  await getLists();
@@ -149,10 +164,32 @@ async function showForm(action,id){
  root.hidden=false;
  root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>僅修改本次瀏覽器中的虛構示範資料，不產生正式紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
  const close=()=>{invalidateModalOpens(root);root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
- $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
- try{await api('/api/command','POST',{action,data:raw});close();toast(action==='user.password'?'密碼已變更，請重新登入':'已成功儲存');if(action==='user.password'){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
+ $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id&&!editing)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
+ try{
+  let data=raw;
+  if(editing){
+   const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
+   const expected=entity==='ingredients'?
+    {sku:snapshot.sku,name:snapshot.name,unit:snapshot.unit,min_stock:Number(snapshot.min_stock)}:
+    {name:snapshot.name};
+   const changes=entity==='ingredients'?
+    {name:raw.name,unit:raw.unit,min_stock:Number(raw.min_stock)}:{name:raw.name};
+   data=normalizeCatalogCommand(action,{id,expected,changes});
+  }
+  await api('/api/command','POST',{action,data});close();toast(action==='user.password'?'密碼已變更，請重新登入':'已成功儲存');if(action==='user.password'){S.me=null;S.csrf='';showAuth(true);}else await refresh();}catch(err){toast(err.message);}});
 }
 async function operation(action,id,status){try{
+ if(action==='ingredient.active'||action==='location.active'){
+  const entity=action.startsWith('ingredient.')?'ingredients':'locations';
+  const row=(S.cache[entity]||[]).find(r=>r.id===id);
+  if(!row)throw Error('資料已變更，請重新整理');
+  const on=status==='on';
+  if(!window.confirm(on?'確定恢復此資料？':'確定停用？不會刪除歷史交易，待辦叫貨／盤點可能阻止停用。'))return;
+  const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
+  const data=normalizeCatalogCommand(action,{id,expected_active:row.active===0?0:1,active:on?1:0});
+  await api('/api/command','POST',{action,data});
+  toast(on?'已恢復':'已停用');await refresh();return;
+ }
  if(['training.score','user.role','user.password','dish.price','order.receive'].includes(action))return showForm(action,id);
  if(['stocktake.confirm','order.cancel','user.active','repair.status','leave.review'].includes(action)&&!window.confirm('確定執行「'+label(status||action)+'」？此操作會留下稽核紀錄。'))return;
  if(action==='dish.active'||action==='recipe.delete'){

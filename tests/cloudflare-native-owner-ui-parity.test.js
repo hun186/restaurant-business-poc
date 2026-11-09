@@ -52,3 +52,22 @@ test('native status must be checked before exposing credentials or enabling writ
   assert.match(js,/await api\('\/api\/logout'/);
   assert.match(js,/headers:\{Accept:'application\/json','X-CSRF-Token':token\}/);
 });
+
+test('native Owner write forms keep visible labels attached to their controls',()=>{
+ const js=asset('owner-app.js'),css=asset('owner-app.css');
+ assert.match(js,/const labeledField=\(caption,control\)=>/);
+ assert.match(js,/label\.append\(control\);return label/);
+ for(const expected of [
+  "form.append(labeledField(label,input))",
+  "labeledField('門市',store)","labeledField('門市',select)",
+  "labeledField('食材',ingredient)","labeledField('供應商',supplier)",
+  "labeledField('數量',qty)","labeledField('實際數量',counted)",
+  "labeledField('設備',equipment)","labeledField('故障內容',description)",
+  "labeledField('指派給',assignee)","labeledField('工作內容',input)",
+  "labeledField('期限（選填）',due)"
+ ])assert(js.includes(expected),expected);
+ assert.doesNotMatch(js,/form\.append\(el\('label'/);
+ assert.match(css,/\.panel form label>input,\.panel form label>select,\.panel form label>textarea/);
+ // No browser-side synthetic authentication or mock data is introduced.
+ assert.doesNotMatch(js,/mock\.js|localStorage|sessionStorage|\.innerHTML\s*=/);
+});

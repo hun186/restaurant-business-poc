@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-09 Current Focus｜正式 Owner 表單 label 與控制項修正（PR 待 Hosted CI/Codex）**：PR #157 已 Squash Merge 主線 `3ec68a3506bca5c53e30956ceddc295b2c94db22`，補齊已載入資料本機分頁。接著發現正式 D1 新增門市／食材、工作、叫貨、盤點、維修表單的可見 label 與控制項被當成相鄰 flex items，易產生錯位且缺少語意關聯。本次以共用 labeledField 將 input/select/textarea 內嵌於 label，補靜態回歸、CSS 與閉鎖 SHA；不改 API/Worker/Cloudflare Gate/D1。正式 Owner UAT、資產版本與 Session 撤銷仍待實機。未完成 HEAD Hosted 5/5、正式 Codex Review、Clean Gate 前不可稱已合併。
+
+
 > **2026-11-09 Current Focus｜Native Owner 已載入資料分頁（開發／PR CI-Codex 待驗）**：以已合併 #156 的 main `239e8da8ea345b5b5555e4ad2ef1f971162e0480` 為起點，獨立 PR 新增九種中文清單共用的 25／50／100 筆本機分頁、搜尋歸零、空結果與頁邊界合成測試。資料仍限制最多 500 筆、只針對已授權且載入的資料；不新增後端查詢／寫入，不改 Worker、Cloudflare、D1、Secret 或 Gate。正式 Owner 視覺／Session UAT 尚未完成；CI、正式 Codex Review、Clean Gate 未確認前不能稱已合併或發布。
 
 

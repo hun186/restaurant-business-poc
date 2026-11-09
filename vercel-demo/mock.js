@@ -106,6 +106,10 @@
     if(row.active===0)throw Error('已停用，請先恢復');
     if(Object.keys(cmd.expected).some(k=>row[k]!==cmd.expected[k]))
       throw Error('資料已變更，請重新整理');
+    if(group==='ingredients'&&row.unit!==cmd.changes.unit&&
+       ['stock','stock_moves','purchase_orders','stocktakes','ingredient_prices','dish_ingredients']
+       .some(key=>(db[key]||[]).some(item=>item.ingredient_id===row.id)))
+      throw Error('已有庫存、交易、價格或配方，不能修改計量單位；請新增另一個食材');
     if(Object.keys(cmd.changes).every(k=>row[k]===cmd.changes[k]))
       throw Error('沒有要更新的內容');
     Object.assign(row,cmd.changes);

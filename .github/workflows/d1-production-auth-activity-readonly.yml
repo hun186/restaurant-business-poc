@@ -1,0 +1,63 @@
+name: Production D1 auth activity metadata (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_PROD_AUTH_ACTIVITY_READONLY (fixed SELECT only; no writes)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Serialize with other sensitive Production D1 operational workflows.
+concurrency:
+  group: restaurant-business-production-d1-initialization
+  cancel-in-progress: false
+
+jobs:
+  auth-activity:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_PROD_AUTH_ACTIVITY_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: d1-production-readonly
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed against reviewed SHA256 inventory before tokens
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify fixed Production D1 target before read-only token
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-prod-d1-init.mjs config
+      - name: Install pinned Wrangler without Cloudflare credentials
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Inspect boolean-only authentication metadata from Production D1
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$CLOUDFLARE_API_TOKEN" ]] || {
+            echo 'PROD_AUTH_ACTIVITY_READONLY_CREDENTIAL_UNAVAILABLE'
+            exit 1
+          }
+          umask 077
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          query="$(node tools/cloudflare-prod-auth-activity-readonly.mjs sql auth)"
+          npx --no-install wrangler d1 execute PROD_DB --remote --json \
+            --config wrangler.production-initialize.jsonc \
+            --command "$query" > "$work/metadata.json"
+          node tools/cloudflare-prod-auth-activity-readonly.mjs inspect "$work/metadata.json"
+          echo 'PROD_AUTH_ACTIVITY_METADATA_ONLY_NO_WRITE_NO_RELEASE'

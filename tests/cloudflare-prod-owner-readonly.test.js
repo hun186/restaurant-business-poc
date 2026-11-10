@@ -145,3 +145,56 @@ test('CLI emits only allowlisted stage and never echoes sensitive synthetic payl
   assert.doesNotMatch(run.stderr,/do-not-leak|7|locations|synthetic_secret/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('Owner-state reasons identify cause classes without exposing raw D1 counts',async()=>{
+ const m=await helper;
+ const cases=[
+  {reason:'SNAPSHOT_DRIFT',make:empty,change:x=>{x.after[0].results[0].users=1;}},
+  {reason:'BUSINESS_ROWS_PRESENT',make:empty,change:x=>{x.before[0].results[0].locations=1;}},
+  {reason:'AUTH_ACTIVITY_PRESENT',make:empty,change:x=>{
+    x.before[0].results[0].sessions=1;x.after[0].results[0].sessions=1;
+  }},
+  {reason:'MULTIPLE_USERS_OR_OWNERS',make:empty,change:x=>{
+    x.before[0].results[0].users=2;x.after[0].results[0].users=2;
+  }},
+  {reason:'OWNER_AUDIT_COUNT_MISMATCH',make:empty,change:x=>{
+    x.before[0].results[0].users=1;x.after[0].results[0].users=1;
+  }},
+  {reason:'OWNER_IDENTITY_OR_AUDIT_MISMATCH',make:created,change:x=>{
+    x.after[0].results[0].owners=0;
+  }},
+  {reason:'ORPHAN_OWNER_OR_AUDIT',make:empty,change:x=>{
+    x.before[0].results[0].audit_logs=1;x.after[0].results[0].audit_logs=1;
+  }}
+ ];
+ for(const {reason,make,change} of cases){
+  const v=await make();change(v);
+  let error;
+  try{m.verifyOwnerReadiness(v);}catch(e){error=e;}
+  assert(error,reason+' should block enrollment');
+  assert.equal(error.message,'E_PRODUCTION_OWNER_READONLY');
+  assert.equal(error.safeStage,'OWNER_STATE');
+  assert.equal(error.safeReason,reason);
+  assert.doesNotMatch(error.message+' '+error.safeStage+' '+error.safeReason,
+    /password|token|secret|sql|row_count|account_id|database_id/i);
+ }
+});
+
+test('Owner-state CLI emits one safe reason, never the D1 snapshot or a count',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'prod-owner-reason-'));
+ try{
+  for(const [name,blob] of Object.entries(await empty()))
+   fs.writeFileSync(path.join(dir,name+'.json'),JSON.stringify(blob),{mode:0o600});
+  const before=path.join(dir,'before.json');
+  const obj=JSON.parse(fs.readFileSync(before,'utf8'));
+  obj[0].results[0].locations=987654;
+  fs.writeFileSync(before,JSON.stringify(obj),{mode:0o600});
+  const run=spawnSync(process.execPath,[p,'inspect',dir],
+   {cwd:root,encoding:'utf8',timeout:12000});
+  assert.equal(run.status,1);
+  assert.equal(run.stdout,'');
+  assert.equal(run.stderr.trim(),
+    'E_PRODUCTION_OWNER_READONLY stage=OWNER_STATE reason=BUSINESS_ROWS_PRESENT');
+  assert.doesNotMatch(run.stderr,/987654|location|users|audit_logs|token/i);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

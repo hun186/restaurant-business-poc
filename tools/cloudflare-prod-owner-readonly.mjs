@@ -14,9 +14,17 @@ const FAIL='E_PRODUCTION_OWNER_READONLY';
 // account/database identifiers or credentials; keep every invalid state fail-closed.
 const STAGES=new Set(['INPUT_SHAPE','RESPONSE_SHAPE','INTEGRITY','SCHEMA_CONTRACT',
   'OWNER_STATE','EVIDENCE_UNAVAILABLE','INVALID_MODE']);
-function fail(stage='INPUT_SHAPE'){
+// Reasons are fixed categories, never D1 table names, row values, counts or SQL.
+// A reason has no authority to approve enrollment or bypass Owner gates.
+const OWNER_REASONS=new Set(['SNAPSHOT_DRIFT','BUSINESS_ROWS_PRESENT',
+  'AUTH_ACTIVITY_PRESENT','MULTIPLE_USERS_OR_OWNERS',
+  'OWNER_AUDIT_COUNT_MISMATCH','OWNER_IDENTITY_OR_AUDIT_MISMATCH',
+  'ORPHAN_OWNER_OR_AUDIT','OTHER_OWNER_STATE']);
+function fail(stage='INPUT_SHAPE',reason){
  const error=Error(FAIL);
  error.safeStage=STAGES.has(stage)?stage:'INPUT_SHAPE';
+ if(error.safeStage==='OWNER_STATE')
+  error.safeReason=OWNER_REASONS.has(reason)?reason:'OTHER_OWNER_STATE';
  throw error;
 }
 const rows=s=>{try{return rowsFromWranglerJson(s);}catch{fail('RESPONSE_SHAPE');}};
@@ -52,18 +60,35 @@ export function verifyOwnerReadiness(inputs){
     a.contract_version!==3||b.contract_version!==3||
     a.migration_total!==2||b.migration_total!==2||
     a.migration_1!==1||a.migration_2!==1)fail('SCHEMA_CONTRACT');
+  // Only non-sensitive boolean classifications. Validate all field types above
+  // before deriving these reasons. Earlier and later SELECTs are not atomic.
+  const ownerReason=()=>{
+    if(['users','sessions','login_attempts','audit_logs'].some(t=>a[t]!==b[t]))
+      return 'SNAPSHOT_DRIFT';
+    if(EMPTY_TABLES.some(t=>!['users','sessions','login_attempts',
+      'audit_logs'].includes(t)&&a[t]>0))
+      return 'BUSINESS_ROWS_PRESENT';
+    if(a.sessions>0||a.login_attempts>0)return 'AUTH_ACTIVITY_PRESENT';
+    if(a.users>1||b.owners>1)return 'MULTIPLE_USERS_OR_OWNERS';
+    if(a.users===1&&a.audit_logs!==1)return 'OWNER_AUDIT_COUNT_MISMATCH';
+    if(a.users===1&&(b.owners!==1||b.owner_enrollment_audits!==1))
+      return 'OWNER_IDENTITY_OR_AUDIT_MISMATCH';
+    if(a.users===0&&(a.audit_logs>0||b.owners>0||
+      b.owner_enrollment_audits>0))return 'ORPHAN_OWNER_OR_AUDIT';
+    return 'OTHER_OWNER_STATE';
+  };
   const zeroExcept=(exceptions)=>EMPTY_TABLES.every(t=>
     a[t]===(exceptions[t]??0));
   let ownerCount;
   if(zeroExcept({}) && b.users===0 && b.owners===0 &&
     b.sessions===0 && b.login_attempts===0 && b.audit_logs===0 &&
     b.owner_enrollment_audits===0) {
-    try{checkProductionOwnerPreflight(inputs.before);}catch{fail('OWNER_STATE');}
+    try{checkProductionOwnerPreflight(inputs.before);}catch{fail('OWNER_STATE',ownerReason());}
     ownerCount=0;
   }else if(zeroExcept({users:1,audit_logs:1})){
-    try{verifyProductionOwnerPostflight(inputs.after,inputs.foreign);}catch{fail('OWNER_STATE');}
+    try{verifyProductionOwnerPostflight(inputs.after,inputs.foreign);}catch{fail('OWNER_STATE',ownerReason());}
     ownerCount=1;
-  }else fail('OWNER_STATE');
+  }else fail('OWNER_STATE',ownerReason());
 
   return Object.freeze({
     status:ownerCount?'PRODUCTION_OWNER_ALREADY_ENROLLED_READONLY':
@@ -99,7 +124,11 @@ if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.
     }else fail('INVALID_MODE');
   }catch(error){
     // Only allowlisted stage name; never print D1 rows, account IDs, SQL or secrets.
-    process.stderr.write(FAIL+' stage='+(STAGES.has(error?.safeStage)?error.safeStage:'INPUT_SHAPE')+'\n');
+    const stage=STAGES.has(error?.safeStage)?error.safeStage:'INPUT_SHAPE';
+    const reason=stage==='OWNER_STATE'
+      ?' reason='+(OWNER_REASONS.has(error?.safeReason)
+        ?error.safeReason:'OTHER_OWNER_STATE'):'';
+    process.stderr.write(FAIL+' stage='+stage+reason+'\n');
     process.exitCode=1;
   }
 }

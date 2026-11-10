@@ -107,3 +107,11 @@ Windows `run-production-owner-operator.bat` 新增 **選項 3：Check Owner + Ti
 操作者實際執行 [Production D1 Owner readiness #42742857454](https://github.com/hun186/restaurant-business-poc/actions/runs/42742857454)，`main=b8fe14305ef4ff2dd530a005f5a0e6ebc0c8e8e0`、安全 SHA256 預檢／固定 D1 目標／Wrangler 安裝 PASS；四組唯讀 SQL 查詢步驟進到離線驗證時回傳 `E_PRODUCTION_OWNER_READONLY`，並未取得 Owner 0/1 的可信證據。**不能推論資料庫損毀或 Owner 是否存在**；不得選 Windows Owner 建立選項 2 或重跑 Production Schema。
 
 改進無機密的固定代碼錯誤分類：`INPUT_SHAPE`（參數無效）、`RESPONSE_SHAPE`（Wrangler / D1 查詢形狀不符）、`INTEGRITY`（quick_check／FK 失敗）、`SCHEMA_CONTRACT`（v3／Migration / 數值契約不符）、`OWNER_STATE`（任何表、Owner 或稽核狀態不符合**唯二**允許的空庫或單一 Owner 加完整稽核）、`EVIDENCE_UNAVAILABLE`（私有暫存證據缺失或無法剖析）、`INVALID_MODE`（命令錯誤）。絕不回傳實際 Row、資料筆數、Owner ID、Token、Account/DB UUID、原始 SQL 或原始 Error。輸出示例：`E_PRODUCTION_OWNER_READONLY stage=OWNER_STATE`。**任何失敗一律維持 Exit 1 與拒絕放行，不會自動修復或變更 Production D1**。這只是下一次唯讀重測的診斷強化，還需 PR HEAD Hosted Verify + Codex Review + 合併後才能依新版診斷；禁止把新版合成測試當作本次遠端 PASS。
+
+## 2026-11-10｜第二輪唯讀實機證據與 Owner State 安全子分類
+
+[Actions #42748095075](https://github.com/hun186/restaurant-business-poc/actions/runs/42748095075) 於已合併的 `3e19436a4281fe8ae5334b58298472b1450134fa` 執行新版唯讀檢查；安全靜態預檢、Production D1 目標設定、Wrangler 安裝及資料格式／Schema v3+2 Migrations／SQLite quick_check／foreign key 均通過。最後失敗碼為 `E_PRODUCTION_OWNER_READONLY stage=OWNER_STATE`，說明**目前資料既不符合完全空白庫，也不符合唯一 Owner 及完整 bootstrap audit 的嚴格條件**。這不能推論 D1 損壞，也不能推論 Owner 已經建立。切勿啟用正式登入、執行 Owner 建立或重跑 Migration。
+
+本增量僅於 `OWNER_STATE` 中增加匿名、固定白名單的 `reason`：`SNAPSHOT_DRIFT`（兩次 SELECT 前後不一致）、`BUSINESS_ROWS_PRESENT`（存在非初始業務資料）、`AUTH_ACTIVITY_PRESENT`（Session 或登入嘗試資料）、`MULTIPLE_USERS_OR_OWNERS`、`OWNER_AUDIT_COUNT_MISMATCH`、`OWNER_IDENTITY_OR_AUDIT_MISMATCH`、`ORPHAN_OWNER_OR_AUDIT`、`OTHER_OWNER_STATE`。只透過**既有相同的四組唯讀 SELECT/PRAGMA**取得結果，不新增遠端查詢、Cloudflare 服務或資料庫寫入；不輸出任何筆數、表內內容、Owner ID、Account/DB ID、Token、SQL、密碼。多重異常只輸出優先序最高的固定 reason，需後續受控調查，不能自行修復。所有非兩種允許狀態仍 Exit 1、Fail Closed。
+
+此功能僅供下次人工選擇 GitHub `Production D1 Owner readiness` workflow_dispatch（`main` + `CHECK_PRODUCTION_OWNER_READONLY`）在合併之後再跑一次；沒有任何自動執行或生產異動。

@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-10 Phase 4A Current Focus｜三平台食材／門市 CRUD 行為一致性（PR CI/正式 Review 待驗）**：已合併 #161/#162，主線 Verify #42726379418 success。實際確認 Vercel Demo `location.update` 錯誤拒絕停用門市更名；Demo `location.create`／`ingredient.create` 未完整執行共用欄位契約、未拒絕重名／重 SKU。本 PR 修復並用真實 Node VM Mock API、SQLite、D1 adapter 合成測驗證；保留歷史、不更動正式 Owner RBAC、Cloudflare Worker/Gate、Schema、秘密、部署或實際營運資料。預設 Production Gate OFF。Phase 4B：受控 Owner Desktop／Mobile 真實 Session／Gate／Asset UAT 與版本核對；無業主授權不開 Gate。每個 PR 必須最新 SHA Hosted CI、Codex Review Completed、Clean Gate 後才能 Merge。
+
+
 > **2026-11-10 Current Focus｜Phase 3B Native Owner D1 主檔操作 UI（最新 HEAD Review/CI 待查）**：PR #161 已 Squash Merge main `4c0f33e7b6bcfa63a0c7d44de2a5863bdf618cd3`，最新 HEAD CI 5/5、正式 Codex completed/0 Finding，Phase 3A backend 已在 main。本分支只改正式 `vercel-demo/owner-app.js`/CSS，Owner-only 且 Catalog Write Gate true 才顯示真實 D1 編輯／停用／恢復按鈕，沿用原始資料 CAS、同源 Session/CSRF、明確危險操作確認及登入/導航 revision 防重入；不假裝 Demo，Gate/Vars/Secret/D1 Schema/Production 均不動。待 Hosted 最新 HEAD 5/5 + 正式 Codex Review + Clean Gate 才 Merge。之後 Phase4 跨平台驗證與正式 Owner UAT 才能視為可營運。
 
 

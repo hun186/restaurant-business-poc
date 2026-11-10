@@ -55,3 +55,5 @@
 Vercel Demo 的 `location.create`／`ingredient.create` 現使用權威 `normalizeCatalogCommand` 驗證精確欄位、長度與必填項，並拒絕既有門市名稱與食材 SKU 重複；這些拒絕不得增加紀錄或稽核。Demo 中的合成測試以 Node VM 內存載入頁面 Mock，並以經檢查的同一模組副本提供瀏覽器 `import` 的測試替身，不做網路連線、Cloudflare 操作或真實 Login/Write。
 
 **已知設計差異不擅自改動：**本機管理者可建立食材；Cloudflare 正式食材主檔變更目前限定 Owner；Native D1 的既有長門市名稱可讀取並以快照更名，正式 Owner 新名稱限制 60 字。此 PR 不改 Owner RBAC、Worker Schema、Gate、Secrets、D1 正式資料或部署。Phase 4B 仍需受控的桌機／手機真實 Owner、登出 Session 撤銷與 Cloudflare 目前版本實機驗收。
+
+Phase 4A 第一輪正式 Codex Review 另指出 Vercel Demo 新增食材表單的 `FormData` 會將 `min_stock` 傳成字串，而嚴格契約要求 number。已改由 `showForm()` 透過可測試的 `catalogCreatePayload()` 先轉型再驗證（包括新增門市），並在測試中以 **FormData 等價字串輸入 → 同一 UI 轉換函式 → Mock /api/command** 實際測試；格式錯誤或缺值應拒絕，不能藉放鬆共用契約解決。仍待修正後最新 HEAD Hosted CI 和正式 Codex 複審。

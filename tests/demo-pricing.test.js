@@ -228,3 +228,31 @@ test('Vercel demo allows inactive store rename with CAS and keeps archive histor
  assert.equal(d.state().audit_logs.filter(x=>x.action==='demo.location.update').length,1);
  assert.equal((await d.rows('stock_moves')).length,1,'synthetic history remains intact');
 });
+
+test('actual Demo showForm create payload converts FormData number strings',async()=>{
+ const ui=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+ assert.match(ui,/data=catalogCreatePayload\(action,raw,normalizeCatalogCommand\)/);
+ const matched=ui.match(/function catalogCreatePayload\(action,raw,normalize\)\{[\s\S]*?\n\}/);
+ assert(matched,'extract the real browser form conversion function, not a test-only copy');
+ const fromForm=vm.runInNewContext('('+matched[0]+')');
+ const {normalizeCatalogCommand}=await import(pathToFileURL(
+  path.join(dir,'catalog-crud-contract.mjs')).href);
+ const raw=Object.fromEntries(new URLSearchParams(
+  'sku=FORM-01&name=%E9%BA%B5%E7%B2%89&unit=%E5%8C%85&min_stock=2.25').entries());
+ assert.equal(typeof raw.min_stock,'string','HTML FormData numeric inputs are strings');
+ const command=fromForm('ingredient.create',raw,normalizeCatalogCommand);
+ assert.equal(command.min_stock,2.25);
+ assert.equal(typeof command.min_stock,'number');
+ const d=demo();
+ const saved=await d.request('/api/command','ingredient.create',command);
+ assert.equal(saved.status,200);
+ const item=(await d.rows('ingredients')).find(x=>x.sku==='FORM-01');
+ assert.equal(item.name,'麵粉');
+ assert.equal(item.min_stock,2.25);
+ assert.throws(()=>fromForm('ingredient.create',{...raw,min_stock:'2bad'},
+  normalizeCatalogCommand),/E_CATALOG_NUMBER/);
+ assert.throws(()=>fromForm('ingredient.create',{...raw,min_stock:undefined},
+  normalizeCatalogCommand),/E_CATALOG_NUMBER/);
+ assert.deepEqual(fromForm('location.create',{name:' 測試 '},normalizeCatalogCommand),
+  {name:'測試'});
+});

@@ -46,3 +46,12 @@
 正式 Owner 不引入 Demo Mock、localStorage/sessionStorage 或額外 Cookie；仍從原生 Session 記憶體 CSRF 使用同源 /api/catalog。當 Write Gate 關閉、登入未完成或 Role 非 Owner 時，表格沒有任何寫入按鈕。仍不提供永久刪除。
 
 範圍：純 Native Owner 前端／樣式／合成靜態回歸；不開啟正式 Gate、不新增 D1 Schema、秘密、部署、資料異動。正式瀏覽器、真實 Owner 登出/Session 撤銷與 Cloudflare 活躍版號仍需獨立實機 UAT；Phase 4 待跨平台整合驗收。
+
+
+## Phase 4A（2026-11-10｜三平台主檔行為一致性回歸）
+
+針對真實差異，以三種**獨立執行環境的合成資料**驗證同一契約：本機 SQLite `command()`、Vercel 公開 Demo 的 VM/browser `/api/command`，以及 Cloudflare Native Worker 的 in-memory D1 adapter `/api/catalog`。既有三平台回歸已涵蓋 SKU 不可編、CAS 過期、停用後保留歷史與最後啟用門市。此次補強**已停用門市仍可更名**的跨平台行為：食材停用後仍不可編輯，門市更名採原始名稱 CAS，恢復不重置歷史。
+
+Vercel Demo 的 `location.create`／`ingredient.create` 現使用權威 `normalizeCatalogCommand` 驗證精確欄位、長度與必填項，並拒絕既有門市名稱與食材 SKU 重複；這些拒絕不得增加紀錄或稽核。Demo 中的合成測試以 Node VM 內存載入頁面 Mock，並以經檢查的同一模組副本提供瀏覽器 `import` 的測試替身，不做網路連線、Cloudflare 操作或真實 Login/Write。
+
+**已知設計差異不擅自改動：**本機管理者可建立食材；Cloudflare 正式食材主檔變更目前限定 Owner；Native D1 的既有長門市名稱可讀取並以快照更名，正式 Owner 新名稱限制 60 字。此 PR 不改 Owner RBAC、Worker Schema、Gate、Secrets、D1 正式資料或部署。Phase 4B 仍需受控的桌機／手機真實 Owner、登出 Session 撤銷與 Cloudflare 目前版本實機驗收。

@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-10 Current Focus｜Phase 4B-Dev Native Owner 舊 Session 非同步寫入競態防護（本 PR CI/Codex 待驗）**：#163 已 Squash Merge main `c9e2e6812b5bb596ef8201981f07bdf18818e380`，main Postmerge Verify #42729177787 completed/success 5/5。使用者暫時無法操作電腦，先處理不依賴實機的合成驗證：正式 `owner-app.js` 對工作、叫貨、盤點、維修、主檔的所有 POST 引入 authEpoch/CSRF 回應身分比對，以及舊畫面 revision 禁止送新操作，阻止登出／重登後遲到的 401 或成功回應破壞新 Session 的 UI；新增直接執行原生函式的 VM 延遲回應測試。不改 Worker/Schema/Gate/Secret/D1、正式帳密或部署。最新 PR HEAD Hosted 5/5 + Formal Codex Review + Clean Gate 才可合併；Phase 4B 真實桌機／手機 Owner、登出 Session、活躍版本 UAT 仍留 Issue #153，絕不可把合成 PASS 當實機 UAT。
+
+
 > **2026-11-10 Phase 4A Current Focus｜三平台食材／門市 CRUD 行為一致性（PR CI/正式 Review 待驗）**：已合併 #161/#162，主線 Verify #42726379418 success。實際確認 Vercel Demo `location.update` 錯誤拒絕停用門市更名；Demo `location.create`／`ingredient.create` 未完整執行共用欄位契約、未拒絕重名／重 SKU。本 PR 修復並用真實 Node VM Mock API、SQLite、D1 adapter 合成測驗證；保留歷史、不更動正式 Owner RBAC、Cloudflare Worker/Gate、Schema、秘密、部署或實際營運資料。預設 Production Gate OFF。Phase 4B：受控 Owner Desktop／Mobile 真實 Session／Gate／Asset UAT 與版本核對；無業主授權不開 Gate。每個 PR 必須最新 SHA Hosted CI、Codex Review Completed、Clean Gate 後才能 Merge。
 
 

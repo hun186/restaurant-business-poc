@@ -8,6 +8,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
+let authEpoch=0;
+const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!==''&&csrf===token;
 const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
   purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
@@ -35,7 +37,7 @@ async function api(url,opts={}){
   return json;
 }
 function showLogin(message){
-  csrf=null;revision++;if(controller)controller.abort();closeMenu();
+  authEpoch++;csrf=null;role=null;revision++;if(controller)controller.abort();closeMenu();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
@@ -148,22 +150,25 @@ function render(data){
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
-async function writeTask(action,data){
-  if(!writeEnabled||!csrf)return;
+async function writeTask(action,data,marker){
+  if(marker!==revision||!writeEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 工作資料，請勿重複送出…');
     const result=await api('/api/task',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認寫入。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.message||'寫入結果不明')+' 請先重新整理確認結果，不要直接重複送出。',true);
+    if(marker===revision)say((e.status===409?'資料可能已變更。':e.message||'寫入結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
-
 function catalogRowValid(entity,row){
  if(!row||typeof row!=='object'||!taskId.test(row.id)||
     typeof row.name!=='string'||!(row.active===0||row.active===1))return false;
@@ -177,6 +182,7 @@ function catalogRowValid(entity,row){
 async function writeCatalog(action,data,marker){
  if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||
    (view!=='locations'&&view!=='ingredients'))return false;
+ const epoch=authEpoch,token=csrf;
  let command;
  try{command=normalizeCatalogCommand(action,data);}
  catch{say('主檔內容不符合欄位規格，請檢查後再試。',true);return false;}
@@ -184,12 +190,14 @@ async function writeCatalog(action,data,marker){
    say('正在更新真實 D1 主檔，請勿重複送出…');
    const result=await api('/api/catalog',{method:'POST',referrerPolicy:'same-origin',
      headers:{Accept:'application/json','Content-Type':'application/json',
-       'X-CSRF-Token':csrf},
+       'X-CSRF-Token':token},
      body:JSON.stringify({action,data:command})});
+   if(!liveAuth(epoch,token))return false;
    if(result?.ok!==true)throw Error('伺服器尚未確認主檔變更。');
    if(marker===revision)await refresh();
    return true;
  }catch(e){
+   if(!liveAuth(epoch,token))return false;
    if(e.status===401){showLogin('工作階段已失效，請重新登入。');return false;}
    if(marker===revision)say((e.status===409?
       '主檔可能已更新、有未結叫貨／盤點、最後一間門市或計量單位已有歷史引用。':
@@ -198,6 +206,7 @@ async function writeCatalog(action,data,marker){
    return false;
  }
 }
+
 function openCatalogEditor(entity,row,marker){
  if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||
    !catalogRowValid(entity,row)||(entity==='ingredients'&&row.active!==1))return;
@@ -272,7 +281,8 @@ async function catalogActions(marker){
   form.append(submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(!catalogWriteEnabled||!csrf||submit.disabled)return;
+    if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||submit.disabled)return;
+    const epoch=authEpoch,token=csrf;
     const data=isStore?{name:name.value.trim()}:{
       name:name.value.trim(),sku:sku.value.trim(),unit:unit.value.trim(),
       min_stock:Number(minimum.value||0)};
@@ -282,32 +292,38 @@ async function catalogActions(marker){
       say('正在儲存 D1 主檔，請勿重複送出…');
       const result=await api('/api/catalog',{method:'POST',
         headers:{Accept:'application/json','Content-Type':'application/json',
-          'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+          'X-CSRF-Token':token},referrerPolicy:'same-origin',
         body:JSON.stringify({action:isStore?'location.create':'ingredient.create',data})});
+      if(!liveAuth(epoch,token))return;
       if(result?.ok!==true)throw Error('未確認主檔已儲存。');
-      await refresh();
+      if(marker===revision)await refresh();
     }catch(e){
+      if(!liveAuth(epoch,token))return;
       if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+      if(marker!==revision)return;
       say((e.status===409?'門市名稱或食材代碼已存在。':e.message||'寫入結果不明')+
         ' 請先重新整理確認，不要直接重複送出。',true);
     }finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
 }
-async function writeOrder(action,data){
-  if(!orderWriteEnabled||!csrf)return;
+async function writeOrder(action,data,marker){
+  if(marker!==revision||!orderWriteEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 叫貨資料，請勿重複送出…');
-    const result=await api('/api/order',{method:'POST',
+    const result=await api('/api/order',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認交易完成。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.status===409?'叫貨單狀態已變更或權限已調整。':e.message||'寫入結果不明')+
-      ' 請重新整理核對庫存與叫貨單，勿直接重複驗收入庫。',true);
+    if(marker===revision)say((e.status===409?'叫貨單狀態已變更或權限已調整。':e.message||'叫貨結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
 async function orderActions(rows,marker){
@@ -340,13 +356,13 @@ async function orderActions(rows,marker){
     labeledField('供應商',supplier),labeledField('數量',qty),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
+    if(marker!==revision||submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
     const count=Number(qty.value);
     if(!Number.isFinite(count)||count<=0||count>1000000)return;
     submit.disabled=true;
     try{await writeOrder('order.create',{
       location_id:store.value,ingredient_id:ingredient.value,
-      supplier:supplier.value.trim(),qty:count});
+      supplier:supplier.value.trim(),qty:count},marker);
     }finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
@@ -367,10 +383,10 @@ async function orderActions(rows,marker){
     for(const [action,label] of actions){
       const btn=el('button',label);btn.type='button';btn.style.marginLeft='8px';
       btn.addEventListener('click',async()=>{
-        if(btn.disabled||!window.confirm(
+        if(marker!==revision||btn.disabled||!window.confirm(
           action==='order.receive'?'確認貨物已收到？驗收將寫入真實 D1 庫存流水。':'確定執行「'+label+'」？'))return;
         btn.disabled=true;
-        try{await writeOrder(action,{id:row.id,expected_status:row.status});}
+        try{await writeOrder(action,{id:row.id,expected_status:row.status},marker);}
         finally{btn.disabled=false;}
       });
       line.append(btn);
@@ -380,21 +396,23 @@ async function orderActions(rows,marker){
   if(shown)$('content').append(controls);
 }
 
-async function writeStocktake(action,data){
-  if(!stocktakeWriteEnabled||!csrf)return;
+async function writeStocktake(action,data,marker){
+  if(marker!==revision||!stocktakeWriteEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 盤點資料，請勿重複送出…');
-    const result=await api('/api/stocktake',{method:'POST',
+    const result=await api('/api/stocktake',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認盤點異動。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.status===409?'盤點已過期或庫存已變動，請重新盤點。':
-      e.message||'盤點結果不明')+
-      ' 請先重新整理查詢帳本，勿直接重複確認。',true);
+    if(marker===revision)say((e.status===409?'盤點已過期或庫存已變動，請重新盤點。':e.message||'盤點結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
 async function stocktakeActions(rows,marker){
@@ -426,12 +444,12 @@ async function stocktakeActions(rows,marker){
     labeledField('實際數量',counted),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
+    if(marker!==revision||submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
     const count=Number(counted.value);
     if(!Number.isFinite(count)||count<0||count>1000000)return;
     submit.disabled=true;
     try{await writeStocktake('stocktake.create',{
-      location_id:store.value,ingredient_id:ingredient.value,counted_qty:count});
+      location_id:store.value,ingredient_id:ingredient.value,counted_qty:count},marker);
     }finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
@@ -447,11 +465,11 @@ async function stocktakeActions(rows,marker){
     const button=el('button','確認並入帳');button.type='button';
     button.style.marginLeft='8px';
     button.addEventListener('click',async()=>{
-      if(button.disabled||!window.confirm(
+      if(marker!==revision||button.disabled||!window.confirm(
         '確定盤點差異並寫入真實 D1 庫存流水？若盤點後庫存已變動，系統將拒絕。'))return;
       button.disabled=true;
       try{await writeStocktake('stocktake.confirm',
-        {id:row.id,expected_status:'pending'});}
+        {id:row.id,expected_status:'pending'},marker);}
       finally{button.disabled=false;}
     });
     line.append(button);controls.append(line);shown++;
@@ -459,21 +477,23 @@ async function stocktakeActions(rows,marker){
   if(shown)$('content').append(controls);
 }
 
-async function writeRepair(action,data){
-  if(!repairWriteEnabled||!csrf)return;
+async function writeRepair(action,data,marker){
+  if(marker!==revision||!repairWriteEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 維修資料，請勿重複送出…');
-    const result=await api('/api/repair',{method:'POST',
+    const result=await api('/api/repair',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認報修異動。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.status===409?'報修單已變更或受指派人失去權限。':
-      e.message||'寫入結果不明')+
-      ' 請先重新整理核對，不要直接重複送出。',true);
+    if(marker===revision)say((e.status===409?'報修單已變更或受指派人失去權限。':e.message||'報修結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
 async function repairActions(rows,marker){
@@ -502,12 +522,12 @@ async function repairActions(rows,marker){
     labeledField('故障內容',description),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(submit.disabled||!taskId.test(store.value))return;
+    if(marker!==revision||submit.disabled||!taskId.test(store.value))return;
     const data={location_id:store.value,equipment:equipment.value.trim(),
       description:description.value.trim()};
     if(!data.equipment||!data.description)return;
     submit.disabled=true;
-    try{await writeRepair('repair.create',data);}
+    try{await writeRepair('repair.create',data,marker);}
     finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
@@ -535,19 +555,19 @@ async function repairActions(rows,marker){
       assign.disabled=!sel.value||(row.status==='assigned'&&previous===sel.value);
     });
     assign.addEventListener('click',async()=>{
-      if(assign.disabled||!window.confirm('確定指派真實 D1 維修工作？'))return;
+      if(marker!==revision||assign.disabled||!window.confirm('確定指派真實 D1 維修工作？'))return;
       assign.disabled=true;
       try{await writeRepair('repair.update',{id:row.id,
         expected_status:row.status,expected_assigned_to:previous,
-        status:'assigned',assigned_to:sel.value});}
+        status:'assigned',assigned_to:sel.value},marker);}
       finally{assign.disabled=false;}
     });
     const close=el('button','結案');close.type='button';
     close.addEventListener('click',async()=>{
-      if(close.disabled||!window.confirm('確定將真實 D1 報修單結案？'))return;
+      if(marker!==revision||close.disabled||!window.confirm('確定將真實 D1 報修單結案？'))return;
       close.disabled=true;
       try{await writeRepair('repair.update',{id:row.id,
-        expected_status:row.status,expected_assigned_to:previous,status:'closed'});}
+        expected_status:row.status,expected_assigned_to:previous,status:'closed'},marker);}
       finally{close.disabled=false;}
     });
     line.append(el('span',' · 處理人 '),sel,assign,close);
@@ -597,12 +617,12 @@ async function taskActions(rows,marker){
       labeledField('工作內容',input),labeledField('期限（選填）',due),submit);
     form.addEventListener('submit',async ev=>{
       ev.preventDefault();const title=input.value.trim();
-      if(!title||title.length>120||!taskId.test(select.value))return;
+      if(marker!==revision||!title||title.length>120||!taskId.test(select.value))return;
       submit.disabled=true;
       const data={location_id:select.value,title};
       if(assignee.value&&taskId.test(assignee.value))data.assigned_to=assignee.value;
       if(due.value)data.due_date=due.value;
-      await writeTask('task.create',data);
+      await writeTask('task.create',data,marker);
       submit.disabled=false;
     });
     pane.append(title,form);content.prepend(pane);
@@ -621,8 +641,8 @@ async function taskActions(rows,marker){
     save.disabled=true;
     select.addEventListener('change',()=>{save.disabled=select.value===row.status;});
     save.addEventListener('click',async()=>{
-      if(save.disabled||!window.confirm('確定更新真實 D1 工作狀態？'))return;
-      save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value});
+      if(marker!==revision||save.disabled||!window.confirm('確定更新真實 D1 工作狀態？'))return;
+      save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value},marker);
     });
     container.append(el('strong',row.title||'工作'),el('span',' · '),select,save);
     if((role==='owner'||role==='manager')&&row.status!=='done'&&
@@ -647,10 +667,10 @@ async function taskActions(rows,marker){
         assignSave.disabled=(assignee.value||null)===original;
       });
       assignSave.addEventListener('click',async()=>{
-        if(assignSave.disabled||!window.confirm('確定變更真實 D1 工作指派？'))return;
+        if(marker!==revision||assignSave.disabled||!window.confirm('確定變更真實 D1 工作指派？'))return;
         assignSave.disabled=true;
         await writeTask('task.assign',{id:row.id,assigned_to:assignee.value||null,
-          expected_assigned_to:original});
+          expected_assigned_to:original},marker);
       });
       container.append(el('span',' · 指派 '),assignee,assignSave);
     }
@@ -667,10 +687,10 @@ async function taskActions(rows,marker){
         saveDue.disabled=(date.value||null)===previous;
       });
       saveDue.addEventListener('click',async()=>{
-        if(saveDue.disabled||!window.confirm('確定更新真實 D1 工作期限？'))return;
+        if(marker!==revision||saveDue.disabled||!window.confirm('確定更新真實 D1 工作期限？'))return;
         saveDue.disabled=true;
         await writeTask('task.due',{id:row.id,due_date:date.value||null,
-          expected_due_date:previous});
+          expected_due_date:previous},marker);
       });
       container.append(el('span',' · 期限 '),date,saveDue);
     }
@@ -725,7 +745,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  csrf=me.csrf;role=me.user.role;$('locked').hidden=true;
+  authEpoch++;csrf=me.csrf;role=me.user.role;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const name=String(me.user.display_name||'');
   $('identity').textContent=name+'（'+
@@ -764,7 +784,7 @@ $('login-form').addEventListener('submit',async ev=>{
   finally{btn.disabled=false;}
 });
 $('logout').addEventListener('click',async()=>{
-  if(!csrf)return;const token=csrf;csrf=null;
+  if(!csrf)return;const token=csrf;authEpoch++;csrf=null;
   revision++;if(controller)controller.abort();closeMenu();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',

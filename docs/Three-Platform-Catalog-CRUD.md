@@ -57,3 +57,9 @@ Vercel Demo 的 `location.create`／`ingredient.create` 現使用權威 `normali
 **已知設計差異不擅自改動：**本機管理者可建立食材；Cloudflare 正式食材主檔變更目前限定 Owner；Native D1 的既有長門市名稱可讀取並以快照更名，正式 Owner 新名稱限制 60 字。此 PR 不改 Owner RBAC、Worker Schema、Gate、Secrets、D1 正式資料或部署。Phase 4B 仍需受控的桌機／手機真實 Owner、登出 Session 撤銷與 Cloudflare 目前版本實機驗收。
 
 Phase 4A 第一輪正式 Codex Review 另指出 Vercel Demo 新增食材表單的 `FormData` 會將 `min_stock` 傳成字串，而嚴格契約要求 number。已改由 `showForm()` 透過可測試的 `catalogCreatePayload()` 先轉型再驗證（包括新增門市），並在測試中以 **FormData 等價字串輸入 → 同一 UI 轉換函式 → Mock /api/command** 實際測試；格式錯誤或缺值應拒絕，不能藉放鬆共用契約解決。仍待修正後最新 HEAD Hosted CI 和正式 Codex 複審。
+
+## Phase 4B-Dev（2026-11-10｜正式 Owner 寫入結果跨 Session 競態防護）
+
+使用者暫時無法操作實機，因此先補強 **真實 Owner 瀏覽器端非同步寫入**，不變更正式授權或資料。過去任一工作／主檔／叫貨／盤點／維修 POST 在使用者已登出並重新登入後才返回 401、409 或成功時，前端可能將舊 Session 結果套用到新 Session（例如錯誤要求重新登入，或以新 Session 刷新資料）。現為每次已驗證的身分建立單調遞增 `authEpoch`，在請求發出時綁定 Epoch + CSRF，回應時確認同一身分；若身分已切換，**忽略舊回應的 UI 效果**。另外寫入按鈕／表單需要相同渲染 `revision`，不得從切換後已移除的 DOM 發出新操作；同身分導覽變更後，舊 POST 不會替目前畫面觸發多餘刷新。
+
+所有原生 API 仍由後端檢查 Cookie Session／CSRF／RBAC／Gate／交易一致性。此修正只影響瀏覽器接收舊回應時的行為，**不代表能取消已提交的伺服器交易**，也不代表正式 Owner 登出或 Cloudflare 上線 UAT 已完成。新增 Node VM 合成測，直接執行正式 UI 原始碼中的五類寫入函式，模擬遲到 401／成功以及新 Session 行為，不用外部網路、帳密或 D1。正式 Production Gate、Secrets、Worker、D1 Schema、資料與部署一律不修改。

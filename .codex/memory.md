@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-10 Current Focus｜Phase 4A 三平台 CRUD 一致性（本 PR，CI/Review 待驗）**：#161 D1 CRUD backend 與 #162 Native Owner CRUD UI 都已 Squash Merge；main `a488764ce68f0ea12e3b66ab4d18c6fe044e98ae`，Postmerge Verify #42726379418 completed/success。此階段先修 Vercel Demo create 未套 shared command contract／重複門市及 SKU、Demo 已停用門市不可更名（本機/D1 可更名）的行為差異，使用 VM/browser synthetic + SQLite + Worker D1 adapter 三路回歸驗證，更新 SHA256 pin。**不得將 synthetic CI 宣稱 Production UAT**。Owner 實機登入／登出／Session 401、active Worker/Asset SHA、正式 Gate 仍待業主操作；本階段不碰正式 Cloudflare Vars、Secrets、D1 Schema、部署或資料。最新 HEAD Hosted CI + 正式 Codex Review + Merge Gate 全過才能合併。
+
+
 > **2026-11-09 Current Focus｜正式 Owner 表單 label 與控制項修正（PR 待 Hosted CI/Codex）**：PR #157 已 Squash Merge 主線 `3ec68a3506bca5c53e30956ceddc295b2c94db22`，補齊已載入資料本機分頁。接著發現正式 D1 新增門市／食材、工作、叫貨、盤點、維修表單的可見 label 與控制項被當成相鄰 flex items，易產生錯位且缺少語意關聯。本次以共用 labeledField 將 input/select/textarea 內嵌於 label，補靜態回歸、CSS 與閉鎖 SHA；不改 API/Worker/Cloudflare Gate/D1。正式 Owner UAT、資產版本與 Session 撤銷仍待實機。未完成 HEAD Hosted 5/5、正式 Codex Review、Clean Gate 前不可稱已合併。
 
 

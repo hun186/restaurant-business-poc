@@ -32,9 +32,12 @@ const OWNER_ID=`(SELECT id FROM users WHERE username='owner' COLLATE NOCASE AND 
 // Match the actual auth producers, not merely their event/action labels.
 // SQLite GLOB is case-sensitive; negate *any* unexpected character (not just
 // check the first character). Never print these stored hashes/names.
-const SOURCE_HASH=`ip_hash IS NOT NULL AND length(ip_hash)=64 AND
-  ip_hash NOT GLOB '*[^0-9a-f]*'`;
+const SOURCE_HASH=`ip_hash IS NOT NULL AND length(ip_hash)=64
+  AND length(CAST(ip_hash AS BLOB))=64 AND instr(ip_hash,char(0))=0
+  AND ip_hash NOT GLOB '*[^0-9a-f]*'`;
 const AUTH_USERNAME=`actor_name IS NOT NULL AND length(actor_name) BETWEEN 1 AND 40
+  AND length(CAST(actor_name AS BLOB)) BETWEEN 1 AND 40
+  AND instr(actor_name,char(0))=0
   AND actor_name NOT GLOB '*[^A-Za-z0-9_.-]*'`;
 const NO_ENTITY_TARGET=`entity_id IS NULL AND location_id IS NULL`;
 const ALLOWED_AUDIT=[
@@ -63,9 +66,14 @@ export function enrolledOwnerSql(which){
   // The original postflight verifier remains strictly pristine for enrollment.
   const validCredentials=`(SELECT COUNT(*) FROM users WHERE
     username='owner' COLLATE NOCASE AND role='owner' AND active=1
-    AND length(password_salt)=32 AND password_salt NOT GLOB '*[^0-9a-f]*'
-    AND length(password_hash)=85 AND
-    substr(password_hash,1,21)='pbkdf2-sha256$100000$' AND
+    AND length(password_salt)=32
+    AND length(CAST(password_salt AS BLOB))=32
+    AND instr(password_salt,char(0))=0
+    AND password_salt NOT GLOB '*[^0-9a-f]*'
+    AND length(password_hash)=85
+    AND length(CAST(password_hash AS BLOB))=85
+    AND instr(password_hash,char(0))=0
+    AND substr(password_hash,1,21)='pbkdf2-sha256$100000$' AND
     substr(password_hash,22) NOT GLOB '*[^0-9a-f]*') AS exact_owner_credential_format`;
   return base.slice(0,-1)+', '+validCredentials+
    ', (SELECT COALESCE(SUM(CASE WHEN ('+

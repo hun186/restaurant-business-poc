@@ -75,7 +75,8 @@ test('already-enrolled Owner without login history validates, empty DB does not'
  const m=await helper;
  const empty=database(),enrolled=await ownerDatabase();
  try{
-  assert.throws(()=>m.inspectEnrolledOwner(await evidence(empty)),
+  const emptyEvidence=await evidence(empty);
+  assert.throws(()=>m.inspectEnrolledOwner(emptyEvidence),
    /E_PROD_ENROLLED_OWNER_READONLY/);
   const result=m.inspectEnrolledOwner(await evidence(enrolled));
   assert.equal(result.status,'PRODUCTION_ENROLLED_OWNER_READONLY_PASS');
@@ -126,8 +127,12 @@ test('invalid Owner, business state, audit history, live Session, schema, FK and
   db=>db.prepare('UPDATE cloud_schema_contract SET contract_version=2')
  ]){
   const db=await ownerDatabase();
-  try{mutate(db);assert.throws(()=>m.inspectEnrolledOwner(await evidence(db)),
-    /E_PROD_ENROLLED_OWNER_READONLY/);}finally{db.close();}
+  try{
+   mutate(db);
+   const invalidEvidence=await evidence(db);
+   assert.throws(()=>m.inspectEnrolledOwner(invalidEvidence),
+    /E_PROD_ENROLLED_OWNER_READONLY/);
+  }finally{db.close();}
  }
  const db=await ownerDatabase();
  try{

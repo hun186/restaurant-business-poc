@@ -123,6 +123,16 @@ test('invalid Owner, business state, audit history, live Session, schema, FK and
    .run('pbkdf2-sha256$100000$'+'z'.repeat(64),'owner'),
   db=>db.prepare('UPDATE users SET password_salt=? WHERE username=?')
    .run('z'.repeat(32),'owner'),
+  db=>{
+   const salt=db.prepare("SELECT password_salt FROM users WHERE username='owner'").get().password_salt;
+   db.prepare('UPDATE users SET password_salt=? WHERE username=?')
+    .run(salt+String.fromCharCode(0)+'not-hex','owner');
+  },
+  db=>{
+   const hash=db.prepare("SELECT password_hash FROM users WHERE username='owner'").get().password_hash;
+   db.prepare('UPDATE users SET password_hash=? WHERE username=?')
+    .run(hash+String.fromCharCode(0)+'not-hex','owner');
+  },
   db=>db.prepare('UPDATE audit_logs SET action=? WHERE action=?')
    .run('unexpected.bootstrap','auth.owner_bootstrap'),
   db=>db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,detail) VALUES(?,?,?,?,?)')
@@ -200,6 +210,14 @@ test('malformed authentication audit actor/IP/target fields are never allowliste
   ['invalid source-hash charset',db=>{
    db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)')
     .run('bad-hash','owner','auth.login_failed','sessions','z'.repeat(64),'{}');
+  }],
+  ['embedded NUL in actor name',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)')
+    .run('bad-nul-user','owner'+String.fromCharCode(0)+'not-a-name','auth.login_failed','sessions',h,'{}');
+  }],
+  ['embedded NUL in IP digest',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)')
+    .run('bad-nul-ip','owner','auth.login_failed','sessions',h+String.fromCharCode(0)+'tail','{}');
   }],
   ['unrecognized entity target on login failure',db=>{
    db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,ip_hash,detail) VALUES(?,?,?,?,?,?,?)')

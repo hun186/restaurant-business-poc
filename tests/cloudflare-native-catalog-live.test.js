@@ -220,6 +220,10 @@ test('D1 store edit/deactivate retains an active store and revokes granted sessi
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?')
     .get(f.ids.staff).n,0);
   assert.equal((await f.write(staff,'location.update',edit)).status,401);
+  assert.equal((await f.write(owner,'location.update',{
+    id:f.ids.store,expected:{name:'測試既有門市'},changes:{name:'停用中改名店'}})).status,200);
+  assert.equal(f.db.prepare('SELECT name FROM locations WHERE id=?')
+    .get(f.ids.store).name,'停用中改名店');
   assert.equal((await f.write(owner,'location.active',{
     id:f.ids.store,expected_active:0,active:1})).status,200);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM locations').get().n,2);

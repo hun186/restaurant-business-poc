@@ -28,16 +28,28 @@ const exactKeys=(x,keys)=>x&&typeof x==='object'&&!Array.isArray(x)&&
 // Recognized auth history precisely matches the reviewed D1 login-service
 // audit producers; unrelated/badly formed audit events must fail closed.
 const OWNER_ID=`(SELECT id FROM users WHERE username='owner' COLLATE NOCASE AND role='owner' AND active=1)`;
+// Match the actual auth producers, not merely their event/action labels.
+// SQLite GLOB is case-sensitive; negate *any* unexpected character (not just
+// check the first character). Never print these stored hashes/names.
+const SOURCE_HASH=`ip_hash IS NOT NULL AND length(ip_hash)=64 AND
+  ip_hash NOT GLOB '*[^0-9a-f]*'`;
+const AUTH_USERNAME=`actor_name IS NOT NULL AND length(actor_name) BETWEEN 1 AND 40
+  AND actor_name NOT GLOB '*[^A-Za-z0-9_.-]*'`;
+const NO_ENTITY_TARGET=`entity_id IS NULL AND location_id IS NULL`;
 const ALLOWED_AUDIT=[
  `(actor_name='production-bootstrap' AND action='auth.owner_bootstrap' AND
-    entity='users' AND entity_id=${OWNER_ID} AND
+    entity='users' AND actor_id IS NULL AND location_id IS NULL AND
+    ip_hash IS NULL AND entity_id=${OWNER_ID} AND
     json_extract(detail,'$.hash_version')='pbkdf2-sha256$100000')`,
  `(action='auth.login_failed' AND entity='sessions' AND actor_id IS NULL
-    AND detail='{}' AND length(ip_hash)=64)`,
+    AND ${NO_ENTITY_TARGET} AND ${AUTH_USERNAME} AND ${SOURCE_HASH}
+    AND detail='{}')`,
  `(action='auth.login' AND entity='sessions' AND actor_id=${OWNER_ID}
-    AND actor_name='owner' COLLATE NOCASE AND detail='{}' AND length(ip_hash)=64)`,
+    AND ${NO_ENTITY_TARGET} AND actor_name='owner' COLLATE NOCASE
+    AND ${SOURCE_HASH} AND detail='{}')`,
  `(action='auth.logout' AND entity='sessions' AND actor_id=${OWNER_ID}
-    AND actor_name='owner' COLLATE NOCASE AND detail='{}' AND ip_hash IS NULL)`
+    AND ${NO_ENTITY_TARGET} AND actor_name='owner' COLLATE NOCASE
+    AND ip_hash IS NULL AND detail='{}')`
 ].join(' OR ');
 
 export function enrolledOwnerSql(which){

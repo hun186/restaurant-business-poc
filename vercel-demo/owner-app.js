@@ -8,6 +8,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
+let authEpoch=0;
+const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!==''&&csrf===token;
 const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
   purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
@@ -35,7 +37,7 @@ async function api(url,opts={}){
   return json;
 }
 function showLogin(message){
-  csrf=null;revision++;if(controller)controller.abort();closeMenu();
+  authEpoch++;csrf=null;role=null;revision++;if(controller)controller.abort();closeMenu();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
@@ -148,22 +150,25 @@ function render(data){
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
-async function writeTask(action,data){
-  if(!writeEnabled||!csrf)return;
+async function writeTask(action,data,marker){
+  if(marker!==revision||!writeEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 工作資料，請勿重複送出…');
     const result=await api('/api/task',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認寫入。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.message||'寫入結果不明')+' 請先重新整理確認結果，不要直接重複送出。',true);
+    if(marker===revision)say((e.status===409?'資料可能已變更。':e.message||'寫入結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
-
 function catalogRowValid(entity,row){
  if(!row||typeof row!=='object'||!taskId.test(row.id)||
     typeof row.name!=='string'||!(row.active===0||row.active===1))return false;
@@ -294,20 +299,23 @@ async function catalogActions(marker){
   });
   pane.append(form);$('content').prepend(pane);
 }
-async function writeOrder(action,data){
-  if(!orderWriteEnabled||!csrf)return;
+async function writeOrder(action,data,marker){
+  if(marker!==revision||!orderWriteEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 叫貨資料，請勿重複送出…');
-    const result=await api('/api/order',{method:'POST',
+    const result=await api('/api/order',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認交易完成。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.status===409?'叫貨單狀態已變更或權限已調整。':e.message||'寫入結果不明')+
-      ' 請重新整理核對庫存與叫貨單，勿直接重複驗收入庫。',true);
+    if(marker===revision)say((e.status===409?'叫貨單狀態已變更或權限已調整。':e.message||'叫貨結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
 async function orderActions(rows,marker){
@@ -380,21 +388,23 @@ async function orderActions(rows,marker){
   if(shown)$('content').append(controls);
 }
 
-async function writeStocktake(action,data){
-  if(!stocktakeWriteEnabled||!csrf)return;
+async function writeStocktake(action,data,marker){
+  if(marker!==revision||!stocktakeWriteEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 盤點資料，請勿重複送出…');
-    const result=await api('/api/stocktake',{method:'POST',
+    const result=await api('/api/stocktake',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認盤點異動。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.status===409?'盤點已過期或庫存已變動，請重新盤點。':
-      e.message||'盤點結果不明')+
-      ' 請先重新整理查詢帳本，勿直接重複確認。',true);
+    if(marker===revision)say((e.status===409?'盤點已過期或庫存已變動，請重新盤點。':e.message||'盤點結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
 async function stocktakeActions(rows,marker){
@@ -459,21 +469,23 @@ async function stocktakeActions(rows,marker){
   if(shown)$('content').append(controls);
 }
 
-async function writeRepair(action,data){
-  if(!repairWriteEnabled||!csrf)return;
+async function writeRepair(action,data,marker){
+  if(marker!==revision||!repairWriteEnabled||!csrf)return;
+  const epoch=authEpoch,token=csrf;
   try{
     say('正在儲存真實 D1 維修資料，請勿重複送出…');
-    const result=await api('/api/repair',{method:'POST',
+    const result=await api('/api/repair',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','Content-Type':'application/json',
-        'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+        'X-CSRF-Token':token},
       body:JSON.stringify({action,data})});
+    if(!liveAuth(epoch,token))return;
     if(result?.ok!==true)throw Error('伺服器未確認報修異動。');
-    await refresh();
+    if(marker===revision)await refresh();
   }catch(e){
+    if(!liveAuth(epoch,token))return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-    say((e.status===409?'報修單已變更或受指派人失去權限。':
-      e.message||'寫入結果不明')+
-      ' 請先重新整理核對，不要直接重複送出。',true);
+    if(marker===revision)say((e.status===409?'報修單已變更或受指派人失去權限。':e.message||'報修結果不明')+
+      ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
 async function repairActions(rows,marker){
@@ -725,7 +737,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  csrf=me.csrf;role=me.user.role;$('locked').hidden=true;
+  authEpoch++;csrf=me.csrf;role=me.user.role;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const name=String(me.user.display_name||'');
   $('identity').textContent=name+'（'+
@@ -764,7 +776,7 @@ $('login-form').addEventListener('submit',async ev=>{
   finally{btn.disabled=false;}
 });
 $('logout').addEventListener('click',async()=>{
-  if(!csrf)return;const token=csrf;csrf=null;
+  if(!csrf)return;const token=csrf;authEpoch++;csrf=null;
   revision++;if(controller)controller.abort();closeMenu();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',

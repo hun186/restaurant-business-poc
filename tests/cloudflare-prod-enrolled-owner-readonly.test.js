@@ -111,6 +111,7 @@ test('reviewed authentication history is retained and accepted; strict initial p
 
 test('invalid Owner, business state, audit history, live Session, schema, FK and mixed snapshots fail closed',async()=>{
  const m=await helper;
+ let negativeCase=0;
  for(const mutate of [
   db=>db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('loc','Synthetic location'),
   db=>db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
@@ -130,8 +131,9 @@ test('invalid Owner, business state, audit history, live Session, schema, FK and
   try{
    mutate(db);
    const invalidEvidence=await evidence(db);
+   negativeCase++;
    assert.throws(()=>m.inspectEnrolledOwner(invalidEvidence),
-    /E_PROD_ENROLLED_OWNER_READONLY/);
+    /E_PROD_ENROLLED_OWNER_READONLY/,'negative scenario #'+negativeCase);
   }finally{db.close();}
  }
  const db=await ownerDatabase();

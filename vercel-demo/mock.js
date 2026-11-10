@@ -103,7 +103,7 @@
    const group=action.startsWith('ingredient.')?'ingredients':'locations';
    const row=lookup(group,cmd.id);if(!row)throw Error('找不到示範資料');
    if(action.endsWith('.update')){
-    if(row.active===0)throw Error('已停用，請先恢復');
+    if(group==='ingredients'&&row.active===0)throw Error('食材已停用，請先恢復');
     if(Object.keys(cmd.expected).some(k=>row[k]!==cmd.expected[k]))
       throw Error('資料已變更，請重新整理');
     if(group==='ingredients'&&row.unit!==cmd.changes.unit&&
@@ -172,6 +172,19 @@
    'course.create':'training_courses','training.assign':'training_records','evaluation.create':'evaluations'
   };
   if(defs[action]){
+   // Demo creates must honor the same input shape and uniqueness as the
+   // persisted SQLite/D1 catalogs. This is still browser-only synthetic data.
+   if(action==='ingredient.create'||action==='location.create'){
+    const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
+    d=normalizeCatalogCommand(action,d);
+    if(action==='ingredient.create'){
+     if(!/^[A-Za-z0-9_.-]{1,40}$/.test(d.sku))throw Error('食材代碼格式錯誤');
+     if(db.ingredients.some(row=>row.sku===d.sku))
+      throw Error('食材代碼已存在，請確認目前資料');
+    }else if(db.locations.some(row=>row.name===d.name)){
+     throw Error('門市名稱已存在，請確認目前資料');
+    }
+   }
    const group=defs[action],r={...d,id:makeId(),created_at:createdAt()};
    if(['purchase_orders','stocktakes'].includes(group)&&
       (lookup('ingredients',r.ingredient_id)?.active===0||lookup('locations',r.location_id)?.active===0))

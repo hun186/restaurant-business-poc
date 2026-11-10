@@ -356,13 +356,13 @@ async function orderActions(rows,marker){
     labeledField('供應商',supplier),labeledField('數量',qty),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
+    if(marker!==revision||submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
     const count=Number(qty.value);
     if(!Number.isFinite(count)||count<=0||count>1000000)return;
     submit.disabled=true;
     try{await writeOrder('order.create',{
       location_id:store.value,ingredient_id:ingredient.value,
-      supplier:supplier.value.trim(),qty:count});
+      supplier:supplier.value.trim(),qty:count},marker);
     }finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
@@ -383,10 +383,10 @@ async function orderActions(rows,marker){
     for(const [action,label] of actions){
       const btn=el('button',label);btn.type='button';btn.style.marginLeft='8px';
       btn.addEventListener('click',async()=>{
-        if(btn.disabled||!window.confirm(
+        if(marker!==revision||btn.disabled||!window.confirm(
           action==='order.receive'?'確認貨物已收到？驗收將寫入真實 D1 庫存流水。':'確定執行「'+label+'」？'))return;
         btn.disabled=true;
-        try{await writeOrder(action,{id:row.id,expected_status:row.status});}
+        try{await writeOrder(action,{id:row.id,expected_status:row.status},marker);}
         finally{btn.disabled=false;}
       });
       line.append(btn);
@@ -444,12 +444,12 @@ async function stocktakeActions(rows,marker){
     labeledField('實際數量',counted),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
+    if(marker!==revision||submit.disabled||!taskId.test(store.value)||!taskId.test(ingredient.value))return;
     const count=Number(counted.value);
     if(!Number.isFinite(count)||count<0||count>1000000)return;
     submit.disabled=true;
     try{await writeStocktake('stocktake.create',{
-      location_id:store.value,ingredient_id:ingredient.value,counted_qty:count});
+      location_id:store.value,ingredient_id:ingredient.value,counted_qty:count},marker);
     }finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
@@ -465,11 +465,11 @@ async function stocktakeActions(rows,marker){
     const button=el('button','確認並入帳');button.type='button';
     button.style.marginLeft='8px';
     button.addEventListener('click',async()=>{
-      if(button.disabled||!window.confirm(
+      if(marker!==revision||button.disabled||!window.confirm(
         '確定盤點差異並寫入真實 D1 庫存流水？若盤點後庫存已變動，系統將拒絕。'))return;
       button.disabled=true;
       try{await writeStocktake('stocktake.confirm',
-        {id:row.id,expected_status:'pending'});}
+        {id:row.id,expected_status:'pending'},marker);}
       finally{button.disabled=false;}
     });
     line.append(button);controls.append(line);shown++;
@@ -522,12 +522,12 @@ async function repairActions(rows,marker){
     labeledField('故障內容',description),submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(submit.disabled||!taskId.test(store.value))return;
+    if(marker!==revision||submit.disabled||!taskId.test(store.value))return;
     const data={location_id:store.value,equipment:equipment.value.trim(),
       description:description.value.trim()};
     if(!data.equipment||!data.description)return;
     submit.disabled=true;
-    try{await writeRepair('repair.create',data);}
+    try{await writeRepair('repair.create',data,marker);}
     finally{submit.disabled=false;}
   });
   pane.append(form);$('content').prepend(pane);
@@ -555,19 +555,19 @@ async function repairActions(rows,marker){
       assign.disabled=!sel.value||(row.status==='assigned'&&previous===sel.value);
     });
     assign.addEventListener('click',async()=>{
-      if(assign.disabled||!window.confirm('確定指派真實 D1 維修工作？'))return;
+      if(marker!==revision||assign.disabled||!window.confirm('確定指派真實 D1 維修工作？'))return;
       assign.disabled=true;
       try{await writeRepair('repair.update',{id:row.id,
         expected_status:row.status,expected_assigned_to:previous,
-        status:'assigned',assigned_to:sel.value});}
+        status:'assigned',assigned_to:sel.value},marker);}
       finally{assign.disabled=false;}
     });
     const close=el('button','結案');close.type='button';
     close.addEventListener('click',async()=>{
-      if(close.disabled||!window.confirm('確定將真實 D1 報修單結案？'))return;
+      if(marker!==revision||close.disabled||!window.confirm('確定將真實 D1 報修單結案？'))return;
       close.disabled=true;
       try{await writeRepair('repair.update',{id:row.id,
-        expected_status:row.status,expected_assigned_to:previous,status:'closed'});}
+        expected_status:row.status,expected_assigned_to:previous,status:'closed'},marker);}
       finally{close.disabled=false;}
     });
     line.append(el('span',' · 處理人 '),sel,assign,close);
@@ -617,12 +617,12 @@ async function taskActions(rows,marker){
       labeledField('工作內容',input),labeledField('期限（選填）',due),submit);
     form.addEventListener('submit',async ev=>{
       ev.preventDefault();const title=input.value.trim();
-      if(!title||title.length>120||!taskId.test(select.value))return;
+      if(marker!==revision||!title||title.length>120||!taskId.test(select.value))return;
       submit.disabled=true;
       const data={location_id:select.value,title};
       if(assignee.value&&taskId.test(assignee.value))data.assigned_to=assignee.value;
       if(due.value)data.due_date=due.value;
-      await writeTask('task.create',data);
+      await writeTask('task.create',data,marker);
       submit.disabled=false;
     });
     pane.append(title,form);content.prepend(pane);
@@ -641,8 +641,8 @@ async function taskActions(rows,marker){
     save.disabled=true;
     select.addEventListener('change',()=>{save.disabled=select.value===row.status;});
     save.addEventListener('click',async()=>{
-      if(save.disabled||!window.confirm('確定更新真實 D1 工作狀態？'))return;
-      save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value});
+      if(marker!==revision||save.disabled||!window.confirm('確定更新真實 D1 工作狀態？'))return;
+      save.disabled=true;await writeTask('task.status',{id:row.id,status:select.value},marker);
     });
     container.append(el('strong',row.title||'工作'),el('span',' · '),select,save);
     if((role==='owner'||role==='manager')&&row.status!=='done'&&
@@ -667,10 +667,10 @@ async function taskActions(rows,marker){
         assignSave.disabled=(assignee.value||null)===original;
       });
       assignSave.addEventListener('click',async()=>{
-        if(assignSave.disabled||!window.confirm('確定變更真實 D1 工作指派？'))return;
+        if(marker!==revision||assignSave.disabled||!window.confirm('確定變更真實 D1 工作指派？'))return;
         assignSave.disabled=true;
         await writeTask('task.assign',{id:row.id,assigned_to:assignee.value||null,
-          expected_assigned_to:original});
+          expected_assigned_to:original},marker);
       });
       container.append(el('span',' · 指派 '),assignee,assignSave);
     }
@@ -687,10 +687,10 @@ async function taskActions(rows,marker){
         saveDue.disabled=(date.value||null)===previous;
       });
       saveDue.addEventListener('click',async()=>{
-        if(saveDue.disabled||!window.confirm('確定更新真實 D1 工作期限？'))return;
+        if(marker!==revision||saveDue.disabled||!window.confirm('確定更新真實 D1 工作期限？'))return;
         saveDue.disabled=true;
         await writeTask('task.due',{id:row.id,due_date:date.value||null,
-          expected_due_date:previous});
+          expected_due_date:previous},marker);
       });
       container.append(el('span',' · 期限 '),date,saveDue);
     }

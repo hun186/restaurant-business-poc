@@ -185,6 +185,63 @@ test('CLI private evidence emits safe summary only and never rows or counts',asy
  }finally{fs.rmSync(dir,{recursive:true,force:true});db.close();}
 });
 
+test('malformed authentication audit actor/IP/target fields are never allowlisted',async()=>{
+ const verifier=await helper;
+ const h='a'.repeat(64);
+ const cases=[
+  ['invalid actor-name syntax',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)')
+    .run('bad-actor','!!!','auth.login_failed','sessions',h,'{}');
+  }],
+  ['invalid source-hash charset',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)')
+    .run('bad-hash','owner','auth.login_failed','sessions','z'.repeat(64),'{}');
+  }],
+  ['unrecognized entity target on login failure',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,ip_hash,detail) VALUES(?,?,?,?,?,?,?)')
+    .run('bad-entity','owner','auth.login_failed','sessions','unexpected',h,'{}');
+  }],
+  ['unrecognized location target on login failure',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,location_id,ip_hash,detail) VALUES(?,?,?,?,?,?,?)')
+    .run('bad-location','owner','auth.login_failed','sessions','unexpected',h,'{}');
+  }],
+  ['unexpected entity target on successful login',db=>{
+   const id=db.prepare("SELECT id FROM users WHERE username='owner'").get().id;
+   db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,ip_hash,detail) VALUES(?,?,?,?,?,?,?,?)')
+    .run('bad-success',id,'owner','auth.login','sessions','unexpected',h,'{}');
+  }],
+  ['non-hex source hash on successful login',db=>{
+   const id=db.prepare("SELECT id FROM users WHERE username='owner'").get().id;
+   db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?,?)')
+    .run('bad-success-hash',id,'owner','auth.login','sessions','Z'.repeat(64),'{}');
+  }],
+  ['unexpected ip hash on logout',db=>{
+   const id=db.prepare("SELECT id FROM users WHERE username='owner'").get().id;
+   db.prepare('INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?,?)')
+    .run('bad-logout',id,'owner','auth.logout','sessions',h,'{}');
+  }],
+  ['bootstrap audit with a non-null actor ID',db=>{
+   const id=db.prepare("SELECT id FROM users WHERE username='owner'").get().id;
+   db.prepare("UPDATE audit_logs SET actor_id=? WHERE action='auth.owner_bootstrap'").run(id);
+  }],
+  ['bad source hash with valid length and unknown username',db=>{
+   db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,ip_hash,detail) VALUES(?,?,?,?,?,?)')
+    .run('bad-both','!!!','auth.login_failed','sessions','z'.repeat(64),'{}');
+  }]
+ ];
+ for(const [label,mutate] of cases){
+  const db=await ownerDatabase();
+  try{
+   mutate(db);
+   const state=await evidence(db);
+   assert(state.after[0].results[0].unrecognized_audits>0,
+    'audit SQL must flag '+label);
+   assert.throws(()=>verifier.inspectEnrolledOwner(state),
+    /E_PROD_ENROLLED_OWNER_READONLY/,'must reject '+label);
+  }finally{db.close();}
+ }
+});
+
 test('manually run enrolled Owner Action never exposes a write token or release gate',()=>{
  assert.match(action,/^  workflow_dispatch:/m);
  assert.match(action,/CHECK_ENROLLED_OWNER_READONLY/);

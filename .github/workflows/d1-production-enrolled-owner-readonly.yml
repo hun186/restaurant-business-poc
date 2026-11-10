@@ -1,0 +1,65 @@
+name: Production already-enrolled Owner structural verification (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_ENROLLED_OWNER_READONLY (no login gate, D1 changes or enrollment)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Read-only inspection shares the existing guarded D1 initialization lock.
+concurrency:
+  group: restaurant-business-production-d1-initialization
+  cancel-in-progress: false
+
+jobs:
+  enrolled-owner:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_ENROLLED_OWNER_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-production-readonly
+    env:
+      CI: 'true'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify closed reviewed SHA256 executable graph before credentials
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify fixed Production D1 target before read token
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/cloudflare-prod-d1-init.mjs config
+      - name: Install pinned Wrangler without credentials
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.152.0
+      - name: Inspect existing Owner and recognized auth history without database writes
+        shell: bash
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$CLOUDFLARE_ACCOUNT_ID" && -n "$CLOUDFLARE_API_TOKEN" ]] || {
+            echo 'PROD_ENROLLED_OWNER_READONLY_CREDENTIAL_UNAVAILABLE'
+            exit 1
+          }
+          umask 077
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          for task in before after quick foreign; do
+            query="$(node tools/cloudflare-prod-enrolled-owner-readonly.mjs sql "$task")"
+            npx --no-install wrangler d1 execute PROD_DB --remote --json \
+              --config wrangler.production-initialize.jsonc \
+              --command "$query" > "$work/$task.json"
+          done
+          node tools/cloudflare-prod-enrolled-owner-readonly.mjs inspect "$work"
+          echo 'ENROLLED_OWNER_STRUCTURAL_EVIDENCE_ONLY_NOT_LOGIN_OR_RELEASE'

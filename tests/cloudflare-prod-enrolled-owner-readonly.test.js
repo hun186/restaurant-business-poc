@@ -125,7 +125,7 @@ test('invalid Owner, business state, audit history, live Session, schema, FK and
    .run('extra','owner','auth.permission_grant','users','{}'),
   db=>db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,detail) VALUES(?,?,?,?,?)')
    .run('fake','owner','auth.login_failed','sessions','{}'),
-  db=>db.prepare('UPDATE cloud_schema_contract SET contract_version=2')
+  db=>db.prepare('UPDATE cloud_schema_contract SET contract_version=2').run()
  ]){
   const db=await ownerDatabase();
   try{

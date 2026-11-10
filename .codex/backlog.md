@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-10 最新｜Production Owner 唯讀驗證失敗分級（本 PR 待 CI/Review）**：操作員實機 GitHub Workflow #42742857454 在 main `b8fe14305ef4ff2dd530a005f5a0e6ebc0c8e8e0` 對固定 Production D1 執行四組唯讀查詢，SHA256／固定目標設定／Wrangler 安裝均通過，但 `cloudflare-prod-owner-readonly.mjs inspect` 僅輸出 `E_PRODUCTION_OWNER_READONLY`，Owner0/1、D1 完整性仍未知。補精確且固定白名單的 `stage` 錯誤碼（格式／完整性／Schema／Owner 狀態等），任何異常 Exit 1、無敏感值、無寫入／部署／Release Gate 修改。新增負向合成測及 SHA256 pin，待 Hosted CI 5/5 + 正式 Codex Review + clean gate 才可合併。下次操作員僅重跑 **Production D1 Owner readiness 唯讀 Action**，不可建立 Owner、重跑 migration 或開放 Login/5 Write Gates。
+
+
 > **2026-11-10 Current Focus｜Phase 4B-Dev Native Owner 舊 Session 非同步寫入競態防護（本 PR CI/Codex 待驗）**：#163 已 Squash Merge main `c9e2e6812b5bb596ef8201981f07bdf18818e380`，main Postmerge Verify #42729177787 completed/success 5/5。使用者暫時無法操作電腦，先處理不依賴實機的合成驗證：正式 `owner-app.js` 對工作、叫貨、盤點、維修、主檔的所有 POST 引入 authEpoch/CSRF 回應身分比對，以及舊畫面 revision 禁止送新操作，阻止登出／重登後遲到的 401 或成功回應破壞新 Session 的 UI；新增直接執行原生函式的 VM 延遲回應測試。不改 Worker/Schema/Gate/Secret/D1、正式帳密或部署。最新 PR HEAD Hosted 5/5 + Formal Codex Review + Clean Gate 才可合併；Phase 4B 真實桌機／手機 Owner、登出 Session、活躍版本 UAT 仍留 Issue #153，絕不可把合成 PASS 當實機 UAT。
 
 

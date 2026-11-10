@@ -86,10 +86,10 @@ test('CLI uses private files; prints only allowed status and rejects invalid pay
   const x=run('sql','before');assert.equal(x.status,0,x.stderr);
   assert.match(x.stdout,/^SELECT /);
   const bad=run('sql','DROP TABLE');assert.equal(bad.status,1);
-  assert.equal(bad.stderr.trim(),'E_PRODUCTION_OWNER_READONLY');
+  assert.equal(bad.stderr.trim(),'E_PRODUCTION_OWNER_READONLY stage=INVALID_MODE');
   fs.writeFileSync(path.join(dir,'quick.json'),'{untrusted stuff',{mode:0o600});
   const error=run('inspect',dir);assert.equal(error.status,1);
-  assert.equal(error.stderr.trim(),'E_PRODUCTION_OWNER_READONLY');
+  assert.equal(error.stderr.trim(),'E_PRODUCTION_OWNER_READONLY stage=EVIDENCE_UNAVAILABLE');
   assert.doesNotMatch(error.stderr,/untrusted stuff/);
  }finally{fs.rmSync(dir,{force:true,recursive:true});}
 });
@@ -106,4 +106,42 @@ test('new readonly workflow is main/manual-only and never loads a D1 write token
  assert.match(s,/cloudflare-prod-owner-readonly.mjs inspect/);
  assert.match(s,/d1 execute PROD_DB --remote --json/);
  assert.match(s,/--config wrangler.production-initialize.jsonc/);
+});
+
+test('sanitized failure stages distinguish response shape, D1 integrity, schema and Owner state',async()=>{
+ const m=await helper;
+ const cases=[
+  {stage:'INPUT_SHAPE',change:x=>x.foo=1},
+  {stage:'RESPONSE_SHAPE',change:x=>x.before[0].results[0].extraneous=1},
+  {stage:'INTEGRITY',change:x=>x.quick[0].results[0].quick_check='not ok'},
+  {stage:'SCHEMA_CONTRACT',change:x=>x.before[0].results[0].migration_total=3},
+  {stage:'OWNER_STATE',change:x=>x.before[0].results[0].locations=1}
+ ];
+ for(const {stage,change} of cases){
+  const x=await empty();change(x);
+  let error;try{m.verifyOwnerReadiness(x);}catch(e){error=e;}
+  assert(error,'should fail: '+stage);
+  assert.equal(error.message,'E_PRODUCTION_OWNER_READONLY');
+  assert.equal(error.safeStage,stage);
+  assert.doesNotMatch(error.message+' '+error.safeStage,/token|password|secret|sql|rows|account_id|database_id/i);
+ }
+});
+
+test('CLI emits only allowlisted stage and never echoes sensitive synthetic payload',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'prod-owner-stage-'));
+ try{
+  for(const [name,blob] of Object.entries(await empty()))
+   fs.writeFileSync(path.join(dir,name+'.json'),JSON.stringify(blob),{mode:0o600});
+  const before=path.join(dir,'before.json');
+  const obj=JSON.parse(fs.readFileSync(before,'utf8'));
+  obj[0].results[0].locations=7;
+  obj[0].results[0].synthetic_secret='do-not-leak-private-rows';
+  fs.writeFileSync(before,JSON.stringify(obj),{mode:0o600});
+  const run=spawnSync(process.execPath,[p,'inspect',dir],
+   {cwd:root,encoding:'utf8',timeout:12000});
+  assert.equal(run.status,1);
+  assert.equal(run.stderr.trim(),'E_PRODUCTION_OWNER_READONLY stage=RESPONSE_SHAPE');
+  assert.equal(run.stdout,'');
+  assert.doesNotMatch(run.stderr,/do-not-leak|7|locations|synthetic_secret/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

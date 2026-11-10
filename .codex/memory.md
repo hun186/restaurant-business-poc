@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-10 Owner-readonly evidence failure（本 PR 待驗）**：#42742857454 真實 manual GitHub Action 於 `cloudflare-prod-owner-readonly.mjs inspect` 返回 `E_PRODUCTION_OWNER_READONLY`；前置部署 SHA、Wrangler、設定 PASS，**Owner 數量/資料庫狀態未確認，任何 Production Write 都不准開始**。改為 fail-closed 靜態 allowlisted `stage`，合成測不得輸出任何 D1 私有資料。需要合併新 PR 後再次唯讀 Action，之後按實際 Stage 區分修復或現場狀態調查。Cloudflare Login 和五種寫入 Gate 保持關閉。
+
+
 > **2026-11-10 Current Focus｜Native Owner async stale-auth safety（本 PR 待 Hosted CI/Codex）**：前一 #163 已合併 main `c9e2e6812b5bb596ef8201981f07bdf18818e380`，Postmerge #42729177787 5/5 PASS。使用者暫無法實機，先完成 Owner UI 五類寫入的 authEpoch/CSRF 與 view revision 防重入：新身分登入、登出或 showLogin 時 Epoch 更新；已送出的舊請求不能以遲到 401 踢掉新登入，不能以舊成功 refresh 新身分資料；舊 DOM 控制項不得切頁後再發送。直接執行真實 UI 寫入函式的 Node VM 合成測；另更新閉合 SHA。仍待最新 HEAD CI 5/5、Codex 複審 Completed、全部 Thread/clean Gate。無 Production 資料、Cloudflare Secret/Vars/Gate/Schema/部署異動；真實 UAT 留 #153。
 
 

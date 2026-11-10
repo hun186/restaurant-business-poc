@@ -91,3 +91,13 @@ table{border-collapse:collapse;width:100%;min-width:590px;text-align:left}th,td{
 /* Keep labels and native D1 form controls in the same responsive grid item. */
 .panel form label>input,.panel form label>select,.panel form label>textarea{width:100%}
 .panel form label>textarea{min-height:88px;resize:vertical}
+
+/* Native D1 catalog actions follow the Owner-only write gate; never simulate writes. */
+.native-catalog-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:130px}
+.native-catalog-actions button{padding:6px 10px;font-size:12px;white-space:nowrap}
+.native-catalog-actions button:disabled{opacity:.55;cursor:not-allowed}
+.native-catalog-editor{margin-bottom:14px}
+.native-catalog-editor p{font-size:13px;color:var(--muted);line-height:1.6}
+.native-catalog-editor-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.native-catalog-editor-actions button{min-width:90px}
+@media(max-width:760px){.native-catalog-actions{min-width:105px;gap:5px}.native-catalog-actions button{flex:1}}

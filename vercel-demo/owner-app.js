@@ -1,4 +1,5 @@
 import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs';
+import {normalizeCatalogCommand} from './catalog-crud-contract.mjs';
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
@@ -40,6 +41,10 @@ function showLogin(message){
 }
 function table(entity,rows){
  const model=presentNativeRows(entity,rows);
+ const catalogManage=catalogWriteEnabled&&role==='owner'&&
+   (entity==='locations'||entity==='ingredients');
+ const current=revision;
+ const items=model.entries.map((entry,index)=>({...entry,record:rows[index]}));
  const wrapper=el('div'),toolbar=el('div'),label=el('label','快速搜尋 '),
    input=el('input'),count=el('span'),empty=el('p','沒有符合搜尋條件的資料。');
  toolbar.className='native-data-toolbar';count.className='native-data-count';
@@ -64,11 +69,12 @@ function table(entity,rows){
  for(const col of model.columns){
   const th=el('th',col.label);th.scope='col';head.append(th);
  }
+ if(catalogManage){const th=el('th','操作');th.scope='col';head.append(th);}
  header.append(head);grid.append(caption,header,body);frame.append(grid);
  empty.className='native-search-empty';empty.hidden=true;
  function draw(){
   const term=input.value.trim().toLocaleLowerCase('zh-TW');
-  const shown=term?model.entries.filter(row=>row.search.includes(term)):model.entries;
+  const shown=term?items.filter(item=>item.search.includes(term)):items;
   const paged=pageNativeEntries(shown,page,pageSize);page=paged.page;
   const fragment=document.createDocumentFragment();
   for(const entry of paged.rows){
@@ -80,6 +86,34 @@ function table(entity,rows){
      td.append(badge);
     }else td.textContent=cell.text;
     tr.append(td);
+   }
+   if(catalogManage){
+    const record=entry.record,cell=el('td'),buttons=el('div'),
+      edit=el('button','編輯'),toggle=el('button',record.active===1?'停用':'恢復');
+    const valid=catalogRowValid(entity,record);
+    buttons.className='native-catalog-actions';
+    edit.type='button';toggle.type='button';
+    edit.disabled=!valid||(entity==='ingredients'&&record.active!==1);
+    toggle.disabled=!valid;
+    edit.setAttribute('aria-label','編輯'+(record.name||'主檔'));
+    toggle.setAttribute('aria-label',(record.active===1?'停用':'恢復')+(record.name||'主檔'));
+    edit.addEventListener('click',()=>{
+      if(current!==revision||!valid)return;
+      openCatalogEditor(entity,record,current);
+    });
+    toggle.addEventListener('click',async()=>{
+      if(current!==revision||!valid||toggle.disabled)return;
+      const action=entity==='locations'?'location.active':'ingredient.active';
+      const data={id:record.id,expected_active:record.active,
+        active:record.active===1?0:1};
+      const verb=data.active===0?'停用':'恢復';
+      const note=entity==='locations'&&data.active===0?
+        '停用門市會撤銷相關使用者的工作階段，未結單可能阻止停用。':'歷史資料會完整保留。';
+      if(!window.confirm('確定'+verb+'真實 D1 '+(record.name||'主檔')+'？'+note))return;
+      toggle.disabled=true;
+      await writeCatalog(action,data,current);
+    });
+    buttons.append(edit,toggle);cell.append(buttons);tr.append(cell);
    }
    fragment.append(tr);
   }
@@ -129,6 +163,86 @@ async function writeTask(action,data){
     say((e.message||'寫入結果不明')+' 請先重新整理確認結果，不要直接重複送出。',true);
   }
 }
+
+function catalogRowValid(entity,row){
+ if(!row||typeof row!=='object'||!taskId.test(row.id)||
+    typeof row.name!=='string'||!(row.active===0||row.active===1))return false;
+ if(entity==='locations')return row.name.length>0&&row.name.length<=120;
+ return entity==='ingredients'&&
+   typeof row.sku==='string'&&/^[A-Za-z0-9_.-]{1,40}$/.test(row.sku)&&
+   typeof row.unit==='string'&&row.unit.length>0&&row.unit.length<=20&&
+   typeof row.min_stock==='number'&&Number.isFinite(row.min_stock)&&
+   row.min_stock>=0&&row.min_stock<=1000000;
+}
+async function writeCatalog(action,data,marker){
+ if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||
+   (view!=='locations'&&view!=='ingredients'))return false;
+ let command;
+ try{command=normalizeCatalogCommand(action,data);}
+ catch{say('主檔內容不符合欄位規格，請檢查後再試。',true);return false;}
+ try{
+   say('正在更新真實 D1 主檔，請勿重複送出…');
+   const result=await api('/api/catalog',{method:'POST',referrerPolicy:'same-origin',
+     headers:{Accept:'application/json','Content-Type':'application/json',
+       'X-CSRF-Token':csrf},
+     body:JSON.stringify({action,data:command})});
+   if(result?.ok!==true)throw Error('伺服器尚未確認主檔變更。');
+   if(marker===revision)await refresh();
+   return true;
+ }catch(e){
+   if(e.status===401){showLogin('工作階段已失效，請重新登入。');return false;}
+   if(marker===revision)say((e.status===409?
+      '主檔可能已更新、有未結叫貨／盤點、最後一間門市或計量單位已有歷史引用。':
+      e.message||'主檔寫入結果不明')+
+      ' 請先重新整理確認真實 D1 狀態，不要直接重複送出。',true);
+   return false;
+ }
+}
+function openCatalogEditor(entity,row,marker){
+ if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||
+   !catalogRowValid(entity,row)||(entity==='ingredients'&&row.active!==1))return;
+ const previous=$('catalog-editor');if(previous)previous.remove();
+ const pane=el('section');pane.id='catalog-editor';pane.className='panel native-catalog-editor';
+ pane.append(el('h3','編輯 '+row.name));
+ const form=el('form'),actions=el('div'),submit=el('button','儲存變更'),
+   cancel=el('button','取消');
+ actions.className='native-catalog-editor-actions';
+ const field=(caption,value,max,options={})=>{
+   const input=el('input');input.type=options.type||'text';input.required=true;
+   input.value=String(value);input.maxLength=max;
+   if(options.step)input.step=options.step;
+   if(options.min!==undefined)input.min=String(options.min);
+   if(options.max!==undefined)input.max=String(options.max);
+   form.append(labeledField(caption,input));return input;
+ };
+ const isStore=entity==='locations';
+ if(!isStore)pane.append(el('p','食材代碼 '+row.sku+' 不可更改；已有庫存、叫貨、價格或配方紀錄時不可更換單位。'));
+ const name=field(isStore?'門市名稱':'食材名稱',row.name,isStore?60:120);
+ let unit,minimum;
+ if(!isStore){
+   unit=field('計量單位',row.unit,20);
+   minimum=field('最低庫存',row.min_stock,30,
+     {type:'number',step:'0.001',min:0,max:1000000});
+ }
+ submit.type='submit';cancel.type='button';
+ cancel.addEventListener('click',()=>pane.remove());
+ actions.append(submit,cancel);form.append(actions);pane.append(form);
+ form.addEventListener('submit',async event=>{
+   event.preventDefault();
+   if(marker!==revision||submit.disabled||!form.reportValidity())return;
+   const action=isStore?'location.update':'ingredient.update';
+   const expected=isStore?{name:row.name}:
+     {sku:row.sku,name:row.name,unit:row.unit,min_stock:row.min_stock};
+   const changes=isStore?{name:name.value.trim()}:
+     {name:name.value.trim(),unit:unit.value.trim(),min_stock:Number(minimum.value)};
+   submit.disabled=true;
+   const ok=await writeCatalog(action,{id:row.id,expected,changes},marker);
+   if(!ok&&marker===revision)submit.disabled=false;
+ });
+ $('content').prepend(pane);
+ name.focus();
+}
+
 async function catalogActions(marker){
   if(!catalogWriteEnabled||role!=='owner')return;
   if(view!=='locations'&&view!=='ingredients')return;
@@ -147,7 +261,7 @@ async function catalogActions(marker){
     form.append(labeledField(label,input));return input;
   };
   const isStore=view==='locations';
-  const name=field(isStore?'門市名稱':'食材名稱',{maxLength:120});
+  const name=field(isStore?'門市名稱':'食材名稱',{maxLength:isStore?60:120});
   let sku,unit,minimum;
   if(!isStore){
     sku=field('食材代碼（英文數字、底線或連字號）',{maxLength:40});

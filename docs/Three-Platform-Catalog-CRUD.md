@@ -38,3 +38,11 @@
 後端在 D1 交易內重新確認 Owner Session、舊值快照、啟用狀態、未完成叫貨／盤點、最後一間啟用門市；食材已有庫存、交易、價格或配方引用時，拒絕改變計量單位。使用 D1.batch 原子更新、稽核，停用門市時撤銷該店所屬使用者 Session，不物理刪除既有門市／食材／帳本。
 
 **範圍限制：**此階段只增加正式 D1 後端命令和合成 SQLite adapter 回歸，尚未提供 Native Owner 正式瀏覽器的編輯／停用控制項，不能宣稱 Cloudflare 已驗收或發布。CLOUD_AUTH_PHASE、五種業務 Write Gate、Cloudflare Secret、正式 D1 Schema 和遠端資料均不修改，預設維持 fail-closed。
+
+## Phase 3B（2026-11-10｜Native Owner 操作畫面）
+
+正式 Owner 清單在取得 `/api/native/status` 的 `catalog_write_enabled=true`、同源已驗證身分且 Role=owner 後，才顯示食材／門市列內的「編輯」「停用／恢復」。所有操作使用目前已授權載入（最多 500 筆）的真實 D1 列資料作 expected CAS 快照，編輯時 SKU 唯讀，停用需使用者明確確認；錯誤或未確認結果提醒先刷新，禁止假成功或無限重試。取消、導航、重新整理與登出會使前次 UI Revision 失效。
+
+正式 Owner 不引入 Demo Mock、localStorage/sessionStorage 或額外 Cookie；仍從原生 Session 記憶體 CSRF 使用同源 /api/catalog。當 Write Gate 關閉、登入未完成或 Role 非 Owner 時，表格沒有任何寫入按鈕。仍不提供永久刪除。
+
+範圍：純 Native Owner 前端／樣式／合成靜態回歸；不開啟正式 Gate、不新增 D1 Schema、秘密、部署、資料異動。正式瀏覽器、真實 Owner 登出/Session 撤銷與 Cloudflare 活躍版號仍需獨立實機 UAT；Phase 4 待跨平台整合驗收。

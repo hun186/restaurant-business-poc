@@ -182,6 +182,7 @@ function catalogRowValid(entity,row){
 async function writeCatalog(action,data,marker){
  if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||
    (view!=='locations'&&view!=='ingredients'))return false;
+ const epoch=authEpoch,token=csrf;
  let command;
  try{command=normalizeCatalogCommand(action,data);}
  catch{say('主檔內容不符合欄位規格，請檢查後再試。',true);return false;}
@@ -189,12 +190,14 @@ async function writeCatalog(action,data,marker){
    say('正在更新真實 D1 主檔，請勿重複送出…');
    const result=await api('/api/catalog',{method:'POST',referrerPolicy:'same-origin',
      headers:{Accept:'application/json','Content-Type':'application/json',
-       'X-CSRF-Token':csrf},
+       'X-CSRF-Token':token},
      body:JSON.stringify({action,data:command})});
+   if(!liveAuth(epoch,token))return false;
    if(result?.ok!==true)throw Error('伺服器尚未確認主檔變更。');
    if(marker===revision)await refresh();
    return true;
  }catch(e){
+   if(!liveAuth(epoch,token))return false;
    if(e.status===401){showLogin('工作階段已失效，請重新登入。');return false;}
    if(marker===revision)say((e.status===409?
       '主檔可能已更新、有未結叫貨／盤點、最後一間門市或計量單位已有歷史引用。':
@@ -203,6 +206,7 @@ async function writeCatalog(action,data,marker){
    return false;
  }
 }
+
 function openCatalogEditor(entity,row,marker){
  if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||
    !catalogRowValid(entity,row)||(entity==='ingredients'&&row.active!==1))return;
@@ -277,7 +281,8 @@ async function catalogActions(marker){
   form.append(submit);
   form.addEventListener('submit',async ev=>{
     ev.preventDefault();
-    if(!catalogWriteEnabled||!csrf||submit.disabled)return;
+    if(marker!==revision||!catalogWriteEnabled||role!=='owner'||!csrf||submit.disabled)return;
+    const epoch=authEpoch,token=csrf;
     const data=isStore?{name:name.value.trim()}:{
       name:name.value.trim(),sku:sku.value.trim(),unit:unit.value.trim(),
       min_stock:Number(minimum.value||0)};
@@ -287,12 +292,15 @@ async function catalogActions(marker){
       say('正在儲存 D1 主檔，請勿重複送出…');
       const result=await api('/api/catalog',{method:'POST',
         headers:{Accept:'application/json','Content-Type':'application/json',
-          'X-CSRF-Token':csrf},referrerPolicy:'same-origin',
+          'X-CSRF-Token':token},referrerPolicy:'same-origin',
         body:JSON.stringify({action:isStore?'location.create':'ingredient.create',data})});
+      if(!liveAuth(epoch,token))return;
       if(result?.ok!==true)throw Error('未確認主檔已儲存。');
-      await refresh();
+      if(marker===revision)await refresh();
     }catch(e){
+      if(!liveAuth(epoch,token))return;
       if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+      if(marker!==revision)return;
       say((e.status===409?'門市名稱或食材代碼已存在。':e.message||'寫入結果不明')+
         ' 請先重新整理確認，不要直接重複送出。',true);
     }finally{submit.disabled=false;}

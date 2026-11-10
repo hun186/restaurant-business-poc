@@ -101,3 +101,9 @@ Windows `run-production-owner-operator.bat` 新增 **選項 3：Check Owner + Ti
 首次空庫 Migration 已由 [Run #41215336274](https://github.com/hun186/restaurant-business-poc/actions/runs/41215336274) 成功完成，請勿重複執行。接下來只需建立 Production Owner，不需要重新建表、重新備援 Restore 或更改既有 Migration SQL。
 
 此文件是操作與開發交接，**不代表任何 Production 寫入已執行，也不構成自動授權**。
+
+## 2026-11-10｜Owner 唯讀 Action 失敗安全分類（不變更放行標準）
+
+操作者實際執行 [Production D1 Owner readiness #42742857454](https://github.com/hun186/restaurant-business-poc/actions/runs/42742857454)，`main=b8fe14305ef4ff2dd530a005f5a0e6ebc0c8e8e0`、安全 SHA256 預檢／固定 D1 目標／Wrangler 安裝 PASS；四組唯讀 SQL 查詢步驟進到離線驗證時回傳 `E_PRODUCTION_OWNER_READONLY`，並未取得 Owner 0/1 的可信證據。**不能推論資料庫損毀或 Owner 是否存在**；不得選 Windows Owner 建立選項 2 或重跑 Production Schema。
+
+改進無機密的固定代碼錯誤分類：`INPUT_SHAPE`（參數無效）、`RESPONSE_SHAPE`（Wrangler / D1 查詢形狀不符）、`INTEGRITY`（quick_check／FK 失敗）、`SCHEMA_CONTRACT`（v3／Migration / 數值契約不符）、`OWNER_STATE`（任何表、Owner 或稽核狀態不符合**唯二**允許的空庫或單一 Owner 加完整稽核）、`EVIDENCE_UNAVAILABLE`（私有暫存證據缺失或無法剖析）、`INVALID_MODE`（命令錯誤）。絕不回傳實際 Row、資料筆數、Owner ID、Token、Account/DB UUID、原始 SQL 或原始 Error。輸出示例：`E_PRODUCTION_OWNER_READONLY stage=OWNER_STATE`。**任何失敗一律維持 Exit 1 與拒絕放行，不會自動修復或變更 Production D1**。這只是下一次唯讀重測的診斷強化，還需 PR HEAD Hosted Verify + Codex Review + 合併後才能依新版診斷；禁止把新版合成測試當作本次遠端 PASS。

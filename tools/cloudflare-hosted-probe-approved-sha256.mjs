@@ -75,7 +75,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/catalog-local-demo-crud.test.js":"228878da2a228e0b5999ab542d3bef3d1e8c9897f8348d5198f32dc5a1e985b4",
+  "tests/catalog-local-demo-crud.test.js":"b2376434c2651d9e890f1c4323df804403d496ebfc1c611c3f08eff2689b919d",
   "vercel-demo/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
   "public/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
   "tests/catalog-three-platform-contract.test.js":"fe030e13758ec854352250add42c9cb4b07324d0ae5ebe6a42395952e178c139",
@@ -158,7 +158,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "部署檢查.bat":"879861ecf25c36aaf9879d5c0970ead4275e227f6bee50ee7cf65ad951a719f4",
   "vercel-demo/README.md":"da31dd538e6f9cb557c95f1daa6ea5153c090e01d6c835cdc70f29302f96dbf8",
   "vercel-demo/index.html":"0752239d4291ac4bc93d9314a321e55684e532950b8913b97c510094683f9769",
-  "vercel-demo/mock.js":"79040af4308fa6f62a4862a5e0b2a4621dc2ce9a3672d6fb4ecb0e58ee1d94d8",
+  "vercel-demo/mock.js":"d7b77b0b7bfe4feecd7077a31c31a7ce1e6d9ab92ad76d341cbec8f45037437f",
   "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",
   "vercel-demo/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
   "vercel-demo/pricing-demo.js":"69fb51f2c183c7e6c2c268dd112caf7d9e21bc353d430ee62e3660d685b64b87",
@@ -175,7 +175,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "重設業主密碼.bat":"413c3f560749aa27c4d62c087d114dfac9fa9b652159044b6fc83ae3ec12b7f6",
   "備份資料.bat":"185297a3fcdbb85f5e6d10ffd9aebad856c25640ace001a2b7ab8d483a45202f",
   "啟動餐廳好管家.bat":"0623f1598fb58a479be0965877ea8a002ddfeb75a5bf895894e153c521ae7e2e",
-  "tests/demo-pricing.test.js":"b2c2c9203843ffa85ea56ff725f08857ef06dadccbce12206b9f8e89ad2d143f",
+  "tests/demo-pricing.test.js":"cf07c0c0cba584e27772c93ee2ed2e453a19815d3d5b8ef9ddc1e17c5e090fff",
   "tests/demo.test.js":"335ad627a4de4ba434aedbbc41ef200724e5ed3d8be85926c6e13a199b8fc569",
   "tests/http.test.js":"59b038c09a800b535e65071a42606aa3111274dd142e9c60b7b3eceaa6c2b2f4",
   "tests/login-ui.test.js":"24bc0b9f608138269ec89d863459a14a317e1ebe9397c6a566ebf57452867b71",
@@ -249,7 +249,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/native-business-http.mjs":"b635e00047635ef034b4b1703fd975bb0678496a1c39a2e52b51af8360b964f2",
   "cloudflare/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
   "cloudflare/native-catalog-http.mjs":"1a4fc1d325c7c25f982a4b48573c8cac9631d25a3992e2f3e3d46c7e86a50f68",
-  "tests/cloudflare-native-catalog-live.test.js":"99524949f6f91cee6b67b905b0e4564bf958a80594fd3a5655773f69d7529e1a",
+  "tests/cloudflare-native-catalog-live.test.js":"54b8d4fe1da87cbe330e1e8ac8bf1e86e6ff1f68ba7bf970c158b7d0a4eecbfb",
   "cloudflare/native-order-http.mjs":"3fe11e78a0825392390e002f53af3763ea2d40bf92008a06ab9ed5242a65c299",
   "cloudflare/native-stocktake-http.mjs":"f4427b26887baadcdf8a654a9b6a013e73769e481ce7b119ea8e72257a1405f9",
   "cloudflare/native-repair-http.mjs":"d7a4651965c63f18190da60837c25bd76ed8eb294d392f6133d90985cd6f7eb7",

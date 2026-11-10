@@ -64,6 +64,8 @@ test('local store edit, last-active guard and session revocation on deactivate',
   command(db,actor,'location.active',{id:two,expected_active:1,active:0});
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sessions').get().n,0);
   expectFail(()=>command(db,actor,'location.active',{id:one,expected_active:1,active:0}),409);
+  command(db,actor,'location.update',{id:two,expected:{name:'第二店'},changes:{name:'停用中改名店'}});
+  assert.equal(db.prepare('SELECT name FROM locations WHERE id=?').get(two).name,'停用中改名店');
   command(db,actor,'location.active',{id:two,expected_active:0,active:1});
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM locations').get().n,2);
   assert.equal(db.prepare('SELECT active FROM locations WHERE id=?').get(two).active,1);

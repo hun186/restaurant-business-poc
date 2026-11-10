@@ -119,6 +119,10 @@ test('invalid Owner, business state, audit history, live Session, schema, FK and
       new Date(Date.now()+3600000).toISOString()),
   db=>db.prepare('UPDATE users SET active=0 WHERE username=?').run('owner'),
   db=>db.prepare('UPDATE users SET password_hash=? WHERE username=?').run('unsupported','owner'),
+  db=>db.prepare('UPDATE users SET password_hash=? WHERE username=?')
+   .run('pbkdf2-sha256$100000$'+'z'.repeat(64),'owner'),
+  db=>db.prepare('UPDATE users SET password_salt=? WHERE username=?')
+   .run('z'.repeat(32),'owner'),
   db=>db.prepare('UPDATE audit_logs SET action=? WHERE action=?')
    .run('unexpected.bootstrap','auth.owner_bootstrap'),
   db=>db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,detail) VALUES(?,?,?,?,?)')

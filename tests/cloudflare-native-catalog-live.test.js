@@ -158,3 +158,97 @@ test('synthetic D1 audit write exception rolls back new ingredient',async t=>{
   assert.equal(count(f.db,'ingredients'),0);
   assert.equal(audits(f.db).length,0);
 });
+
+test('D1 catalog edit enforces snapshots, owner role and unit history protection',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),staff=await f.login('staff');
+  const created=await f.write(owner,'ingredient.create',{
+    sku:'RICE_01',name:'米',unit:'公斤',min_stock:1});
+  assert.equal(created.status,200);
+  const id=(await created.json()).result.id;
+  const expected={sku:'RICE_01',name:'米',unit:'公斤',min_stock:1};
+  const command={id,expected,changes:{name:'白米',unit:'公斤',min_stock:2}};
+  assert.equal((await f.write(staff,'ingredient.update',command)).status,403);
+  assert.equal((await f.write(owner,'ingredient.update',command)).status,200);
+  assert.equal(f.db.prepare('SELECT name FROM ingredients WHERE id=?').get(id).name,'白米');
+  assert.equal((await f.write(owner,'ingredient.update',command)).status,409);
+  assert.equal(f.db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_logs WHERE action='ingredient.update'").get().n,1);
+  f.db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type) VALUES(?,?,?,?,?)')
+    .run(randomUUID(),id,f.ids.store,5,'purchase');
+  const next={id,expected:{...expected,name:'白米',min_stock:2},
+    changes:{name:'白米',unit:'公克',min_stock:2}};
+  assert.equal((await f.write(owner,'ingredient.update',next)).status,409);
+  assert.equal(f.db.prepare('SELECT unit FROM ingredients WHERE id=?').get(id).unit,'公斤');
+  assert.equal(count(f.db,'stock_moves'),1);
+  assert.equal((await f.write(owner,'ingredient.update',{
+    ...next,changes:{...next.changes,sku:'BAD'}})).status,400);
+});
+test('D1 ingredient active changes preserve ledger and block pending orders',async t=>{
+  const f=await fixture(t),owner=await f.login('owner');
+  const result=await f.write(owner,'ingredient.create',
+    {sku:'OIL',name:'油',unit:'瓶',min_stock:0});
+  const id=(await result.json()).result.id;
+  f.db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type) VALUES(?,?,?,?,?)')
+    .run(randomUUID(),id,f.ids.store,4,'purchase');
+  assert.equal((await f.write(owner,'ingredient.active',
+    {id,expected_active:1,active:0})).status,200);
+  assert.equal(count(f.db,'stock_moves'),1);
+  assert.equal((await f.write(owner,'ingredient.active',
+    {id,expected_active:1,active:0})).status,409);
+  assert.equal((await f.write(owner,'ingredient.active',
+    {id,expected_active:0,active:1})).status,200);
+  f.db.prepare('INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,created_by) VALUES(?,?,?,?,?,?,?)')
+    .run(randomUUID(),'PEND-1',f.ids.store,id,'廠商',2,f.ids.staff);
+  assert.equal((await f.write(owner,'ingredient.active',
+    {id,expected_active:1,active:0})).status,409);
+  assert.equal(f.db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_logs WHERE action='ingredient.active'").get().n,2);
+});
+test('D1 store edit/deactivate retains an active store and revokes granted sessions',async t=>{
+  const f=await fixture(t),owner=await f.login('owner'),staff=await f.login('staff');
+  assert.equal((await f.write(owner,'location.active',{
+    id:f.ids.store,expected_active:1,active:0})).status,409);
+  const create=await f.write(owner,'location.create',{name:'測試分店'});
+  const branchId=(await create.json()).result.id;
+  const edit={id:branchId,expected:{name:'測試分店'},changes:{name:'改名分店'}};
+  assert.equal((await f.write(owner,'location.update',edit)).status,200);
+  assert.equal((await f.write(owner,'location.update',edit)).status,409);
+  assert.equal((await f.write(owner,'location.active',{
+    id:f.ids.store,expected_active:1,active:0})).status,200);
+  assert.equal(f.db.prepare('SELECT active FROM locations WHERE id=?')
+    .get(f.ids.store).active,0);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?')
+    .get(f.ids.staff).n,0);
+  assert.equal((await f.write(staff,'location.update',edit)).status,401);
+  assert.equal((await f.write(owner,'location.active',{
+    id:f.ids.store,expected_active:0,active:1})).status,200);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM locations').get().n,2);
+});
+test('D1 owner role revoked at batch start blocks mutation and audit',async t=>{
+  let f,revoke=false;
+  f=await fixture(t,{beforeBatch(){
+    if(revoke)f.db.prepare('UPDATE users SET role=? WHERE id=?')
+      .run('staff',f.ids.owner);
+  }});
+  const owner=await f.login('owner');
+  revoke=true;
+  const response=await f.write(owner,'location.update',{
+    id:f.ids.store,expected:{name:'測試既有門市'},changes:{name:'不得寫入'}});
+  assert.equal(response.status,503);
+  assert.equal(f.db.prepare('SELECT name FROM locations WHERE id=?')
+    .get(f.ids.store).name,'測試既有門市');
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='location.update'")
+    .get().n,0);
+});
+
+test('native D1 accepts 61-120 character existing store snapshots for renaming',async t=>{
+ const f=await fixture(t),owner=await f.login('owner');
+ const oldName='長門市'.repeat(24);
+ const creation=await f.write(owner,'location.create',{name:oldName});
+ assert.equal(creation.status,200);
+ const id=(await creation.json()).result.id;
+ const updated=await f.write(owner,'location.update',{
+  id,expected:{name:oldName},changes:{name:'短名稱'}});
+ assert.equal(updated.status,200);
+ assert.equal(f.db.prepare('SELECT name FROM locations WHERE id=?').get(id).name,'短名稱');
+});

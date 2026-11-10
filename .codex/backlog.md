@@ -1,5 +1,6 @@
 # Backlog
 
+> **2026-11-10 Current Focus｜Cloudflare D1 CRUD Phase 3A（Hosted CI／正式 Codex 待驗）**：已合併 #159/#160；本分支新增 Owner-only、Gate 鎖定的食材與門市 Update / Active CAS，包含歷史單位參照防護、待辦叫貨／盤點、最後啟用門市、原子稽核及停用門市 Session 撤銷，補 synthetic regression 與 SHA256 Pin。不更動 Production Gate/Vars/Secrets、D1 Schema 或正式資料。**下一階段**需 Native Owner UI 編輯／停用接線及實機 UAT；未完成最新 HEAD Hosted CI、正式 Codex Review、Clean Gate 前不可合併，也不得視為正式 D1 已上線。\n\n
 > **2026-11-09 Current Focus｜正式 Owner 表單 label 與控制項修正（PR 待 Hosted CI/Codex）**：PR #157 已 Squash Merge 主線 `3ec68a3506bca5c53e30956ceddc295b2c94db22`，補齊已載入資料本機分頁。接著發現正式 D1 新增門市／食材、工作、叫貨、盤點、維修表單的可見 label 與控制項被當成相鄰 flex items，易產生錯位且缺少語意關聯。本次以共用 labeledField 將 input/select/textarea 內嵌於 label，補靜態回歸、CSS 與閉鎖 SHA；不改 API/Worker/Cloudflare Gate/D1。正式 Owner UAT、資產版本與 Session 撤銷仍待實機。未完成 HEAD Hosted 5/5、正式 Codex Review、Clean Gate 前不可稱已合併。
 
 

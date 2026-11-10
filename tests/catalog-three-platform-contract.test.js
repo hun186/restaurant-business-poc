@@ -59,3 +59,16 @@ test('three deployed surfaces are distinct; baseline must not spoof D1 or silent
  assert.doesNotMatch(native,/mock\.js|sessionStorage|localStorage/);
  assert.match(cfg,/"CLOUD_AUTH_PHASE": "disabled"/);
 });
+
+test('Cloudflare-only catalog mirror is byte-identical to canonical source',()=>{
+ assert.equal(source('cloudflare/catalog-crud-contract.mjs'),source('src/catalog-crud-contract.mjs'));
+});
+
+test('catalog accepts existing long store snapshot while limiting new names',async()=>{
+ const {normalizeCatalogCommand:n}=await load;
+ const name='歷史門市'.repeat(24);
+ assert.equal(name.length,96);
+ assert.deepEqual(n('location.update',{id:'l1',expected:{name},changes:{name:'新店'}}),
+  {id:'l1',expected:{name},changes:{name:'新店'}});
+ assert.throws(()=>n('location.update',{id:'l1',expected:{name},changes:{name}}));
+});

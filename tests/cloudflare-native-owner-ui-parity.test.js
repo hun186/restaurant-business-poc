@@ -71,3 +71,29 @@ test('native Owner write forms keep visible labels attached to their controls',(
  // No browser-side synthetic authentication or mock data is introduced.
  assert.doesNotMatch(js,/mock\.js|localStorage|sessionStorage|\.innerHTML\s*=/);
 });
+
+test('native catalog row commands are Owner-gated and CAS-safe, without Demo writes',()=>{
+ const js=asset('owner-app.js'),css=asset('owner-app.css');
+ assert.match(js,/catalogManage=catalogWriteEnabled&&role==='owner'/);
+ assert.match(js,/const current=revision/);
+ assert.match(js,/const items=model\.entries\.map\(\(entry,index\)=>\(\{\.\.\.entry,record:rows\[index\]\}\)\)/);
+ assert.match(js,/if\(catalogManage\)\{const th=el\('th','操作'\)/);
+ assert.match(js,/openCatalogEditor\(entity,record,current\)/);
+ assert.match(js,/await writeCatalog\(action,data,current\)/);
+ assert.match(js,/if\(current!==revision\|\|!valid\|\|toggle\.disabled\)return/);
+ assert.match(js,/normalizeCatalogCommand\(action,data\)/);
+ assert.match(js,/expected_active:record\.active/);
+ assert.match(js,/active:record\.active===1\?0:1/);
+ assert.match(js,/\{sku:row\.sku,name:row\.name,unit:row\.unit,min_stock:row\.min_stock\}/);
+ assert.match(js,/\{name:row\.name\}/);
+ assert.match(js,/form\.append\(labeledField\(caption,input\)\)/);
+ assert.match(js,/await api\('\/api\/catalog',\{method:'POST'/);
+ assert.match(js,/if\(marker===revision\)await refresh\(\)/);
+ assert.match(js,/window\.confirm\('確定'/);
+ assert.match(js,/role!=='owner'/);
+ assert.match(js,/catalogRowValid\(entity,row\)/);
+ assert.match(js,/const name=field\(isStore\?'門市名稱':'食材名稱',row\.name,isStore\?60:120\)/);
+ assert.match(css,/\.native-catalog-actions/);
+ assert.match(css,/\.native-catalog-editor/);
+ assert.doesNotMatch(js,/mock\.js|localStorage|sessionStorage|\.innerHTML\s*=/);
+});

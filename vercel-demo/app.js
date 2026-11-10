@@ -149,6 +149,13 @@ function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(
  const step=f.type==='number'?'step="any" min="0"':'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
 }
+function catalogCreatePayload(action,raw,normalize){
+ // HTML FormData returns strings even for <input type="number">.
+ // Convert the ingredient quantity before strict catalog validation.
+ const payload=action==='ingredient.create'?
+  {...raw,min_stock:Number(raw.min_stock)}:raw;
+ return normalize(action,payload);
+}
 function invalidateModalOpens(root){return (root.__openTicket=(root.__openTicket||0)+1);}
 async function showForm(action,id){
  const base=def[action];if(!base){toast('此操作目前未提供表單');return;}
@@ -167,6 +174,10 @@ async function showForm(action,id){
  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id&&!editing)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
  try{
   let data=raw;
+  if(!editing&&(action==='ingredient.create'||action==='location.create')){
+   const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
+   data=catalogCreatePayload(action,raw,normalizeCatalogCommand);
+  }
   if(editing){
    const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
    const expected=entity==='ingredients'?

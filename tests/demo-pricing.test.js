@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {pathToFileURL}=require('node:url');
 const dir=path.resolve(__dirname,'../vercel-demo');
 function demo(existing){
  const store=new Map(existing?[['restaurant-public-demo-v1',JSON.stringify(existing)]]:[]);
@@ -8,7 +9,19 @@ function demo(existing){
  const loc={href:'https://restaurant-business-poc.vercel.app/',reload:()=>{}};
  const window={fetch:async()=>{throw Error('Unexpected network call')},confirm:()=>true};
  const context=vm.createContext({window,sessionStorage:storage,location:loc,URL,Response,Date,console});
- for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])vm.runInContext(fs.readFileSync(path.join(dir,name),'utf8'),context,{filename:name});
+ // The browser resolves this same-origin module; VM test injection supplies
+ // the real checked-in module namespace without enabling experimental VM imports.
+ window.__testCatalogContract=import(pathToFileURL(
+   path.join(dir,'catalog-crud-contract.mjs')).href);
+ for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js']){
+  let source=fs.readFileSync(path.join(dir,name),'utf8');
+  if(name==='mock.js'){
+   const marker="await import('/catalog-crud-contract.mjs')";
+   assert.equal(source.split(marker).length-1,2,'two catalog browser imports expected');
+   source=source.replaceAll(marker,'await window.__testCatalogContract');
+  }
+  vm.runInContext(source,context,{filename:name});
+ }
  const request=async (path,action,data)=>{
   const res=await window.fetch(path,{method:'POST',body:JSON.stringify({action,data})});
   return {status:res.status,body:await res.json()};
@@ -160,4 +173,58 @@ test('menu archive and recipe remove buttons exist for both apps with explicit c
   assert.ok(s.includes('if(!window.confirm(prompt))return'),file);
   assert.ok(s.includes("if(action==='dish.active')data={id,active:status==='on'?1:0}"),file);
  }
+});
+
+test('Vercel demo catalog creation uses the shared contract and rejects duplicates',async()=>{
+ const d=demo();
+ const locationsBefore=(await d.rows('locations')).length;
+ const first=await d.request('/api/command','location.create',{name:'  示範增設店  '});
+ assert.equal(first.status,200);
+ assert.equal(first.body.result.name,'示範增設店');
+ assert.equal((await d.rows('locations')).length,locationsBefore+1);
+ const duplicate=await d.request('/api/command','location.create',{name:'示範增設店'});
+ assert.equal(duplicate.status,400);
+ const existing=await d.request('/api/command','location.create',{name:'台北示範店'});
+ assert.equal(existing.status,400);
+ const long=await d.request('/api/command','location.create',{name:'長'.repeat(61)});
+ assert.equal(long.status,400);
+ assert.equal((await d.rows('locations')).length,locationsBefore+1);
+ const ingredient=await d.request('/api/command','ingredient.create',{
+   sku:'PARITY-01',name:'  展示原料  ',unit:'包',min_stock:0.125});
+ assert.equal(ingredient.status,200);
+ assert.equal(ingredient.body.result.name,'展示原料');
+ const count=(await d.rows('ingredients')).length;
+ for(const payload of [
+  {sku:'PARITY-01',name:'重複',unit:'包',min_stock:1},
+  {sku:'INVALID SKU',name:'無效',unit:'包',min_stock:1},
+  {sku:'NEW-02',name:'缺少安全庫存',unit:'包'},
+  {sku:'NEW-03',name:'額外欄位',unit:'包',min_stock:0,role:'owner'}
+ ]){
+  assert.equal((await d.request('/api/command','ingredient.create',payload)).status,400);
+ }
+ assert.equal((await d.rows('ingredients')).length,count);
+ const audit=d.state().audit_logs;
+ assert.equal(audit.filter(x=>x.action==='demo.location.create'&&x.entity_id===first.body.result.id).length,1);
+ assert.equal(audit.filter(x=>x.action==='demo.ingredient.create'&&x.entity_id===ingredient.body.result.id).length,1);
+});
+
+test('Vercel demo allows inactive store rename with CAS and keeps archive history',async()=>{
+ const d=demo();
+ const oldName='新北示範店';
+ const toInactive=await d.request('/api/command','location.active',{
+  id:'l2',expected_active:1,active:0});
+ assert.equal(toInactive.status,200);
+ const rename={id:'l2',expected:{name:oldName},changes:{name:'新北停用店'}};
+ assert.equal((await d.request('/api/command','location.update',rename)).status,200);
+ let archived=(await d.rows('locations')).find(x=>x.id==='l2');
+ assert.equal(archived.name,'新北停用店');
+ assert.equal(archived.active,0);
+ assert.equal((await d.request('/api/command','location.update',rename)).status,400,
+   'stale CAS must not silently overwrite a newer name');
+ assert.equal((await d.request('/api/command','location.active',{
+  id:'l2',expected_active:0,active:1})).status,200);
+ archived=(await d.rows('locations')).find(x=>x.id==='l2');
+ assert.deepEqual([archived.name,archived.active],['新北停用店',1]);
+ assert.equal(d.state().audit_logs.filter(x=>x.action==='demo.location.update').length,1);
+ assert.equal((await d.rows('stock_moves')).length,1,'synthetic history remains intact');
 });

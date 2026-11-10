@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-10 Current Focus｜Native Owner async stale-auth safety（本 PR 待 Hosted CI/Codex）**：前一 #163 已合併 main `c9e2e6812b5bb596ef8201981f07bdf18818e380`，Postmerge #42729177787 5/5 PASS。使用者暫無法實機，先完成 Owner UI 五類寫入的 authEpoch/CSRF 與 view revision 防重入：新身分登入、登出或 showLogin 時 Epoch 更新；已送出的舊請求不能以遲到 401 踢掉新登入，不能以舊成功 refresh 新身分資料；舊 DOM 控制項不得切頁後再發送。直接執行真實 UI 寫入函式的 Node VM 合成測；另更新閉合 SHA。仍待最新 HEAD CI 5/5、Codex 複審 Completed、全部 Thread/clean Gate。無 Production 資料、Cloudflare Secret/Vars/Gate/Schema/部署異動；真實 UAT 留 #153。
+
+
 > **2026-11-10 Current Focus｜Phase 4A 三平台 CRUD 一致性（本 PR，CI/Review 待驗）**：#161 D1 CRUD backend 與 #162 Native Owner CRUD UI 都已 Squash Merge；main `a488764ce68f0ea12e3b66ab4d18c6fe044e98ae`，Postmerge Verify #42726379418 completed/success。此階段先修 Vercel Demo create 未套 shared command contract／重複門市及 SKU、Demo 已停用門市不可更名（本機/D1 可更名）的行為差異，使用 VM/browser synthetic + SQLite + Worker D1 adapter 三路回歸驗證，更新 SHA256 pin。**不得將 synthetic CI 宣稱 Production UAT**。Owner 實機登入／登出／Session 401、active Worker/Asset SHA、正式 Gate 仍待業主操作；本階段不碰正式 Cloudflare Vars、Secrets、D1 Schema、部署或資料。最新 HEAD Hosted CI + 正式 Codex Review + Merge Gate 全過才能合併。
 
 

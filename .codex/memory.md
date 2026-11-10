@@ -1,5 +1,8 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-10 Current Focus｜Phase 4A 三平台 CRUD 一致性（本 PR，CI/Review 待驗）**：#161 D1 CRUD backend 與 #162 Native Owner CRUD UI 都已 Squash Merge；main `a488764ce68f0ea12e3b66ab4d18c6fe044e98ae`，Postmerge Verify #42726379418 completed/success。此階段先修 Vercel Demo create 未套 shared command contract／重複門市及 SKU、Demo 已停用門市不可更名（本機/D1 可更名）的行為差異，使用 VM/browser synthetic + SQLite + Worker D1 adapter 三路回歸驗證，更新 SHA256 pin。**不得將 synthetic CI 宣稱 Production UAT**。Owner 實機登入／登出／Session 401、active Worker/Asset SHA、正式 Gate 仍待業主操作；本階段不碰正式 Cloudflare Vars、Secrets、D1 Schema、部署或資料。最新 HEAD Hosted CI + 正式 Codex Review + Merge Gate 全過才能合併。
+
+
 > **2026-11-09 Current Focus｜正式 Owner 表單 label 與控制項修正（PR 待 Hosted CI/Codex）**：PR #157 已 Squash Merge 主線 `3ec68a3506bca5c53e30956ceddc295b2c94db22`，補齊已載入資料本機分頁。接著發現正式 D1 新增門市／食材、工作、叫貨、盤點、維修表單的可見 label 與控制項被當成相鄰 flex items，易產生錯位且缺少語意關聯。本次以共用 labeledField 將 input/select/textarea 內嵌於 label，補靜態回歸、CSS 與閉鎖 SHA；不改 API/Worker/Cloudflare Gate/D1。正式 Owner UAT、資產版本與 Session 撤銷仍待實機。未完成 HEAD Hosted 5/5、正式 Codex Review、Clean Gate 前不可稱已合併。
 
 
@@ -674,3 +677,5 @@
 > **2026-11-08 NEXT｜Native stocktake D1 with snapshot and atomic ledger (PR pending)**: Main #148 merged 4298edcf067cc3ca2fd43c6bb0850d33dc75ab55, postmerge CI 5/5, Workers Build and Vercel successful. Staff creates counts against stock_moves snapshot, Owner/Manager confirmation must revalidate unchanged ledger inside transaction; writes adjustment and audit atomically, no zero-delta move. Dedicated dormant CLOUD_NATIVE_STOCKTAKE_WRITE_GATE. Real D1 UAT, Owner enrollment, Cloudflare activation not authorized. Latest HEAD hosted CI/Codex formal clean needed before merge.
 
 > **2026-11-08 NEXT｜Native D1 repairs staff reporting + scoped manager assignment/closure (PR pending)**: Following native D1 stocktake integrated PR #149 on integration commit 01ea2106209befd148be48f4dfc534c9e27b4523, add dormant gated repairs create/status with D1 atomic audits and stale-status/old-assignee compare-and-set, active manager/staff assignee same-store checks, native browser operations and synthetic role/rollback tests. Requires independently reviewed latest HEAD CI + formal Codex 0 findings and a single Main release. Production Owner/Secrets/login/repair gate remain disabled, no live writes.
+
+> **2026-11-10 Review handoff（Phase 4A）**：首輪 Codex Review 在 `c5cdadbae539f108ffee1dc7d76c8b74ed0af947` 找到有效 P2：Vercel Demo `showForm` 的食材新增表單 `min_stock` 原為 FormData 字串，原 PR 新增的 `normalizeCatalogCommand` 會拒絕。已修正 UI `catalogCreatePayload` 在送 API 前轉為 Number 並正規化；補合成測以真實 UI 函式處理 FormData 等價字串後送 Mock API，保留輸入錯誤拒絕行為。變更 SHA256 Pin 已更新。**尚需最新 HEAD CI/Codex Completed 與 Clean Gate；不可把上一 HEAD CI PASS 當成修正驗證。**

@@ -10,8 +10,7 @@ const token='synthetic-unprivileged-fixture-token-000000000';
 function dbFixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  db.exec(fs.readFileSync(path.join(root,'cloudflare/migrations/0001_initial_v3.sql'),'utf8'));
- db.exec('CREATE TABLE cloud_schema_contract(id INTEGER PRIMARY KEY,contract_version INTEGER NOT NULL);');
- db.exec('INSERT INTO cloud_schema_contract VALUES(1,3)');
+ // 0001_initial_v3.sql already contains the v3 schema contract row.
  db.exec('CREATE TABLE d1_migrations(name TEXT PRIMARY KEY);');
  db.exec("INSERT INTO d1_migrations VALUES('0001_initial_v3.sql'),('0002_login_attempts_window_indexes.sql')");
  const id='61d29848-4153-4d0a-8db2-bfaee0d6f625';

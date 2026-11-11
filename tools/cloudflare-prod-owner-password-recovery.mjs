@@ -76,68 +76,8 @@ export async function inspectProductionOwnerRecovery(token,transport=fetch){
  }catch{fail('READ_PRECHECK');}
  return row;
 }
-export function recoveryBatch(before,credentials,auditId){
- if(!before||!/^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/.test(credentials?.password_hash||'')||
-   !/^[0-9a-f]{32}$/.test(credentials?.password_salt||'')||
-   !/^[0-9a-f-]{36}$/i.test(auditId||''))fail('INVALID_STATE');
- // Guard target identity, pristine bootstrap history and old credential CAS.
- const update=`UPDATE users SET password_salt=?,password_hash=?
- WHERE id=? AND username='owner' COLLATE NOCASE AND role='owner' AND active=1
- AND password_salt=? AND password_hash=?
- AND (SELECT COUNT(*) FROM users WHERE role='owner')=1
- AND (SELECT COUNT(*) FROM audit_logs WHERE actor_name='production-bootstrap'
-  AND action='auth.owner_bootstrap' AND entity='users' AND entity_id=?)=1
- AND (SELECT contract_version FROM cloud_schema_contract WHERE id=1)=3`;
- const deletion=`DELETE FROM sessions WHERE user_id=? AND EXISTS(
- SELECT 1 FROM users WHERE id=? AND password_salt=? AND password_hash=?)`;
- const audit=`INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,detail)
- SELECT ?,'production-password-recovery','auth.password_reset','users',id,'{}'
- FROM users WHERE id=? AND password_salt=? AND password_hash=?`;
- return [
-  {sql:update,params:[credentials.password_salt,credentials.password_hash,
-    before.owner_id,before.password_salt,before.password_hash,before.owner_id]},
-  {sql:deletion,params:[before.owner_id,before.owner_id,
-    credentials.password_salt,credentials.password_hash]},
-  {sql:audit,params:[auditId,before.owner_id,credentials.password_salt,credentials.password_hash]}
- ];
-}
-export async function resetExistingProductionOwner({token,newPassword,approval,transport=fetch}){
- // Disabled until a verified Worker D1Database.batch() path replaces REST batch.
- // The Cloudflare REST batch rollback guarantee has not been established.
- fail('UNSAFE_REST_DISABLED');
- if(approval!==RESET_APPROVAL)fail('EXPLICIT_APPROVAL');
- if(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256||
-    /[\u0000-\u001f\u007f]/.test(newPassword))fail('PASSWORD_INPUT');
- const before=await inspectProductionOwnerRecovery(token,transport);
- const credentials=await hashWorkerPassword(newPassword);
- const batch=recoveryBatch(before,credentials,crypto.randomUUID());
- try{
-  // A single explicitly approved remote write batch; NEVER retry on timeouts.
-  await queryD1(token,{batch},3,transport);
- }catch{fail('REMOTE_WRITE_UNCERTAIN');}
- let after;
- try{after=await inspectProductionOwnerRecovery(token,transport);}
- catch{fail('READ_POSTCHECK');}
- if(after.owner_id!==before.owner_id||
-   after.password_salt!==credentials.password_salt||
-   after.password_hash!==credentials.password_hash||
-   after.recovery_audits!==before.recovery_audits+1||
-   after.active_session_rows!==0||
-   after.business_rows!==before.business_rows||
-   after.bootstrap_audits!==before.bootstrap_audits)fail('READ_POSTCHECK');
- return Object.freeze({
-  status:'PRODUCTION_OWNER_PASSWORD_RESET_VERIFIED',
-  schema_version:3,owner_count:1,
-  all_prior_owner_sessions_revoked:true,
-  business_row_counts_unchanged:true,
-  audit_recorded:true,
-  write_batch_attempts:1,
-  owner_recreated:false,
-  login_gate_changed:false,
-  password_in_output:false,
-  remote_restore_performed:false
- });
-}
+// The former REST batch reset is intentionally disabled; no safe REST write fallback.
+export async function resetExistingProductionOwner(){fail('UNSAFE_REST_DISABLED');}
 export const safeRecoverySummary=()=>Object.freeze({
  status:'PRODUCTION_OWNER_PASSWORD_RECOVERY_PRECHECK_PASS',
  schema_version:3,owner_count:1,

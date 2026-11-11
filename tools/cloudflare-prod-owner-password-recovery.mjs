@@ -1,8 +1,8 @@
 // Local only. Manual, one-attempt recovery for an EXISTING Production D1 Owner.
 // This file is NEVER imported by the Cloudflare Worker and exposes no HTTP API.
 import {createInterface} from 'node:readline/promises';
-import {spawn} from 'node:child_process';
-import {createServer} from 'node:net';
+import {spawn,execFileSync} from 'node:child_process';
+import {createServer,createConnection} from 'node:net';
 import {randomUUID} from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -156,6 +156,54 @@ async function rpc(base,route,body){
  if(!response.ok||!data||typeof data.code!=='string')fail('LOCAL_WORKER');
  return data.code;
 }
+// The operator Worker holds a live PRODUCTION D1 binding. A leaked workerd child
+// after npx/cmd exits must never be treated as a clean maintenance shutdown.
+function killWorkerTree(child,force=false){
+ if(!Number.isSafeInteger(child?.pid)||child.pid<=0)return;
+ try{
+  if(process.platform==='win32'){
+   execFileSync('taskkill',['/PID',String(child.pid),'/T','/F'],{
+    windowsHide:true,stdio:'ignore',timeout:10000
+   });
+  }else{
+   // Wrangler/npx and workerd share this dedicated detached process group.
+   process.kill(-child.pid,force?'SIGKILL':'SIGTERM');
+  }
+ }catch{
+  // Child may already have exited. The actual loopback listener probe is
+  // authoritative; a failed signal without listener closure is an error.
+ }
+}
+function listenerOpen(port){
+ return new Promise(resolve=>{
+  if(!Number.isSafeInteger(port)||port<1||port>65535){resolve(true);return;}
+  let done=false;
+  const socket=createConnection({host:'127.0.0.1',port});
+  const settle=open=>{
+   if(done)return;done=true;socket.destroy();resolve(open);
+  };
+  socket.once('connect',()=>settle(true));
+  socket.once('error',()=>settle(false));
+  socket.setTimeout(350,()=>settle(true));
+ });
+}
+async function listenerClosed(port){
+ for(let attempt=0;attempt<20;attempt++){
+  if(!await listenerOpen(port))return true;
+  await new Promise(resolve=>setTimeout(resolve,250));
+ }
+ return false;
+}
+export async function stopRecoveryWorkerProcess(local){
+ if(!local)return;
+ const {child,port}=local;
+ killWorkerTree(child);
+ if(await listenerClosed(port))return;
+ killWorkerTree(child,true);
+ if(await listenerClosed(port))return;
+ fail('LOCAL_WORKER');
+}
+
 async function localWorker(){
  approvedBinding();
  const port=await unusedLocalPort(),base='http://127.0.0.1:'+port;
@@ -165,18 +213,19 @@ async function localWorker(){
  const win=process.platform==='win32';
  const child=spawn(win?'cmd.exe':'npx',
   win?['/d','/s','/c','npx '+args.join(' ')]:args,{
-   cwd:path.join(root,'cloudflare'),stdio:['ignore','ignore','ignore'],windowsHide:true
+   cwd:path.join(root,'cloudflare'),stdio:['ignore','ignore','ignore'],windowsHide:true,
+   detached:true
   });
  let failed=false;
  child.on('error',()=>{failed=true;});child.on('exit',()=>{failed=true;});
  for(let n=0;n<160&&!failed;n++){
   try{
    if(await rpc(base,'/__recovery/ready')==='LOCAL_WORKER_READY')
-    return {base,child};
+    return {base,child,port};
   }catch{}
   await new Promise(resolve=>setTimeout(resolve,750));
  }
- child.kill();fail('LOCAL_WORKER');
+ await stopRecoveryWorkerProcess({child,port});fail('LOCAL_WORKER');
 }
 async function cli(args){
  if(args.length!==1||!['--inspect','--reset'].includes(args[0]))fail('LOCAL_CHECKOUT');
@@ -192,6 +241,11 @@ async function cli(args){
  if(process.env.GITHUB_ACTIONS==='true')fail('LOCAL_CHECKOUT');
  let local;
  try{local=await localWorker();}catch{fail('LOCAL_WORKER');}
+ // Synchronous emergency guard for unexpected Node exit. Normal paths use
+ // awaited group termination plus explicit closed-listener verification.
+ const emergency=()=>killWorkerTree(local.child,true);
+ process.once('exit',emergency);
+ let outcomeMessage;
  try{
   const check=await rpc(local.base,'/__recovery/inspect',{});
   if(check!=='OWNER_RECOVERY_PRECHECK_PASS')fail('READ_PRECHECK');
@@ -213,13 +267,18 @@ async function cli(args){
    });
   }catch{fail('REMOTE_WRITE_UNCERTAIN');}
   if(outcome!=='OWNER_RECOVERY_ATOMIC_VERIFIED')fail('READ_POSTCHECK');
-  process.stdout.write(JSON.stringify({
+  // Only report a verified recovery after privileged Workerd descendants
+  // are terminated and the localhost listener has been confirmed closed.
+  outcomeMessage=Object.freeze({
    status:'PRODUCTION_OWNER_PASSWORD_RESET_VERIFIED',
    worker_d1_atomic_batch:true,all_prior_owner_sessions_revoked:true,
    business_row_counts_unchanged:true,audit_recorded:true,
    password_in_output:false,write_batch_attempts:1
-  })+'\n');
- }finally{local.child.kill();}
+  });
+ }finally{
+  try{await stopRecoveryWorkerProcess(local);}finally{process.off('exit',emergency);}
+ }
+ if(outcomeMessage)process.stdout.write(JSON.stringify(outcomeMessage)+'\n');
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  cli(process.argv.slice(2)).catch(e=>{

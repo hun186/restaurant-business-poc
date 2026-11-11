@@ -95,7 +95,12 @@ test('one approved D1 REST batch updates ONLY existing Owner, audits, revokes se
  assert.equal(batches.length,1);
  assert.equal(batches[0].batch.length,3);
  assert(batches[0].batch.every(x=>Array.isArray(x.params)));
- assert.doesNotMatch(JSON.stringify(status),/salt|hash|token|password/i);
+ assert.equal(status.password_in_output,false);
+ const serialized=JSON.stringify(status);
+ for(const secret of ['new-safe-owner-password-12345',after.password_salt,
+   after.password_hash,token])assert.equal(serialized.includes(secret),false);
+ for(const key of ['password_hash','password_salt','owner_id','csrf_token','api_token'])
+  assert.equal(Object.hasOwn(status,key),false);
 });
 
 test('never writes on invalid approval/password or ambiguous Owner/bootstrap/schema',async t=>{

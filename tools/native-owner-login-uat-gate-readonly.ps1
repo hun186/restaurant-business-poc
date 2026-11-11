@@ -97,8 +97,11 @@ function Get-Fixed($client,[string]$route,[int]$expected){
   $cache=if($null -ne $res.Headers.CacheControl){
    $res.Headers.CacheControl.ToString()
   }else{''}
-  if(-not (($cache -split ',') | ForEach-Object {$_.Trim().ToLowerInvariant()}).
-   Contains('no-store')){Deny 'HTTP' 'CACHE_CONTROL'}
+  $hasNoStore=$false
+  foreach($directive in ($cache -split ',')){
+   if($directive.Trim().ToLowerInvariant() -ceq 'no-store'){$hasNoStore=$true}
+  }
+  if(-not $hasNoStore){Deny 'HTTP' 'CACHE_CONTROL'}
   if($res.Content.Headers.ContentLength -gt $MaxBytes){
    Deny 'HTTP' 'OVERSIZED_RESPONSE'
   }

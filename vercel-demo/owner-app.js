@@ -38,8 +38,16 @@ async function api(url,opts={}){
   }
   return json;
 }
+function clearSensitiveForms(){
+  const pane=$('content');
+  // Hidden workspaces still retain typed credentials unless values are scrubbed.
+  for(const input of pane.querySelectorAll('input[type="password"]'))input.value='';
+  pane.replaceChildren();
+  $('login-form').reset();
+}
 function showLogin(message){
   authEpoch++;csrf=null;role=null;revision++;if(controller)controller.abort();closeMenu();
+  clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
@@ -726,12 +734,14 @@ function renderPasswordChange(marker){
     submit.disabled=true;
     say('正在安全更新密碼…');
     try{
-      await api('/api/password/change',{method:'POST',referrerPolicy:'same-origin',
+      const result=await api('/api/password/change',{method:'POST',referrerPolicy:'same-origin',
         headers:{Accept:'application/json','Content-Type':'application/json',
           'X-CSRF-Token':token},
         body:JSON.stringify({current_password:current.value,new_password:next.value})});
-      form.reset();
       if(!liveAuth(epoch,token))return;
+      if(result?.code!=='OK')
+        throw Error('伺服器未確認密碼已更新，請重新整理並核對登入狀態。');
+      form.reset();
       showLogin();
       say('密碼已更新，所有舊工作階段已撤銷。請使用新密碼重新登入。');
     }catch(e){
@@ -839,7 +849,7 @@ $('login-form').addEventListener('submit',async ev=>{
 });
 $('logout').addEventListener('click',async()=>{
   if(!csrf)return;const token=csrf;authEpoch++;csrf=null;
-  revision++;if(controller)controller.abort();closeMenu();$('workspace').hidden=true;
+  revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','X-CSRF-Token':token}});

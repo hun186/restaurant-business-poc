@@ -102,7 +102,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-public-runtime-readonly.test.js":"e7009ab6561f7015366cb2483bd47003ec923f0714ad80b28866a938ce704176",
   "tests/cloudflare-prod-d1-encrypted-backup.test.js":"d72236dafe7d102ad082d5dce9ab3bf8de8db8d548907888b3140b709f401f87",
   "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",
-  "tests/cloudflare-prod-owner-password-recovery.test.js":"d933e363fdcad4baa4d84949eb00f551c3e037028ef5bd4d90cef5b9b6f8a150",
+  "tests/cloudflare-prod-owner-password-recovery.test.js":"9fa83ef34aa8bb69416699ab797f7bc36af447e310706661f7c7b058284eac2b",
   "tests/cloudflare-prod-owner-operator.test.js":"41f705454d8bda9a7fb34549a634f85f807b7d7636ad1c5eccce4ffd75591d02",
   "tests/cloudflare-prod-auth-activity-readonly.test.js":"f1e98a8ca34e56369dc1e551450a8ea60bb688eb8d5bea0cb3d685129fa9aef5",
   "tests/cloudflare-prod-enrolled-owner-readonly.test.js":"103d473e49b6068dd6f41e7b5d002e10db73a95c87438b0a1251b3267244613b",

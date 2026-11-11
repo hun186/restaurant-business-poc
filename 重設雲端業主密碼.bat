@@ -11,6 +11,7 @@ echo.
 echo ===== Production D1 Owner password recovery =====
 echo Only for a forgotten Owner password. Existing users, shops and inventory are preserved.
 echo No Cloudflare token or password is stored in this launcher.
+echo Safe reset uses localhost Wrangler remote D1 Binding, not REST batch.
 echo [1] Check existing Owner and database integrity - READ ONLY
 echo [2] Reset existing Owner password - ONE explicitly approved Production D1 write
 echo.
@@ -25,6 +26,7 @@ goto end
 :reset
 echo.
 echo IMPORTANT: Use in a scheduled maintenance moment. Secure your backup first.
+echo Cloudflare Wrangler login must already be completed on this trusted PC.
 echo The reset will revoke ALL active Owner sessions, and cannot be auto-retried.
 node tools\cloudflare-prod-owner-password-recovery.mjs --reset
 set "RESULT=%ERRORLEVEL%"

@@ -195,10 +195,10 @@ function workerTreeStillAlive(local){
   const listing=execFileSync('ps',['-eo','pgid=,stat='],{
    encoding:'utf8',timeout:4000,maxBuffer:4*1024*1024,stdio:['ignore','pipe','ignore']
   });
-  const lines=listing.split(/\\r?\\n/).filter(Boolean);
+  const lines=listing.split(/\r?\n/).filter(Boolean);
   if(!lines.length)return true;
   return lines.some(line=>{
-   const parts=line.trim().split(/\\s+/);
+   const parts=line.trim().split(/\s+/);
    return Number(parts[0])===pid&&!/^Z/.test(parts[1]||'');
   });
  }catch{return true;}

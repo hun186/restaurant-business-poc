@@ -103,3 +103,50 @@ test('native Owner login, logout and catalog-create form enforce auth and view e
  assert.match(source,/if\(!liveAuth\(epoch,token\)\)return;[\s\S]*?if\(marker===revision\)await refresh\(\)/);
  assert.doesNotMatch(source,/localStorage|sessionStorage|mock\.js/);
 });
+
+test('showLogin scrubs current/new password fields and detached data before revealing login',()=>{
+ const panePasswords=[{value:'current-secret'},{value:'new-secret'},{value:'confirmation-secret'}];
+ const pane={removed:false,querySelectorAll:selector=>{
+  assert.equal(selector,'input[type="password"]');return panePasswords;
+ },replaceChildren(){this.removed=true;}};
+ const loginForm={resetCalls:0,reset(){this.resetCalls++;}};
+ const nodes={
+  content:pane,'login-form':loginForm,
+  workspace:{hidden:false},locked:{hidden:true},login:{hidden:true},
+  identity:{textContent:'previous owner'}
+ };
+ const trace={aborted:0,menuClosed:0,notice:[]};
+ const ctx=vm.createContext({
+  authEpoch:4,csrf:'previous-csrf',role:'owner',revision:7,
+  controller:{abort(){trace.aborted++;}},
+  closeMenu(){trace.menuClosed++;},
+  $:name=>nodes[name],
+  say:(message,error)=>trace.notice.push({message,error})
+ });
+ const code=take('function clearSensitiveForms(){','function showLogin(message){')+
+  take('function showLogin(message){','function table(entity,rows){');
+ vm.runInContext(code+'\\nthis.invoke=showLogin;',ctx);
+ ctx.invoke('登入已失效。');
+ assert.deepEqual(panePasswords.map(x=>x.value),['','','']);
+ assert.equal(pane.removed,true);
+ assert.equal(loginForm.resetCalls,1);
+ assert.equal(ctx.authEpoch,5);
+ assert.equal(ctx.csrf,null);
+ assert.equal(ctx.role,null);
+ assert.equal(ctx.revision,8);
+ assert.equal(trace.aborted,1);
+ assert.equal(trace.menuClosed,1);
+ assert.equal(nodes.workspace.hidden,true);
+ assert.equal(nodes.login.hidden,false);
+ assert.equal(nodes.identity.textContent,'');
+});
+
+test('logout scrubs credentials before sending the remote logout request',()=>{
+ const begin=source.indexOf("$('logout').addEventListener('click'");
+ const end=source.indexOf("for(const b of document.querySelectorAll('#nav button[data-view]')",begin);
+ assert(begin>=0&&end>begin,'logout handler not found');
+ const logout=source.slice(begin,end);
+ const cleared=logout.indexOf('clearSensitiveForms();');
+ const request=logout.indexOf("await api('/api/logout'");
+ assert(cleared>0&&request>cleared,'credentials must be scrubbed before request');
+});

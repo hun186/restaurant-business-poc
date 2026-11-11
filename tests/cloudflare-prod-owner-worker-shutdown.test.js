@@ -131,3 +131,35 @@ test('SIGTERM during active recovery closes detached Worker descendants',{
 test('SIGINT (Ctrl+C) during Worker startup closes descendants',{
  timeout:25000
 },async t=>signalCase(t,'SIGINT','startup'));
+
+test('closed startup port is not accepted while SIGTERM-resistant descendant can still bind', {timeout:25000},async t=>{
+ const port=await freePort();
+ // A synthetic grandchild ignores SIGTERM and opens a port 1.7s later.
+ // The test synchronizes on its readiness BEFORE the port is open.
+ const delayedChild=`process.on('SIGTERM',()=>{});
+  process.stdout.write('READY');
+  setTimeout(()=>require('node:net').createServer(()=>{}).listen(${port},'127.0.0.1'),1700);
+  setInterval(()=>{},1000);`;
+ const parentScript=`const child=require('node:child_process').spawn(process.execPath,
+  ['-e',${JSON.stringify(delayedChild)}],{stdio:['ignore','pipe','ignore'],windowsHide:true});
+  child.stdout.once('data',()=>process.stdout.write('READY'));
+  process.on('SIGTERM',()=>{});
+  setInterval(()=>{},1000);`;
+ const child=spawn(process.execPath,['-e',parentScript],{
+  detached:true,stdio:['ignore','pipe','ignore'],windowsHide:true
+ });
+ t.after(()=>emergencyKill(child));
+ const started=await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>reject(Error('grandchild startup timeout')),9000);
+  child.stdout.once('data',chunk=>{clearTimeout(timer);resolve(String(chunk));});
+  child.once('exit',code=>{clearTimeout(timer);reject(Error('launcher exited: '+code));});
+ });
+ assert.match(started,/READY/);
+ assert.equal(await open(port),false,'listener must not exist during cleanup');
+ const r=await recovery;
+ await r.stopRecoveryWorkerProcess({child,port});
+ assert.equal(await open(port),false);
+ await delay(2200);
+ assert.equal(await open(port),false,
+  'delayed descendant must not revive the privileged listener after cleanup');
+});

@@ -1,5 +1,6 @@
 import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs';
 import {normalizeCatalogCommand} from './catalog-crud-contract.mjs';
+import {nativeOwnerCapability} from './native-owner-capability.mjs';
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
@@ -729,13 +730,14 @@ function closeMenu(returnFocus=false){
 function syncView(){
   $('crumb').textContent=labels[view];
   $('section-hint').textContent=viewHints[view];
-  const writable=(view==='tasks'&&writeEnabled)||
-    ((view==='ingredients'||view==='locations')&&catalogWriteEnabled&&role==='owner')||
-    (view==='purchase_orders'&&orderWriteEnabled)||
-    (view==='stocktakes'&&stocktakeWriteEnabled)||
-    (view==='repairs'&&repairWriteEnabled);
-  $('capability').textContent=writable?'操作已啟用':'唯讀';
-  $('capability').classList.toggle('enabled',Boolean(writable));
+  const capability=nativeOwnerCapability({view,role,task:writeEnabled,
+    catalog:catalogWriteEnabled,order:orderWriteEnabled,
+    stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled});
+  $('operation-mode').textContent=capability.systemLabel;
+  $('operation-mode').classList.toggle('enabled',capability.systemWritable);
+  $('capability').textContent=capability.pageLabel;
+  $('capability').classList.toggle('enabled',capability.pageWritable);
+  $('capability-detail').textContent=capability.description;
   for(const b of document.querySelectorAll('#nav button[data-view]')){
     const selected=b.dataset.view===view;
     b.classList.toggle('active',selected);

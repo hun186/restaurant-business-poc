@@ -1,5 +1,6 @@
 import { inspectD1Contract } from './d1-readiness.mjs';
 import { nativeLoginHttp,nativeLoginEnabled } from './native-login-http.mjs';
+import {nativePasswordChangeHttp} from './native-password-change-http.mjs';
 import { nativeBusinessReadHttp } from './native-business-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
@@ -39,6 +40,7 @@ export default {
         repair_write_enabled:nativeRepairWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
+    if (pathname === '/api/password/change') return nativePasswordChangeHttp(request,env);
     if (pathname === '/api/task') return nativeTaskHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
     if (pathname === '/api/order') return nativeOrderHttp(request,env);

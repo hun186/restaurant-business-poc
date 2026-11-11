@@ -16,6 +16,13 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
   repairs:repair
  };
  const pageWritable=WRITE_VIEWS.has(view)&&Boolean(writable[view]);
+ if(view==='account')return Object.freeze({
+  systemLabel:anyWrite?'正式營運模式':'登入服務已啟用',
+  systemWritable:anyWrite,
+  pageLabel:'帳號安全・密碼管理',
+  pageWritable:true,
+  description:'可變更本人的登入密碼；不受門市等業務寫入開關影響。成功後所有裝置須重新登入。'
+ });
  if(view==='overview')return Object.freeze({
   systemLabel:anyWrite?'正式營運模式':'登入服務已啟用',
   systemWritable:anyWrite,

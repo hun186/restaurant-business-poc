@@ -5,7 +5,7 @@ import {nativeOwnerCapability} from './native-owner-capability.mjs';
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   stock:'庫存',stocktakes:'盤點',repairs:'維修',shifts:'排班',ingredients:'食材',
-  locations:'門市',training_courses:'訓練'};
+  locations:'門市',training_courses:'訓練',account:'我的帳號'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
@@ -15,7 +15,8 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
   shifts:'班表資訊（目前唯讀）',ingredients:'食材及安全庫存主檔',
-  locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）'};
+  locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）',
+  account:'個人密碼變更與登入安全'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false;
@@ -700,9 +701,60 @@ async function taskActions(rows,marker){
   if(count)content.append(list);
 }
 
+function renderPasswordChange(marker){
+  const panel=$('content'),heading=el('h2','變更密碼'),note=el('p',
+    '輸入目前密碼及新密碼（至少 12 個字元）。成功後所有已登入裝置都須重新登入。'),
+    form=el('form'),current=el('input'),next=el('input'),confirm=el('input'),
+    submit=el('button','更新密碼');
+  form.id='password-change-form';
+  const fields=[[current,'目前密碼','current-password'],
+    [next,'新密碼','new-password'],[confirm,'再次輸入新密碼','new-password']];
+  for(const [input,title,auto] of fields){
+    input.name=auto==='current-password'?'current_password':
+      input===next?'new_password':'confirm_password';
+    input.type='password';input.required=true;input.minLength=12;input.maxLength=256;
+    input.autocomplete=auto;
+    form.append(labeledField(title,input));
+  }
+  submit.type='submit';submit.className='btn primary';form.append(submit);
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(marker!==revision||!csrf)return;
+    if(next.value!==confirm.value){say('兩次輸入的新密碼不一致。',true);return;}
+    if(current.value===next.value){say('新密碼不能與目前密碼相同。',true);return;}
+    const token=csrf,epoch=authEpoch;
+    submit.disabled=true;
+    say('正在安全更新密碼…');
+    try{
+      await api('/api/password/change',{method:'POST',referrerPolicy:'same-origin',
+        headers:{Accept:'application/json','Content-Type':'application/json',
+          'X-CSRF-Token':token},
+        body:JSON.stringify({current_password:current.value,new_password:next.value})});
+      form.reset();
+      if(!liveAuth(epoch,token))return;
+      showLogin();
+      say('密碼已更新，所有舊工作階段已撤銷。請使用新密碼重新登入。');
+    }catch(e){
+      current.value='';next.value='';confirm.value='';
+      if(!liveAuth(epoch,token))return;
+      if(e.code==='E_INVALID_CURRENT_PASSWORD')say('目前密碼不正確，請重新輸入。',true);
+      else if(e.code==='E_PASSWORD_FORMAT')say('請輸入兩組不同且至少 12 字元的有效密碼。',true);
+      else if(e.status===401)showLogin('工作階段已失效，請重新登入。');
+      else say(e.message||'密碼未能更新，請重新整理後再試。',true);
+    }finally{submit.disabled=false;}
+  });
+  panel.append(heading,note,form);
+}
+
 async function refresh(){
   const marker=++revision;if(controller)controller.abort();
-  controller=new AbortController();$('content').replaceChildren();say('正在讀取真實 D1 資料…');
+  controller=new AbortController();$('content').replaceChildren();
+  if(view==='account'){
+    renderPasswordChange(marker);
+    say('可安全變更密碼；此操作不會修改營運資料。');
+    return;
+  }
+  say('正在讀取真實 D1 資料…');
   try{
     const url=view==='overview'?'/api/overview':'/api/data?entity='+encodeURIComponent(view);
     const data=await api(url,{signal:controller.signal});

@@ -42,7 +42,7 @@ function fixture(){
  const inputs=Object.fromEntries(form.children.flatMap(n=>n.children||[])
   .filter(n=>n.kind==='input').map(n=>[n.name,n]));
  assert.deepEqual(Object.keys(inputs).sort(),
-  ['current_password','new_password','confirm_password']);
+  ['confirm_password','current_password','new_password']);
  function submit(){
   inputs.current_password.value='old-synthetic-password-123';
   inputs.new_password.value='new-synthetic-password-123';

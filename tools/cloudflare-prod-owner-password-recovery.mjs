@@ -158,21 +158,69 @@ async function rpc(base,route,body){
 }
 // The operator Worker holds a live PRODUCTION D1 binding. A leaked workerd child
 // after npx/cmd exits must never be treated as a clean maintenance shutdown.
-function killWorkerTree(child,force=false){
- if(!Number.isSafeInteger(child?.pid)||child.pid<=0)return;
+function killWorkerTree(child,force=true){
+ if(!Number.isSafeInteger(child?.pid)||child.pid<=0)return false;
  try{
   if(process.platform==='win32'){
+   // Taskkill /T tracks descendants while the launcher still exists. Unlike
+   // child.kill(), this terminates npx/cmd plus nested Wrangler/workerd.
    execFileSync('taskkill',['/PID',String(child.pid),'/T','/F'],{
     windowsHide:true,stdio:'ignore',timeout:10000
    });
   }else{
-   // Wrangler/npx and workerd share this dedicated detached process group.
+   // Detached Wrangler/npx/workerd share a dedicated process group.
+   // SIGTERM may be ignored and a not-yet-listening descendant can revive.
+   // SIGKILL prevents a delayed privileged listener from ever starting.
    process.kill(-child.pid,force?'SIGKILL':'SIGTERM');
   }
- }catch{
-  // Child may already have exited. The actual loopback listener probe is
-  // authoritative; a failed signal without listener closure is an error.
+  return true;
+ }catch(e){
+  return process.platform!=='win32'&&e?.code==='ESRCH';
  }
+}
+function workerTreeStillAlive(local){
+ const pid=local?.child?.pid;
+ if(!Number.isSafeInteger(pid)||pid<=0)return true;
+ if(process.platform==='win32'){
+  // Success of taskkill /PID ... /T /F is mandatory on Windows. A missing
+  // parent PID alone cannot prove that its descendants were removed.
+  if(!local.windowsTreeKillConfirmed)return true;
+  try{process.kill(pid,0);return true;}
+  catch(e){return e?.code!=='ESRCH';}
+ }
+ try{
+  // kill(-pgid, 0) also sees zombies. Read pgid and process state instead:
+  // only non-zombie processes can later start a privileged listener.
+  // Unknown/unparseable process snapshots fail CLOSED.
+  const listing=execFileSync('ps',['-eo','pgid=,stat='],{
+   encoding:'utf8',timeout:4000,maxBuffer:4*1024*1024,stdio:['ignore','pipe','ignore']
+  });
+  const lines=listing.split(/\\r?\\n/).filter(Boolean);
+  if(!lines.length)return true;
+  return lines.some(line=>{
+   const parts=line.trim().split(/\\s+/);
+   return Number(parts[0])===pid&&!/^Z/.test(parts[1]||'');
+  });
+ }catch{return true;}
+}
+async function terminateWorkerTree(local){
+ const {child,port}=local;
+ for(let attempt=0;attempt<32;attempt++){
+  const killed=killWorkerTree(child,true);
+  if(process.platform==='win32'&&killed)local.windowsTreeKillConfirmed=true;
+  // A closed port alone is NEVER enough: delayed startup can reopen it.
+  // Termination MUST be proven independently before listener verification.
+  const processGone=!workerTreeStillAlive(local);
+  const socketGone=!await listenerOpen(port);
+  if(processGone&&socketGone){
+   // Recheck after a short grace interval so a late workerd bind cannot
+   // appear between the process snapshot and this return.
+   await new Promise(resolve=>setTimeout(resolve,100));
+   if(!workerTreeStillAlive(local)&&!await listenerOpen(port))return;
+  }
+  await new Promise(resolve=>setTimeout(resolve,250));
+ }
+ fail('LOCAL_WORKER');
 }
 function listenerOpen(port){
  return new Promise(resolve=>{
@@ -196,17 +244,9 @@ async function listenerClosed(port){
 }
 export async function stopRecoveryWorkerProcess(local){
  if(!local)return;
- // A signal can arrive during normal cleanup. All callers await the same
- // operation rather than racing one another or printing premature success.
+ // Never let a second SIGINT/SIGTERM accept an early closed startup port.
  if(local.stopPromise)return local.stopPromise;
- local.stopPromise=(async()=>{
-  const {child,port}=local;
-  killWorkerTree(child);
-  if(await listenerClosed(port))return;
-  killWorkerTree(child,true);
-  if(await listenerClosed(port))return;
-  fail('LOCAL_WORKER');
- })();
+ local.stopPromise=terminateWorkerTree(local);
  return local.stopPromise;
 }
 
@@ -228,13 +268,13 @@ export function installRecoverySignalGuard(local,{
   void (async()=>{
    let safe=false;
    try{await stopRecoveryWorkerProcess(local);safe=true;}catch{}
-   // A signal must NEVER exit with an unverified live Production D1 endpoint.
-   // Retry a hard process-tree kill until TCP confirms it has disappeared.
+   // Even on a verification failure, do not exit just because the socket is
+   // presently closed: the Worker may still be in its startup phase.
    while(!safe){
-    process.stderr.write(FAIL+' stage=LOCAL_WORKER cleanup_not_confirmed; retrying.\\n');
-    killWorkerTree(local.child,true);
-    safe=await listenerClosed(local.port);
-    if(!safe)await new Promise(resolve=>setTimeout(resolve,1000));
+    process.stderr.write(FAIL+' stage=LOCAL_WORKER tree_not_confirmed; retrying.\\n');
+    try{await terminateWorkerTree(local);safe=true;}catch{
+     await new Promise(resolve=>setTimeout(resolve,1000));
+    }
    }
    dispose();
    exit(signal==='SIGINT'?130:143);

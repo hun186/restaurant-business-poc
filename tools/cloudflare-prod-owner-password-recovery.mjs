@@ -196,12 +196,61 @@ async function listenerClosed(port){
 }
 export async function stopRecoveryWorkerProcess(local){
  if(!local)return;
- const {child,port}=local;
- killWorkerTree(child);
- if(await listenerClosed(port))return;
- killWorkerTree(child,true);
- if(await listenerClosed(port))return;
- fail('LOCAL_WORKER');
+ // A signal can arrive during normal cleanup. All callers await the same
+ // operation rather than racing one another or printing premature success.
+ if(local.stopPromise)return local.stopPromise;
+ local.stopPromise=(async()=>{
+  const {child,port}=local;
+  killWorkerTree(child);
+  if(await listenerClosed(port))return;
+  killWorkerTree(child,true);
+  if(await listenerClosed(port))return;
+  fail('LOCAL_WORKER');
+ })();
+ return local.stopPromise;
+}
+
+// Install while the detached child is spawned, BEFORE startup polling.
+// Node's default SIGTERM/SIGINT termination skips the normal async finally.
+// The signal handler must finish verified descendant cleanup before exit.
+export function installRecoverySignalGuard(local,{
+ eventSource=process,
+ exit=code=>process.exit(code)
+}={}){
+ if(!local||!Number.isSafeInteger(local.child?.pid)||
+    !Number.isSafeInteger(local.port))fail('LOCAL_WORKER');
+ let disposed=false,interruptionStarted=false;
+ const emergency=()=>killWorkerTree(local.child,true);
+ const onSignal=signal=>{
+  local.interrupted=true;
+  if(interruptionStarted||disposed)return;
+  interruptionStarted=true;
+  void (async()=>{
+   let safe=false;
+   try{await stopRecoveryWorkerProcess(local);safe=true;}catch{}
+   // A signal must NEVER exit with an unverified live Production D1 endpoint.
+   // Retry a hard process-tree kill until TCP confirms it has disappeared.
+   while(!safe){
+    process.stderr.write(FAIL+' stage=LOCAL_WORKER cleanup_not_confirmed; retrying.\\n');
+    killWorkerTree(local.child,true);
+    safe=await listenerClosed(local.port);
+    if(!safe)await new Promise(resolve=>setTimeout(resolve,1000));
+   }
+   dispose();
+   exit(signal==='SIGINT'?130:143);
+  })();
+ };
+ const sigint=()=>onSignal('SIGINT'),sigterm=()=>onSignal('SIGTERM');
+ const dispose=()=>{
+  if(disposed)return;
+  disposed=true;
+  eventSource.off('SIGINT',sigint);eventSource.off('SIGTERM',sigterm);
+  eventSource.off('exit',emergency);
+ };
+ eventSource.on('SIGINT',sigint);
+ eventSource.on('SIGTERM',sigterm);
+ eventSource.on('exit',emergency);
+ return dispose;
 }
 
 async function localWorker(){
@@ -216,16 +265,25 @@ async function localWorker(){
    cwd:path.join(root,'cloudflare'),stdio:['ignore','ignore','ignore'],windowsHide:true,
    detached:true
   });
+ const local={base,child,port,interrupted:false};
+ // No await or timer between spawn and installing the signal handlers.
+ local.disposeSignals=installRecoverySignalGuard(local);
  let failed=false;
  child.on('error',()=>{failed=true;});child.on('exit',()=>{failed=true;});
- for(let n=0;n<160&&!failed;n++){
-  try{
-   if(await rpc(base,'/__recovery/ready')==='LOCAL_WORKER_READY')
-    return {base,child,port};
-  }catch{}
-  await new Promise(resolve=>setTimeout(resolve,750));
+ try{
+  for(let n=0;n<160&&!failed&&!local.interrupted;n++){
+   try{
+    if(await rpc(base,'/__recovery/ready')==='LOCAL_WORKER_READY'&&
+       !local.interrupted)return local;
+   }catch{}
+   if(local.interrupted)break;
+   await new Promise(resolve=>setTimeout(resolve,750));
+  }
+  fail('LOCAL_WORKER');
+ }catch(e){
+  try{await stopRecoveryWorkerProcess(local);}finally{local.disposeSignals();}
+  throw e;
  }
- await stopRecoveryWorkerProcess({child,port});fail('LOCAL_WORKER');
 }
 async function cli(args){
  if(args.length!==1||!['--inspect','--reset'].includes(args[0]))fail('LOCAL_CHECKOUT');
@@ -241,14 +299,11 @@ async function cli(args){
  if(process.env.GITHUB_ACTIONS==='true')fail('LOCAL_CHECKOUT');
  let local;
  try{local=await localWorker();}catch{fail('LOCAL_WORKER');}
- // Synchronous emergency guard for unexpected Node exit. Normal paths use
- // awaited group termination plus explicit closed-listener verification.
- const emergency=()=>killWorkerTree(local.child,true);
- process.once('exit',emergency);
  let outcomeMessage;
  try{
+  if(local.interrupted)fail('LOCAL_WORKER');
   const check=await rpc(local.base,'/__recovery/inspect',{});
-  if(check!=='OWNER_RECOVERY_PRECHECK_PASS')fail('READ_PRECHECK');
+  if(local.interrupted||check!=='OWNER_RECOVERY_PRECHECK_PASS')fail('READ_PRECHECK');
   process.stdout.write('Production Owner: precheck passed. Worker Binding atomic batch only.\n');
   const rl=createInterface({input:process.stdin,output:process.stdout});
   let approval='';
@@ -260,6 +315,7 @@ async function cli(args){
   if(first!==second||first.length<12||first.length>256||
      /[\u0000-\u001f\u007f]/.test(first))fail('PASSWORD_INPUT');
   const credentials=await hashWorkerPassword(first);
+  if(local.interrupted)fail('LOCAL_WORKER');
   let outcome;
   try{
    outcome=await rpc(local.base,'/__recovery/reset',{
@@ -276,7 +332,8 @@ async function cli(args){
    password_in_output:false,write_batch_attempts:1
   });
  }finally{
-  try{await stopRecoveryWorkerProcess(local);}finally{process.off('exit',emergency);}
+  try{await stopRecoveryWorkerProcess(local);}
+  finally{local.disposeSignals();}
  }
  if(outcomeMessage)process.stdout.write(JSON.stringify(outcomeMessage)+'\n');
 }

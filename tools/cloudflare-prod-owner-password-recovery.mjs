@@ -98,6 +98,9 @@ export function recoveryBatch(before,credentials,auditId){
  ];
 }
 export async function resetExistingProductionOwner({token,newPassword,approval,transport=fetch}){
+ // Disabled until a verified Worker D1Database.batch() path replaces REST batch.
+ // The Cloudflare REST batch rollback guarantee has not been established.
+ fail('UNSAFE_REST_DISABLED');
  if(approval!==RESET_APPROVAL)fail('EXPLICIT_APPROVAL');
  if(typeof newPassword!=='string'||newPassword.length<12||newPassword.length>256||
     /[\u0000-\u001f\u007f]/.test(newPassword))fail('PASSWORD_INPUT');

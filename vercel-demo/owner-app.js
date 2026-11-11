@@ -38,8 +38,16 @@ async function api(url,opts={}){
   }
   return json;
 }
+function clearSensitiveForms(){
+  const pane=$('content');
+  // Hidden workspaces still retain typed credentials unless values are scrubbed.
+  for(const input of pane.querySelectorAll('input[type="password"]'))input.value='';
+  pane.replaceChildren();
+  $('login-form').reset();
+}
 function showLogin(message){
   authEpoch++;csrf=null;role=null;revision++;if(controller)controller.abort();closeMenu();
+  clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
@@ -839,7 +847,7 @@ $('login-form').addEventListener('submit',async ev=>{
 });
 $('logout').addEventListener('click',async()=>{
   if(!csrf)return;const token=csrf;authEpoch++;csrf=null;
-  revision++;if(controller)controller.abort();closeMenu();$('workspace').hidden=true;
+  revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','X-CSRF-Token':token}});

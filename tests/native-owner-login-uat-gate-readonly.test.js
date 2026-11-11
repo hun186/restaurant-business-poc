@@ -47,7 +47,7 @@ test('both Windows BAT launchers keep fixed phase, do not prompt for secrets or 
   assert(bat.includes('native-owner-login-uat-gate-readonly.ps1" -Phase '+phase));
   assert.match(bat,/if not "%RESULT%"=="0"/);
   assert.match(bat,/exit \/b %RESULT%/);
-  assert.doesNotMatch(bat,/node |curl |wrangler |CLOUDFLARE_|password|token\s*=/i);
+  assert.doesNotMatch(bat,/node |curl |wrangler |CLOUDFLARE_|Read-Host|Get-Credential|token\s*=/i);
  }
 });
 

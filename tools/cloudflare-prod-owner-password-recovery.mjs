@@ -124,7 +124,7 @@ function approvedBinding(){
  const target=localProductionTarget();
  const db=config.d1_databases;
  if(config.name!=='restaurant-business-owner-recovery-local-only'||
-    config.main!=='./cloudflare/owner-recovery-local-worker.mjs'||
+    config.main!=='./owner-recovery-local-worker.mjs'||
     config.workers_dev!==false||config.preview_urls!==false||
     config.vars?.RECOVERY_LOCAL_MODE!=='operator-loopback-only'||
     !Array.isArray(db)||db.length!==1||db[0].binding!=='DB'||
@@ -160,12 +160,12 @@ async function localWorker(){
  approvedBinding();
  const port=await unusedLocalPort(),base='http://127.0.0.1:'+port;
  const args=['--yes','wrangler@4','dev','--config',
-  'cloudflare/wrangler.owner-recovery.local.jsonc',
+  'wrangler.owner-recovery.local.jsonc',
   '--ip','127.0.0.1','--port',String(port)];
  const win=process.platform==='win32';
  const child=spawn(win?'cmd.exe':'npx',
   win?['/d','/s','/c','npx '+args.join(' ')]:args,{
-   cwd:root,stdio:['ignore','ignore','ignore'],windowsHide:true
+   cwd:path.join(root,'cloudflare'),stdio:['ignore','ignore','ignore'],windowsHide:true
   });
  let failed=false;
  child.on('error',()=>{failed=true;});child.on('exit',()=>{failed=true;});

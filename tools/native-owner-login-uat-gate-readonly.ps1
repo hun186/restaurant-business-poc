@@ -49,8 +49,10 @@ function Assert-Route([string]$phase,[string]$route,[int]$status,$data){
     Deny 'HTTP' 'ANON_LOGIN_METHOD_NOT_BLOCKED'
    }
   }elseif($route -eq '/api/me'){
-   if($status -ne 401 -or (Field $data 'user') -ne $null -or
-      (Field $data 'csrf') -ne $null){Deny 'HTTP' 'ANON_IDENTITY_EXPOSED'}
+   if($status -ne 401 -or $null -ne $data.PSObject.Properties['user'] -or
+      $null -ne $data.PSObject.Properties['csrf']){
+    Deny 'HTTP' 'ANON_IDENTITY_EXPOSED'
+   }
   }else{Deny 'HTTP' 'ROUTE_NOT_ALLOWED'}
  }elseif($phase -eq 'closeout'){
   if($route -ne '/api/login' -and $route -ne '/api/me'){

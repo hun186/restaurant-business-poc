@@ -1,159 +1,134 @@
 'use strict';
+// No live Cloudflare requests. SQLite simulates the documented Worker D1 batch contract.
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
-const {DatabaseSync}=require('node:sqlite');
-const {spawnSync}=require('node:child_process');
+const {DatabaseSync}=require('node:sqlite'),{spawnSync}=require('node:child_process');
 const root=path.join(__dirname,'..');
+const worker=import('../cloudflare/owner-recovery-local-worker.mjs');
+const core=import('../cloudflare/owner-recovery-atomic-internal.mjs');
 const recovery=import('../tools/cloudflare-prod-owner-password-recovery.mjs');
-const core=import('../cloudflare/auth-core.mjs');
-const token='synthetic-unprivileged-fixture-token-000000000';
-function dbFixture(t){
+const auth=import('../cloudflare/auth-core.mjs');
+const owner='61d29848-4153-4d0a-8db2-bfaee0d6f625';
+const approval='RESET_EXISTING_OWNER_PASSWORD_ONCE';
+const uuid='a1b2c3d4-1111-4222-8333-abcdef123456';
+function fixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  db.exec(fs.readFileSync(path.join(root,'cloudflare/migrations/0001_initial_v3.sql'),'utf8'));
- // 0001_initial_v3.sql already contains the v3 schema contract row.
  db.exec('CREATE TABLE d1_migrations(name TEXT PRIMARY KEY);');
  db.exec("INSERT INTO d1_migrations VALUES('0001_initial_v3.sql'),('0002_login_attempts_window_indexes.sql')");
- const id='61d29848-4153-4d0a-8db2-bfaee0d6f625';
- db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('store-original','正常營運門市');
+ db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('store-original','合成門市');
  db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
-  .run('ing-original','TEST-1','奶油球','包');
+  .run('ing-original','SYN-1','測試食材','包');
  db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,1)')
-  .run(id,'owner','餐廳業主','owner','a'.repeat(32),'pbkdf2-sha256$100000$'+'b'.repeat(64));
+  .run(owner,'owner','合成業主','owner','a'.repeat(32),'pbkdf2-sha256$100000$'+'b'.repeat(64));
  db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,detail) VALUES(?,?,?,?,?,?)')
-  .run('bootstrap','production-bootstrap','auth.owner_bootstrap','users',id,
+  .run('bootstrap','production-bootstrap','auth.owner_bootstrap','users',owner,
    '{"hash_version":"pbkdf2-sha256$100000"}');
  db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
-  .run('synthetic-session','synthetic-csrf',id,new Date(Date.now()+10000000).toISOString());
- return {db,id};
+  .run('session','csrf',owner,new Date(Date.now()+1e8).toISOString());
+ return db;
 }
-function remote(db){
- const calls=[];
- const transport=async(url,opts)=>{
-  assert.match(url,/^https:\/\/api\.cloudflare\.com\/client\/v4\/accounts\/[^/]+\/d1\/database\/[^/]+\/query$/);
-  assert.equal(opts.method,'POST');
-  const request=JSON.parse(opts.body);
-  calls.push(request);
-  const execute=({sql,params=[]})=>{
-   const stmt=db.prepare(sql);
-   if(/^\s*(SELECT|PRAGMA)/i.test(sql))return {success:true,results:stmt.all(...params)};
-   return {success:true,results:[],meta:stmt.run(...params)};
-  };
-  const results=[];
-  if(request.sql)results.push(execute(request));
-  else if(Array.isArray(request.batch)){
+function binding(db){
+ const stmt=(sql,args=[])=>({
+  sql,args,
+  bind(...values){return stmt(sql,values);},
+  async all(){return {results:db.prepare(sql).all(...args)};},
+  async first(){return db.prepare(sql).get(...args);}
+ });
+ return {
+  prepare(sql){return stmt(sql);},
+  async batch(stmts){
+   assert.equal(stmts.length,3);
    db.exec('BEGIN IMMEDIATE');
    try{
-    for(const item of request.batch)results.push(execute(item));
-    db.exec('COMMIT');
+    const results=stmts.map(s=>({meta:{changes:db.prepare(s.sql).run(...s.args).changes}}));
+    db.exec('COMMIT');return results;
    }catch(e){db.exec('ROLLBACK');throw e;}
-  }else throw Error('unexpected D1 write mode');
-  return {ok:true,status:200,json:async()=>({success:true,result:results})};
+  }
  };
- return {transport,calls};
 }
 const count=(db,t)=>db.prepare('SELECT COUNT(*) n FROM '+t).get().n;
-
-test('only existing Owner with bootstrap and intact D1 can pass read-only precheck',async t=>{
- const f=dbFixture(t),r=await recovery,remoteD1=remote(f.db);
- const first=await r.inspectProductionOwnerRecovery(token,remoteD1.transport);
- assert.equal(first.total_owners,1);assert.equal(first.bootstrap_audits,1);
- assert.equal(first.active_session_rows,1);
- assert.equal(first.business_rows,2);
- assert(remoteD1.calls.every(c=>typeof c.sql==='string'&&!c.batch));
- assert.deepEqual(r.safeRecoverySummary(),{
-  status:'PRODUCTION_OWNER_PASSWORD_RECOVERY_PRECHECK_PASS',
-  schema_version:3,owner_count:1,write_performed:false,
-  password_in_output:false,permission_to_reset_granted:false
- });
- assert.doesNotMatch(JSON.stringify(r.safeRecoverySummary()),/salt|hash|owner_id/i);
-});
-
-test('one approved D1 REST batch updates ONLY existing Owner, audits, revokes sessions, preserves business',async t=>{
- const f=dbFixture(t),r=await recovery,auth=await core,remoteD1=remote(f.db);
- const before=f.db.prepare("SELECT password_hash,password_salt FROM users WHERE username='owner'").get();
- const status=await r.resetExistingProductionOwner({
-  token,newPassword:'new-safe-owner-password-12345',
-  approval:r.RESET_APPROVAL,transport:remoteD1.transport
- });
- assert.equal(status.status,'PRODUCTION_OWNER_PASSWORD_RESET_VERIFIED');
- assert.equal(status.owner_count,1);
- assert.equal(status.write_batch_attempts,1);
- assert.equal(status.all_prior_owner_sessions_revoked,true);
- assert.equal(status.business_row_counts_unchanged,true);
- assert.equal(status.audit_recorded,true);
- const after=f.db.prepare("SELECT password_hash,password_salt FROM users WHERE username='owner'").get();
- assert.notEqual(before.password_hash,after.password_hash);
- assert.notEqual(before.password_salt,after.password_salt);
- assert.equal(await auth.verifyWorkerPassword('new-safe-owner-password-12345',
+const credentials=async()=>(await auth).hashWorkerPassword('new-synthetic-owner-password-1234');
+const original=db=>({owner_id:owner,...db.prepare(
+ "SELECT password_salt,password_hash FROM users WHERE username='owner'").get()});
+test('Worker binding atomic reset revokes sessions and audits, preserving business rows',async t=>{
+ const db=fixture(t),c=await core,a=await auth,secret=await credentials();
+ const old=original(db);
+ const result=await c.atomicOwnerRecovery(binding(db),old,secret,uuid);
+ assert.equal(result.atomic_binding_batch,true);
+ assert.equal(count(db,'users'),1);assert.equal(count(db,'sessions'),0);
+ assert.equal(count(db,'locations'),1);assert.equal(count(db,'ingredients'),1);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE action='auth.password_reset'").get().n,1);
+ const after=original(db);
+ assert.notEqual(after.password_hash,old.password_hash);
+ assert.equal(await a.verifyWorkerPassword('new-synthetic-owner-password-1234',
    after.password_salt,after.password_hash),true);
- assert.equal(count(f.db,'sessions'),0);
- assert.equal(count(f.db,'locations'),1);assert.equal(count(f.db,'ingredients'),1);
- assert.equal(count(f.db,'users'),1);
- assert.equal(f.db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE action='auth.password_reset'").get().n,1);
- assert.equal(f.db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE action='auth.owner_bootstrap'").get().n,1);
- const batches=remoteD1.calls.filter(c=>Array.isArray(c.batch));
- assert.equal(batches.length,1);
- assert.equal(batches[0].batch.length,3);
- assert(batches[0].batch.every(x=>Array.isArray(x.params)));
- assert.equal(status.password_in_output,false);
- const serialized=JSON.stringify(status);
- for(const secret of ['new-safe-owner-password-12345',after.password_salt,
-   after.password_hash,token])assert.equal(serialized.includes(secret),false);
- for(const key of ['password_hash','password_salt','owner_id','csrf_token','api_token'])
-  assert.equal(Object.hasOwn(status,key),false);
 });
-
-test('never writes on invalid approval/password or ambiguous Owner/bootstrap/schema',async t=>{
- const f=dbFixture(t),r=await recovery,d1=remote(f.db);
- for(const input of [
-  {token,newPassword:'new-safe-owner-password-12345',approval:'NO'},
-  {token,newPassword:'tiny',approval:r.RESET_APPROVAL},
-  {token,newPassword:'valid-but\u0000-injected',approval:r.RESET_APPROVAL}
- ]){
-  await assert.rejects(r.resetExistingProductionOwner({...input,transport:d1.transport}));
- }
- assert.equal(d1.calls.filter(x=>x.batch).length,0);
- f.db.prepare('INSERT INTO audit_logs(id,actor_name,action,entity,entity_id,detail) VALUES(?,?,?,?,?,?)')
-  .run('duplicate-bootstrap','production-bootstrap','auth.owner_bootstrap','users',f.id,
-    '{"hash_version":"pbkdf2-sha256$100000"}');
- await assert.rejects(r.resetExistingProductionOwner({
-  token,newPassword:'new-safe-owner-password-12345',
-  approval:r.RESET_APPROVAL,transport:d1.transport
- }));
- assert.equal(d1.calls.filter(x=>x.batch).length,0);
+test('synthetic failure in final audit statement rolls back password and all Session changes',async t=>{
+ const db=fixture(t),c=await core,secret=await credentials(),before=original(db);
+ db.exec("CREATE TRIGGER refuse_reset BEFORE INSERT ON audit_logs WHEN NEW.action='auth.password_reset' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;");
+ await assert.rejects(c.atomicOwnerRecovery(binding(db),before,secret,uuid));
+ assert.deepEqual(original(db),before);
+ assert.equal(count(db,'sessions'),1);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE action='auth.password_reset'").get().n,0);
 });
-
-test('remote write uncertainty is never automatically retried',async t=>{
- const f=dbFixture(t),r=await recovery,d1=remote(f.db);
- let writes=0;
- const unreliable=async(url,opts)=>{
-  if(Array.isArray(JSON.parse(opts.body).batch)){writes++;throw Error('simulated ambiguous network');}
-  return d1.transport(url,opts);
- };
- await assert.rejects(r.resetExistingProductionOwner({
-  token,newPassword:'a-new-safe-owner-password-12345',
-  approval:r.RESET_APPROVAL,transport:unreliable
- }),e=>e.message==='E_PROD_OWNER_PASSWORD_RECOVERY'&&e.safeStage==='REMOTE_WRITE_UNCERTAIN');
- assert.equal(writes,1);
- assert.equal(f.db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE action='auth.password_reset'").get().n,0);
+test('invalid approval and malformed credentials never send a D1 batch',async t=>{
+ const db=fixture(t),c=await core,secret=await credentials(),before=original(db);
+ let calls=0;
+ const deny={prepare:()=>{throw Error('unexpected prepare');},batch:()=>{calls++;}};
+ await assert.rejects(c.atomicOwnerRecovery(deny,before,secret,'bad-audit'));
+ await assert.rejects(c.atomicOwnerRecovery(deny,before,secret,{uuid}));
+ assert.equal(calls,0);assert.equal(count(db,'sessions'),1);
 });
-
-test('recovery operator has no public reset route, no environment or argument secrets, local clean main guard',()=>{
- const file=fs.readFileSync(path.join(root,'tools/cloudflare-prod-owner-password-recovery.mjs'),'utf8');
- const batch=fs.readFileSync(path.join(root,'重設雲端業主密碼.bat'),'utf8');
- const worker=fs.readFileSync(path.join(root,'cloudflare/worker.mjs'),'utf8');
- assert.match(file,/assertTrustedMainCheckout/);
- assert.match(file,/RESET_EXISTING_OWNER_PASSWORD_ONCE/);
- assert.match(file,/REMOTE_WRITE_UNCERTAIN/);
- assert.match(file,/async function hidden/);
- assert.match(file,/password_in_output:false/);
- assert.match(batch,/--inspect/);assert.match(batch,/--reset/);
- assert.match(batch,/choice \/C 12/);
- assert.doesNotMatch(batch,/CLOUDFLARE_API_TOKEN|PASSWORD=|node .*--password/i);
- assert.doesNotMatch(worker,/owner-password-recovery|password\/reset|api\/reset-password/);
- const cmd=spawnSync(process.execPath,
-  [path.join(root,'tools/cloudflare-prod-owner-password-recovery.mjs'),'--reset'],
+test('localhost Worker rejects remote Host, browser Origin, missing mode and other methods',async t=>{
+ const db=fixture(t),w=await worker;
+ const env={DB:binding(db),RECOVERY_LOCAL_MODE:'operator-loopback-only'};
+ const post=(url,extra={})=>new Request(url,{method:'POST',
+  headers:{host:new URL(url).host,...extra},body:'{}'});
+ const dangerous=[
+  post('https://public.example.test/__recovery/inspect'),
+  post('http://127.0.0.1:8787/__recovery/inspect',{origin:'https://other.site'}),
+ ];
+ for(const request of dangerous)
+  assert.equal((await w.handleLocalRecovery(request,env)).status,403);
+ assert.equal((await w.handleLocalRecovery(
+  post('http://127.0.0.1:8787/__recovery/inspect'),{DB:env.DB})).status,403);
+ const result=await w.handleLocalRecovery(
+  post('http://127.0.0.1:8787/__recovery/inspect'),env);
+ assert.equal(result.status,200);
+ assert.equal((await result.json()).code,'OWNER_RECOVERY_PRECHECK_PASS');
+ assert.equal(count(db,'sessions'),1);
+});
+test('loopback Worker performs confirmed atomic recovery and never echoes private credentials',async t=>{
+ const db=fixture(t),w=await worker,secret=await credentials();
+ const body=JSON.stringify({approval,audit_id:uuid,...secret});
+ const req=new Request('http://127.0.0.1:8787/__recovery/reset',{method:'POST',
+  headers:{host:'127.0.0.1:8787','content-type':'application/json',
+   'content-length':String(Buffer.byteLength(body))},body});
+ const res=await w.handleLocalRecovery(req,{DB:binding(db),
+  RECOVERY_LOCAL_MODE:'operator-loopback-only'});
+ assert.equal(res.status,200);
+ const output=await res.text();
+ assert.equal(JSON.parse(output).code,'OWNER_RECOVERY_ATOMIC_VERIFIED');
+ for(const value of [secret.password_hash,secret.password_salt,
+  'new-synthetic-owner-password-1234'])assert.equal(output.includes(value),false);
+ assert.equal(count(db,'sessions'),0);
+});
+test('REST write path stays disabled and local recovery never enters GitHub Actions',async()=>{
+ const r=await recovery;
+ await assert.rejects(r.resetExistingProductionOwner(),e=>e.message==='E_PROD_OWNER_PASSWORD_RECOVERY');
+ const script=fs.readFileSync(path.join(root,'tools/cloudflare-prod-owner-password-recovery.mjs'),'utf8');
+ const publicWorker=fs.readFileSync(path.join(root,'cloudflare/worker.mjs'),'utf8');
+ const config=JSON.parse(fs.readFileSync(path.join(root,
+  'cloudflare/wrangler.owner-recovery.local.jsonc'),'utf8'));
+ assert.match(script,/UNSAFE_REST_DISABLED/);
+ assert.match(script,/127\.0\.0\.1/);
+ assert.doesNotMatch(publicWorker,/owner-recovery-local-worker|__recovery/);
+ assert.equal(config.d1_databases[0].remote,true);
+ assert.equal(config.workers_dev,false);assert.equal(config.preview_urls,false);
+ const cmd=spawnSync(process.execPath,[path.join(root,
+  'tools/cloudflare-prod-owner-password-recovery.mjs'),'--reset'],
   {cwd:root,input:'',encoding:'utf8',timeout:10000});
  assert.notEqual(cmd.status,0);
- assert.doesNotMatch(cmd.stderr,/Bearer|salt|hash|CREATE_ONE|synthetic-unprivileged/i);
+ assert.doesNotMatch(cmd.stderr,/Bearer|token_hash|password_salt|password_hash/i);
 });

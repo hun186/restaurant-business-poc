@@ -29,7 +29,10 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/native-owner-login-uat-gate-readonly.ps1":"2cb1b2b00237f4b9e140fb45b20ed086019501defcbbf479e3af7e4c2f6614a6",
   "tools/native-owner-public-assets-readonly.ps1":"9fcf3904fd609c1d379320c028f899ebdc54b7b8298bd4978a82ca28b6e4e1eb",
+  "run-native-owner-login-uat-preflight.bat":"ff776fcf55af5a36c4703e4edcd7cbc31831f21ce916a26d5dfe8b3551ace906",
+  "run-native-owner-login-uat-closeout.bat":"8aa27dfcb3ec304577a9e53561de29225a516e2cee5ea1830e1a107d711b3549",
   "run-native-owner-public-readonly.bat":"f7a148e7eca258dfe0d324396fcc1910eba00e116cfa0ab0709d56527906b814",
   "tools/cloudflare-g0-active-version-readonly.mjs":"43e8c76ee962656f8920f903f118a4e310124bf4c737f0612677daee8a8ec9e9",
   "tools/cloudflare-public-runtime-readonly.ps1":"d654f202f4604c969ab9a514241ca211e11123a4670a76509fb0c50fc451bd06",
@@ -85,6 +88,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/catalog-three-platform-contract.test.js":"fe030e13758ec854352250add42c9cb4b07324d0ae5ebe6a42395952e178c139",
   "src/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
 
+  "tests/native-owner-login-uat-gate-readonly.test.js":"0bdbcbae5e18c8bcdba188a2b58e0b96fa9a9ed1b9c173d6b79ba0a57acf4282",
   "tests/native-owner-public-assets-readonly.test.js":"96c612ef61879d010174325313d5e00c80e73fc6d94723c31b4c8f8231b396b0",
   "tests/cloudflare-native-owner-readable-tables.test.js":"e70b5986c1f8481fc4b0b56556116fe76fd876bebc3d4742437f45be91a9ac4c",
   "vercel-demo/native-owner-display.mjs":"568efef0caf3e1f443f3d4f4033c71c1c1fe81c51fe36efa0bc922167fe81ed8",

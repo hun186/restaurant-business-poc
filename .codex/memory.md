@@ -1,5 +1,7 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-11 Current Focus｜Native Owner password-change result confirmation (本 PR，待 Hosted CI/Codex)**：前一 #173 已 Squash Merge main `27808d3d0d2a792eb92f7176fdba7297a58ad7a2`，最新 HEAD CI 5/5 與正式 Codex Review Completed／0 findings。正式 `owner-app.js` 的密碼更新流程，從僅確認 HTTP 200 改為還需後端 `code:'OK'`（對應已存在的 `nativePasswordChangeHttp` 契約）並先檢查 authEpoch/CSRF，再清除表單與顯示成功；異常 200 一律不誤稱已完成。新增真正 handler 的合成 VM 測試涵蓋錯誤 200、成功與舊 Session 遲到回覆；同步封閉 SHA256。僅前端／離線測試，未修改 Cloudflare Worker、Schema、Production D1、Secrets、Gates 或部署。新 PR 須最新 HEAD Hosted CI／正式 Codex Review／clean Gate 方可 Merge，正式 Owner UAT 仍在 #153。
+
 > **2026-11-11 Current Focus｜Native Owner logout password DOM hygiene (本 PR，待 Hosted CI/正式 Codex)**：獨立修復 `owner-app.js` 登出及 Session 失效時，已輸入但未送出的目前／新／確認密碼可能殘留隱藏工作台 DOM 的問題；立即清空密碼輸入、移除舊內容及重設登入表單，並新增 VM 合成測驗證 `showLogin` 與登出網路請求前清除順序。僅正式 Owner 靜態前端與測試、SHA256 Pin；不觸碰 Cloudflare Worker、D1、Schema、Production Vars、Secrets、Gates 或部署。必須完成最新 HEAD Hosted CI、正式 Codex Review、clean Gate 才可 Merge；瀏覽器實機 UAT 仍待 #153。
 
 > **2026-11-10 Owner-readonly evidence failure（本 PR 待驗）**：#42742857454 真實 manual GitHub Action 於 `cloudflare-prod-owner-readonly.mjs inspect` 返回 `E_PRODUCTION_OWNER_READONLY`；前置部署 SHA、Wrangler、設定 PASS，**Owner 數量/資料庫狀態未確認，任何 Production Write 都不准開始**。改為 fail-closed 靜態 allowlisted `stage`，合成測不得輸出任何 D1 私有資料。需要合併新 PR 後再次唯讀 Action，之後按實際 Stage 區分修復或現場狀態調查。Cloudflare Login 和五種寫入 Gate 保持關閉。

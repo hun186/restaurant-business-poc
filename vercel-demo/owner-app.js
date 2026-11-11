@@ -734,12 +734,14 @@ function renderPasswordChange(marker){
     submit.disabled=true;
     say('正在安全更新密碼…');
     try{
-      await api('/api/password/change',{method:'POST',referrerPolicy:'same-origin',
+      const result=await api('/api/password/change',{method:'POST',referrerPolicy:'same-origin',
         headers:{Accept:'application/json','Content-Type':'application/json',
           'X-CSRF-Token':token},
         body:JSON.stringify({current_password:current.value,new_password:next.value})});
-      form.reset();
       if(!liveAuth(epoch,token))return;
+      if(result?.code!=='OK')
+        throw Error('伺服器未確認密碼已更新，請重新整理並核對登入狀態。');
+      form.reset();
       showLogin();
       say('密碼已更新，所有舊工作階段已撤銷。請使用新密碼重新登入。');
     }catch(e){

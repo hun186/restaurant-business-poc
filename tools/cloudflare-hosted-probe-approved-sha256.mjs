@@ -30,7 +30,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "重設雲端業主密碼.bat":"48b76309a6cc5dfd71c815f2d09b7bf9f86676a65091ba0bf28c05b65919a5b5",
-  "tools/cloudflare-prod-owner-password-recovery.mjs":"914c5d606a84efe18395b64e9027adc51409cd5852552e29aa79186a2fbf5c30",
+  "tools/cloudflare-prod-owner-password-recovery.mjs":"9757c1adcb57f8320f09383892a0c773e693d24d1be6f3e69a0e3aa833089087",
   "tools/native-owner-login-uat-gate-readonly.ps1":"2cb1b2b00237f4b9e140fb45b20ed086019501defcbbf479e3af7e4c2f6614a6",
   "tools/native-owner-public-assets-readonly.ps1":"9fcf3904fd609c1d379320c028f899ebdc54b7b8298bd4978a82ca28b6e4e1eb",
   "run-native-owner-login-uat-preflight.bat":"ff776fcf55af5a36c4703e4edcd7cbc31831f21ce916a26d5dfe8b3551ace906",
@@ -84,6 +84,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-prod-owner-worker-shutdown.test.js":"8926cb5e42ca11946c2c3d89b32ac33e9e2deb233a08c311c441678200b89523",
   "cloudflare/wrangler.owner-recovery.local.jsonc":"54d462e28f84b433ae60d6fd0da7047303952333fc0236969a4ef6b2b77b28cb",
   "cloudflare/owner-recovery-local-worker.mjs":"33625234a9c377bd8411f5eeded0a175bda4c4a7accba2a5e4026ce0b19a3e47",
   "cloudflare/owner-recovery-atomic-internal.mjs":"a9d88588535ac49b9f508597ddba0bbd6a61250fadfb340cfe7ef5f485dbfa81",

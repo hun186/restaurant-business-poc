@@ -17,7 +17,7 @@ https://developers.cloudflare.com/d1/worker-api/d1-database/
 1. 在可信任管理電腦使用已審核、已合併的最新 `main`；工作目錄需乾淨，Node.js >= 22.13。**不要從未合併的 PR 分支執行正式操作**。
 2. 完成 Cloudflare 管理員的本機 Wrangler 登入：`npx wrangler@4 login`。此帳號必須授權操作指定 Production D1；不要把密碼或 Token 放進環境變數、命令列、GitHub、聊天或截圖。
 3. 確認真正存在可用的 D1 加密備份，並安排受控維護窗口；避免其他人同時登入或處理營運寫入。核實提出申請的業主身分。
-4. 雙擊 `重設雲端業主密碼.bat`：
+4. 雙擊 `重設雲端業主密碼.bat`：啟動器先檢查專案路徑及 Node >= 22.13；只在**選擇重設**時額外檢查 npm、Git、`cloudflare/.dev.vars` 是否已存在。缺少依賴或有殘留檔時安全停止，**不會自動刪除既有憑證或啟動重設**。Windows `choice` 的失敗或取消碼不會被誤認成選項 2。
    - **1：唯讀檢查**。輸入受限 Cloudflare Production D1 Read Token（遮蔽）；只檢查 Owner、Schema、Migration 及資料完整性，不修改資料。
    - **2：本機 Worker 一次性重設**。CLI 驗證本地設定釘選 Production D1 UUID、`remote:true`、`workers_dev:false`、`preview_urls:false`，透過 `npm exec --package=wrangler@4.160.0` 啟動隔離管理程序，再由 Wrangler 的程式介面以 **`inspect:false`**、`127.0.0.1` 隨機埠啟動 Worker。**不可改回 `wrangler dev`：它預設開放無須本機密碼驗證的 Inspector 除錯埠；`--inspector-port 0` 也不是關閉 Inspector。**通過 Worker 端唯讀預檢後，逐字輸入 `RESET_EXISTING_OWNER_PASSWORD_ONCE`，再輸入兩次新密碼（遮蔽）。
 5. 本機 CLI 只傳送新密碼的 PBKDF2-SHA256 雜湊與隨機 Salt 給本機 Worker。Worker 必須執行三條參數化 D1 Binding SQL 的同一個 `db.batch()`：CAS 更新原 Owner 密碼、撤銷所有 Owner Session、寫入 `auth.password_reset` 稽核，隨後唯讀核對結果。成功僅顯示 `PRODUCTION_OWNER_PASSWORD_RESET_VERIFIED`，不輸出密碼、Cookie 或 Token。

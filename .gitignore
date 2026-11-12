@@ -1,5 +1,6 @@
 .env
 .env.*
+.dev.vars*
 !.env.example
 node_modules/
 data/

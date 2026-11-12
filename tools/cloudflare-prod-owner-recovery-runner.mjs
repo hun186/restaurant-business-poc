@@ -41,9 +41,11 @@ export function resolvePinnedWrangler(packagePath=process.env.PATH||''){
  throw Error(FAIL);
 }
 
-export async function serveRecoveryWorker(port,{load=href=>import(href)}={}){
+export async function serveRecoveryWorker(port,{
+ load=href=>import(href),resolve=resolvePinnedWrangler
+}={}){
  const options=inspectorDisabledOptions(port);
- const api=await load(resolvePinnedWrangler());
+ const api=await load(resolve());
  if(typeof api?.unstable_dev!=='function')throw Error(FAIL);
  // This programmatic API passes inspect:false to Wrangler startDev;
  // unlike --inspector-port 0 it does not create an inspector listener.

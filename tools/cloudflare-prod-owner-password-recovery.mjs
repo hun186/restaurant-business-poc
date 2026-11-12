@@ -327,24 +327,36 @@ export function installRecoverySignalGuard(local,{
 async function localWorker(){
  approvedBinding();
  const port=await unusedLocalPort(),base='http://127.0.0.1:'+port;
- const args=['--yes','wrangler@4','dev','--config',
-  'wrangler.owner-recovery.local.jsonc',
-  '--ip','127.0.0.1','--port',String(port)];
+ // npm exec resolves a precisely pinned Wrangler API package; the separate
+ // runner calls unstable_dev({inspect:false}). The CLI `wrangler dev`
+ // would expose an unauthenticated inspector regardless of --inspector-port.
+ const args=['exec','--yes','--package=wrangler@4.160.0','--',
+  'node','../tools/cloudflare-prod-owner-recovery-runner.mjs',String(port)];
  const auth=createRecoverySecret();
  const win=process.platform==='win32';
  let child;
- try{child=spawn(win?'cmd.exe':'npx',
-  win?['/d','/s','/c','npx '+args.join(' ')]:args,{
+ try{child=spawn(win?'cmd.exe':'npm',
+  win?['/d','/s','/c','npm '+args.join(' ')]:args,{
    cwd:path.join(root,'cloudflare'),stdio:['ignore','ignore','ignore'],windowsHide:true,
    detached:true
   });}catch{
   cleanupRecoverySecret(auth);fail('LOCAL_WORKER');
  }
  const local={base,child,port,interrupted:false,...auth};
- // No await or timer between spawn and installing the signal handlers.
- local.disposeSignals=installRecoverySignalGuard(local);
+ // Register error before validating PID. A missing npm executable produces
+ // an asynchronous ENOENT with undefined PID rather than a thrown spawn().
  let failed=false;
  child.on('error',()=>{failed=true;});child.on('exit',()=>{failed=true;});
+ if(!Number.isSafeInteger(child.pid)||child.pid<=0){
+  cleanupRecoverySecret(local);fail('LOCAL_WORKER');
+ }
+ // No await or timer between successful spawn and the signal guard.
+ try{local.disposeSignals=installRecoverySignalGuard(local);}
+ catch{
+  killWorkerTree(child,true);
+  cleanupRecoverySecret(local);
+  fail('LOCAL_WORKER');
+ }
  try{
   for(let n=0;n<160&&!failed&&!local.interrupted;n++){
    try{

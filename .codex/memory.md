@@ -1,5 +1,7 @@
 # 餐廳好管家 Project Memory
 
+> **2026-11-12 PR #172 原子密碼復原整合（新 HEAD CI/Review 待驗）**：已停用不確定原子性的 REST D1 batch 寫入，加入只供 Windows 本機 Wrangler 使用、指向既定 Production D1 remote binding 的隔離 Worker；以 Worker D1 `db.batch()` 原子更新既有 Owner 密碼、撤銷 Session、寫稽核。已補 SQLite 合成回滾／本機來源拒絕測試、文件、SHA256 closed inventory；與 main #173/#174 合併。這**不是**正式 D1 寫入、正式部署、Owner 實機 UAT，須最新 HEAD CI 與 Codex Review，不能提前放行。
+
 > **2026-11-11 Current Focus｜Native Owner password-change result confirmation (本 PR，待 Hosted CI/Codex)**：前一 #173 已 Squash Merge main `27808d3d0d2a792eb92f7176fdba7297a58ad7a2`，最新 HEAD CI 5/5 與正式 Codex Review Completed／0 findings。正式 `owner-app.js` 的密碼更新流程，從僅確認 HTTP 200 改為還需後端 `code:'OK'`（對應已存在的 `nativePasswordChangeHttp` 契約）並先檢查 authEpoch/CSRF，再清除表單與顯示成功；異常 200 一律不誤稱已完成。新增真正 handler 的合成 VM 測試涵蓋錯誤 200、成功與舊 Session 遲到回覆；同步封閉 SHA256。僅前端／離線測試，未修改 Cloudflare Worker、Schema、Production D1、Secrets、Gates 或部署。新 PR 須最新 HEAD Hosted CI／正式 Codex Review／clean Gate 方可 Merge，正式 Owner UAT 仍在 #153。
 
 > **2026-11-11 Current Focus｜Native Owner logout password DOM hygiene (本 PR，待 Hosted CI/正式 Codex)**：獨立修復 `owner-app.js` 登出及 Session 失效時，已輸入但未送出的目前／新／確認密碼可能殘留隱藏工作台 DOM 的問題；立即清空密碼輸入、移除舊內容及重設登入表單，並新增 VM 合成測驗證 `showLogin` 與登出網路請求前清除順序。僅正式 Owner 靜態前端與測試、SHA256 Pin；不觸碰 Cloudflare Worker、D1、Schema、Production Vars、Secrets、Gates 或部署。必須完成最新 HEAD Hosted CI、正式 Codex Review、clean Gate 才可 Merge；瀏覽器實機 UAT 仍待 #153。

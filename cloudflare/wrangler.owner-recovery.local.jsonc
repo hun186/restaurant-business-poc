@@ -1,0 +1,18 @@
+{
+  "name": "restaurant-business-owner-recovery-local-only",
+  "main": "./owner-recovery-local-worker.mjs",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "restaurant-business-prod",
+      "database_id": "b882a6e8-0e56-49a6-bd41-1a6cadd726c9",
+      "remote": true
+    }
+  ],
+  "vars": {
+    "RECOVERY_LOCAL_MODE": "operator-loopback-only"
+  }
+}

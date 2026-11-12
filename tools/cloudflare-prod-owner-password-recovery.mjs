@@ -118,17 +118,23 @@ async function hidden(prompt,maxBytes=4096){
  });
 }
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-// An ephemeral secret is read by Wrangler from .dev.vars (never from argv, Git,
-// environment variables, a deployable Worker configuration, or a chat message).
+// An ephemeral secret is read by Wrangler from ignored local .dev.vars, never
+// from process argv, a committed config, or a deployed Worker secret.
 const LOCAL_SECRET_PATH=path.join(root,'cloudflare','.dev.vars');
 function createRecoverySecret(){
  const secret=randomBytes(32).toString('hex');
+ let created=false;
  try{
   fs.writeFileSync(LOCAL_SECRET_PATH,'RECOVERY_ONCE_SECRET="'+secret+'"\n',{
    flag:'wx',mode:0o600,encoding:'utf8'
   });
+  created=true;
   if(process.platform!=='win32')fs.chmodSync(LOCAL_SECRET_PATH,0o600);
- }catch{fail('LOCAL_WORKER');}
+ }catch{
+  // Never delete an already-existing .dev.vars file; fail closed instead.
+  if(created)try{fs.unlinkSync(LOCAL_SECRET_PATH);}catch{}
+  fail('LOCAL_WORKER');
+ }
  return {secret,secretFile:LOCAL_SECRET_PATH};
 }
 function cleanupRecoverySecret(local){

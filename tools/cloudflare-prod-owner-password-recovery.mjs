@@ -3,7 +3,7 @@
 import {createInterface} from 'node:readline/promises';
 import {spawn,execFileSync} from 'node:child_process';
 import {createServer,createConnection} from 'node:net';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomBytes} from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -118,6 +118,26 @@ async function hidden(prompt,maxBytes=4096){
  });
 }
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+// An ephemeral secret is read by Wrangler from .dev.vars (never from argv, Git,
+// environment variables, a deployable Worker configuration, or a chat message).
+const LOCAL_SECRET_PATH=path.join(root,'cloudflare','.dev.vars');
+function createRecoverySecret(){
+ const secret=randomBytes(32).toString('hex');
+ try{
+  fs.writeFileSync(LOCAL_SECRET_PATH,'RECOVERY_ONCE_SECRET="'+secret+'"\n',{
+   flag:'wx',mode:0o600,encoding:'utf8'
+  });
+  if(process.platform!=='win32')fs.chmodSync(LOCAL_SECRET_PATH,0o600);
+ }catch{fail('LOCAL_WORKER');}
+ return {secret,secretFile:LOCAL_SECRET_PATH};
+}
+function cleanupRecoverySecret(local){
+ if(!local?.secretFile)return;
+ try{fs.unlinkSync(local.secretFile);}
+ catch(e){if(e?.code!=='ENOENT')fail('LOCAL_WORKER');}
+ local.secretFile=null;
+ local.secret=null;
+}
 function approvedBinding(){
  const config=JSON.parse(fs.readFileSync(path.join(root,
   'cloudflare/wrangler.owner-recovery.local.jsonc'),'utf8'));
@@ -142,11 +162,13 @@ async function unusedLocalPort(){
   });
  });
 }
-async function rpc(base,route,body){
+async function rpc(base,route,body,secret){
+ if(!/^[0-9a-f]{64}$/.test(secret||''))fail('LOCAL_WORKER');
  const text=body===undefined?null:JSON.stringify(body);
  const response=await fetch(base+route,{
   method:text===null?'GET':'POST',redirect:'error',cache:'no-store',
-  headers:text===null?{}:{'Content-Type':'application/json',
+  headers:text===null?{'X-Recovery-Once-Secret':secret}:
+  {'X-Recovery-Once-Secret':secret,'Content-Type':'application/json',
    'Content-Length':String(Buffer.byteLength(text))},
   ...(text===null?{}:{body:text}),signal:AbortSignal.timeout(9000)
  });
@@ -260,7 +282,10 @@ export function installRecoverySignalGuard(local,{
  if(!local||!Number.isSafeInteger(local.child?.pid)||
     !Number.isSafeInteger(local.port))fail('LOCAL_WORKER');
  let disposed=false,interruptionStarted=false;
- const emergency=()=>killWorkerTree(local.child,true);
+ const emergency=()=>{
+  killWorkerTree(local.child,true);
+  try{cleanupRecoverySecret(local);}catch{}
+ };
  const onSignal=signal=>{
   local.interrupted=true;
   if(interruptionStarted||disposed)return;
@@ -276,7 +301,7 @@ export function installRecoverySignalGuard(local,{
      await new Promise(resolve=>setTimeout(resolve,1000));
     }
    }
-   dispose();
+   dispose();cleanupRecoverySecret(local);
    exit(signal==='SIGINT'?130:143);
   })();
  };
@@ -299,13 +324,17 @@ async function localWorker(){
  const args=['--yes','wrangler@4','dev','--config',
   'wrangler.owner-recovery.local.jsonc',
   '--ip','127.0.0.1','--port',String(port)];
+ const auth=createRecoverySecret();
  const win=process.platform==='win32';
- const child=spawn(win?'cmd.exe':'npx',
+ let child;
+ try{child=spawn(win?'cmd.exe':'npx',
   win?['/d','/s','/c','npx '+args.join(' ')]:args,{
    cwd:path.join(root,'cloudflare'),stdio:['ignore','ignore','ignore'],windowsHide:true,
    detached:true
-  });
- const local={base,child,port,interrupted:false};
+  });}catch{
+  cleanupRecoverySecret(auth);fail('LOCAL_WORKER');
+ }
+ const local={base,child,port,interrupted:false,...auth};
  // No await or timer between spawn and installing the signal handlers.
  local.disposeSignals=installRecoverySignalGuard(local);
  let failed=false;
@@ -313,7 +342,7 @@ async function localWorker(){
  try{
   for(let n=0;n<160&&!failed&&!local.interrupted;n++){
    try{
-    if(await rpc(base,'/__recovery/ready')==='LOCAL_WORKER_READY'&&
+    if(await rpc(base,'/__recovery/ready',undefined,local.secret)==='LOCAL_WORKER_READY'&&
        !local.interrupted)return local;
    }catch{}
    if(local.interrupted)break;
@@ -321,7 +350,9 @@ async function localWorker(){
   }
   fail('LOCAL_WORKER');
  }catch(e){
-  try{await stopRecoveryWorkerProcess(local);}finally{local.disposeSignals();}
+  try{await stopRecoveryWorkerProcess(local);}finally{
+   local.disposeSignals();cleanupRecoverySecret(local);
+  }
   throw e;
  }
 }
@@ -342,7 +373,7 @@ async function cli(args){
  let outcomeMessage;
  try{
   if(local.interrupted)fail('LOCAL_WORKER');
-  const check=await rpc(local.base,'/__recovery/inspect',{});
+  const check=await rpc(local.base,'/__recovery/inspect',{},local.secret);
   if(local.interrupted||check!=='OWNER_RECOVERY_PRECHECK_PASS')fail('READ_PRECHECK');
   process.stdout.write('Production Owner: precheck passed. Worker Binding atomic batch only.\n');
   const rl=createInterface({input:process.stdin,output:process.stdout});
@@ -360,7 +391,7 @@ async function cli(args){
   try{
    outcome=await rpc(local.base,'/__recovery/reset',{
     approval,audit_id:randomUUID(),...credentials
-   });
+   },local.secret);
   }catch{fail('REMOTE_WRITE_UNCERTAIN');}
   if(outcome!=='OWNER_RECOVERY_ATOMIC_VERIFIED')fail('READ_POSTCHECK');
   // Only report a verified recovery after privileged Workerd descendants
@@ -373,7 +404,7 @@ async function cli(args){
   });
  }finally{
   try{await stopRecoveryWorkerProcess(local);}
-  finally{local.disposeSignals();}
+  finally{local.disposeSignals();cleanupRecoverySecret(local);}
  }
  if(outcomeMessage)process.stdout.write(JSON.stringify(outcomeMessage)+'\n');
 }

@@ -4,6 +4,9 @@ import {atomicOwnerRecovery} from './owner-recovery-atomic-internal.mjs';
 
 const APPROVAL='RESET_EXISTING_OWNER_PASSWORD_ONCE';
 const FAIL='E_OWNER_RECOVERY_LOCAL';
+// Never authorize sensitive maintenance based on a static, checked-in approval string.
+// Wrangler loads this run-specific secret from a local ignored .dev.vars file.
+const NONCE=/^[0-9a-f]{64}$/;
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const SQL=`SELECT u.id AS owner_id,u.password_salt,u.password_hash,
  (SELECT contract_version FROM cloud_schema_contract WHERE id=1) AS contract_version,
@@ -48,7 +51,9 @@ export async function handleLocalRecovery(req,env){
   if(url.hostname!=='127.0.0.1'||req.headers.get('host')?.split(':')[0]!=='127.0.0.1'||
      req.headers.has('origin')||req.headers.has('cookie')||
      req.headers.has('authorization')||req.headers.has('x-forwarded-for')||
-     env?.RECOVERY_LOCAL_MODE!=='operator-loopback-only'||!env.DB?.batch)
+     env?.RECOVERY_LOCAL_MODE!=='operator-loopback-only'||!env.DB?.batch||
+     !NONCE.test(env?.RECOVERY_ONCE_SECRET||'')||
+     req.headers.get('x-recovery-once-secret')!==env.RECOVERY_ONCE_SECRET)
    return reply('E_LOCAL_ONLY',403);
   if(url.search||url.hash)return reply('E_NOT_FOUND',404);
   if(req.method==='GET'&&url.pathname==='/__recovery/ready')

@@ -30,7 +30,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "重設雲端業主密碼.bat":"48b76309a6cc5dfd71c815f2d09b7bf9f86676a65091ba0bf28c05b65919a5b5",
-  "tools/cloudflare-prod-owner-password-recovery.mjs":"e0f77774c3e5a99e5967da8a2985341a9ecc2686eea468bec7f68c7c708a6d75",
+  "tools/cloudflare-prod-owner-password-recovery.mjs":"731b7194e54d9bd8c17ca6c11a2f58295824b9f934fca1454c2c313be9613bf0",
   "tools/native-owner-login-uat-gate-readonly.ps1":"2cb1b2b00237f4b9e140fb45b20ed086019501defcbbf479e3af7e4c2f6614a6",
   "tools/native-owner-public-assets-readonly.ps1":"9fcf3904fd609c1d379320c028f899ebdc54b7b8298bd4978a82ca28b6e4e1eb",
   "run-native-owner-login-uat-preflight.bat":"ff776fcf55af5a36c4703e4edcd7cbc31831f21ce916a26d5dfe8b3551ace906",
@@ -86,9 +86,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-prod-owner-worker-shutdown.test.js":"bcc9691b821bbaa3324744632607430fc413eed07905d0bacea4cd056e19ea49",
   "cloudflare/wrangler.owner-recovery.local.jsonc":"54d462e28f84b433ae60d6fd0da7047303952333fc0236969a4ef6b2b77b28cb",
-  "cloudflare/owner-recovery-local-worker.mjs":"33625234a9c377bd8411f5eeded0a175bda4c4a7accba2a5e4026ce0b19a3e47",
+  "cloudflare/owner-recovery-local-worker.mjs":"c62799e6495327abec7b8a08a3df0103d9b00d7f9e0bfa8cef97d5184322a133",
   "cloudflare/owner-recovery-atomic-internal.mjs":"a9d88588535ac49b9f508597ddba0bbd6a61250fadfb340cfe7ef5f485dbfa81",
-  "tests/cloudflare-prod-owner-password-recovery.test.js":"0fbab95988620b53ed273ed4666a5993c7fa97a2e1dbe29502dbe31ba76add02",
+  "tests/cloudflare-prod-owner-password-recovery.test.js":"a92bbac90c6a305cff67196e43b6683a4cade4e9a915c12f26b32c830290047a",
   "tests/catalog-local-demo-crud.test.js":"b2376434c2651d9e890f1c4323df804403d496ebfc1c611c3f08eff2689b919d",
   "vercel-demo/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
   "public/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",

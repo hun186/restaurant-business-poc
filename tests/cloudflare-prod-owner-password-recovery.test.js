@@ -10,6 +10,7 @@ const recovery=import('../tools/cloudflare-prod-owner-password-recovery.mjs');
 const auth=import('../cloudflare/auth-core.mjs');
 const owner='61d29848-4153-4d0a-8db2-bfaee0d6f625';
 const approval='RESET_EXISTING_OWNER_PASSWORD_ONCE';
+const runSecret='c'.repeat(64);
 const uuid='a1b2c3d4-1111-4222-8333-abcdef123456';
 function fixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
@@ -82,9 +83,9 @@ test('invalid approval and malformed credentials never send a D1 batch',async t=
 });
 test('localhost Worker rejects remote Host, browser Origin, missing mode and other methods',async t=>{
  const db=fixture(t),w=await worker;
- const env={DB:binding(db),RECOVERY_LOCAL_MODE:'operator-loopback-only'};
+ const env={DB:binding(db),RECOVERY_LOCAL_MODE:'operator-loopback-only',RECOVERY_ONCE_SECRET:runSecret};
  const post=(url,extra={})=>new Request(url,{method:'POST',
-  headers:{host:new URL(url).host,...extra},body:'{}'});
+  headers:{host:new URL(url).host,'x-recovery-once-secret':runSecret,...extra},body:'{}'});
  const dangerous=[
   post('https://public.example.test/__recovery/inspect'),
   post('http://127.0.0.1:8787/__recovery/inspect',{origin:'https://other.site'}),
@@ -103,10 +104,11 @@ test('loopback Worker performs confirmed atomic recovery and never echoes privat
  const db=fixture(t),w=await worker,secret=await credentials();
  const body=JSON.stringify({approval,audit_id:uuid,...secret});
  const req=new Request('http://127.0.0.1:8787/__recovery/reset',{method:'POST',
-  headers:{host:'127.0.0.1:8787','content-type':'application/json',
+  headers:{host:'127.0.0.1:8787','x-recovery-once-secret':runSecret,
+   'content-type':'application/json',
    'content-length':String(Buffer.byteLength(body))},body});
  const res=await w.handleLocalRecovery(req,{DB:binding(db),
-  RECOVERY_LOCAL_MODE:'operator-loopback-only'});
+  RECOVERY_LOCAL_MODE:'operator-loopback-only',RECOVERY_ONCE_SECRET:runSecret});
  assert.equal(res.status,200);
  const output=await res.text();
  assert.equal(JSON.parse(output).code,'OWNER_RECOVERY_ATOMIC_VERIFIED');
@@ -114,6 +116,31 @@ test('loopback Worker performs confirmed atomic recovery and never echoes privat
   'new-synthetic-owner-password-1234'])assert.equal(output.includes(value),false);
  assert.equal(count(db,'sessions'),0);
 });
+test('localhost refuses missing, wrong, or unconfigured run nonce before any D1 access',async t=>{
+ const db=fixture(t),w=await worker,secret=await credentials();
+ const body=JSON.stringify({approval,audit_id:uuid,...secret});
+ const base='http://127.0.0.1:8787/__recovery/reset';
+ const build=(nonce)=>new Request(base,{method:'POST',headers:{
+  host:'127.0.0.1:8787','content-type':'application/json',
+  'content-length':String(Buffer.byteLength(body)),
+  ...(nonce===null?{}:{'x-recovery-once-secret':nonce})
+ },body});
+ let calls=0;
+ const monitored={...binding(db),batch:async()=>{calls++;throw Error('No write allowed');}};
+ const env={DB:monitored,RECOVERY_LOCAL_MODE:'operator-loopback-only',
+  RECOVERY_ONCE_SECRET:runSecret};
+ for(const [req,config] of [
+  [build(null),env],[build('d'.repeat(64)),env],
+  [build(runSecret),{DB:monitored,RECOVERY_LOCAL_MODE:'operator-loopback-only'}]
+ ]){
+  const res=await w.handleLocalRecovery(req,config);
+  assert.equal(res.status,403);
+ }
+ assert.equal(calls,0);
+ assert.equal(count(db,'sessions'),1);
+ assert.equal(count(db,'audit_logs'),1);
+});
+
 test('REST write path stays disabled and local recovery never enters GitHub Actions',async()=>{
  const r=await recovery;
  await assert.rejects(r.resetExistingProductionOwner(),e=>e.message==='E_PROD_OWNER_PASSWORD_RECOVERY');

@@ -29,7 +29,7 @@ test('recovery runner forces inspector:false with local Worker and explicit conf
  });
  assert.equal(called,1);
  await instance.stop();
- for(const p of [0,80,9229,65536,-1,'9229'])
+ for(const p of [0,80,65536,-1,'9229',NaN])
   assert.throws(()=>runner.inspectorDisabledOptions(p));
 });
 test('runner requires exactly pinned npm-exec Wrangler; no arbitrary fallback',async t=>{

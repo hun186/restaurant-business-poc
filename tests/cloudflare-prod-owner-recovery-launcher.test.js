@@ -6,7 +6,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const bat=fs.readFileSync(path.join(__dirname,'..','重設雲端業主密碼.bat'),'utf8');
+const bat=fs.readFileSync(path.join(__dirname,'..','重設雲端業主密碼.bat'),'utf8')
+ .replace(/\r\n/g,'\n'); // Git may check out Windows BAT files with CRLF.
 const at=needle=>{
  const pos=bat.indexOf(needle);
  assert.notEqual(pos,-1,'expected launcher marker: '+needle);

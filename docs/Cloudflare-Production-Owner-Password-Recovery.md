@@ -10,6 +10,8 @@ https://developers.cloudflare.com/d1/worker-api/d1-database/
 
 本版使用**操作員電腦的本機 Wrangler Worker**，透過 Remote D1 Binding（`remote:true`）存取固定 Production D1。Worker 使用官方具交易保證的 `db.batch()` 同時更新密碼、刪除舊 Session、寫入稽核。沒有對現有正式 Worker 新增任何路由，也不透過網際網路提供密碼重設端點。
 
+安全加固：每次執行在操作員電腦以密碼學隨機數建立 **256-bit 一次性本機通訊憑證**。Wrangler 透過 `cloudflare/.dev.vars` 載入；CLI 每個本機 RPC 都須攜帶同一憑證，Worker 在接觸 D1 前就先核對。檔案不進 Git、不出現在命令列，Linux 權限為 `0600`；操作結束時清除。若發現已有 `.dev.vars`，工具直接中止，不覆寫既有秘密；異常中斷後須先排除殘留 Wrangler 工作程序，再人工清除陳舊檔案。
+
 ## 管理員 Windows 操作
 
 1. 在可信任管理電腦使用已審核、已合併的最新 `main`；工作目錄需乾淨，Node.js >= 22.13。**不要從未合併的 PR 分支執行正式操作**。
@@ -25,7 +27,7 @@ https://developers.cloudflare.com/d1/worker-api/d1-database/
 ## 安全與上線界線
 
 - 獨立 Worker 原始檔：`cloudflare/owner-recovery-local-worker.mjs`；交易元件：`cloudflare/owner-recovery-atomic-internal.mjs`；本機釘選：`cloudflare/wrangler.owner-recovery.local.jsonc`。**不執行 wrangler deploy**，亦不匯入正式 `cloudflare/worker.mjs`。
-- 僅允許本機迴圈位址及 `RECOVERY_LOCAL_MODE`；拒絕外部 Host、Origin、Cookie、Authorization 與未授權路徑。操作電腦仍須為可信任的受控主機，避免同機惡意程式碰觸 localhost。
+- 僅允許本機迴圈位址、`RECOVERY_LOCAL_MODE` 及本次生成的 `RECOVERY_ONCE_SECRET`；拒絕外部 Host、Origin、Cookie、Authorization 與未授權路徑。操作電腦仍須為可信任的受控主機；一次性憑證不提供跨作業系統使用者或已遭入侵電腦的完整隔離。
 - `db.batch()` 有官方失敗回滾保證，但網路超時仍需獨立核對；Operator 必須確認沒有並行登入／新 Session 的競態。
 - Synthetic SQLite 測試驗證第三條稽核 SQL 失敗會讓密碼與 Session 撤銷全部回滾；它不是 Cloudflare 實機 UAT。
 - 此 PR 不操作任何正式 Production D1、Cloudflare Vars/Secrets、Login Gate、五項業務 Write Gates、Schema 或部署。**GitHub 合併不等於正式已上線**；仍需 Owner 實機登入、Session 撤銷與資產版本驗收。

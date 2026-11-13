@@ -28,7 +28,8 @@ test('standalone hosted Worker is not routable or enabled by repository config',
     assert.equal(Object.hasOwn(hostedConfig,key),false,key);
   assert.doesNotMatch(prodSource,/pbkdf2-hosted-access-worker|pbkdf2-hosted-synthetic|PROBE_ENABLED/);
   assert.match(prodSource,/E_NOT_READY/);
-  assert.equal(localConfig.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(localConfig.keep_vars,true);
+  assert.equal(Object.hasOwn(localConfig,'vars'),false);
   assert.equal(localConfig.previews.vars.CLOUD_AUTH_PHASE,'preview-readonly');
   assert.doesNotMatch(hostedSource,/env\.DB|INSERT INTO|UPDATE users|DELETE FROM|STAGING_OWNER_PASSWORD/);
 });

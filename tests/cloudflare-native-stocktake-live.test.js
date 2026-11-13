@@ -185,7 +185,8 @@ test('stocktake gate defaults off in real Wrangler config and blocks all writes'
     ...f.env,CLOUD_NATIVE_STOCKTAKE_WRITE_GATE:undefined});
   assert.equal((await status.json()).stocktake_write_enabled,false);
   const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
-  assert.equal(Object.hasOwn(config.vars,'CLOUD_NATIVE_STOCKTAKE_WRITE_GATE'),false);
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
+  assert.equal(Object.hasOwn(config.vars??{},'CLOUD_NATIVE_STOCKTAKE_WRITE_GATE'),false);
   assert.equal(takeCount(f.db),0);
 });

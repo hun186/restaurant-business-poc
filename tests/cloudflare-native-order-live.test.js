@@ -170,8 +170,9 @@ test('default gates never enable production order writes',async t=>{
     ...f.env,CLOUD_NATIVE_ORDER_WRITE_GATE:undefined});
   assert.equal((await status.json()).order_write_enabled,false);
   const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
-  assert.equal(Object.hasOwn(config.vars,'CLOUD_NATIVE_ORDER_WRITE_GATE'),false);
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
+  assert.equal(Object.hasOwn(config.vars??{},'CLOUD_NATIVE_ORDER_WRITE_GATE'),false);
   assert.equal(orderCount(f.db),0);assert.equal(moveCount(f.db),0);
 });
 test('manager rights revoked inside batch prevent approval and audit',async t=>{

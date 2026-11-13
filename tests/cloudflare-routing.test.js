@@ -15,7 +15,8 @@ async function send(route, init) {
 test('unprotected Preview URLs remain disabled without disabling the public demo', () => {
   assert.equal(config.preview_urls, false);
   assert.equal(config.workers_dev, true);
-  assert.equal(config.vars.CLOUD_AUTH_PHASE, 'disabled');
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
   assert.equal(config.previews.vars.CLOUD_AUTH_PHASE, 'preview-readonly');
 });
 test('Wrangler config uses demo assets and invokes Worker for API routes', () => {

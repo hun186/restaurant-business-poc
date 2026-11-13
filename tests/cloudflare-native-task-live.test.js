@@ -89,8 +89,9 @@ test('default and partial gates do not consume task body or write D1',async t=>{
   assert.equal(taskCount(f.db),1);
   assert.equal(taskAudit(f.db).length,0);
   const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
-  assert.equal(Object.hasOwn(config.vars,'CLOUD_NATIVE_TASK_WRITE_GATE'),false);
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
+  assert.equal(Object.hasOwn(config.vars??{},'CLOUD_NATIVE_TASK_WRITE_GATE'),false);
 });
 test('owner creates an actual D1 task, changes status, sees persisted rows and audit',async t=>{
   const f=await fixture(t),owner=await f.login('owner');

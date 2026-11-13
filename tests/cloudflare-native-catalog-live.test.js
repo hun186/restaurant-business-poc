@@ -102,8 +102,9 @@ test('different write gate states reject before mutation and preserve native sta
   const info=await status.json();
   assert.equal(info.catalog_write_enabled,false);
   const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
-  assert.equal(Object.hasOwn(config.vars,'CLOUD_NATIVE_CATALOG_WRITE_GATE'),false);
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
+  assert.equal(Object.hasOwn(config.vars??{},'CLOUD_NATIVE_CATALOG_WRITE_GATE'),false);
   assert.equal(count(f.db,'locations'),1);assert.equal(audits(f.db).length,0);
 });
 test('staff and manager cannot create shared catalogue or a store',async t=>{

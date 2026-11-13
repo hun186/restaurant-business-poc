@@ -347,7 +347,8 @@ test('copy mode keeps network, SQL write and external-media attestation strictly
  assert.match(m.verifyIndependentCopy.toString(),/verifyArchive/);
  assert.doesNotMatch(m.verifyIndependentCopy.toString(),/remoteExport|transport|fetch\(|restore\(|writeFile/);
  const launcher=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8');
- assert.match(launcher,/if errorlevel 3 goto verify-copy/);
+ assert.match(launcher,/if "%MENU_CHOICE%"=="3" goto verify-copy/);
+ assert.match(launcher,/if "%MENU_CHOICE%"=="4" goto export-operational/);
  assert.match(launcher,/node tools\\cloudflare-prod-d1-encrypted-backup\.mjs --verify-copy/);
  assert.match(launcher,/It does NOT certify an offsite location/);
 });

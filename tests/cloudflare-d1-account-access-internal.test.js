@@ -341,3 +341,20 @@ test('P0 synthetic Owner create: role/session/store race and forced batch failur
       race==='duplicate'?1:0,race);
   }
 });
+
+
+test('P0 synthetic create: naturally expiring Owner Session is rejected at D1 batch time',async t=>{
+  const f=await fixture(t),auth=await authPromise;
+  const digest=await auth.tokenSha256(f.cookies.owner.split('=')[1]);
+  // The initial Principal lookup sees a live Session. The 1.4s queued
+  // batch delay crosses expiry; D1 itself must reject, without partial write.
+  f.db.prepare('UPDATE sessions SET expires_at=? WHERE token_hash=?')
+    .run(new Date(Date.now()+900).toISOString(),digest);
+  f.env.DB=adapter(f.db,{beforeBatch(){
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1400);
+  }});
+  const out=await createAccount(f);
+  assert.equal(out.status,503);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM users WHERE username='newstaff'").get().n,0);
+  assert.equal(logs(f).length,0);
+});

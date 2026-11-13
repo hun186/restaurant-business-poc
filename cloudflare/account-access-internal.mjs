@@ -177,9 +177,9 @@ export async function internalCreateD1Account(request,env,input={}){
     if(Number(locationCount?.n)!==ids.length)
       return {status:400,code:'E_LOCATION_NOT_FOUND'};
     const hash=await hashWorkerPassword(input.initialPassword);
-    const id=crypto.randomUUID(),auditId=crypto.randomUUID(),now=new Date().toISOString();
+    const id=crypto.randomUUID(),auditId=crypto.randomUUID();
     const ownerGate="a.id=? AND a.role='owner' AND a.active=1 "+
-      'AND s.token_hash=? AND s.expires_at>? AND s.csrf_token=?';
+      "AND s.token_hash=? AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND s.csrf_token=?";
     const inserted=env.DB.prepare(
       'INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) '+
       'SELECT ?,?,?,?,?,?,1 FROM users a JOIN sessions s ON s.user_id=a.id WHERE '+
@@ -187,7 +187,7 @@ export async function internalCreateD1Account(request,env,input={}){
       placeholders+'))=? AND NOT EXISTS ('+
       'SELECT 1 FROM users WHERE username=? COLLATE NOCASE)'
     ).bind(id,input.username,input.displayName,input.role,hash.password_salt,
-      hash.password_hash,p.id,p.token_hash,now,p.csrf,...ids,ids.length,input.username);
+      hash.password_hash,p.id,p.token_hash,p.csrf,...ids,ids.length,input.username);
     const grants=ids.map(loc=>env.DB.prepare(
       'INSERT INTO user_locations(user_id,location_id) SELECT ?,l.id FROM locations l '+
       'JOIN users u ON u.id=? WHERE l.id=? AND l.active=1'
@@ -199,7 +199,7 @@ export async function internalCreateD1Account(request,env,input={}){
       ownerGate+' AND u.username=? COLLATE NOCASE AND u.role=? AND u.active=1 '+
       'AND (SELECT COUNT(*) FROM user_locations WHERE user_id=u.id)=?'
     ).bind(auditId,JSON.stringify({role:input.role,assigned_locations:ids.length}),id,
-      p.id,p.token_hash,now,p.csrf,input.username,input.role,ids.length);
+      p.id,p.token_hash,p.csrf,input.username,input.role,ids.length);
     // A failed CAS must abort the transaction, not just return a late 409
     // after another statement committed. Owner.display_name is NOT NULL.
     const atomicGuard=env.DB.prepare(

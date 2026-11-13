@@ -73,6 +73,8 @@ test('scoped inventory rejects missing target, duplicate scripts, malformed or f
  const scope=m.classifyWorkerEntryPoints(await m.collectWorkerEntryPoints(p=>Promise.resolve(mock[p])));
  assert.equal(scope.probe_worker_deployed,false);
  assert.equal(scope.probe_preview_urls_enabled,false);
+ assert.equal(scope.production_login_or_write_enabled,null);
+ assert.equal(scope.production_login_or_write_state_verified,false);
  assert.equal(scope.g0_certified,false);
 });
 test('scoped inspection cannot bypass main-only Actions, confirmation or static reviewed guard',async()=>{
@@ -100,6 +102,8 @@ test('valid read-only inventory is explicitly not Cloudflare Access or release c
  assert.equal(report.target_preview_urls_enabled,true);
  assert.equal(report.probe_worker_deployed,true);
  assert.equal(report.probe_workers_dev_enabled,false);
+ assert.equal(report.production_login_or_write_enabled,null);
+ assert.equal(report.production_login_or_write_state_verified,false);
  assert.equal(report.g0_certified,false);
  assert.equal(report.release_authorized,false);
  assert.equal(report.access_policy_verified,false);
@@ -228,6 +232,16 @@ test('local repository deploy isolation and read-only environment gating are req
  const prod=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
  const hosted=JSON.parse(fs.readFileSync(path.join(root,'wrangler.pbkdf2-hosted-disabled.jsonc'),'utf8'));
  assert.equal(m.assertLocalIsolation(prod,hosted,'31b409b04896d260ba0fadf6cc2bb305'),true);
+ for(const mutate of [
+  x=>{x.vars={CLOUD_AUTH_PHASE:'disabled'};},
+  x=>{x.vars={CLOUD_AUTH_PHASE:'native-production'};},
+  x=>{x.keep_vars=false;},
+  x=>{delete x.keep_vars;},
+  x=>{x.previews.vars.CLOUD_AUTH_PHASE='native-production';}
+ ]){
+  const changed=structuredClone(prod);mutate(changed);
+  assert.throws(()=>m.assertLocalIsolation(changed,hosted,'31b409b04896d260ba0fadf6cc2bb305'),/E_G0_READONLY_INVENTORY/);
+ }
  assert.throws(()=>m.assertLocalIsolation(prod,hosted,'f'.repeat(32)),/E_G0_READONLY_INVENTORY/);
  const altered=structuredClone(hosted);altered.vars.PROBE_ENABLED='access-only';
  assert.throws(()=>m.assertLocalIsolation(prod,altered,'31b409b04896d260ba0fadf6cc2bb305'),/E_G0_READONLY_INVENTORY/);

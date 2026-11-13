@@ -111,7 +111,8 @@ test('public Worker stays closed and does not import dormant request decoder',as
   const src=fs.readFileSync(path.join(__dirname,'../cloudflare/worker.mjs'),'utf8');
   assert.doesNotMatch(src,/native-admin-request-internal/);
   const config=JSON.parse(fs.readFileSync(path.join(__dirname,'../wrangler.jsonc'),'utf8'));
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
   assert.equal(config.preview_urls,false);
   let dbCalls=0;
   const worker=(await import('../cloudflare/worker.mjs')).default;

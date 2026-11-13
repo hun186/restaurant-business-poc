@@ -114,6 +114,7 @@ test('candidate class is dormant and has no Wrangler binding',()=>{
   assert.match(classFile,/consumeAtomicWindowV1/);
   assert.doesNotMatch(worker,/native-admin-quota-do-/);
   assert.equal(Object.hasOwn(config,'durable_objects'),false);
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
   assert.equal(config.preview_urls,false);
 });

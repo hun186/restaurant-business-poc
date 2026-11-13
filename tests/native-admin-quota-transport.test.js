@@ -70,9 +70,10 @@ test('adapter stays internal; public Worker and Wrangler expose no quota binding
   const worker=fs.readFileSync(path.resolve(__dirname,'../cloudflare/worker.mjs'),'utf8');
   const config=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../wrangler.jsonc'),'utf8'));
   assert.doesNotMatch(worker,/native-admin-quota-transport-internal/);
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
   assert.equal(config.preview_urls,false);
-  assert.equal(Object.hasOwn(config.vars,'NATIVE_ADMIN_QUOTA_BINDING'),false);
+  assert.equal(Object.hasOwn(config.vars??{},'NATIVE_ADMIN_QUOTA_BINDING'),false);
 });
 
 test('hostile getters, symbols and proxy traps never reach quota storage',async()=>{

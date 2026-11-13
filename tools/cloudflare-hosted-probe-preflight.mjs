@@ -126,7 +126,10 @@ export function inspectHostedProbeStatic(root){
   assert(probe.name!==prod.name &&
     prod.main==='./cloudflare/worker.mjs' &&
     prod.workers_dev===true && prod.preview_urls===false &&
-    prod.vars?.CLOUD_AUTH_PHASE==='disabled' &&
+    // Production login is *not* hardcoded in repo: it is controlled by
+    // operator-only Dashboard variables. This probe never certifies their
+    // LIVE state; it only verifies the separate PBKDF2 Worker is isolated.
+    prod.keep_vars===true && !Object.hasOwn(prod,'vars') &&
     prod.previews?.vars?.CLOUD_AUTH_PHASE==='preview-readonly',
     'E_PROD_WORKER_ISOLATION');
 

@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-13 Current Focus | PR #178 配置契約回歸修正（新 HEAD CI／Review 待驗）**：Production `wrangler.jsonc` 設定 `keep_vars:true`，不在版控寫死 `CLOUD_AUTH_PHASE`；同 PR 補齊 G0 GET-only 守衛、Owner/業務/內部 admin 的 fail-closed 合成測及閉鎖 SHA256。最初 HEAD Hosted 測試 823 項中 17 項失敗；已提交修正但尚待最新 HEAD CI 與正式 Codex 複審。PR 保持 Draft，Codex P1/P2 findings 尚待驗證修復後才能處理 Thread。這項設定變更可能使後續正式部署沿用 Dashboard 先前的登入／寫入 Gate 值，**未經人工確認全部七個 Gate 的實值、D1/Secret、備份及 Live UAT，不得自動 Merge 或宣告正式可用**。本分支沒有執行 Cloudflare、D1、Owner 登入或密碼重設。
+
 > **2026-11-10 最新｜Production Owner 唯讀驗證失敗分級（本 PR 待 CI/Review）**：操作員實機 GitHub Workflow #42742857454 在 main `b8fe14305ef4ff2dd530a005f5a0e6ebc0c8e8e0` 對固定 Production D1 執行四組唯讀查詢，SHA256／固定目標設定／Wrangler 安裝均通過，但 `cloudflare-prod-owner-readonly.mjs inspect` 僅輸出 `E_PRODUCTION_OWNER_READONLY`，Owner0/1、D1 完整性仍未知。補精確且固定白名單的 `stage` 錯誤碼（格式／完整性／Schema／Owner 狀態等），任何異常 Exit 1、無敏感值、無寫入／部署／Release Gate 修改。新增負向合成測及 SHA256 pin，待 Hosted CI 5/5 + 正式 Codex Review + clean gate 才可合併。下次操作員僅重跑 **Production D1 Owner readiness 唯讀 Action**，不可建立 Owner、重跑 migration 或開放 Login/5 Write Gates。
 
 

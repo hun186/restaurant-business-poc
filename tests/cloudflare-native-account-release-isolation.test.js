@@ -127,9 +127,10 @@ test('Wrangler Production and Preview never activate an account administration s
   assert.equal(config.main,'./cloudflare/worker.mjs');
   assert.equal(config.workers_dev,true);
   assert.equal(config.preview_urls,false);
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
   assert.equal(config.previews.vars.CLOUD_AUTH_PHASE,'preview-readonly');
-  for(const vars of [config.vars,config.previews.vars]){
+  for(const vars of [config.vars??{},config.previews.vars]){
     assert.equal(Object.hasOwn(vars,'ACCOUNT_SECURITY_STAGE'),false);
     assert.equal(Object.hasOwn(vars,'CLOUD_NATIVE_LOGIN_GATE'),false);
   }

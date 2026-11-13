@@ -61,7 +61,7 @@ function inventoryEntryCount(value){ensure(Number.isSafeInteger(value)&&value>=0
 export function assertLocalIsolation(prod,hosted,accountId) {
   ensure(accountId===ACCOUNT_ID&&HEX32.test(accountId));
   ensure(prod&&prod.name===WORKER&&prod.main==='./cloudflare/worker.mjs'&&
-    prod.vars?.CLOUD_AUTH_PHASE==='disabled'&&
+    prod.keep_vars===true&&!Object.hasOwn(prod,'vars')&&
     prod.previews?.vars?.CLOUD_AUTH_PHASE==='preview-readonly');
   ensure(hosted&&hosted.name===PROBE&&
     hosted.main==='./cloudflare/pbkdf2-hosted-access-worker.mjs'&&
@@ -122,7 +122,8 @@ export function classifyInventory({scripts,domains,zones,routes,subdomains}) {
     public_surface_present:publicSurfacePresent,
     access_policy_verified:false,
     deployment_and_version_url_probes_verified:false,
-    production_login_or_write_enabled:false,
+    production_login_or_write_enabled:null,
+    production_login_or_write_state_verified:false,
     g0_certified:false,
     release_authorized:false
   });
@@ -165,7 +166,9 @@ export function classifyWorkerEntryPoints({scripts,subdomains}){
     custom_domains_verified:false,zone_routes_verified:false,
     actual_public_hostname_response_verified:false,
     public_hostname_version_verified:false,
-    access_policy_verified:false,production_login_or_write_enabled:false,
+    access_policy_verified:false,
+    production_login_or_write_enabled:null,
+    production_login_or_write_state_verified:false,
     g0_certified:false,release_authorized:false
   });
 }

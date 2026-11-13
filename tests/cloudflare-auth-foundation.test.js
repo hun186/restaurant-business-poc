@@ -182,7 +182,8 @@ test('Production /api/me remains disabled even with valid D1 cookie; Preview is 
   const auth=await modulePromise,worker=(await workerPromise).default,f=await databaseForUser('staff');
   const assets={fetch:async()=>new Response('demo')};
   try{
-    assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
+    assert.equal(config.keep_vars,true);
+    assert.equal(Object.hasOwn(config,'vars'),false);
     assert.equal(config.previews.vars.CLOUD_AUTH_PHASE,'preview-readonly');
     assert.notEqual(config.d1_databases[0].database_id,config.previews.d1_databases[0].database_id);
     const req=request('/api/me',{headers:{cookie:auth.SESSION_COOKIE+'='+f.session}});

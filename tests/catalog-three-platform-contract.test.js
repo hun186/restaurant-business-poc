@@ -57,7 +57,9 @@ test('three deployed surfaces are distinct; baseline must not spoof D1 or silent
  assert.match(worker,/CLOUD_NATIVE_CATALOG_WRITE_GATE==='operator-released'/);
  assert.match(native,/catalogWriteEnabled=status\.catalog_write_enabled===true/);
  assert.doesNotMatch(native,/mock\.js|sessionStorage|localStorage/);
- assert.match(cfg,/"CLOUD_AUTH_PHASE": "disabled"/);
+ const prodConfig=JSON.parse(cfg);
+ assert.equal(prodConfig.keep_vars,true);
+ assert.equal(Object.hasOwn(prodConfig,'vars'),false);
 });
 
 test('Cloudflare-only catalog mirror is byte-identical to canonical source',()=>{

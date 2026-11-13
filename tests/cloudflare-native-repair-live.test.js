@@ -179,8 +179,9 @@ test('default production gate stays disabled and avoids data writes',async t=>{
     ...f.env,CLOUD_NATIVE_REPAIR_WRITE_GATE:undefined});
   assert.equal((await status.json()).repair_write_enabled,false);
   const cfg=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
-  assert.equal(cfg.vars.CLOUD_AUTH_PHASE,'disabled');
-  assert.equal(Object.hasOwn(cfg.vars,'CLOUD_NATIVE_REPAIR_WRITE_GATE'),false);
+  assert.equal(cfg.keep_vars,true);
+  assert.equal(Object.hasOwn(cfg,'vars'),false);
+  assert.equal(Object.hasOwn(cfg.vars??{},'CLOUD_NATIVE_REPAIR_WRITE_GATE'),false);
   assert.equal(f.db.prepare('SELECT COUNT(*) n FROM repairs').get().n,0);
 });
 

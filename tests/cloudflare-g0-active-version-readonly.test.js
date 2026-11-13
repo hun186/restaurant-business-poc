@@ -23,7 +23,7 @@ const build=(commit=SHA,override={})=>({success:true,result:{builds:{[VERSION]:{
  }}}}});
 function config(){return {name:'restaurant-business-poc',
  main:'./cloudflare/worker.mjs',workers_dev:true,
- vars:{CLOUD_AUTH_PHASE:'disabled'},
+ keep_vars:true,
  previews:{vars:{CLOUD_AUTH_PHASE:'preview-readonly'},
   d1_databases:[{database_id:'2c355bed-d9c3-449c-aa9b-1018f3bc1177'}]},
  d1_databases:[{database_id:'b882a6e8-0e56-49a6-bd41-1a6cadd726c9'}]};}
@@ -37,8 +37,16 @@ test('G0 local config separates absent/mismatched account secret from Wrangler d
  assert.throws(()=>m.assertLocalGate(config(),'0'.repeat(32)),e=>
   e.stage==='LOCAL_CONFIG_ACCOUNT_ID_MISMATCH'&&
   e.message==='E_G0_ACTIVE_DEPLOYMENT');
- assert.throws(()=>m.assertLocalGate({...config(),vars:{CLOUD_AUTH_PHASE:'enabled'}},account),e=>
-  e.stage==='LOCAL_CONFIG');
+ for(const mutate of [
+  x=>{x.vars={CLOUD_AUTH_PHASE:'enabled'};},
+  x=>{x.vars={CLOUD_AUTH_PHASE:'disabled'};},
+  x=>{x.keep_vars=false;},
+  x=>{delete x.keep_vars;},
+  x=>{x.previews.vars.CLOUD_AUTH_PHASE='native-production';}
+ ]){
+  const input=config();mutate(input);
+  assert.throws(()=>m.assertLocalGate(input,account),e=>e.stage==='LOCAL_CONFIG');
+ }
  assert.doesNotThrow(()=>m.assertLocalGate(config(),account));
 });
 test('active version matched with exact github main commit, still NO release authorization',async()=>{
@@ -56,6 +64,8 @@ test('active version matched with exact github main commit, still NO release aut
  assert.equal(result.public_hostname_version_verified,false);
  assert.equal(result.access_policy_verified,false);
  assert.equal(result.staging_live_access_verified,false);
+ assert.equal(result.production_login_enabled,null);
+ assert.equal(result.production_login_state_verified,false);
  assert.equal(result.production_write_performed,false);
  assert.equal(result.release_authorized,false);
 });

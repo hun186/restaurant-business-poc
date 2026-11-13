@@ -52,7 +52,8 @@ async function fixture(t){
 }
 test('production still disabled by default and native status rejects demo credentials',async t=>{
   const f=await fixture(t),config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
-  assert.equal(config.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(config.keep_vars,true);
+  assert.equal(Object.hasOwn(config,'vars'),false);
   assert(config.assets.run_worker_first.includes('/'));
   for(const env of [{...f.env,CLOUD_AUTH_PHASE:'disabled'},
                     {...f.env,CLOUD_NATIVE_LOGIN_GATE:undefined}]){

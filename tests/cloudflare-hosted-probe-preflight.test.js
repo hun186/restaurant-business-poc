@@ -84,10 +84,13 @@ test('fails closed if any remote routes, bindings, values or new config keys are
     }finally{fs.rmSync(dir,{recursive:true,force:true});}
   }
 });
-test('fails closed if production routing or auth phase changes',async()=>{
+test('fails closed if production routing or Dashboard gate ownership changes',async()=>{
   const {inspectHostedProbeStatic}=await preflightPromise;
   for(const change of [
-    x=>x.vars.CLOUD_AUTH_PHASE='enabled',
+    x=>{x.vars={CLOUD_AUTH_PHASE:'native-production'};},
+    x=>{x.vars={CLOUD_AUTH_PHASE:'disabled'};},
+    x=>{x.keep_vars=false;},
+    x=>{delete x.keep_vars;},
     x=>x.preview_urls=true,
     x=>x.workers_dev=false,
     x=>x.previews.vars.CLOUD_AUTH_PHASE='enabled',

@@ -20,9 +20,10 @@ test('native account admin v1 contract is explicitly not released',()=>{
   assert.equal(spec.candidate_endpoint.authorized_role,'owner');
   assert.equal(spec.candidate_endpoint.public_route_exists,false);
   assert.equal(spec.candidate_endpoint.max_body_bytes,2048);
-  assert.equal(wrangler.vars.CLOUD_AUTH_PHASE,'disabled');
+  assert.equal(wrangler.keep_vars,true);
+  assert.equal(Object.hasOwn(wrangler,'vars'),false);
   assert.equal(wrangler.preview_urls,false);
-  assert.equal(Object.hasOwn(wrangler.vars,'ACCOUNT_SECURITY_STAGE'),false);
+  assert.equal(Object.hasOwn(wrangler.vars??{},'ACCOUNT_SECURITY_STAGE'),false);
   assert.equal(Object.hasOwn(wrangler.previews.vars,'ACCOUNT_SECURITY_STAGE'),false);
   assert.equal(spec.release_gates.requires_new_explicit_production_authorization,true);
 });

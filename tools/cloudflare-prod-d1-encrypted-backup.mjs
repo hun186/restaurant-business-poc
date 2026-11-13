@@ -92,7 +92,7 @@ export function verifyLocalSql(sql,{operational=false}={}) {
    if(owners.length!==1||owners[0].username.toLowerCase()!=='owner'||
      owners[0].active!==1||
      !/^[0-9a-f]{32}$/.test(owners[0].password_salt||'')||
-     !/^pbkdf2-sha256\\$100000\\$[0-9a-f]{64}$/.test(owners[0].password_hash||''))
+     !/^pbkdf2-sha256\$100000\$[0-9a-f]{64}$/.test(owners[0].password_hash||''))
      fail('SQL_OWNER_STATE');
    const audit=db.prepare("SELECT actor_id,actor_name,entity,entity_id,location_id,ip_hash,detail FROM audit_logs WHERE action='auth.owner_bootstrap'").all();
    let details;
@@ -104,7 +104,7 @@ export function verifyLocalSql(sql,{operational=false}={}) {
       !isObj(details)||Object.keys(details).length!==1||
       details.hash_version!=='pbkdf2-sha256$100000')
      fail('SQL_OWNER_STATE');
-   if(db.prepare('PRAGMA integrity_check').all().some(row=>row.integrity_check!=='ok'))
+   if(JSON.stringify(db.prepare('PRAGMA integrity_check').all())!==JSON.stringify([{integrity_check:'ok'}]))
      fail('SQL_INTEGRITY');
    const coreTables=EMPTY_TABLES.filter(x=>!['users','sessions','login_attempts','audit_logs'].includes(x));
    const businessDataPresent=coreTables.some(table=>

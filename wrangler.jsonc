@@ -1,5 +1,6 @@
 {
   "name": "restaurant-business-poc",
+  "keep_vars": true,
   "main": "./cloudflare/worker.mjs",
   "compatibility_date": "2026-10-25",
   "workers_dev": true,
@@ -31,8 +32,5 @@
       "database_id": "b882a6e8-0e56-49a6-bd41-1a6cadd726c9",
       "migrations_dir": "cloudflare/migrations"
     }
-  ],
-  "vars": {
-    "CLOUD_AUTH_PHASE": "disabled"
-  }
+  ]
 }

@@ -29,8 +29,9 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "vercel-demo/native-account-management-ui.mjs":"9f11f1bbdb564d09b021b7d449024efa616aa6f169416e650fed97354e2945d2",
   "cloudflare/native-account-management-http.mjs":"4bfd41d4c9f067b055721c6da1788d92119dab67b52151dd8c8c893566dca79b",
-  "tests/cloudflare-native-account-management-http.test.js":"87e29781197333eb0b27966121569b42224d41bdb791dc799fc3eace513029da",
+  "tests/cloudflare-native-account-management-http.test.js":"38e1bbda3ebcb60d79e29acb5d329f0d87c3e8972f884ea9ba8fe68a3e9ea28c",
   "tools/cloudflare-prod-owner-recovery-runner.mjs":"5447e187384d28aca9938dcb0e85563e9275bc333082c4a2a6d231a1b8613d26",
   "重設雲端業主密碼.bat":"39e74c6cba3fffbac81f28892b67fa17940ba9334db171934e37e37c2082d3b4",
   "tools/cloudflare-prod-owner-password-recovery.mjs":"0daf481021e212391f2f157f6deaf8133d12183ef8b0bd327247550c1557784f",
@@ -137,9 +138,9 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-access-task-status-write.test.js":"ffaf53a517294560661fad63c3bc1ec74d8d887fec6c31d6fe41a6f54acbfe4b",
   "cloudflare/access-task-status-write.mjs":"99e35093756eaaf8a130c0edf57e712d3b6001b81a474f5fe40c64dabef00a3f",
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
-  "vercel-demo/owner-app.html":"0b791301d6854f10d37113324d1150f9589144f082de568d401e852702fc5742",
+  "vercel-demo/owner-app.html":"d011c42cc191e2d61fdb8c6debff603d8fd9677e80ed27a8d9a94c9b94f42e89",
   "vercel-demo/owner-app.css":"c100766867a15264f0d7f4173bf14ae4d33cef31fb9f0e53963a1cdbbd0a5101",
-  "vercel-demo/owner-app.js":"6b5c73ded9017195eb484fc954abc4e03ec61408c02f50e00245e05508a901c3",
+  "vercel-demo/owner-app.js":"7a498acccf951628e4d1f96474569b9a7dbe99b933842a9b09595eb5788d5841",
   "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",

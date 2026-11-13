@@ -104,3 +104,16 @@ test('Native Owner account creation is separately gated; creates staff + store +
  assert.equal(listed.users[1].username,'newstaff');
  assert.equal(count(f.db,'users'),2);
 });
+
+
+test('Account manager UI entry is Owner-hidden and POST uses CSRF',()=>{
+ const html=fs.readFileSync(path.join(root,'vercel-demo/owner-app.html'),'utf8');
+ const app=fs.readFileSync(path.join(root,'vercel-demo/owner-app.js'),'utf8');
+ const ui=fs.readFileSync(path.join(root,'vercel-demo/native-account-management-ui.mjs'),'utf8');
+ assert.match(html,/data-view="accounts" hidden/);
+ assert.match(app,/button.hidden=role!=='owner'/);
+ assert.match(app,/renderOwnerAccounts/);
+ assert.match(ui,/initialPassword:password.value/);
+ assert.match(ui,/X-CSRF-Token/);
+ assert.match(ui,/data.can_create!==true/);
+});

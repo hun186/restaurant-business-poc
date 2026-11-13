@@ -2,7 +2,7 @@
 // A separately operator-released account gate protects all new account writes.
 import {loadPrincipal,authorizedMutation,hashWorkerPassword} from './auth-core.mjs';
 import {nativeLoginEnabled,bodyWithinLimit} from './native-login-http.mjs';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validDb=db=>!!db&&typeof db.prepare==='function'&&typeof db.batch==='function';
 function changed(res){
   const n=res?.meta?.changes??res?.changes;

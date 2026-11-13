@@ -118,3 +118,19 @@ test('Account manager UI entry is Owner-hidden and POST uses CSRF',()=>{
  assert.match(ui,/X-CSRF-Token/);
  assert.match(ui,/data.can_create!==true/);
 });
+
+
+test('New account UUID validation is RFC 4122-shaped and rejects truncated IDs',async t=>{
+ const f=await fixture(t),session=await f.login();
+ assert.equal(session.status,200);
+ const env={...f.env,CLOUD_NATIVE_ACCOUNT_WRITE_GATE:'operator-released'};
+ const body={action:'user.create',username:'badstore',displayName:'測試',
+  role:'staff',initialPassword:'new-password-strong-12345',
+  locationIds:['123e4567-e89b-42d3-426614174000']};
+ const response=await f.send('/api/accounts',{method:'POST',
+  headers:{origin:site,'sec-fetch-site':'same-origin',
+   'content-type':'application/json',cookie:session.cookie,
+   'x-csrf-token':session.csrf},body:JSON.stringify(body)},env);
+ assert.equal(response.status,400);
+ assert.equal(count(f.db,'users'),1);
+});

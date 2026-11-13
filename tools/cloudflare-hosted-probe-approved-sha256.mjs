@@ -86,8 +86,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/native-account-management-ui.mjs":"9f11f1bbdb564d09b021b7d449024efa616aa6f169416e650fed97354e2945d2",
-  "cloudflare/native-account-management-http.mjs":"13056160f249927225af257b9c2e854a8e5e548dd7b66782c82f682c63337c55",
-  "tests/cloudflare-native-account-management-http.test.js":"68935e72adb1dca87b20ac4eec0c0c4906e6b52344935701de05af4d52268168",
+  "cloudflare/native-account-management-http.mjs":"04b0d7b95e4ef80696cb107b0d581ac2cebebd9108a7f02c5275bb672b3fbccf",
+  "tests/cloudflare-native-account-management-http.test.js":"c775a23b82e704d214489dcd195e7d7e3c64c04f017c4ab81e0640672a4113a9",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",

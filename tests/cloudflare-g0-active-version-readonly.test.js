@@ -64,6 +64,8 @@ test('active version matched with exact github main commit, still NO release aut
  assert.equal(result.public_hostname_version_verified,false);
  assert.equal(result.access_policy_verified,false);
  assert.equal(result.staging_live_access_verified,false);
+ assert.equal(result.production_login_enabled,null);
+ assert.equal(result.production_login_state_verified,false);
  assert.equal(result.production_write_performed,false);
  assert.equal(result.release_authorized,false);
 });

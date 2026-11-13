@@ -73,6 +73,8 @@ test('scoped inventory rejects missing target, duplicate scripts, malformed or f
  const scope=m.classifyWorkerEntryPoints(await m.collectWorkerEntryPoints(p=>Promise.resolve(mock[p])));
  assert.equal(scope.probe_worker_deployed,false);
  assert.equal(scope.probe_preview_urls_enabled,false);
+ assert.equal(scope.production_login_or_write_enabled,null);
+ assert.equal(scope.production_login_or_write_state_verified,false);
  assert.equal(scope.g0_certified,false);
 });
 test('scoped inspection cannot bypass main-only Actions, confirmation or static reviewed guard',async()=>{
@@ -100,6 +102,8 @@ test('valid read-only inventory is explicitly not Cloudflare Access or release c
  assert.equal(report.target_preview_urls_enabled,true);
  assert.equal(report.probe_worker_deployed,true);
  assert.equal(report.probe_workers_dev_enabled,false);
+ assert.equal(report.production_login_or_write_enabled,null);
+ assert.equal(report.production_login_or_write_state_verified,false);
  assert.equal(report.g0_certified,false);
  assert.equal(report.release_authorized,false);
  assert.equal(report.access_policy_verified,false);

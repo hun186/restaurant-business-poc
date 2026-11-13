@@ -82,7 +82,9 @@ export function verifyVersionBuild(reply,versionId,expectedCommit){
   public_hostname_version_verified:false,
   access_policy_verified:false,
   staging_live_access_verified:false,
-  production_login_enabled:false,
+  // G0 checks deployment metadata, not live runtime gates.
+  production_login_enabled:null,
+  production_login_state_verified:false,
   production_write_performed:false,
   cloudflare_write_performed:false,
   release_authorized:false

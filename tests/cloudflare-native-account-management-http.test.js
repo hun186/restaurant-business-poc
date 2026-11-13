@@ -102,7 +102,7 @@ test('Native Owner account creation is separately gated; creates staff + store +
  assert.equal((await send(input,live)).status,409);
  const listed=await (await f.send('/api/accounts',{headers:{cookie:session.cookie}},live)).json();
  assert.equal(listed.can_create,true);assert.equal(listed.users.length,2);
- assert.equal(listed.users[1].username,'newstaff');
+ assert.equal(listed.users.some(user=>user.username==='newstaff'&&user.role==='staff'),true);
  assert.equal(count(f.db,'users'),2);
 });
 

@@ -228,6 +228,16 @@ test('local repository deploy isolation and read-only environment gating are req
  const prod=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
  const hosted=JSON.parse(fs.readFileSync(path.join(root,'wrangler.pbkdf2-hosted-disabled.jsonc'),'utf8'));
  assert.equal(m.assertLocalIsolation(prod,hosted,'31b409b04896d260ba0fadf6cc2bb305'),true);
+ for(const mutate of [
+  x=>{x.vars={CLOUD_AUTH_PHASE:'disabled'};},
+  x=>{x.vars={CLOUD_AUTH_PHASE:'native-production'};},
+  x=>{x.keep_vars=false;},
+  x=>{delete x.keep_vars;},
+  x=>{x.previews.vars.CLOUD_AUTH_PHASE='native-production';}
+ ]){
+  const changed=structuredClone(prod);mutate(changed);
+  assert.throws(()=>m.assertLocalIsolation(changed,hosted,'31b409b04896d260ba0fadf6cc2bb305'),/E_G0_READONLY_INVENTORY/);
+ }
  assert.throws(()=>m.assertLocalIsolation(prod,hosted,'f'.repeat(32)),/E_G0_READONLY_INVENTORY/);
  const altered=structuredClone(hosted);altered.vars.PROBE_ENABLED='access-only';
  assert.throws(()=>m.assertLocalIsolation(prod,altered,'31b409b04896d260ba0fadf6cc2bb305'),/E_G0_READONLY_INVENTORY/);

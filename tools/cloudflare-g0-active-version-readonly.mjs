@@ -19,7 +19,7 @@ export function assertLocalGate(prod,accountId){
  check(accountId===ACCOUNT_ID,'LOCAL_CONFIG_ACCOUNT_ID_MISMATCH');
  check(prod?.name===SCRIPT&&
   prod.main==='./cloudflare/worker.mjs'&&prod.workers_dev===true&&
-  prod.vars?.CLOUD_AUTH_PHASE==='disabled'&&
+  prod.keep_vars===true&&!Object.hasOwn(prod,'vars')&&
   prod.previews?.vars?.CLOUD_AUTH_PHASE==='preview-readonly'&&
   prod.d1_databases?.length===1&&prod.d1_databases[0].database_id===PROD_ID&&
   prod.previews?.d1_databases?.length===1&&

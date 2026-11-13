@@ -61,7 +61,7 @@ function inventoryEntryCount(value){ensure(Number.isSafeInteger(value)&&value>=0
 export function assertLocalIsolation(prod,hosted,accountId) {
   ensure(accountId===ACCOUNT_ID&&HEX32.test(accountId));
   ensure(prod&&prod.name===WORKER&&prod.main==='./cloudflare/worker.mjs'&&
-    prod.vars?.CLOUD_AUTH_PHASE==='disabled'&&
+    prod.keep_vars===true&&!Object.hasOwn(prod,'vars')&&
     prod.previews?.vars?.CLOUD_AUTH_PHASE==='preview-readonly');
   ensure(hosted&&hosted.name===PROBE&&
     hosted.main==='./cloudflare/pbkdf2-hosted-access-worker.mjs'&&

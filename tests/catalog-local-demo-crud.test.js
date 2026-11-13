@@ -86,5 +86,7 @@ test('shared contract served in local/Vercel and demo never reuses real D1 authe
  assert.match(read('server.js'),/\/catalog-crud-contract\.mjs/);
  assert.match(read('vercel-demo/mock.js'),/await command\(body\.action/);
  assert.doesNotMatch(read('vercel-demo/owner-app.js'),/mock\.js|sessionStorage|localStorage/);
- assert.match(read('wrangler.jsonc'),/"CLOUD_AUTH_PHASE": "disabled"/);
+ const prodConfig=JSON.parse(read('wrangler.jsonc'));
+ assert.equal(prodConfig.keep_vars,true);
+ assert.equal(Object.hasOwn(prodConfig,'vars'),false);
 });

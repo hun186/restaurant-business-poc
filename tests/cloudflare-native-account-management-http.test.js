@@ -88,7 +88,8 @@ test('Native Owner account creation is separately gated; creates staff + store +
  assert.equal((await send(input,live,'wrong')).status,403);
  assert.equal((await send(input,live,session.csrf,'https://evil.invalid')).status,403);
  assert.equal((await send({...input,role:'owner'},live)).status,400);
- assert.equal((await send(input,live)).status,201);
+ const created=await send(input,live);
+ assert.equal(created.status,201,JSON.stringify(await created.json()));
  const row=f.db.prepare("SELECT * FROM users WHERE username='newstaff'").get();
  assert.equal(row.role,'staff');assert.equal(row.active,1);
  assert.equal(await (await authPromise).verifyWorkerPassword(input.initialPassword,

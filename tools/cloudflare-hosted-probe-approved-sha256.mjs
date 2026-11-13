@@ -85,6 +85,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",
   "tests/cloudflare-prod-owner-recovery-runner.test.js":"fec45ca5ed6b6dcbcee98acfe1bbc119eb1a62e2a52bee841eaf7b48f0925132",
@@ -192,7 +193,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/report-ui.js":"cf3b85b543d1b0be50ed82b0c56c41bea48431ce1f16dfd6573d44753f1000b2",
   "vercel-demo/styles.css":"50e210212deba7f48261b795dfba72db1eb0df87a26bfd8f6f3598b88aebf1ad",
   "vercel-demo/xlsx-lite.js":"197df982a0b7835778422b43e4521376b14af1d7339c587a371fb3767b6a7630",
-  "wrangler.jsonc":"18f0a2e4f25377d79e41c3b290a08c67fe09278bde588b7b67c241a0a6adc1f6",
+  "wrangler.jsonc":"5d03cc01496e51151b508edcefdc8cfc5c45ffb950894711c334c916bce8764c",
   "wrangler.pbkdf2-hosted-disabled.jsonc":"2858fe4ae52bccbd60c8c5f0ba52dcc524787b95864c95aec190e0bac252a239",
   "wrangler.pbkdf2-local.jsonc":"c069f464c266ab286d685ffddf54df3fb067db8ae599b0e7e028c3a011baa69b",
   "wrangler.preview-migrations.jsonc":"fc67f950f58e4ab83299c4ddb10b14e4f61f72a8abed223a0fe24f69b95bee7b",

@@ -85,6 +85,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "vercel-demo/native-account-management-ui.mjs":"9f11f1bbdb564d09b021b7d449024efa616aa6f169416e650fed97354e2945d2",
+  "cloudflare/native-account-management-http.mjs":"04b0d7b95e4ef80696cb107b0d581ac2cebebd9108a7f02c5275bb672b3fbccf",
+  "tests/cloudflare-native-account-management-http.test.js":"57f8bf5b88e90939dd8eba60538873b6291fb82d7ce8884cb995b862d5b1dad1",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",
@@ -135,9 +138,9 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-access-task-status-write.test.js":"ffaf53a517294560661fad63c3bc1ec74d8d887fec6c31d6fe41a6f54acbfe4b",
   "cloudflare/access-task-status-write.mjs":"99e35093756eaaf8a130c0edf57e712d3b6001b81a474f5fe40c64dabef00a3f",
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
-  "vercel-demo/owner-app.html":"0b791301d6854f10d37113324d1150f9589144f082de568d401e852702fc5742",
+  "vercel-demo/owner-app.html":"d011c42cc191e2d61fdb8c6debff603d8fd9677e80ed27a8d9a94c9b94f42e89",
   "vercel-demo/owner-app.css":"c100766867a15264f0d7f4173bf14ae4d33cef31fb9f0e53963a1cdbbd0a5101",
-  "vercel-demo/owner-app.js":"6b5c73ded9017195eb484fc954abc4e03ec61408c02f50e00245e05508a901c3",
+  "vercel-demo/owner-app.js":"7a498acccf951628e4d1f96474569b9a7dbe99b933842a9b09595eb5788d5841",
   "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",
@@ -297,7 +300,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/migrations/0002_login_attempts_window_indexes.sql":"d97cec3593c69e60614554f95d36a7cfa14bf509f8e7c5961bcdc59550d12592",
   "cloudflare/pbkdf2-local-probe-worker.mjs":"b6a5f61d552def61ab39b968c6cad5f9441c44718992ceb03915295cadbabc84",
   "cloudflare/pbkdf2-local-probe.mjs":"cd363b2ac17a184b0f2a0660899f3aaaa6a546ed9f50178c5304041e06c7469a",
-  "cloudflare/worker.mjs":"d3f37d92e751f7ade0d40b02f4a5e35a3c40385a465227baf8d128006db31f0d",
+  "cloudflare/worker.mjs":"e2d431996efe3bf4fb36a4cc38a9fadf7c5590eebd0f2ed10fa41a2bbcb40ede",
   "cloudflare/wrangler.d1.example.jsonc":"b6db7434a57a81a31d7700c9e93560da301655aba2a41af127d11f994e0aa06b",
   "cloudflare/wrangler.preview-migrations.example.jsonc":"3e4a8feb7459c9bcfa08a2a36f8d7b4e45bac1a1dbbfe020bf8466b22d2b2f67",
   "db/backup.sql":"2823994610ca8373e11d342358392144532f1414570ad5fdbc95b470891d53ce",

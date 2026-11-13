@@ -29,6 +29,8 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "cloudflare/native-account-management-http.mjs":"4bfd41d4c9f067b055721c6da1788d92119dab67b52151dd8c8c893566dca79b",
+  "tests/cloudflare-native-account-management-http.test.js":"87e29781197333eb0b27966121569b42224d41bdb791dc799fc3eace513029da",
   "tools/cloudflare-prod-owner-recovery-runner.mjs":"5447e187384d28aca9938dcb0e85563e9275bc333082c4a2a6d231a1b8613d26",
   "重設雲端業主密碼.bat":"39e74c6cba3fffbac81f28892b67fa17940ba9334db171934e37e37c2082d3b4",
   "tools/cloudflare-prod-owner-password-recovery.mjs":"0daf481021e212391f2f157f6deaf8133d12183ef8b0bd327247550c1557784f",
@@ -297,7 +299,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/migrations/0002_login_attempts_window_indexes.sql":"d97cec3593c69e60614554f95d36a7cfa14bf509f8e7c5961bcdc59550d12592",
   "cloudflare/pbkdf2-local-probe-worker.mjs":"b6a5f61d552def61ab39b968c6cad5f9441c44718992ceb03915295cadbabc84",
   "cloudflare/pbkdf2-local-probe.mjs":"cd363b2ac17a184b0f2a0660899f3aaaa6a546ed9f50178c5304041e06c7469a",
-  "cloudflare/worker.mjs":"d3f37d92e751f7ade0d40b02f4a5e35a3c40385a465227baf8d128006db31f0d",
+  "cloudflare/worker.mjs":"e2d431996efe3bf4fb36a4cc38a9fadf7c5590eebd0f2ed10fa41a2bbcb40ede",
   "cloudflare/wrangler.d1.example.jsonc":"b6db7434a57a81a31d7700c9e93560da301655aba2a41af127d11f994e0aa06b",
   "cloudflare/wrangler.preview-migrations.example.jsonc":"3e4a8feb7459c9bcfa08a2a36f8d7b4e45bac1a1dbbfe020bf8466b22d2b2f67",
   "db/backup.sql":"2823994610ca8373e11d342358392144532f1414570ad5fdbc95b470891d53ce",

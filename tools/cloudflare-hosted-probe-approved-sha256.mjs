@@ -86,7 +86,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/native-account-management-ui.mjs":"9f11f1bbdb564d09b021b7d449024efa616aa6f169416e650fed97354e2945d2",
-  "cloudflare/native-account-management-http.mjs":"4bfd41d4c9f067b055721c6da1788d92119dab67b52151dd8c8c893566dca79b",
+  "cloudflare/native-account-management-http.mjs":"13056160f249927225af257b9c2e854a8e5e548dd7b66782c82f682c63337c55",
   "tests/cloudflare-native-account-management-http.test.js":"68935e72adb1dca87b20ac4eec0c0c4906e6b52344935701de05af4d52268168",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",

@@ -161,12 +161,12 @@ export async function nativeAccountsHttp(request,env){
       return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
     if(quota.n>=10)return reply(429,{code:'E_RATE_LIMITED'});
     let payload;try{payload=JSON.parse(await bodyWithinLimit(request));}
-    catch{return reply(400,{code:'E_INVALID_INPUT'});}
+    catch{return reply(400,{code:'E_INVALID_JSON'});}
     if(!payload||typeof payload!=='object'||Array.isArray(payload)||
        Object.keys(payload).sort().join(',')!==
        'action,displayName,initialPassword,locationIds,role,username'||
        payload.action!=='user.create')
-      return reply(400,{code:'E_INVALID_INPUT'});
+      return reply(400,{code:'E_INVALID_SHAPE'});
     const {action,...input}=payload;
     const result=await createProductionD1Account(request,env,input);
     return reply(result.status,{code:result.code,...(result.user?{user:result.user}:{})});

@@ -85,8 +85,10 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
+  "tests/account-status-three-runtime-contract.test.js":"da9a2e9b446b9771a5f262061c3dc1d8eca88a378e2b0b883533f45955dd836f",
   "vercel-demo/native-account-management-ui.mjs":"6dcd6b33e5fd630345dfb848e35746a6f7555dbec81d559de3918d54c84ace22",
-  "cloudflare/native-account-management-http.mjs":"44b8605369270a112c917e73e44c3f762a5979b1f42733800fef9c57d545d33b",
+  "cloudflare/native-account-management-http.mjs":"e0774746a01710e9bccb9a2987187097f7a7b20a4d0ccc62dbfbc3eeaf43deaf",
   "tests/cloudflare-native-account-management-http.test.js":"a048666163111403882e757c1345c919d745995663c1ae382659a45939e1eb98",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
@@ -255,7 +257,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-staging-owner-bootstrap.test.js":"2d13d5dbcea05710128abd0646a10b07295883d1c0562c09e7ab0c1caf849254",
   "tests/core.test.js":"fbb7075f0f442da90d76961d770d4bd8cb5d18f8e554bdc004247f0f00d32c24",
   "tests/demo-backup.test.js":"69c3dd2b94d76858960d3869972ea0637ba4ecf10ab40217b5f6cff68dbb1258",
-  "public/app.js":"0e60354a2ea1528cd8b2688c88b1d7fd20f885ba62168cd89faf9f7b8c8418ff",
+  "public/app.js":"83f6e2f5f6b2406de56aa0043353b842d869d469561c5704416d616c39417298",
   "public/backup-ui.js":"4b9f3bc7c86c6ae24e92568172c62a024b9fee868bb57b6aef872c60c4ec46d7",
   "public/index.html":"24e7ca3a1fe36801dcd958aaa460c274172c6c9d69ffca2afc5902174dc5c82f",
   "public/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
@@ -270,7 +272,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "src/pricing.js":"e6f6d16ba29a95bed005a70dac476a47089f7672da51708b66f50b4fe6f1ae9c",
   "src/request-ip.js":"5127c470a065e4ceddde47cd0762bc18bd2e110a569a13f427eb02cc15abb800",
   "src/security.js":"7ed9547085a65205b2f174fcd942780f18f6bc49a4d9ad874f9ec159c60f2ee5",
-  "src/service.js":"e11c1700129049a14ee550486d51d4f32328a02830f8bc916d00b918f67f6721",
+  "src/service.js":"4f697d1415c21cbb106d38ee463f62f5859097c544a5d30a8c191e1c74d5d72b",
   "cloudflare/native-admin-quota-do-core-internal.mjs":"ea1c8887273dc4bf71cc70644400acccc0a0f8276b3dc6cd58c93f8b261fe142",
   "cloudflare/native-admin-quota-do-transport-internal.mjs":"d1a15dda02376ede3e07da08eff3d199f98c16e6b89a51d513172dcba9d0b674",
   "cloudflare/native-admin-quota-do-class.example.mjs":"925ced4311777b86581dcdcfb3e8c91955dadd2728a246ee4587f4c7f81f01e9",

@@ -4,6 +4,7 @@ const {inTransaction}=require('./db');
 const pricing=require('./pricing');
 const batches=require('./order-batches');
 const {normalizeCatalogCommand}=require('./catalog-crud-contract.mjs');
+const {canOwnerManageAccountStatus,isAccountStatusTransition}=require('../cloudflare/account-status-contract.mjs');
 const {requestIp}=require('./request-ip');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
 const catalogInput=(action,payload)=>{try{return normalizeCatalogCommand(action,payload);}catch{bad('主檔欄位格式錯誤',400);}};
@@ -123,9 +124,11 @@ function command(db,u,action,x={}){
   audit(db,u,action,'users',target.id,null,{from:target.role,to:role,revoked_sessions:revoked});return {id:target.id};
  }
  case 'user.active':{
-  requiredRole(u,'owner');const target=exists(db,'users',x.user_id);if(target.id===u.id)bad('不可停用自己');
-  if(target.role==='owner'&&Number(x.active)===0&&db.prepare("SELECT count(*) AS n FROM users WHERE role='owner' AND active=1").get().n<=1)bad('不可停用最後一名業主');
+  requiredRole(u,'owner');const target=exists(db,'users',x.user_id);
+  if(!canOwnerManageAccountStatus(u.role,u.id,target.role,target.id))
+   bad('不可修改自身或其他業主帳號的啟用狀態',403);
   const active=x.active===true?1:x.active===false?0:bad('active 需為布林值');
+  if(!isAccountStatusTransition(target.active,x.active))bad('狀態沒有變更',409);
   db.prepare('UPDATE users SET active=? WHERE id=?').run(active,target.id);
   const revoked=revokeAccountSessions(db,target.id);
   audit(db,u,action,'users',target.id,null,{active,revoked_sessions:revoked});return {id:target.id};

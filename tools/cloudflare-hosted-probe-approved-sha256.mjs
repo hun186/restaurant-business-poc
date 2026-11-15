@@ -85,9 +85,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "vercel-demo/native-account-management-ui.mjs":"ce51626a91223d6dd61fdebeb0a04f251d22cbc106acb0165192520a0b4e6ff9",
+  "vercel-demo/native-account-management-ui.mjs":"6dcd6b33e5fd630345dfb848e35746a6f7555dbec81d559de3918d54c84ace22",
   "cloudflare/native-account-management-http.mjs":"44b8605369270a112c917e73e44c3f762a5979b1f42733800fef9c57d545d33b",
-  "tests/cloudflare-native-account-management-http.test.js":"2648f3e8fe1b5ef8728b0301f14cfa4a32be0329078db0b92c9bd463c3e35902",
+  "tests/cloudflare-native-account-management-http.test.js":"a048666163111403882e757c1345c919d745995663c1ae382659a45939e1eb98",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",

@@ -305,6 +305,8 @@ test('Native account staff deactivation requires independent admin gate and atom
  const back=await request({targetUserId:id,expectedActive:false,active:true},admin);
  assert.equal(back.status,200);assert.equal(f.db.prepare('SELECT active FROM users WHERE id=?').get(id).active,1);
  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.active' AND entity_id=?").get(id).n,2);
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(id).n,0,
+   'Reactivation must not resurrect revoked sessions');
 });
 test('Native account status UI offers only soft disable behind server independent gate',()=>{
  const ui=fs.readFileSync(path.join(root,'vercel-demo/native-account-management-ui.mjs'),'utf8'),
@@ -388,4 +390,12 @@ test('Account soft-disable rechecks Owner and target authorization when queued b
    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.active' AND entity_id=?").get(targetId).n,0);
   });
  }
+});
+
+
+test('Account state notice matches the independent admin gate reported by D1',()=>{
+ const ui=fs.readFileSync(path.join(root,'vercel-demo/native-account-management-ui.mjs'),'utf8');
+ assert.match(ui,/element\('p',data.can_manage_status===true\?/);
+ assert.match(ui,/停用會撤銷所有登入工作階段並保留歷史紀錄/);
+ assert.match(ui,/停用、角色調整及重設他人密碼尚未開放/);
 });

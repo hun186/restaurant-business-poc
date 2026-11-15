@@ -31,7 +31,9 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const activeStores=stores.rows.filter(row=>row.active===1);
     pane.replaceChildren();
     pane.append(element('h3','帳號管理'),
-      element('p','只有 Owner 可以查看帳號與建立員工／主管；停用、角色調整及重設他人密碼尚未開放。'));
+      element('p',data.can_manage_status===true?
+        '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整與他人密碼重設尚未開放。':
+        '只有 Owner 可以查看帳號與建立員工／主管；停用、角色調整及重設他人密碼尚未開放。'));
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');

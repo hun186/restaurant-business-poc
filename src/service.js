@@ -118,6 +118,7 @@ function command(db,u,action,x={}){
  case 'user.role':{
   requiredRole(u,'owner');const target=exists(db,'users',x.user_id),role=cleanText(x.role,12,true);
   if(!['owner','manager','staff'].includes(role)||target.id===u.id)bad('無法修改自身角色或指定無效角色');
+  if(target.role===role)bad('角色沒有變更',409);
   if(target.role==='owner'&&role!=='owner'&&db.prepare("SELECT count(*) AS n FROM users WHERE role='owner' AND active=1").get().n<=1)bad('不可移除最後一名業主');
   db.prepare('UPDATE users SET role=? WHERE id=?').run(role,target.id);
   const revoked=revokeAccountSessions(db,target.id);

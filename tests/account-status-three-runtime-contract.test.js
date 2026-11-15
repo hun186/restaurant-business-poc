@@ -46,3 +46,24 @@ test('SQLite and D1 share server policy and Demo remains mock-only',()=>{
  assert.match(ui,/if\(r\.role==='staff'\|\|r\.role==='manager'\)/);
  assert.match(demo,/if\(false&&page==='users'/);
 });
+
+test('Local Owner role no-op returns 409 without false audit or Session revocation',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-role-noop-'));
+ const {db}=openDb(dir);t.after(()=>{db.close();fs.rmSync(dir,{recursive:true,force:true});});
+ const owner=db.prepare("SELECT id,username,role FROM users WHERE role='owner' AND active=1 LIMIT 1").get();
+ const location=db.prepare('SELECT id FROM locations WHERE active=1 LIMIT 1').get().id;
+ const id=command(db,owner,'user.create',{username:'role-noop-staff',display_name:'Role Noop Staff',role:'staff',password:'synthetic-account-password-1234',location_id:location}).id;
+ db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+  .run('synthetic-role-noop-token','synthetic-role-noop-csrf',id,new Date(Date.now()+3600000).toISOString());
+ const sessions=()=>db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(id).n;
+ const audits=()=>db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.role' AND entity_id=?").get(id).n;
+ assert.equal(sessions(),1);assert.equal(audits(),0);
+ assert.throws(()=>command(db,owner,'user.role',{user_id:id,role:'staff'}),e=>e.status===409);
+ assert.equal(db.prepare('SELECT role FROM users WHERE id=?').get(id).role,'staff');
+ assert.equal(sessions(),1,'no-op must preserve active target Session');
+ assert.equal(audits(),0,'no-op must not create a misleading role-change audit');
+ assert.equal(command(db,owner,'user.role',{user_id:id,role:'manager'}).id,id);
+ assert.equal(db.prepare('SELECT role FROM users WHERE id=?').get(id).role,'manager');
+ assert.equal(sessions(),0,'real role transition revokes all target Sessions');
+ assert.equal(audits(),1,'real role transition produces one audit');
+});

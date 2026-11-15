@@ -35,7 +35,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');
-    for(const name of ['登入帳號','顯示名稱','角色','狀態','所屬門市']){
+    for(const name of ['登入帳號','顯示名稱','角色','狀態','所屬門市',
+      ...(data.can_manage_status===true?['操作']:[])]){
       const th=element('th',name);th.scope='col';tr.append(th);
     }
     thead.append(tr);
@@ -47,6 +48,41 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           {owner:'業主',manager:'主管',staff:'員工'}[user.role]||'未知',
           user.active?'啟用':'停用',locations||'—']){
         row.append(element('td',value));
+      }
+      if(data.can_manage_status===true){
+        const cell=element('td');
+        if(user.role==='staff'||user.role==='manager'){
+          const action=element('button',user.active?'停用':'啟用');
+          action.type='button';action.className='btn';
+          const nextActive=!user.active;
+          action.setAttribute('aria-label',(nextActive?'啟用':'停用')+'帳號 '+user.username);
+          action.addEventListener('click',async()=>{
+            if(!live()||action.disabled)return;
+            if(!globalThis.confirm('確定'+(nextActive?'啟用':'停用')+
+              '「'+user.username+'」？已登入的工作階段將全部撤銷，歷史紀錄保留。'))return;
+            action.disabled=true;notice('正在更新帳號狀態…');
+            try{
+              const result=await api('/api/accounts/status',{method:'POST',signal,
+                referrerPolicy:'same-origin',
+                headers:{Accept:'application/json','Content-Type':'application/json',
+                  'X-CSRF-Token':token},
+                body:JSON.stringify({targetUserId:user.id,active:nextActive,
+                  expectedActive:user.active})});
+              if(!live())return;
+              if(result.code!=='OK'||result.user?.id!==user.id||
+                 result.user?.active!==nextActive)
+                throw Error('伺服器未確認狀態更新。');
+              await refresh();
+            }catch(error){
+              if(!live())return;
+              if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
+              if(error.status===409)notice('帳號狀態已變更，請重新整理。',true);
+              else notice(error.message||'帳號狀態更新失敗。',true);
+            }finally{action.disabled=false;}
+          });
+          cell.append(action);
+        }
+        row.append(cell);
       }
       tbody.append(row);
     }

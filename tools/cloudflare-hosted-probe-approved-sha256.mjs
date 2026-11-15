@@ -85,10 +85,10 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "src/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
-  "tests/account-status-three-runtime-contract.test.js":"2f7ce358e0d78c5d6d3397f45f5aacc399599e25212037a541b729e4a6a288ce",
+  "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
+  "tests/account-status-three-runtime-contract.test.js":"da9a2e9b446b9771a5f262061c3dc1d8eca88a378e2b0b883533f45955dd836f",
   "vercel-demo/native-account-management-ui.mjs":"6dcd6b33e5fd630345dfb848e35746a6f7555dbec81d559de3918d54c84ace22",
-  "cloudflare/native-account-management-http.mjs":"3800da14733271624e6902a917c11c481539648e832a40d34f92354e88d89cc1",
+  "cloudflare/native-account-management-http.mjs":"e0774746a01710e9bccb9a2987187097f7a7b20a4d0ccc62dbfbc3eeaf43deaf",
   "tests/cloudflare-native-account-management-http.test.js":"a048666163111403882e757c1345c919d745995663c1ae382659a45939e1eb98",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
@@ -272,7 +272,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "src/pricing.js":"e6f6d16ba29a95bed005a70dac476a47089f7672da51708b66f50b4fe6f1ae9c",
   "src/request-ip.js":"5127c470a065e4ceddde47cd0762bc18bd2e110a569a13f427eb02cc15abb800",
   "src/security.js":"7ed9547085a65205b2f174fcd942780f18f6bc49a4d9ad874f9ec159c60f2ee5",
-  "src/service.js":"4feb6f09829ded0ab77392dfa7bf8c680a584c109cf8cd86b4e2ec975775a543",
+  "src/service.js":"4f697d1415c21cbb106d38ee463f62f5859097c544a5d30a8c191e1c74d5d72b",
   "cloudflare/native-admin-quota-do-core-internal.mjs":"ea1c8887273dc4bf71cc70644400acccc0a0f8276b3dc6cd58c93f8b261fe142",
   "cloudflare/native-admin-quota-do-transport-internal.mjs":"d1a15dda02376ede3e07da08eff3d199f98c16e6b89a51d513172dcba9d0b674",
   "cloudflare/native-admin-quota-do-class.example.mjs":"925ced4311777b86581dcdcfb3e8c91955dadd2728a246ee4587f4c7f81f01e9",

@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {openDb}=require('../src/db'),{command}=require('../src/service');
-const contract=import('../src/account-status-contract.mjs');
+const contract=import('../cloudflare/account-status-contract.mjs');
 test('Shared account status policy denies non-owner, self, and owner targets',async()=>{
  const {MANAGED_ACCOUNT_ROLES,canOwnerManageAccountStatus,isAccountStatusTransition}=await contract;
  assert.deepEqual([...MANAGED_ACCOUNT_ROLES],['staff','manager']);
@@ -40,8 +40,8 @@ test('SQLite and D1 share server policy and Demo remains mock-only',()=>{
  const cf=fs.readFileSync(path.join(root,'cloudflare/native-account-management-http.mjs'),'utf8');
  const ui=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
  const demo=fs.readFileSync(path.join(root,'vercel-demo/app.js'),'utf8');
- assert.match(local,/require\('\.\/account-status-contract\.mjs'\)/);
- assert.match(cf,/from '\.\.\/src\/account-status-contract\.mjs'/);
+ assert.ok(local.includes("require('../cloudflare/account-status-contract.mjs')"));
+ assert.ok(cf.includes("from './account-status-contract.mjs'"));
  for(const s of [local,cf])assert.match(s,/canOwnerManageAccountStatus\(/);
  assert.match(ui,/if\(r\.role==='staff'\|\|r\.role==='manager'\)/);
  assert.match(demo,/if\(false&&page==='users'/);

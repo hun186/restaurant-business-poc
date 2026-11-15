@@ -4,7 +4,7 @@ const {inTransaction}=require('./db');
 const pricing=require('./pricing');
 const batches=require('./order-batches');
 const {normalizeCatalogCommand}=require('./catalog-crud-contract.mjs');
-const {canOwnerManageAccountStatus,isAccountStatusTransition}=require('./account-status-contract.mjs');
+const {canOwnerManageAccountStatus,isAccountStatusTransition}=require('../cloudflare/account-status-contract.mjs');
 const {requestIp}=require('./request-ip');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
 const catalogInput=(action,payload)=>{try{return normalizeCatalogCommand(action,payload);}catch{bad('主檔欄位格式錯誤',400);}};

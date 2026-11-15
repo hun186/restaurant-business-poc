@@ -5,8 +5,10 @@ const WRITE_VIEWS=new Set(['tasks','locations','ingredients','purchase_orders',
  'stocktakes','repairs']);
 
 export function nativeOwnerCapability({view,role,task=false,catalog=false,
- order=false,stocktake=false,repair=false}){
+ order=false,stocktake=false,repair=false,account=false}){
  const anyWrite=Boolean(task||catalog||order||stocktake||repair);
+ const accountWritable=account===true&&role==='owner';
+ const systemLabel=anyWrite?'正式營運模式':accountWritable?'帳號新增已啟用':'登入服務已啟用';
  const writable={
   tasks:task,
   locations:catalog&&role==='owner',
@@ -16,6 +18,14 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
   repairs:repair
  };
  const pageWritable=WRITE_VIEWS.has(view)&&Boolean(writable[view]);
+ if(view==='accounts')return Object.freeze({
+  systemLabel,systemWritable:anyWrite||accountWritable,
+  pageLabel:accountWritable?'帳號管理・可新增':'帳號管理・僅檢視',
+  pageWritable:accountWritable,
+  description:accountWritable?
+   '業主可以新增員工與主管；停用、角色調整及他人密碼重設尚未開放。':
+   '業主可查看帳號，新增帳號需獨立寫入權限；其他功能依各頁權限顯示。'
+ });
  if(view==='account')return Object.freeze({
   systemLabel:anyWrite?'正式營運模式':'登入服務已啟用',
   systemWritable:anyWrite,

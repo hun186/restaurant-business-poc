@@ -20,7 +20,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   account:'個人密碼變更與登入安全',accounts:'僅供業主的帳號清單與新增功能'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
-  repairWriteEnabled=false;
+  repairWriteEnabled=false,accountWriteEnabled=false;
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 const labeledField=(caption,control)=>{const label=el('label',caption);label.append(control);return label;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
@@ -47,7 +47,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  authEpoch++;csrf=null;role=null;revision++;if(controller)controller.abort();closeMenu();
+  authEpoch++;csrf=null;role=null;accountWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
@@ -766,11 +766,16 @@ async function refresh(){
     return;
   }
   if(view==='accounts'){
+    accountWriteEnabled=false;syncView();
     const epoch=authEpoch,token=csrf;
     await renderOwnerAccounts({pane:$('content'),api,role,
       signal:controller.signal,notice:say,refresh,
       live:()=>marker===revision&&liveAuth(epoch,token),
-      onAuthExpired:showLogin,token:csrf,epoch:authEpoch});
+      onAuthExpired:showLogin,token:csrf,epoch:authEpoch,
+      onCapabilityChange:enabled=>{
+        if(marker!==revision||!liveAuth(epoch,token))return;
+        accountWriteEnabled=enabled===true;syncView();
+      }});
     return;
   }
   say('正在讀取真實 D1 資料…');
@@ -803,7 +808,8 @@ function syncView(){
   $('section-hint').textContent=viewHints[view];
   const capability=nativeOwnerCapability({view,role,task:writeEnabled,
     catalog:catalogWriteEnabled,order:orderWriteEnabled,
-    stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled});
+    stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,
+    account:accountWriteEnabled});
   $('operation-mode').textContent=capability.systemLabel;
   $('operation-mode').classList.toggle('enabled',capability.systemWritable);
   $('capability').textContent=capability.pageLabel;
@@ -818,7 +824,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  authEpoch++;csrf=me.csrf;role=me.user.role;$('locked').hidden=true;
+  authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const button=document.querySelector('#nav button[data-view="accounts"]');
   if(button)button.hidden=role!=='owner';
@@ -859,7 +865,7 @@ $('login-form').addEventListener('submit',async ev=>{
   finally{btn.disabled=false;}
 });
 $('logout').addEventListener('click',async()=>{
-  if(!csrf)return;const token=csrf;authEpoch++;csrf=null;
+  if(!csrf)return;const token=csrf;authEpoch++;csrf=null;accountWriteEnabled=false;
   revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',

@@ -96,7 +96,7 @@ test('navigation without an auth change must not refresh another view after old 
 });
 
 test('native Owner login, logout and catalog-create form enforce auth and view epochs',()=>{
- assert.match(source,/function showLogin\(message\)\{[\s\S]*?authEpoch\+\+;csrf=null;role=null;revision\+\+/);
+ assert.match(source,/function showLogin\(message\)\{[\s\S]*?authEpoch\+\+;csrf=null;role=null;accountWriteEnabled=false;revision\+\+/);
  assert.match(source,/function showWorkspace\(me\)\{[\s\S]*?authEpoch\+\+;csrf=me\.csrf/);
  assert.match(source,/if\(!csrf\)return;const token=csrf;authEpoch\+\+;csrf=null/);
  assert.match(source,/if\(marker!==revision\|\|!catalogWriteEnabled\|\|role!=='owner'\|\|!csrf\|\|submit\.disabled\)return/);
@@ -117,7 +117,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
  };
  const trace={aborted:0,menuClosed:0,notice:[]};
  const ctx=vm.createContext({
-  authEpoch:4,csrf:'previous-csrf',role:'owner',revision:7,
+  authEpoch:4,csrf:'previous-csrf',role:'owner',accountWriteEnabled:true,revision:7,
   controller:{abort(){trace.aborted++;}},
   closeMenu(){trace.menuClosed++;},
   $:name=>nodes[name],
@@ -133,6 +133,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
  assert.equal(ctx.authEpoch,5);
  assert.equal(ctx.csrf,null);
  assert.equal(ctx.role,null);
+ assert.equal(ctx.accountWriteEnabled,false);
  assert.equal(ctx.revision,8);
  assert.equal(trace.aborted,1);
  assert.equal(trace.menuClosed,1);

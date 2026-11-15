@@ -85,7 +85,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "vercel-demo/native-account-management-ui.mjs":"00ac62e9767560a4d73194bf6c7b4b28554f5560d1cd9e1ebf3452c1f7223657",
+  "vercel-demo/native-account-management-ui.mjs":"b68f21935e6085cd627b385ca52618c796d2ddadc881d35dea0acce10717d978",
   "cloudflare/native-account-management-http.mjs":"413bd0b8079b7a6ab6c7ecd5339d3dd1a0f76906ffaab5aaa5d20d1723592f3b",
   "tests/cloudflare-native-account-management-http.test.js":"a5f236dad616e241bde89dd94a02d6b56b3c0a03400ac8446ac3c903b4a111a2",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
@@ -106,11 +106,11 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/native-owner-login-uat-gate-readonly.test.js":"0bdbcbae5e18c8bcdba188a2b58e0b96fa9a9ed1b9c173d6b79ba0a57acf4282",
   "tests/native-owner-public-assets-readonly.test.js":"96c612ef61879d010174325313d5e00c80e73fc6d94723c31b4c8f8231b396b0",
   "tests/cloudflare-native-owner-readable-tables.test.js":"e70b5986c1f8481fc4b0b56556116fe76fd876bebc3d4742437f45be91a9ac4c",
-  "vercel-demo/native-owner-capability.mjs":"c5869e0773ed22634c3b3e45fbb7cf5e9046af8d2003f15589e3239f17e7c93d",
+  "vercel-demo/native-owner-capability.mjs":"0b52d1ab2848fa5cc2229aa147c1d8701624d9db1f0c5d0b9ff85d042174f4e5",
   "vercel-demo/native-owner-display.mjs":"568efef0caf3e1f443f3d4f4033c71c1c1fe81c51fe36efa0bc922167fe81ed8",
   "tests/cloudflare-native-owner-password-response-ui.test.js":"087eec27a5c73e6ba6902d156adf59ab99624db976e2177f5869edeccd546c62",
   "tests/cloudflare-native-owner-session-race.test.js":"203a18af189aa577b47ceff5077c754440b2a1bd7931dfcb1d31f432a0f557ac",
-  "tests/native-owner-capability.test.js":"861a08461658b00f69baa943f0f9c67e9474ae388601b3966a8a33e6d677d19e",
+  "tests/native-owner-capability.test.js":"84f39d37e0ce775bc58dd5968d638ccf03190f1eefc3f056d1e8ae5a2e70e6f7",
    "tests/cloudflare-native-owner-ui-parity.test.js":"27f9301f86e35ec3690b77dc788eea4c1cd3a8dec0c547668f4a8eba0e7a8329",
   "tests/cloudflare-g0-active-version-readonly.test.js":"e651654b44d081bea34fd32785b86eb7c2b3ac1aebb7bc5005601bb0434e2cec",
   "tests/cloudflare-public-runtime-readonly.test.js":"e7009ab6561f7015366cb2483bd47003ec923f0714ad80b28866a938ce704176",
@@ -140,7 +140,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
   "vercel-demo/owner-app.html":"d011c42cc191e2d61fdb8c6debff603d8fd9677e80ed27a8d9a94c9b94f42e89",
   "vercel-demo/owner-app.css":"c100766867a15264f0d7f4173bf14ae4d33cef31fb9f0e53963a1cdbbd0a5101",
-  "vercel-demo/owner-app.js":"0e839c35a354382763dccbf64e5807a29f6716ab7502356e181be1e43cf83cc4",
+  "vercel-demo/owner-app.js":"6a51b0e5c699c8ab8aeb6500bb0acfcf5f598c1287c53ca324de1afa1528ac2a",
   "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",

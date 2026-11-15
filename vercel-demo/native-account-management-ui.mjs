@@ -8,7 +8,7 @@ const element=(tag,value)=>{
   if(value!==undefined)node.textContent=String(value);
   return node;
 };
-export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,offset=0}){
+export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,onCapabilityChange,offset=0}){
   if(typeof onAuthExpired!=='function'){
     pane.replaceChildren();
     notice('無法驗證登入狀態，帳號管理暫停使用。',true);return;
@@ -26,6 +26,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
        typeof data.has_more!=='boolean'||
        (data.has_more&&data.next_offset!==offset+50))
       throw Error('帳號資料格式不完整。');
+    if(typeof onCapabilityChange==='function')onCapabilityChange(data.can_create===true);
     const storeNames=new Map(stores.rows.map(row=>[row.id,row.name]));
     const activeStores=stores.rows.filter(row=>row.active===1);
     pane.replaceChildren();
@@ -61,7 +62,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const navigate=async newOffset=>{
       if(!live())return;
       previous.disabled=true;next.disabled=true;
-      await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,offset:newOffset});
+      await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,onCapabilityChange,offset:newOffset});
     };
     previous.addEventListener('click',()=>navigate(Math.max(0,offset-50)));
     next.addEventListener('click',()=>navigate(data.next_offset));

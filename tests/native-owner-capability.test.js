@@ -82,3 +82,31 @@ test('visible badges are separate, driven by API flags, not persistent browser s
  assert.match(css,/\.capability-strip #capability-detail/);
  assert.doesNotMatch(js,/localStorage|sessionStorage|mock\.js/);
 });
+
+
+test('Owner account capability uses account-specific backend authorization, not business gates',async()=>{
+ const {nativeOwnerCapability}=await capability;
+ const ready=nativeOwnerCapability({view:'accounts',role:'owner',account:true});
+ assert.equal(ready.pageLabel,'帳號管理・可新增');
+ assert.equal(ready.pageWritable,true);
+ assert.equal(ready.systemLabel,'帳號新增已啟用');
+ const closed=nativeOwnerCapability({view:'accounts',role:'owner',account:false,
+  task:true,order:true});
+ assert.equal(closed.pageLabel,'帳號管理・僅檢視');
+ assert.equal(closed.pageWritable,false);
+ for(const role of ['staff','manager',null]){
+  assert.equal(nativeOwnerCapability({view:'accounts',role,account:true}).pageWritable,false);
+ }
+ for(const page of ['overview','shifts','training_courses']){
+  assert.equal(nativeOwnerCapability({view:page,role:'owner',account:true}).pageWritable,false);
+ }
+});
+test('Account capability only updates from authenticated fresh can_create response',()=>{
+ const js=asset('owner-app.js'),ui=asset('native-account-management-ui.mjs');
+ assert.match(js,/accountWriteEnabled=false;syncView\(\)/);
+ assert.match(js,/onCapabilityChange:enabled=>\{/);
+ assert.match(js,/accountWriteEnabled=enabled===true;syncView\(\)/);
+ assert.match(js,/account:accountWriteEnabled/);
+ assert.match(ui,/onCapabilityChange\(data.can_create===true\)/);
+ assert.match(ui,/onCapabilityChange,offset:newOffset/);
+});

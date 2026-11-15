@@ -320,3 +320,72 @@ test('Native account status UI offers only soft disable behind server independen
  assert.match(worker,/nativeAccountStatusHttp\(request,env\)/);
  assert.doesNotMatch(server,/DELETE FROM users WHERE/);
 });
+
+
+test('Account soft-disable D1.batch failures are atomic at every statement boundary',async t=>{
+ const targetId='123e4567-e89b-42d3-a456-426614174099';
+ for(const faultIndex of [0,1,2,3]){
+  await t.test('inject failure at batch statement '+faultIndex,async sub=>{
+   const f=await fixture(sub),owner=await f.login();
+   assert.equal(owner.status,200);
+   f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+    .run(targetId,'employee99','Employee','staff','synthetic-salt','synthetic-hash',1);
+   const expiry=new Date(Date.now()+3600000).toISOString();
+   const insertSession=f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)');
+   for(let j=0;j<2;j++)insertSession.run('employee-session-'+j,'employee-csrf-'+j,targetId,expiry);
+   const db=f.env.DB,originalBatch=db.batch.bind(db);
+   const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released',DB:{
+    ...db,async batch(statements){
+     const wrapped=statements.map((item,index)=>({
+      ...item,run:async()=>{
+       if(index===faultIndex)throw Error('SYNTHETIC_BATCH_FAILURE');
+       return item.run();
+      }
+     }));
+     return originalBatch(wrapped);
+    }
+   }};
+   const response=await f.send('/api/accounts/status',{method:'POST',
+    headers:{cookie:owner.cookie,origin:site,'x-csrf-token':owner.csrf,
+     'content-type':'application/json','sec-fetch-site':'same-origin'},
+    body:JSON.stringify({targetUserId:targetId,expectedActive:true,active:false})},env);
+   assert.equal(response.status,503);
+   assert.equal(f.db.prepare('SELECT active FROM users WHERE id=?').get(targetId).active,1);
+   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(targetId).n,2);
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.active' AND entity_id=?").get(targetId).n,0);
+  });
+ }
+});
+
+test('Account soft-disable rechecks Owner and target authorization when queued batch starts',async t=>{
+ const targetId='123e4567-e89b-42d3-a456-426614174099';
+ for(const race of ['owner-session-revoked','owner-session-expired','owner-demoted','target-promoted']){
+  await t.test(race,async sub=>{
+   const f=await fixture(sub),owner=await f.login();
+   assert.equal(owner.status,200);
+   f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+    .run(targetId,'employee99','Employee','staff','synthetic-salt','synthetic-hash',1);
+   f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+    .run('employee-session','employee-csrf',targetId,new Date(Date.now()+3600000).toISOString());
+   const db=f.env.DB,originalBatch=db.batch.bind(db);
+   const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released',DB:{
+    ...db,async batch(statements){
+     if(race==='owner-session-revoked')f.db.prepare("DELETE FROM sessions WHERE user_id='synthetic-owner'").run();
+     else if(race==='owner-session-expired')
+      f.db.prepare("UPDATE sessions SET expires_at='2000-01-01T00:00:00Z' WHERE user_id='synthetic-owner'").run();
+     else if(race==='owner-demoted')f.db.prepare("UPDATE users SET role='staff' WHERE id='synthetic-owner'").run();
+     else f.db.prepare("UPDATE users SET role='owner' WHERE id=?").run(targetId);
+     return originalBatch(statements);
+    }
+   }};
+   const res=await f.send('/api/accounts/status',{method:'POST',
+    headers:{cookie:owner.cookie,origin:site,'x-csrf-token':owner.csrf,
+     'content-type':'application/json','sec-fetch-site':'same-origin'},
+    body:JSON.stringify({targetUserId:targetId,expectedActive:true,active:false})},env);
+   assert.equal(res.status,503,race);
+   assert.equal(f.db.prepare('SELECT active FROM users WHERE id=?').get(targetId).active,1);
+   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(targetId).n,1);
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.active' AND entity_id=?").get(targetId).n,0);
+  });
+ }
+});

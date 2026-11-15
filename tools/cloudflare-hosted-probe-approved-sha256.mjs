@@ -87,7 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/native-account-management-ui.mjs":"ce51626a91223d6dd61fdebeb0a04f251d22cbc106acb0165192520a0b4e6ff9",
   "cloudflare/native-account-management-http.mjs":"44b8605369270a112c917e73e44c3f762a5979b1f42733800fef9c57d545d33b",
-  "tests/cloudflare-native-account-management-http.test.js":"5949ac70a263a8f781ccdb7f02c55856cf38c3b69907a42b3f5e6bd435f28b5a",
+  "tests/cloudflare-native-account-management-http.test.js":"2648f3e8fe1b5ef8728b0301f14cfa4a32be0329078db0b92c9bd463c3e35902",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",

@@ -517,3 +517,18 @@ test('Role endpoint is UI-independent and requires two explicit gates',()=>{
  assert.match(worker,/pathname === '\/api\/accounts\/role'/);
  assert.doesNotMatch(server,/DELETE FROM users WHERE/);
 });
+
+
+test('Native role controls are behind authenticated role gate and never target Owner',()=>{
+ const ui=fs.readFileSync(path.join(root,'vercel-demo/native-account-management-ui.mjs'),'utf8'),
+  backend=fs.readFileSync(path.join(root,'cloudflare/native-account-management-http.mjs'),'utf8');
+ assert.match(ui,/data.can_manage_role===true&&user.active===true/);
+ assert.match(ui,/user.role==='staff'\|\|user.role==='manager'/);
+ assert.match(ui,/api\('\/api\/accounts\/role'/);
+ assert.match(ui,/expectedRole:user.role,role:newRole/);
+ assert.match(ui,/roleAction.disabled=true/);
+ assert.match(ui,/if\(error.status===401\)\{onAuthExpired/);
+ assert.match(ui,/if\(error.status===409\)/);
+ assert.match(backend,/can_manage_role:nativeAccountRoleWriteEnabled\(env\)/);
+ assert.match(backend,/CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE==='operator-released'/);
+});

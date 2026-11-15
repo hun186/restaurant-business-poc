@@ -32,13 +32,17 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     pane.replaceChildren();
     pane.append(element('h3','帳號管理'),
       element('p',data.can_manage_status===true?
-        '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整與他人密碼重設尚未開放。':
-        '只有 Owner 可以查看帳號與建立員工／主管；停用、角色調整及重設他人密碼尚未開放。'));
+        (data.can_manage_role===true?
+          '業主可停用／啟用員工並在員工與主管之間調整角色；兩種操作均撤銷原有登入工作階段，保留歷史紀錄。他人密碼重設尚未開放。':
+          '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整與他人密碼重設尚未開放。'):
+        (data.can_manage_role===true?
+          '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用與他人密碼重設尚未開放。':
+          '只有 Owner 可以查看帳號與建立員工／主管；停用、角色調整及重設他人密碼尚未開放。')));
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');
     for(const name of ['登入帳號','顯示名稱','角色','狀態','所屬門市',
-      ...(data.can_manage_status===true?['操作']:[])]){
+      ...(data.can_manage_status===true||data.can_manage_role===true?['操作']:[])]){
       const th=element('th',name);th.scope='col';tr.append(th);
     }
     thead.append(tr);
@@ -51,9 +55,10 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           user.active?'啟用':'停用',locations||'—']){
         row.append(element('td',value));
       }
-      if(data.can_manage_status===true){
+      if(data.can_manage_status===true||data.can_manage_role===true){
         const cell=element('td');
         if(user.role==='staff'||user.role==='manager'){
+          if(data.can_manage_status===true){
           const action=element('button',user.active?'停用':'啟用');
           action.type='button';action.className='btn';
           const nextActive=!user.active;
@@ -83,6 +88,38 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
             }finally{action.disabled=false;}
           });
           cell.append(action);
+          }
+          if(data.can_manage_role===true&&user.active===true){
+            const newRole=user.role==='staff'?'manager':'staff';
+            const roleAction=element('button',newRole==='manager'?'升為主管':'改為員工');
+            roleAction.type='button';roleAction.className='btn';
+            roleAction.setAttribute('aria-label',
+              '將帳號 '+user.username+' 角色調整為 '+(newRole==='manager'?'主管':'員工'));
+            roleAction.addEventListener('click',async()=>{
+              if(!live()||roleAction.disabled)return;
+              if(!globalThis.confirm('確定要將「'+user.username+'」'+
+                (newRole==='manager'?'升為主管':'改為員工')+
+                '？這會撤銷該帳號的全部登入工作階段，保留歷史紀錄。'))return;
+              roleAction.disabled=true;notice('正在更新員工角色…');
+              try{
+                const result=await api('/api/accounts/role',{method:'POST',signal,
+                  referrerPolicy:'same-origin',
+                  headers:{Accept:'application/json','Content-Type':'application/json',
+                    'X-CSRF-Token':token},
+                  body:JSON.stringify({targetUserId:user.id,expectedRole:user.role,role:newRole})});
+                if(!live())return;
+                if(result.code!=='OK'||result.user?.id!==user.id||
+                   result.user?.role!==newRole)throw Error('伺服器未確認角色更新。');
+                await refresh();
+              }catch(error){
+                if(!live())return;
+                if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
+                if(error.status===409)notice('員工角色已變更，請重新整理。',true);
+                else notice(error.message||'角色更新失敗。',true);
+              }finally{roleAction.disabled=false;}
+            });
+            cell.append(roleAction);
+          }
         }
         row.append(cell);
       }

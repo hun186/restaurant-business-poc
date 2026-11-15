@@ -87,9 +87,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
   "tests/account-status-three-runtime-contract.test.js":"da9a2e9b446b9771a5f262061c3dc1d8eca88a378e2b0b883533f45955dd836f",
-  "vercel-demo/native-account-management-ui.mjs":"6dcd6b33e5fd630345dfb848e35746a6f7555dbec81d559de3918d54c84ace22",
+  "vercel-demo/native-account-management-ui.mjs":"0b60ec9398e3f9ece3bf5b9f07f4e07322a6f089dfb1eb7dfb6d722cd36b334d",
   "cloudflare/native-account-management-http.mjs":"cdfe10f82f7ac3db8d8baf343d729d043c08e96da75ac3fe3fb36a6b3edd1b85",
-  "tests/cloudflare-native-account-management-http.test.js":"c4756bf4e0e37bb849545d58b691be14614d425beb00585f2ebf3f4ac65fbee4",
+  "tests/cloudflare-native-account-management-http.test.js":"77ddfb0ab6bc9e6984c14ad3c27415a2fc6a2fd14d1b4cff0b116f1cc0c49bee",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",

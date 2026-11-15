@@ -15,6 +15,8 @@ const HEADERS={'Content-Type':'application/json; charset=utf-8',
 const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:HEADERS});
 export const nativeAccountsWriteEnabled=env=>
   nativeLoginEnabled(env)&&env?.CLOUD_NATIVE_ACCOUNT_WRITE_GATE==='operator-released';
+export const nativeAccountAdminWriteEnabled=env=>
+  nativeLoginEnabled(env)&&env?.CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE==='operator-released';
 
 // Production account creation transaction, guarded independently of business writes.
 async function createProductionD1Account(request,env,input={}){
@@ -158,7 +160,8 @@ export async function nativeAccountsHttp(request,env){
         location_ids:grants.get(u.id)
       })),offset,has_more:hasMore,
         next_offset:hasMore?offset+PAGE_SIZE:null,
-        can_create:nativeAccountsWriteEnabled(env)});
+        can_create:nativeAccountsWriteEnabled(env),
+        can_manage_status:nativeAccountAdminWriteEnabled(env)});
     }
     if(!authorizedMutation(request,principal,'owner'))
       return reply(403,{code:'E_FORBIDDEN'});
@@ -186,4 +189,98 @@ export async function nativeAccountsHttp(request,env){
     const result=await createProductionD1Account(request,env,input);
     return reply(result.status,{code:result.code,...(result.user?{user:result.user}:{})});
   }catch{return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});}
+}
+
+
+// Independent Owner-only admin operation: deactivate/reactivate staff or manager.
+// Absent CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE means no account status writes.
+// Never physically DELETE users: historical business/audit references remain.
+export async function nativeAccountStatusHttp(request,env){
+  if(!nativeLoginEnabled(env)||!nativeAccountAdminWriteEnabled(env))
+    return reply(503,{code:'E_NOT_READY'});
+  if(request?.method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
+  let url;try{url=new URL(request.url);}catch{return reply(400,{code:'E_INVALID_REQUEST'});}
+  if(url.protocol!=='https:'||url.pathname!=='/api/accounts/status'||
+     url.search||url.hash)return reply(400,{code:'E_INVALID_REQUEST'});
+  if(request.headers.get('sec-fetch-site')&&
+     request.headers.get('sec-fetch-site')!=='same-origin')
+    return reply(403,{code:'E_FORBIDDEN'});
+  if(request.headers.has('authorization')||request.headers.has('x-forwarded-user'))
+    return reply(400,{code:'E_INVALID_REQUEST'});
+  if(request.headers.get('content-type')!=='application/json'||
+     request.headers.has('content-encoding'))
+    return reply(415,{code:'E_INVALID_REQUEST'});
+  const length=request.headers.get('content-length');
+  if(length!==null&&(!/^(0|[1-9][0-9]*)$/.test(length)||Number(length)>2048))
+    return reply(413,{code:'E_INVALID_REQUEST'});
+  try{
+    const p=await loadPrincipal(env.DB,request);
+    if(!p)return reply(401,{code:'E_UNAUTHENTICATED'});
+    if(p.role!=='owner'||!authorizedMutation(request,p,'owner'))
+      return reply(403,{code:'E_FORBIDDEN'});
+    const schema=await env.DB.prepare('SELECT contract_version FROM cloud_schema_contract WHERE id=1').first();
+    if(Number(schema?.contract_version)!==3)return reply(503,{code:'E_SCHEMA_NOT_READY'});
+    let input;try{input=JSON.parse(await bodyWithinLimit(request));}
+    catch{return reply(400,{code:'E_INVALID_JSON'});}
+    if(!input||typeof input!=='object'||Array.isArray(input)||
+       Object.keys(input).sort().join(',')!=='active,expectedActive,targetUserId'||
+       typeof input.active!=='boolean'||typeof input.expectedActive!=='boolean'||
+       input.active===input.expectedActive||
+       typeof input.targetUserId!=='string'||!UUID.test(input.targetUserId))
+      return reply(400,{code:'E_INVALID_INPUT'});
+    if(p.id===input.targetUserId)return reply(403,{code:'E_FORBIDDEN'});
+    const target=await env.DB.prepare(
+      'SELECT id,role,active FROM users WHERE id=?'
+    ).bind(input.targetUserId).first();
+    if(!target)return reply(404,{code:'E_ACCOUNT_NOT_FOUND'});
+    if(!['staff','manager'].includes(target.role))
+      return reply(403,{code:'E_FORBIDDEN'});
+    if(target.active!==Number(input.expectedActive))
+      return reply(409,{code:'E_CONCURRENT_CHANGE'});
+    const quota=await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM audit_logs WHERE actor_id=? AND action='user.active' "+
+      "AND at>=datetime('now','-1 hour')"
+    ).bind(p.id).first();
+    if(!Number.isSafeInteger(quota?.n)||quota.n<0)
+      return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
+    if(quota.n>=20)return reply(429,{code:'E_RATE_LIMITED'});
+    const auditId=crypto.randomUUID(),next=Number(input.active),
+      before=Number(input.expectedActive),id=input.targetUserId;
+    const ownerGate="a.id=? AND a.role='owner' AND a.active=1 "+
+      "AND s.token_hash=? AND s.csrf_token=? "+
+      "AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') "+
+      "AND (SELECT COUNT(*) FROM audit_logs WHERE actor_id=a.id "+
+      "AND action='user.active' AND at>=datetime('now','-1 hour'))<20";
+    const audit=env.DB.prepare(
+      'INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,detail) '+
+      "SELECT ?,a.id,a.username,'user.active','users',t.id,? FROM users a "+
+      'JOIN sessions s ON s.user_id=a.id JOIN users t ON t.id=? WHERE '+
+      ownerGate+" AND t.role IN ('staff','manager') AND t.active=? AND t.id<>a.id"
+    ).bind(auditId,JSON.stringify({from:before,to:next}),id,p.id,p.token_hash,p.csrf,before);
+    const change=env.DB.prepare(
+      "UPDATE users SET active=? WHERE id=? AND active=? AND role IN ('staff','manager') "+
+      "AND EXISTS(SELECT 1 FROM audit_logs WHERE id=? AND action='user.active')"
+    ).bind(next,id,before,auditId);
+    const revoke=env.DB.prepare(
+      "DELETE FROM sessions WHERE user_id=? AND EXISTS "+
+      "(SELECT 1 FROM audit_logs WHERE id=? AND action='user.active') "+
+      "AND EXISTS (SELECT 1 FROM users WHERE id=? AND active=?)"
+    ).bind(id,auditId,id,next);
+    // NOT NULL sentinel makes a missing audit, failed CAS or unrevoked
+    // target session abort the complete D1 transaction; never partial commit.
+    const guard=env.DB.prepare(
+      'UPDATE users SET display_name=CASE WHEN '+
+      "EXISTS(SELECT 1 FROM audit_logs WHERE id=? AND action='user.active' AND entity_id=?) "+
+      'AND EXISTS(SELECT 1 FROM users WHERE id=? AND active=?) '+
+      'AND NOT EXISTS(SELECT 1 FROM sessions WHERE user_id=?) '+
+      'THEN display_name ELSE NULL END WHERE id=?'
+    ).bind(auditId,id,id,next,id,p.id);
+    const out=await env.DB.batch([audit,change,revoke,guard]);
+    if(!Array.isArray(out)||out.length!==4||changed(out[0])!==1||
+       changed(out[1])!==1||changed(out[3])!==1)
+      return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
+    return reply(200,{code:'OK',user:{id,active:input.active}});
+  }catch{
+    return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
+  }
 }

@@ -85,9 +85,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "vercel-demo/native-account-management-ui.mjs":"7ae2fa5664a5284c834fbadf8f3cca6e1662b0a93991c3de26205bcad11e81cf",
-  "cloudflare/native-account-management-http.mjs":"413bd0b8079b7a6ab6c7ecd5339d3dd1a0f76906ffaab5aaa5d20d1723592f3b",
-  "tests/cloudflare-native-account-management-http.test.js":"a5f236dad616e241bde89dd94a02d6b56b3c0a03400ac8446ac3c903b4a111a2",
+  "vercel-demo/native-account-management-ui.mjs":"6dcd6b33e5fd630345dfb848e35746a6f7555dbec81d559de3918d54c84ace22",
+  "cloudflare/native-account-management-http.mjs":"44b8605369270a112c917e73e44c3f762a5979b1f42733800fef9c57d545d33b",
+  "tests/cloudflare-native-account-management-http.test.js":"a048666163111403882e757c1345c919d745995663c1ae382659a45939e1eb98",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",
@@ -300,7 +300,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/migrations/0002_login_attempts_window_indexes.sql":"d97cec3593c69e60614554f95d36a7cfa14bf509f8e7c5961bcdc59550d12592",
   "cloudflare/pbkdf2-local-probe-worker.mjs":"b6a5f61d552def61ab39b968c6cad5f9441c44718992ceb03915295cadbabc84",
   "cloudflare/pbkdf2-local-probe.mjs":"cd363b2ac17a184b0f2a0660899f3aaaa6a546ed9f50178c5304041e06c7469a",
-  "cloudflare/worker.mjs":"e2d431996efe3bf4fb36a4cc38a9fadf7c5590eebd0f2ed10fa41a2bbcb40ede",
+  "cloudflare/worker.mjs":"a1bcbccfbcc5eec67c61149ce8b154799c3a538db4958bf021b43a94e614de71",
   "cloudflare/wrangler.d1.example.jsonc":"b6db7434a57a81a31d7700c9e93560da301655aba2a41af127d11f994e0aa06b",
   "cloudflare/wrangler.preview-migrations.example.jsonc":"3e4a8feb7459c9bcfa08a2a36f8d7b4e45bac1a1dbbfe020bf8466b22d2b2f67",
   "db/backup.sql":"2823994610ca8373e11d342358392144532f1414570ad5fdbc95b470891d53ce",

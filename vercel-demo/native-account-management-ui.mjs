@@ -8,7 +8,11 @@ const element=(tag,value)=>{
   if(value!==undefined)node.textContent=String(value);
   return node;
 };
-export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,offset=0}){
+export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,offset=0}){
+  if(typeof onAuthExpired!=='function'){
+    pane.replaceChildren();
+    notice('無法驗證登入狀態，帳號管理暫停使用。',true);return;
+  }
   if(role!=='owner'){notice('只有業主可以管理帳號。',true);return;}
   notice('正在讀取正式帳號資料…');
   try{
@@ -57,7 +61,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const navigate=async newOffset=>{
       if(!live())return;
       previous.disabled=true;next.disabled=true;
-      await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,offset:newOffset});
+      await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,offset:newOffset});
     };
     previous.addEventListener('click',()=>navigate(Math.max(0,offset-50)));
     next.addEventListener('click',()=>navigate(data.next_offset));
@@ -120,7 +124,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       }catch(error){
         password.value='';confirm.value='';
         if(!live())return;
-        if(error.status===401)notice('登入已失效，請重新登入。',true);
+        if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
         else if(error.status===409)notice('帳號已存在，請更換帳號名稱。',true);
         else notice(error.message||'建立帳號失敗。',true);
       }finally{submit.disabled=false;}
@@ -130,6 +134,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     pane.append(section);notice('帳號管理已載入，可建立員工或主管。');
   }catch(error){
     if(!live()||error.name==='AbortError')return;
+    if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
     notice(error.message||'無法讀取帳號管理資料。',true);
   }
 }

@@ -187,3 +187,85 @@ test('Account pagination navigation stays visible even when creation gate is clo
  assert.match(ui,/pager.append\(previous,info,next\)/);
  assert.match(ui,/if\(data.can_create!==true\)/);
 });
+
+
+test('Owner account renderer expires and clears workspace on 401 pagination, POST and initial GET',async t=>{
+ class FakeNode{
+  constructor(tag){this.tag=tag;this.textContent='';this.children=[];this.events={};
+   this.value='';this.type='';this.checked=false;this.disabled=false;}
+  append(...nodes){this.children.push(...nodes);}
+  replaceChildren(...nodes){this.children=[...nodes];}
+  setAttribute(name,value){this[name]=value;}
+  addEventListener(name,callback){this.events[name]=callback;}
+ }
+ const oldDocument=globalThis.document;
+ globalThis.document={createElement:tag=>new FakeNode(tag)};
+ t.after(()=>{if(oldDocument===undefined)delete globalThis.document;
+   else globalThis.document=oldDocument;});
+ const {renderOwnerAccounts}=await import('../vercel-demo/native-account-management-ui.mjs');
+ const find=(root,predicate)=>{
+   if(predicate(root))return root;
+   for(const child of root.children){const found=find(child,predicate);if(found)return found;}
+   return null;
+ };
+ const findAll=(root,predicate)=>{
+   const found=predicate(root)?[root]:[];
+   for(const child of root.children)found.push(...findAll(child,predicate));
+   return found;
+ };
+ const accountData={offset:0,users:[{username:'owner',display_name:'測試業主',
+   role:'owner',active:true,location_ids:[]}],has_more:true,next_offset:50,
+   can_create:true};
+ const stores={rows:[{id:'123e4567-e89b-42d3-a456-426614174000',name:'測試門市',active:1}]};
+ for(const which of ['pagination','post','initial-get']){
+   const pane=new FakeNode('div'),expired=[],notices=[];
+   const onAuthExpired=message=>{
+     expired.push(message);
+     for(const p of findAll(pane,n=>n.tag==='input'&&n.type==='password'))p.value='';
+     pane.replaceChildren();
+   };
+   const api=async(url,options={})=>{
+     if(url==='/api/data?entity=locations')return stores;
+     if(url==='/api/accounts'&&options.method==='POST')
+       throw Object.assign(Error('login expired'),{status:401});
+     if(url==='/api/accounts') {
+       if(which==='initial-get')throw Object.assign(Error('login expired'),{status:401});
+       return accountData;
+     }
+     if(url==='/api/accounts?offset=50'||url==='/api/accounts'&&which==='post')
+       throw Object.assign(Error('login expired'),{status:401});
+     throw Error('Unexpected route '+url);
+   };
+   await renderOwnerAccounts({pane,api,role:'owner',signal:undefined,
+     notice:msg=>notices.push(msg),refresh:async()=>{},
+     live:()=>true,token:'synthetic-csrf',onAuthExpired});
+   if(which==='pagination'){
+     const pwd=findAll(pane,n=>n.tag==='input'&&n.type==='password');
+     assert.equal(pwd.length,2);
+     pwd[0].value='typed-secret-not-for-logs';
+     const next=find(pane,n=>n.tag==='button'&&n.textContent==='下一頁');
+     assert.ok(next?.events.click);
+     await next.events.click();
+     assert.equal(pwd[0].value,'');
+   }else if(which==='post'){
+     // Use the same successful initial GET; force a 401 only for POST.
+     const inputs=findAll(pane,n=>n.tag==='input');
+     const pwd=inputs.filter(n=>n.type==='password');
+     assert.equal(pwd.length,2);
+     pwd[0].value='typed-secret-not-for-logs';
+     pwd[1].value=pwd[0].value;
+     const box=inputs.find(n=>n.type==='checkbox');
+     assert.ok(box);box.checked=true;
+     const form=find(pane,n=>n.tag==='form');
+     assert.ok(form?.events.submit);
+     await form.events.submit({preventDefault(){}});
+     assert.equal(pwd[0].value,'');
+   }
+   assert.equal(expired.length,1,which);
+   assert.match(expired[0],/工作階段已失效/);
+   assert.equal(pane.children.length,0,which);
+ }
+ const ownerApp=fs.readFileSync(path.join(root,'vercel-demo/owner-app.js'),'utf8');
+ assert.match(ownerApp,/onAuthExpired:showLogin/);
+ assert.match(ownerApp,/function showLogin\(message\)[\s\S]*?clearSensitiveForms\(\)/);
+});

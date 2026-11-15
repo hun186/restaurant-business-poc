@@ -770,7 +770,7 @@ async function refresh(){
     await renderOwnerAccounts({pane:$('content'),api,role,
       signal:controller.signal,notice:say,refresh,
       live:()=>marker===revision&&liveAuth(epoch,token),
-      token:csrf,epoch:authEpoch});
+      onAuthExpired:showLogin,token:csrf,epoch:authEpoch});
     return;
   }
   say('正在讀取真實 D1 資料…');

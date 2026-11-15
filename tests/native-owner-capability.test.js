@@ -110,3 +110,13 @@ test('Account capability only updates from authenticated fresh can_create respon
  assert.match(ui,/onCapabilityChange\(data.can_create===true\)/);
  assert.match(ui,/onCapabilityChange,offset:newOffset/);
 });
+
+
+test('account pagination resets can-create display before the next page request',()=>{
+ const s=asset('native-account-management-ui.mjs'),i=s.indexOf('const navigate=async newOffset=>{'),
+  j=s.indexOf("previous.addEventListener('click'",i);
+ assert(i>=0&&j>i);
+ const block=s.slice(i,j);
+ assert.match(block,/onCapabilityChange\(false\)/);
+ assert(block.indexOf('onCapabilityChange(false)')<block.indexOf('await renderOwnerAccounts'));
+});

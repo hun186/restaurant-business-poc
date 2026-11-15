@@ -61,6 +61,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     pager.append(previous,info,next);pane.append(pager);
     const navigate=async newOffset=>{
       if(!live())return;
+      // Do not present prior-page capability as current during a new request.
+      if(typeof onCapabilityChange==='function')onCapabilityChange(false);
       previous.disabled=true;next.disabled=true;
       await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,onCapabilityChange,offset:newOffset});
     };

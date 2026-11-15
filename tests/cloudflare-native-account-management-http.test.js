@@ -134,3 +134,56 @@ test('New account UUID validation is RFC 4122-shaped and rejects truncated IDs',
  assert.equal(response.status,400);
  assert.equal(count(f.db,'users'),1);
 });
+
+
+test('Owner account listing stays usable after 100 accounts with bounded pages and no secrets',async t=>{
+ const f=await fixture(t),session=await f.login();
+ assert.equal(session.status,200);
+ const add=f.db.prepare(
+  'INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)');
+ const grant=f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)');
+ for(let i=0;i<100;i++){
+  const id='synthetic-person-'+String(i).padStart(3,'0');
+  add.run(id,'staff'+String(i).padStart(3,'0'),'Test account '+i,'staff',
+    'synthetic-salt','synthetic-hash',i%7===0?0:1);
+  if(i%2===0)grant.run(id,'123e4567-e89b-42d3-a456-426614174000');
+ }
+ assert.equal(count(f.db,'users'),101);
+ const seen=[],locations=[];
+ for(const [offset,size,more] of [[0,50,true],[50,50,true],[100,1,false]]){
+  const path='/api/accounts'+(offset?'?offset='+offset:'');
+  const response=await f.send(path,{headers:{cookie:session.cookie,
+    'sec-fetch-site':'same-origin'}});
+  assert.equal(response.status,200,'offset='+offset);
+  const data=await response.json();
+  assert.equal(data.offset,offset);
+  assert.equal(data.users.length,size);
+  assert.equal(data.has_more,more);
+  assert.equal(data.next_offset,more?offset+50:null);
+  assert.equal(data.can_create,false);
+  assert.doesNotMatch(JSON.stringify(data),/password_hash|password_salt|csrf_token|synthetic-hash/);
+  seen.push(...data.users.map(u=>u.username));
+  locations.push(...data.users.filter(u=>u.location_ids.length).map(u=>u.username));
+ }
+ assert.equal(new Set(seen).size,101);
+ assert.ok(seen.includes('owner'));
+ assert.ok(locations.length>0);
+ for(const bad of ['?offset=-1','?offset=01','?offset=nan','?offset=1.5',
+    '?offset=50&offset=100','?limit=50']){
+  assert.equal((await f.send('/api/accounts'+bad,
+    {headers:{cookie:session.cookie}})).status,400,bad);
+ }
+ const wrongPost=await f.send('/api/accounts?offset=50',{method:'POST',
+  headers:{cookie:session.cookie}},{
+    ...f.env,CLOUD_NATIVE_ACCOUNT_WRITE_GATE:'operator-released'});
+ assert.equal(wrongPost.status,400);
+ assert.equal(count(f.db,'users'),101);
+});
+test('Account pagination navigation stays visible even when creation gate is closed',()=>{
+ const ui=fs.readFileSync(path.join(root,'vercel-demo/native-account-management-ui.mjs'),'utf8');
+ assert.match(ui,/上一頁/);
+ assert.match(ui,/下一頁/);
+ assert.match(ui,/api\/accounts\?offset=/);
+ assert.match(ui,/pager.append\(previous,info,next\)/);
+ assert.match(ui,/if\(data.can_create!==true\)/);
+});

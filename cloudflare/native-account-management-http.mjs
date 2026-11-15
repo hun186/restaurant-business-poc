@@ -103,8 +103,18 @@ export async function nativeAccountsHttp(request,env){
   const method=request?.method;
   if(method!=='GET'&&method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
   let url;try{url=new URL(request.url);}catch{return reply(400,{code:'E_INVALID_REQUEST'});}
-  if(url.protocol!=='https:'||url.pathname!=='/api/accounts'||url.search||url.hash)
+  if(url.protocol!=='https:'||url.pathname!=='/api/accounts'||url.hash)
     return reply(400,{code:'E_INVALID_REQUEST'});
+  // Account listing is a fixed 50-row page. POST must never accept query keys.
+  let offset=0;
+  if(url.search){
+    const keys=[...url.searchParams.keys()];
+    const raw=url.searchParams.get('offset');
+    if(method!=='GET'||keys.length!==1||keys[0]!=='offset'||
+       typeof raw!=='string'||!/^(0|[1-9][0-9]{0,8})$/.test(raw))
+      return reply(400,{code:'E_INVALID_REQUEST'});
+    offset=Number(raw);
+  }
   if(request.headers.get('sec-fetch-site')&&
      request.headers.get('sec-fetch-site')!=='same-origin')
     return reply(403,{code:'E_FORBIDDEN'});
@@ -120,30 +130,35 @@ export async function nativeAccountsHttp(request,env){
     if(Number(marker?.contract_version)!==3)
       return reply(503,{code:'E_SCHEMA_NOT_READY'});
     if(method==='GET'){
-      const users=await env.DB.prepare(
+      const PAGE_SIZE=50;
+      // Probe one extra row for has_more without failing the entire page.
+      const page=await env.DB.prepare(
         'SELECT id,username,display_name,role,active,created_at FROM users '+
-        'ORDER BY created_at,id LIMIT 101'
-      ).all();
-      if(!Array.isArray(users?.results)||users.results.length>100)
+        'ORDER BY created_at,id LIMIT 51 OFFSET ?'
+      ).bind(offset).all();
+      if(!Array.isArray(page?.results)||page.results.length>PAGE_SIZE+1)
         return reply(503,{code:'E_ACCOUNT_LIST_UNAVAILABLE'});
-      const locations=await env.DB.prepare(
+      const users=page.results.slice(0,PAGE_SIZE),hasMore=page.results.length>PAGE_SIZE;
+      const ids=users.map(u=>u.id);
+      const locations=ids.length?await env.DB.prepare(
         'SELECT user_id,location_id FROM user_locations WHERE user_id IN ('+
-        'SELECT id FROM users ORDER BY created_at,id LIMIT 100) '+
-        'ORDER BY user_id,location_id LIMIT 1601'
-      ).all();
+        ids.map(()=>'?').join(',')+') ORDER BY user_id,location_id LIMIT 1601'
+      ).bind(...ids).all():{results:[]};
       if(!Array.isArray(locations?.results)||locations.results.length>1600)
         return reply(503,{code:'E_ACCOUNT_LIST_UNAVAILABLE'});
-      const grants=new Map(users.results.map(u=>[u.id,[]]));
+      const grants=new Map(users.map(u=>[u.id,[]]));
       for(const row of locations.results){
         if(!grants.has(row.user_id)||typeof row.location_id!=='string')
           return reply(503,{code:'E_ACCOUNT_LIST_UNAVAILABLE'});
         grants.get(row.user_id).push(row.location_id);
       }
-      return reply(200,{users:users.results.map(u=>({
+      return reply(200,{users:users.map(u=>({
         id:u.id,username:u.username,display_name:u.display_name,
         role:u.role,active:u.active===1,created_at:u.created_at,
         location_ids:grants.get(u.id)
-      })),can_create:nativeAccountsWriteEnabled(env)});
+      })),offset,has_more:hasMore,
+        next_offset:hasMore?offset+PAGE_SIZE:null,
+        can_create:nativeAccountsWriteEnabled(env)});
     }
     if(!authorizedMutation(request,principal,'owner'))
       return reply(403,{code:'E_FORBIDDEN'});

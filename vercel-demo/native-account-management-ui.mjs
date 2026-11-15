@@ -8,16 +8,19 @@ const element=(tag,value)=>{
   if(value!==undefined)node.textContent=String(value);
   return node;
 };
-export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token}){
+export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,offset=0}){
   if(role!=='owner'){notice('只有業主可以管理帳號。',true);return;}
   notice('正在讀取正式帳號資料…');
   try{
     const [data,stores]=await Promise.all([
-      api('/api/accounts',{signal}),
+      api(offset===0?'/api/accounts':'/api/accounts?offset='+offset,{signal}),
       api('/api/data?entity=locations',{signal})
     ]);
     if(!live())return;
-    if(!Array.isArray(data.users)||!Array.isArray(stores.rows))
+    if(!Array.isArray(data.users)||!Array.isArray(stores.rows)||
+       !Number.isSafeInteger(data.offset)||data.offset!==offset||
+       typeof data.has_more!=='boolean'||
+       (data.has_more&&data.next_offset!==offset+50))
       throw Error('帳號資料格式不完整。');
     const storeNames=new Map(stores.rows.map(row=>[row.id,row.name]));
     const activeStores=stores.rows.filter(row=>row.active===1);
@@ -43,6 +46,21 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       tbody.append(row);
     }
     table.append(thead,tbody);scroll.append(table);pane.append(scroll);
+    const pager=element('nav'),previous=element('button','上一頁'),
+      next=element('button','下一頁');
+    previous.type='button';next.type='button';
+    previous.disabled=offset===0;next.disabled=!data.has_more;
+    pager.className='native-data-pagination';
+    pager.setAttribute('aria-label','帳號清單分頁');
+    const info=element('span','第 '+(Math.floor(offset/50)+1)+' 頁（本頁 '+data.users.length+' 筆）');
+    pager.append(previous,info,next);pane.append(pager);
+    const navigate=async newOffset=>{
+      if(!live())return;
+      previous.disabled=true;next.disabled=true;
+      await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,offset:newOffset});
+    };
+    previous.addEventListener('click',()=>navigate(Math.max(0,offset-50)));
+    next.addEventListener('click',()=>navigate(data.next_offset));
     if(data.can_create!==true){
       pane.append(element('p','帳號新增功能目前未獲獨立授權，現有帳號可正常使用。'));
       notice('帳號清單已載入；帳號建立 Gate 尚未開放。');return;

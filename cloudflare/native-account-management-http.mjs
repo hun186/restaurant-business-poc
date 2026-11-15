@@ -2,6 +2,7 @@
 // A separately operator-released account gate protects all new account writes.
 import {loadPrincipal,authorizedMutation,hashWorkerPassword} from './auth-core.mjs';
 import {nativeLoginEnabled,bodyWithinLimit} from './native-login-http.mjs';
+import {canOwnerManageAccountStatus,isAccountStatusTransition} from '../src/account-status-contract.mjs';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validDb=db=>!!db&&typeof db.prepare==='function'&&typeof db.batch==='function';
 function changed(res){
@@ -233,9 +234,10 @@ export async function nativeAccountStatusHttp(request,env){
       'SELECT id,role,active FROM users WHERE id=?'
     ).bind(input.targetUserId).first();
     if(!target)return reply(404,{code:'E_ACCOUNT_NOT_FOUND'});
-    if(!['staff','manager'].includes(target.role))
+    if(!canOwnerManageAccountStatus(p.role,p.id,target.role,target.id))
       return reply(403,{code:'E_FORBIDDEN'});
-    if(target.active!==Number(input.expectedActive))
+    if(target.active!==Number(input.expectedActive)||
+       !isAccountStatusTransition(target.active,input.active))
       return reply(409,{code:'E_CONCURRENT_CHANGE'});
     const quota=await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM audit_logs WHERE actor_id=? AND action='user.active' "+

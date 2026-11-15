@@ -79,7 +79,11 @@ function rowActions(page,r){const a=[];
    else a.push(btn('dish.active','恢復菜品',{status:'on'}));
   }
   if(page==='dish_ingredients'&&can('owner'))a.push(btn('recipe.delete','移除食材'));
- if(page==='users'&&can('owner')&&r.id!==S.me.id)a.push(btn('user.assign-location','加授門市'),btn('user.active',r.active?'停用':'啟用',{status:r.active?'off':'on'}),btn('user.role','變更角色'),btn('user.password','重設密碼'));
+ if(page==='users'&&can('owner')&&r.id!==S.me.id){
+  a.push(btn('user.assign-location','加授門市'));
+  if(r.role==='staff'||r.role==='manager')a.push(btn('user.active',r.active?'停用':'啟用',{status:r.active?'off':'on'}));
+  a.push(btn('user.role','變更角色'),btn('user.password','重設密碼'));
+ }
  if(page==='ingredients'&&can('manager')){
   if(r.active===0)a.push(btn('ingredient.active','恢復食材',{status:'on'}));
   else a.push(btn('ingredient.update','編輯'),btn('ingredient.active','停用',{status:'off'}));

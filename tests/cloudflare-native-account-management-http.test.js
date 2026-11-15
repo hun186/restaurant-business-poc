@@ -399,3 +399,121 @@ test('Account state notice matches the independent admin gate reported by D1',()
  assert.match(ui,/停用會撤銷所有登入工作階段並保留歷史紀錄/);
  assert.match(ui,/停用、角色調整及重設他人密碼尚未開放/);
 });
+
+
+test('Cloudflare role edit: separate double gate, Owner-only, CAS, audit and total session revocation',async t=>{
+ const f=await fixture(t),owner=await f.login();assert.equal(owner.status,200);
+ const targetId='123e4567-e89b-42d3-a456-426614174099';
+ f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+  .run(targetId,'roleemployee','Role Employee','staff','synthetic-salt','synthetic-hash',1);
+ const expiry=new Date(Date.now()+3600000).toISOString();
+ const sess=f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)');
+ for(let i=0;i<2;i++)sess.run('role-target-token-'+i,'role-csrf-'+i,targetId,expiry);
+ const req=(body,env=f.env,csrf=owner.csrf,origin=site)=>f.send('/api/accounts/role',{
+  method:'POST',headers:{cookie:owner.cookie,origin,'sec-fetch-site':'same-origin',
+   'content-type':'application/json','x-csrf-token':csrf},
+  body:JSON.stringify(body)},env);
+ const data={targetUserId:targetId,expectedRole:'staff',role:'manager'};
+ const createOnly={...f.env,CLOUD_NATIVE_ACCOUNT_WRITE_GATE:'operator-released'};
+ const adminOnly={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released'};
+ const roleOnly={...f.env,CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE:'operator-released'};
+ const both={...adminOnly,CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE:'operator-released'};
+ for(const env of [f.env,createOnly,adminOnly,roleOnly])
+  assert.equal((await req(data,env)).status,503,'must require both admin+role operator releases');
+ assert.equal((await req(data,both,'bad')).status,403);
+ assert.equal((await req(data,both,owner.csrf,'https://malicious.invalid')).status,403);
+ assert.equal((await req({...data,role:'owner'},both)).status,400);
+ assert.equal((await req({...data,expectedRole:'owner'},both)).status,400);
+ assert.equal((await req({...data,role:'staff'},both)).status,400);
+ assert.equal((await req({...data,extra:1},both)).status,400);
+ const original=await (await f.send('/api/accounts',{headers:{cookie:owner.cookie}},both)).json();
+ assert.equal(original.can_create,false);assert.equal(original.can_manage_status,true);
+ assert.equal(original.can_manage_role,true);
+ const changed=await req(data,both);
+ assert.equal(changed.status,200,JSON.stringify(await changed.json()));
+ assert.equal(f.db.prepare('SELECT role FROM users WHERE id=?').get(targetId).role,'manager');
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(targetId).n,0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.role' AND entity_id=?").get(targetId).n,1);
+ assert.equal((await req(data,both)).status,409);
+ const undone=await req({targetUserId:targetId,expectedRole:'manager',role:'staff'},both);
+ assert.equal(undone.status,200);
+ assert.equal(f.db.prepare('SELECT role FROM users WHERE id=?').get(targetId).role,'staff');
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(targetId).n,0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.role' AND entity_id=?").get(targetId).n,2);
+});
+
+test('Cloudflare role edit D1.batch faults roll back actor audit, target role and target sessions',async t=>{
+ const id='123e4567-e89b-42d3-a456-426614174099';
+ for(const failAt of [0,1,2,3]){
+  await t.test('role transaction step '+failAt,async sub=>{
+   const f=await fixture(sub),owner=await f.login();assert.equal(owner.status,200);
+   f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+    .run(id,'role-employee','Role Employee','staff','salt','hash',1);
+   f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+    .run('role-employee-token','role-employee-csrf',id,new Date(Date.now()+3600000).toISOString());
+   const db=f.env.DB,originalBatch=db.batch.bind(db);
+   const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released',
+    CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE:'operator-released',DB:{
+     ...db,async batch(stmts){
+      return originalBatch(stmts.map((statement,index)=>({
+       ...statement,async run(){
+        if(index===failAt)throw Error('E_SYNTHETIC_ROLE_BATCH_FAULT');
+        return statement.run();
+       }
+      })));
+     }
+    }};
+   const response=await f.send('/api/accounts/role',{method:'POST',headers:{
+    origin:site,cookie:owner.cookie,'x-csrf-token':owner.csrf,
+    'sec-fetch-site':'same-origin','content-type':'application/json'},
+    body:JSON.stringify({targetUserId:id,expectedRole:'staff',role:'manager'})},env);
+   assert.equal(response.status,503);
+   assert.equal(f.db.prepare('SELECT role FROM users WHERE id=?').get(id).role,'staff');
+   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(id).n,1);
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.role' AND entity_id=?").get(id).n,0);
+  });
+ }
+});
+
+test('Cloudflare role edit rejects Owner session races and target promotion inside D1 batch',async t=>{
+ const id='123e4567-e89b-42d3-a456-426614174099';
+ for(const race of ['owner-revoked','owner-expired','owner-demoted','target-promoted','target-disabled']){
+  await t.test(race,async sub=>{
+   const f=await fixture(sub),owner=await f.login();assert.equal(owner.status,200);
+   f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+    .run(id,'employee-role','Role Employee','staff','salt','hash',1);
+   f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+    .run('role-target-token','role-target-csrf',id,new Date(Date.now()+3600000).toISOString());
+   const db=f.env.DB,originalBatch=db.batch.bind(db);
+   const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released',
+    CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE:'operator-released',DB:{
+    ...db,async batch(steps){
+     if(race==='owner-revoked')f.db.prepare("DELETE FROM sessions WHERE user_id='synthetic-owner'").run();
+     else if(race==='owner-expired')f.db.prepare("UPDATE sessions SET expires_at='2000-01-01T00:00:00Z' WHERE user_id='synthetic-owner'").run();
+     else if(race==='owner-demoted')f.db.prepare("UPDATE users SET role='staff' WHERE id='synthetic-owner'").run();
+     else if(race==='target-promoted')f.db.prepare("UPDATE users SET role='owner' WHERE id=?").run(id);
+     else f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(id);
+     return originalBatch(steps);
+    }}};
+   const response=await f.send('/api/accounts/role',{method:'POST',headers:{
+    origin:site,cookie:owner.cookie,'x-csrf-token':owner.csrf,
+    'sec-fetch-site':'same-origin','content-type':'application/json'},
+    body:JSON.stringify({targetUserId:id,expectedRole:'staff',role:'manager'})},env);
+   assert.equal(response.status,503,race);
+   const expectedRole=race==='target-promoted'?'owner':'staff';
+   assert.equal(f.db.prepare('SELECT role FROM users WHERE id=?').get(id).role,expectedRole);
+   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=?').get(id).n,1);
+   assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='user.role' AND entity_id=?").get(id).n,0);
+  });
+ }
+});
+
+test('Role endpoint is UI-independent and requires two explicit gates',()=>{
+ const server=fs.readFileSync(path.join(root,'cloudflare/native-account-management-http.mjs'),'utf8'),
+  worker=fs.readFileSync(path.join(root,'cloudflare/worker.mjs'),'utf8');
+ assert.match(server,/CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE==='operator-released'/);
+ assert.match(server,/nativeAccountAdminWriteEnabled\(env\)/);
+ assert.match(server,/DELETE FROM sessions WHERE user_id=/);
+ assert.match(worker,/pathname === '\/api\/accounts\/role'/);
+ assert.doesNotMatch(server,/DELETE FROM users WHERE/);
+});

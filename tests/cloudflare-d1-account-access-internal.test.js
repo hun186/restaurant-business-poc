@@ -275,3 +275,86 @@ test('transaction-time actor CSRF, expiry and deactivation block all access acti
     }
   }
 });
+
+
+const createAccount=async(f,patch={})=>(await accessPromise).internalCreateD1Account(
+  f.req(),f.env,{username:'newstaff',displayName:'測試員工',
+    initialPassword:'synthetic-password-123456',role:'staff',
+    locationIds:[f.ids.storeA],...patch});
+
+test('P0 synthetic Owner create: PBKDF2 user + store + audit are one transaction',async t=>{
+  const f=await fixture(t),auth=await authPromise;
+  const out=await createAccount(f);
+  assert.equal(out.status,201);
+  assert.deepEqual(out.user.location_ids,[f.ids.storeA]);
+  const row=f.db.prepare("SELECT * FROM users WHERE username='newstaff'").get();
+  assert.equal(row.role,'staff');assert.equal(row.active,1);
+  assert.ok(await auth.verifyWorkerPassword('synthetic-password-123456',
+    row.password_salt,row.password_hash));
+  assert.deepEqual(grants(f,row.id),[f.ids.storeA]);
+  const a=logs(f);
+  assert.equal(a.length,1);assert.equal(a[0].action,'user.create');
+  assert.deepEqual(JSON.parse(a[0].detail),{role:'staff',assigned_locations:1});
+  assert.doesNotMatch(JSON.stringify(a)+JSON.stringify(out),
+    /synthetic-password-123456|password_hash|password_salt|pbkdf2-sha256/);
+  assert.deepEqual(await createAccount(f),{status:409,code:'E_ACCOUNT_EXISTS'});
+  assert.equal(logs(f).length,1);
+});
+
+test('P0 synthetic Owner create: Owner-only, unique username, live stores and denied Owner promotion',async t=>{
+  const f=await fixture(t),svc=(await accessPromise).internalCreateD1Account;
+  assert.equal((await createAccount(f,{role:'owner'})).status,400);
+  assert.equal((await createAccount(f,{username:'owner'})).status,409);
+  assert.equal((await createAccount(f,{locationIds:[f.ids.storeA,f.ids.storeA]})).status,400);
+  assert.equal((await createAccount(f,{locationIds:[randomUUID()]})).status,400);
+  assert.equal((await createAccount(f,{initialPassword:'short'})).status,400);
+  assert.equal((await createAccount(f,{displayName:'\n'})).status,400);
+  assert.equal((await svc(f.req('manager'),f.env,{username:'bad',displayName:'B',
+    initialPassword:'synthetic-password-123456',role:'manager',
+    locationIds:[f.ids.storeA]})).status,403);
+  assert.equal((await createAccount({...f,env:{...f.env,CLOUD_AUTH_PHASE:'native-production'}})).status,503);
+  assert.equal((await createAccount({...f,env:{...f.env,ACCOUNT_SECURITY_STAGE:'off'}})).status,503);
+  assert.equal(logs(f).length,0);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM users').get().n,3);
+});
+
+test('P0 synthetic Owner create: role/session/store race and forced batch failure roll back',async t=>{
+  const auth=await authPromise;
+  for(const race of ['owner-demoted','owner-session-revoked','store-deactivated','duplicate','batch-failure']){
+    const f=await fixture(t);
+    const token=await auth.tokenSha256(f.cookies.owner.split('=')[1]);
+    f.env.DB=adapter(f.db,{failAt:race==='batch-failure'?2:undefined,beforeBatch(){
+      if(race==='owner-demoted')
+        f.db.prepare("UPDATE users SET role='manager' WHERE id=?").run(f.ids.actor);
+      if(race==='owner-session-revoked')
+        f.db.prepare('DELETE FROM sessions WHERE token_hash=?').run(token);
+      if(race==='store-deactivated')
+        f.db.prepare('UPDATE locations SET active=0 WHERE id=?').run(f.ids.storeA);
+      if(race==='duplicate')
+        f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES(?,?,?,?,?,?)')
+          .run(randomUUID(),'NEWSTAFF','Other','staff','salt','hash');
+    }});
+    const res=await createAccount(f);
+    assert.equal(res.status,503,race);
+    assert.equal(logs(f).length,0,race);
+    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM users WHERE username='newstaff'").get().n,
+      race==='duplicate'?1:0,race);
+  }
+});
+
+
+test('P0 synthetic create: naturally expiring Owner Session is rejected at D1 batch time',async t=>{
+  const f=await fixture(t),auth=await authPromise;
+  const digest=await auth.tokenSha256(f.cookies.owner.split('=')[1]);
+  // The initial Principal lookup sees a live Session. The 1.4s queued
+  // batch delay crosses expiry; D1 itself must reject, without partial write.
+  f.db.prepare('UPDATE sessions SET expires_at=? WHERE token_hash=?')
+    .run(new Date(Date.now()+900).toISOString(),digest);
+  f.env.DB=adapter(f.db,{beforeBatch(){
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1400);
+  }});
+  const out=await createAccount(f);
+  assert.equal(out.status,503);
+  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM users WHERE username='newstaff'").get().n,0);
+  assert.equal(logs(f).length,0);
+});

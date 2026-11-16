@@ -40,6 +40,13 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
    '重設他人密碼尚未開放。'
   ].join('')
  });
+ if(view==='audit_logs')return Object.freeze({
+  systemLabel:anyWrite?'正式營運模式':'登入服務已啟用',
+  systemWritable:anyWrite,
+  pageLabel:'安全稽核・僅檢視',
+  pageWritable:false,
+  description:'只有業主可檢視登入、帳號及重要營運異動紀錄；不顯示密碼、Token、IP 雜湊或原始稽核細節。'
+ });
  if(view==='account')return Object.freeze({
   systemLabel:anyWrite?'正式營運模式':'登入服務已啟用',
   systemWritable:anyWrite,

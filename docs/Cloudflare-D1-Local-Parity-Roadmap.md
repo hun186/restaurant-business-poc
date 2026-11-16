@@ -84,3 +84,10 @@
 - 選定日期只影響**菜品配方按歷史有效單價的成本／毛利估算**；這不是當天的實際售價/銷售報表快照。特別禁止 `inventory_values?as_of=...`，因為目前庫存是當前流水總額，不能套舊價格後冒稱過去庫存值。
 - API 回覆 `as_of` 與 `business_date`，頁面清楚顯示成本日期、提供恢復當日。切換頁面、登出或身份改變時，舊日期操作不可影響新畫面；不新增寫入、Gate、DB Schema 或雲端 Secrets。
 - 遵守最新 HEAD CI／Codex／Clean Merge 與合併後自動 G0；未通過 Owner/Manager 實機查詢和已存在價格的結果核對前，不標示 Live UAT PASS。
+
+## 2026-11-16 Windows 本機加密備份副本檔案身分精度修復（本 PR 待 CI/Review）
+
+- 獨立副本稽核 `verifyIndependentCopy` 原使用一般 `fs.lstatSync()` 的 Number 型 `ino`。NTFS 64 位元檔案識別碼可能超過 JavaScript 可安全表示的整數精度，導致兩個不同檔案錯判為 `COPY_SAME_FILE`。正式主線 Verify #43884410667 Windows Node24 首輪即遇此問題；此項僅為受控 GitHub CI 合成檔案，不是正式業主備份失效證據。
+- 改採 `fs.lstatSync(file,{bigint:true})` 的完整 `BigInt` 裝置與 inode 識別碼，連同 `BigInt` 檔案大小比較，保留 realpath 相同、Symlink、硬連結、格式／MAC／密碼／SQLite replay 等全部既有安全防線；不得以刪除同一檔案檢查來處理偶發誤判。
+- 新增 Windows NTFS 大整數精度以及實體硬連結「兩個路徑但一個檔案」拒絕測試。仍**不能證明離線副本確實存放異地**，且不會新增 Cloudflare D1 查詢／寫入、遠端還原、部署、正式 Secrets/Vars/Gate 變更。
+- 任何合併須最新 HEAD CI 5/5 與 Codex Review completed 0 Findings；合成測試通過不等於已由業主重做真實加密備份驗證。

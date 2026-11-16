@@ -45,12 +45,40 @@ test('Numeric quantities remain Excel numeric cells and untrusted text cannot be
  ],{name:'庫存流水'});
  assert.equal(sheet.rows[0][2],-2.125);
  assert.equal(sheet.rows[0][4],'耗用');
+ assert.deepEqual(sheet.precision_columns,[2]);
  const xml=zipPart(buildWorkbook([sheet]),'xl/worksheets/sheet1.xml');
+ assert.match(xml,/<c r="C2" s="4"><v>-2\.125<\/v><\/c>/);
  assert.match(xml,/<v>-2\.125<\/v>/);
  assert.match(xml,/inlineStr/);
  assert.match(xml,/HYPERLINK/);
  assert.doesNotMatch(xml,/<f(?:\s|>)/,'must never emit executable Excel formulas');
  assert(!xml.includes('SECRET'));
+});
+test('Native D1 stock 0.001 does not display as 0.00 in Excel (review P2 regression)',async()=>{
+ const {nativeOwnerReportSheet}=await projection;
+ const cases=[
+  ['stock',{location_name:'總店',name:'米',sku:'RICE',on_hand:0.001,
+    min_stock:0.002,unit:'公斤'},[3,4],['D2','E2']],
+  ['ingredients',{sku:'RICE',name:'米',unit:'公斤',min_stock:0.001},[3],['D2']],
+  ['purchase_orders',{number:'P1',location_name:'總店',ingredient_name:'米',
+    supplier:'供應商',qty:0.001,unit:'公斤',status:'requested'},[4],['E2']],
+  ['stocktakes',{location_name:'總店',ingredient_name:'米',expected_qty:0.001,
+    counted_qty:0.002,unit:'公斤',status:'pending'},[2,3],['C2','D2']]
+ ];
+ for(const [entity,row,expected,addresses] of cases){
+  const sheet=nativeOwnerReportSheet(entity,[row],{name:{
+   stock:'庫存',ingredients:'食材',purchase_orders:'叫貨',stocktakes:'盤點'
+  }[entity]});
+  assert.deepEqual(sheet.precision_columns,expected,entity);
+  const xml=zipPart(buildWorkbook([sheet]),'xl/worksheets/sheet1.xml');
+  for(const addr of addresses){
+   const c=new RegExp('<c r="'+addr+'" s="4"><v>0\\.00[12]</v></c>');
+   assert.match(xml,c,entity+' '+addr+' should use precision style 4');
+  }
+ }
+ const local=fs.readFileSync(path.join(root,'public/xlsx-lite.js'),'utf8');
+ const demo=fs.readFileSync(path.join(root,'vercel-demo/xlsx-lite.js'),'utf8');
+ assert.equal(local,demo,'local and Demo/Native must retain exactly the same shared writer');
 });
 test('Native D1 export refuses invalid entities, oversized rows and hidden columns',async()=>{
  const {nativeOwnerReportSheet}=await projection;

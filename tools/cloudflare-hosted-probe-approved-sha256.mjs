@@ -312,5 +312,5 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "db/schema.sql":"81b2be4f700f34e0fb978a7054677d79ede35255f91cb5a9d58d518c3339e2ce",
   "cloudflare/native-audit-http.mjs":"1cd00381bf4d9e92441d6d0f671b107f57a4fd2bb75e4d197ad6509f61e36475",
   "vercel-demo/native-owner-audit-ui.mjs":"6c94fcc58330a73fdb9cdab95d3f694f1e511ba1f9e2b9e8c6580bdbbcf99bc1",
-  "tests/cloudflare-native-audit-http.test.js":"0558984de7a40522eea535f81e2ccb2ebabef3e73520b002dae10697b25f65cd",
+  "tests/cloudflare-native-audit-http.test.js":"b861df69613548ce88e983994c0b2216256e6af2b182298c7b22aa5afbf8c79f",
 });

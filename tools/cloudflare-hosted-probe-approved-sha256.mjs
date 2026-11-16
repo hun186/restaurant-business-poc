@@ -142,7 +142,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
   "vercel-demo/owner-app.html":"3cf935bf5b597494b9660de43482fc573ce58d3fe3dc2fe14be714ba0a1a1e3f",
   "vercel-demo/owner-app.css":"c100766867a15264f0d7f4173bf14ae4d33cef31fb9f0e53963a1cdbbd0a5101",
-  "vercel-demo/owner-app.js":"df1eaf74537e2aea05d1a0d0e0fd913ada2b82631b6fdc756065238febe0f7ac",
+  "vercel-demo/owner-app.js":"535bd8c664484e9e674bc924ae061ff4a1274e93dbecafdb5ee6915a031d09a6",
   "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",
@@ -315,4 +315,6 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-native-audit-http.test.js":"b861df69613548ce88e983994c0b2216256e6af2b182298c7b22aa5afbf8c79f",
   "cloudflare/native-parity-readonly.mjs":"fb26a19628b4ecef358750842df6e5f51d1b620cb52ff64c6343fd478e956510",
   "tests/cloudflare-native-parity-readonly.test.js":"e77ab43f955447d93a42496c1405bf1f0bda2aabd30e728a0b80409bcc62205f",
+  "vercel-demo/native-owner-report.mjs":"1f9a54b3c758dd35a78663f749971388d3bdd4f35a4d67c9ae053779275e932b",
+  "tests/cloudflare-native-owner-xlsx-export.test.js":"eaf2b68bfa693d80147e44d1fe76ea886b3632a7b1243cc461d2869d3506899c",
 });

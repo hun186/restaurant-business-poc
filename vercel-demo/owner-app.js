@@ -6,8 +6,9 @@ import {renderOwnerAudit} from './native-owner-audit-ui.mjs';
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
-  stock:'庫存',stocktakes:'盤點',repairs:'維修',shifts:'排班',ingredients:'食材',
-  locations:'門市',training_courses:'訓練',account:'我的帳號',
+  stock:'庫存',stock_moves:'庫存流水',stocktakes:'盤點',repairs:'維修',
+  shifts:'排班',leave_requests:'請假申請',training_records:'訓練紀錄',evaluations:'員工考核',
+  ingredients:'食材',locations:'門市',training_courses:'訓練',account:'我的帳號',
   accounts:'帳號管理',audit_logs:'安全稽核'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
@@ -17,7 +18,10 @@ const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!
 const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
   purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
-  shifts:'班表資訊（目前唯讀）',ingredients:'食材及安全庫存主檔',
+  shifts:'班表資訊（目前唯讀）',leave_requests:'請假申請及審核狀態（目前唯讀）',
+  training_records:'訓練成績與完成狀態（目前唯讀）',
+  evaluations:'考核紀錄（目前唯讀）',stock_moves:'門市庫存異動流水（目前唯讀）',
+  ingredients:'食材及安全庫存主檔',
   locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）',
   account:'個人密碼變更與登入安全',accounts:'業主帳號清單與依後端權限開放的管理功能',
   audit_logs:'僅業主可檢閱的登入與重要異動紀錄'};

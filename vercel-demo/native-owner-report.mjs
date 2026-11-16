@@ -6,6 +6,8 @@ import {presentNativeRows} from './native-owner-display.mjs';
 const NUMBERS=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty',
   'required_score','score','qty_delta']);
 const CELL_LIMIT=32767;
+const PRECISE_QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty',
+  'counted_qty','qty_delta']);
 export function nativeOwnerReportSheet(entity,rows,{keyword='',name}={}){
   if(typeof entity!=='string'||typeof keyword!=='string'||keyword.length>80||
      typeof name!=='string'||!name||name.length>31)
@@ -17,6 +19,7 @@ export function nativeOwnerReportSheet(entity,rows,{keyword='',name}={}){
   return {
     name,
     headers:model.columns.map(c=>c.label),
+    precision_columns:model.columns.flatMap((c,i)=>PRECISE_QUANTITIES.has(c.key)?[i]:[]),
     rows:selected.map(({entry,record})=>model.columns.map((col,i)=>{
       const v=record[col.key];
       if(NUMBERS.has(col.key)&&typeof v==='number'&&Number.isFinite(v))return v;

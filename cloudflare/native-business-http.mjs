@@ -3,6 +3,7 @@ import {nativeLoginEnabled} from './native-login-http.mjs';
 import {loadPrincipal,hasAccess} from './auth-core.mjs';
 import {queryFor} from './operations-readonly.mjs';
 import {metricQueries} from './overview-readonly.mjs';
+import {nativeHrMetricQueries} from './native-hr-overview-readonly.mjs';
 import {nativeParityReadonlyPlan,NATIVE_READONLY_PARITY_ENTITIES} from './native-parity-readonly.mjs';
 import {nativePricingReadonlyPlan,NATIVE_PRICING_ENTITIES} from './native-pricing-readonly.mjs';
 import {nativeCostReadonlyRows,nativeBusinessDate,NATIVE_COST_ENTITIES} from './native-pricing-costs.mjs';
@@ -92,7 +93,9 @@ export async function nativeBusinessReadHttp(request,env){
       return reply(200,{mode:'native_d1',entity,rows:result.results});
     }
     const metrics={};
-    for(const [name,sql,args] of metricQueries(principal)){
+    for(const [name,sql,args] of [
+      ...metricQueries(principal),...nativeHrMetricQueries(principal,nativeBusinessDate(env))
+    ]){
       const statement=env.DB.prepare(sql);
       const metric=await (args.length?statement.bind(...args):statement).first();
       if(!Number.isSafeInteger(metric?.n)||metric.n<0)throw Error('E_D1_INVALID_METRIC');

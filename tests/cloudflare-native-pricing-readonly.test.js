@@ -163,11 +163,133 @@ test('Native menu/price UI is explicit readonly, hidden from staff, and never ro
  }
  assert(js.includes("button.hidden=!['owner','manager'].includes(role)"));
  assert(js.includes("role==='staff'&&pricingViews.includes(view)"));
- assert.match(native,/NATIVE_PRICING_ENTITIES\.includes\(entity\)&&!hasAccess\(principal,'manager'\)/);
+ assert.match(native,/NATIVE_PRICING_ENTITIES\.includes\(entity\)\|\|NATIVE_COST_ENTITIES\.includes\(entity\)/);
  assert.match(native,/nativePricingReadonlyPlan\(entity,principal\)/);
  for(const source of [js,html]){
   assert(!source.includes('mock.js'));
   assert(!source.includes('localStorage'));
   assert(!source.includes('sessionStorage'));
  }
+});
+
+test('D1 cost, cost line and stock valuation exactly match on-prem pricingRows across two stores',async t=>{
+ const f=await fixture(t);
+ const owner=await f.login('owner');
+ const manager=await f.login('manager');
+ const managerNoStore=await f.login('managerNoStore');
+ const staff=await f.login('staff');
+ const {pricingRows}=require('../src/pricing.js');
+ const {presentNativeRows}=await display;
+ const {nativeOwnerReportSheet}=await report;
+ const {NATIVE_COST_ENTITIES,nativeCostReadonlyRows}=await import('../cloudflare/native-pricing-costs.mjs');
+ assert.deepEqual([...NATIVE_COST_ENTITIES],['dish_costs','dish_cost_lines','inventory_values']);
+ const db=f.db;
+ db.prepare("INSERT INTO ingredients(id,sku,name,unit) VALUES('milk','MILK','牛奶','L')").run();
+ db.prepare("INSERT INTO menu_dishes(id,name,sale_price_cents) VALUES('dishB','牛奶餐',10000)").run();
+ db.prepare("INSERT INTO menu_dishes(id,name,sale_price_cents) VALUES('dishC','無配方餐',0)").run();
+ db.prepare("INSERT INTO dish_ingredients(id,dish_id,ingredient_id,qty,unit) VALUES('recB','dishB','milk',150,'ml')").run();
+ db.prepare("INSERT INTO dish_ingredients(id,dish_id,ingredient_id,qty,unit) VALUES('recC','dishB','ing',1,'kg')").run();
+ // Same effective date + created_at: newest rowid decides, matching SQLite latest().
+ for(const [id,price] of [['milk1',5000],['milk2',6250]]){
+  db.prepare("INSERT INTO ingredient_prices(id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source,created_at) VALUES(?,?,?,?,?,?,?,?,'2026-11-01 10:00:00')")
+   .run(id,'milk','storeA','2026-11-01',price,'L','合成供應商','manual');
+ }
+ db.prepare("INSERT INTO ingredient_prices(id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source) VALUES('future','milk','storeA','2099-01-01',999999,'L','合成供應商','manual')").run();
+ for(const [id,loc,qty,type] of [
+  ['mv1','storeA',1.234,'purchase'],['mv2','storeA',-0.234,'usage'],
+  ['mv3','storeB',-0.5,'usage']
+ ])db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type) VALUES(?,?,?,?,?)')
+  .run(id,'ing',loc,qty,type);
+ const before=db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n;
+ for(const entity of NATIVE_COST_ENTITIES){
+  const keys=presentNativeRows(entity,[]).columns.map(x=>x.key);
+  for(const [name,cookie,principal] of [
+   ['owner',owner,{id:'owner-id',role:'owner'}],
+   ['manager',manager,{id:'manager-1',role:'manager'}]
+  ]){
+   const response=await f.send('/api/data?entity='+entity,{headers:{cookie}});
+   assert.equal(response.status,200,entity+'/'+name);
+   assert.equal(response.headers.get('cache-control'),'private, no-store, max-age=0');
+   const actual=(await response.json()).rows;
+   const baseline=pricingRows(db,principal,entity).map(row=>
+    Object.fromEntries(keys.map(k=>[k,row[k]])));
+   assert.deepEqual(actual,baseline,entity+'/'+name+' must equal SQLite');
+   assert(!JSON.stringify(actual).includes('owner-id'));
+   assert(!JSON.stringify(actual).includes('manager-1'));
+   assert(!JSON.stringify(actual).includes('password_hash'));
+   assert(actual.length>0);
+   const sheet=nativeOwnerReportSheet(entity,actual,{name:entity});
+   assert(sheet.rows.length===actual.length);
+   for(const cell of sheet.rows.flat())assert(cell===null||typeof cell!=='object');
+   const ui=presentNativeRows(entity,actual);
+   assert(ui.entries.every(x=>x.cells.length===keys.length));
+  }
+  const empty=await f.send('/api/data?entity='+entity,{headers:{cookie:managerNoStore}});
+  assert.equal(empty.status,200,entity+'/no store');
+  assert.deepEqual((await empty.json()).rows,[]);
+  const denied=await f.send('/api/data?entity='+entity,{headers:{cookie:staff}});
+  assert.equal(denied.status,403,entity+'/staff');
+  assert.equal((await f.send('/api/data?entity='+entity)).status,401);
+  assert.equal((await f.send('/api/data?entity='+entity,{method:'POST',
+   headers:{cookie:owner},body:'{}'})).status,405);
+ }
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n,before);
+ const cost=await f.send('/api/data?entity=dish_costs',{headers:{cookie:owner}});
+ const rows=(await cost.json()).rows;
+ assert(rows.some(x=>x.cost_status==='尚無配方'));
+ assert(rows.some(x=>x.cost_status==='價格或單位不完整'));
+ assert(rows.some(x=>x.gross_profit_twd<0));
+ const negative=rows.find(x=>x.gross_profit_twd<0);
+ const cell=presentNativeRows('dish_costs',[negative]).entries[0].cells;
+ assert(cell.some(x=>x.text.startsWith('-')&&x.tone==='warn'),'negative margin visible');
+ const lines=(await (await f.send('/api/data?entity=dish_cost_lines',{headers:{cookie:manager}})).json()).rows;
+ assert(lines.some(x=>x.ingredient_name==='牛奶'&&x.unit==='ml'&&x.price_unit==='L'&&x.line_cost_twd===9.38),
+  '0.15L * 6250 cents rounds to 938 cents, future prices ignored');
+ const stock=(await (await f.send('/api/data?entity=inventory_values',{headers:{cookie:owner}})).json()).rows;
+ assert(stock.some(x=>x.location_name==='B門市'&&x.ingredient_name==='米'&&x.estimated_value_twd<0));
+ const stockUI=presentNativeRows('inventory_values',stock);
+ assert(stockUI.entries.some(x=>x.cells.some(c=>c.text.startsWith('-')&&c.tone==='warn')));
+ db.prepare("UPDATE locations SET active=0 WHERE id='storeA'").run();
+ for(const entity of NATIVE_COST_ENTITIES){
+  const x=await f.send('/api/data?entity='+entity,{headers:{cookie:manager}});
+  assert.equal(x.status,200,entity+'/revoked manager');
+  assert.deepEqual((await x.json()).rows,[],'inactive store must revoke all cost rows');
+ }
+ await assert.rejects(nativeCostReadonlyRows(f.env.DB,{id:'owner-id',role:'owner'},'dish_costs','2026-02-30'));
+ await assert.rejects(nativeCostReadonlyRows(f.env.DB,{id:'staff-id',role:'staff'},'dish_costs','2026-11-16'));
+});
+test('cost view capacity uses fail-closed 503 instead of silently truncated or misleading totals',async t=>{
+ const f=await fixture(t),owner=await f.login('owner');
+ for(let i=0;i<500;i++)f.db.prepare(
+  'INSERT INTO menu_dishes(id,name,sale_price_cents) VALUES(?,?,?)')
+  .run('batch'+i,'批次'+String(i).padStart(4,'0'),1);
+ const res=await f.send('/api/data?entity=dish_costs',{headers:{cookie:owner}});
+ assert.equal(res.status,503);
+ assert.equal((await res.json()).code,'E_BUSINESS_UNAVAILABLE');
+});
+test('shared unit conversion never changes SQLite weights, volumes or half-cent rounding',()=>{
+ const {conversion,roundedCents}=require('../src/pricing-units.cjs');
+ const local=fs.readFileSync(path.join(base,'src/pricing.js'),'utf8');
+ const cloud=fs.readFileSync(path.join(base,'cloudflare/native-pricing-costs.mjs'),'utf8');
+ for(const [qty,from,to,expected] of [
+  [150,'ml','L',0.15],[1.5,'公斤','g',1500],[50,'克','kg',0.05],
+  [3,'升','mL',3000],[1,'kg','L',null],[1,'毫升','公升',0.001]
+ ])assert.equal(conversion(qty,from,to),expected);
+ assert.equal(roundedCents(0.15,6250),938);
+ assert.equal(roundedCents(1,999),999);
+ assert.match(local,/require\('\.\/pricing-units\.cjs'\)/);
+ assert.match(cloud,/import pricingUnits from '\.\.\/src\/pricing-units\.cjs'/);
+ assert(!cloud.includes('INSERT INTO'));
+ assert(!cloud.includes('UPDATE '));
+ assert(!cloud.includes('DELETE FROM'));
+ const preview=fs.readFileSync(path.join(base,'cloudflare/operations-readonly.mjs'),'utf8');
+ assert(!preview.includes('nativeCostReadonlyRows'));
+ const html=fs.readFileSync(path.join(base,'vercel-demo/owner-app.html'),'utf8');
+ const js=fs.readFileSync(path.join(base,'vercel-demo/owner-app.js'),'utf8');
+ for(const entity of ['dish_costs','dish_cost_lines','inventory_values']){
+  assert(html.includes('data-view="'+entity+'" hidden'));
+  assert(js.includes(entity));
+ }
+ assert(js.includes("button.hidden=!['owner','manager'].includes(role)"));
+ assert(!js.includes('mock.js'));
 });

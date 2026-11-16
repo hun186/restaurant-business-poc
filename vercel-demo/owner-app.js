@@ -3,6 +3,8 @@ import {normalizeCatalogCommand} from './catalog-crud-contract.mjs';
 import {nativeOwnerCapability} from './native-owner-capability.mjs';
 import {renderOwnerAccounts} from './native-account-management-ui.mjs';
 import {renderOwnerAudit} from './native-owner-audit-ui.mjs';
+import {nativeOwnerReportSheet} from './native-owner-report.mjs';
+import './xlsx-lite.js'; // Reviewed shared browser writer (same implementation as local SQLite)
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
@@ -64,13 +66,16 @@ function table(entity,rows){
  const model=presentNativeRows(entity,rows);
  const catalogManage=catalogWriteEnabled&&role==='owner'&&
    (entity==='locations'||entity==='ingredients');
- const current=revision;
+ const current=revision,exportEpoch=authEpoch,exportToken=csrf;
  const items=model.entries.map((entry,index)=>({...entry,record:rows[index]}));
  const wrapper=el('div'),toolbar=el('div'),label=el('label','快速搜尋 '),
-   input=el('input'),count=el('span'),empty=el('p','沒有符合搜尋條件的資料。');
+   input=el('input'),count=el('span'),empty=el('p','沒有符合搜尋條件的資料。'),
+   exportButton=el('button','下載搜尋結果 Excel (.xlsx)');
  toolbar.className='native-data-toolbar';count.className='native-data-count';
  input.type='search';input.maxLength=80;input.placeholder='搜尋目前已載入的資料';
- label.append(input);toolbar.append(label,count);
+ exportButton.type='button';exportButton.className='btn';
+ exportButton.setAttribute('aria-label','將已授權及已載入的搜尋結果下載為 Excel');
+ label.append(input);toolbar.append(label,count,exportButton);
  const pager=el('nav'),sizeLabel=el('label','每頁筆數 '),sizeSelect=el('select'),
    previous=el('button','上一頁'),next=el('button','下一頁'),pageInfo=el('span');
  pager.className='native-data-pagination';
@@ -144,7 +149,30 @@ function table(entity,rows){
   pageInfo.textContent='第 '+paged.from+'–'+paged.to+' 筆 · '+paged.page+' / '+paged.pages+' 頁';
   previous.disabled=paged.page<=1;next.disabled=paged.page>=paged.pages;
   empty.hidden=shown.length!==0;
+  exportButton.disabled=shown.length===0;
  }
+ exportButton.addEventListener('click',()=>{
+  // Old rendered tables must never export after navigation, logout or re-login.
+  if(current!==revision||!liveAuth(exportEpoch,exportToken)||exportButton.disabled)return;
+  try{
+   const sheet=nativeOwnerReportSheet(entity,rows,{keyword:input.value,name:labels[entity]});
+   if(!sheet.rows.length){say('目前沒有可匯出的資料。',true);return;}
+   if(!window.confirm('確認將目前搜尋結果 '+sheet.rows.length+' 筆下載為 Excel？'
+     +'檔案可能含員工或營運資料，請妥善保管。'))return;
+   if(current!==revision||!liveAuth(exportEpoch,exportToken))return;
+   const writer=globalThis.XlsxLite;
+   if(typeof writer?.buildWorkbook!=='function')throw Error('E_NATIVE_XLSX_UNAVAILABLE');
+   const bytes=writer.buildWorkbook([sheet]);
+   if(!(bytes instanceof Uint8Array))throw Error('E_NATIVE_XLSX_INVALID');
+   const blob=new Blob([bytes],{type:
+     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+   const href=URL.createObjectURL(blob),link=el('a');
+   link.href=href;link.download='餐廳好管家_'+entity+'_資料.xlsx';
+   document.body.append(link);
+   try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(href),30000);}
+   say('已準備 Excel：'+sheet.rows.length+' 筆，只含已載入且符合搜尋條件的欄位。');
+  }catch{say('Excel 匯出失敗，未改動正式資料。',true);}
+ });
  input.addEventListener('input',()=>{page=1;draw();});
  sizeSelect.addEventListener('change',()=>{pageSize=Number(sizeSelect.value);page=1;draw();});
  previous.addEventListener('click',()=>{if(page>1){page--;draw();}});
@@ -165,7 +193,7 @@ function render(data){
   }
   if(data.entity!==view||!Array.isArray(data.rows)||data.rows.length>500)
     throw Error('營運資料格式不正確。');
-  content.append(data.rows.length?table(view,data.rows):el('p','此門市目前沒有符合條件的資料，請確認目前門市權限或稍後重新整理。'));
+  content.append(data.rows.length?table(view,data.rows):el('p','目前授權範圍內沒有符合條件的資料。資料可能尚未建立，或目前身分沒有相關資料可檢視。'));
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;

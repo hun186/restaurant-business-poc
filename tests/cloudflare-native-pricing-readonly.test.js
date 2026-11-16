@@ -117,7 +117,7 @@ test('Native D1 pricing plans and no Preview allowlist expansion',async()=>{
   assert.match(manager.sql,/active=1|l2\.active=1/);
   assert.match(manager.sql,/LIMIT 500$/);
   assert.match(owner.sql,/LIMIT 500$/);
-  assert(!manager.sql.includes('M'),'must use bound parameters');
+  assert(!manager.sql.includes("user_id='M'"),'must use bound parameters');
   assert(Object.isFrozen(owner)&&Object.isFrozen(manager));
  }
  assert.equal(nativePricingReadonlyPlan('menu_dishes',{id:'s',role:'staff'}),null);

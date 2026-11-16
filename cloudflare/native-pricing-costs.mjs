@@ -10,13 +10,24 @@ const ACTIVE_GRANT=' l.id IN (SELECT ul.location_id FROM user_locations ul '+
  'WHERE ul.user_id=?)';
 const COST_ENTITY_LIST=Object.freeze(['dish_costs','dish_cost_lines','inventory_values']);
 export const NATIVE_COST_ENTITIES=COST_ENTITY_LIST;
-const today=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'});
 function validDate(asOf){
  if(typeof asOf!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(asOf)||
     !Number.isFinite(Date.parse(asOf+'T00:00:00Z'))||
     new Date(asOf+'T00:00:00Z').toISOString().slice(0,10)!==asOf)
   throw Error('E_COST_DATE');
  return asOf;
+}
+// Match the existing local BUSINESS_TIME_ZONE override. With no runtime
+// override both installations default to Asia/Taipei; never take this from
+// an unauthenticated URL or change Dashboard configuration in this code.
+export function nativeBusinessDate(env={},now=new Date()){
+ const configured=env?.BUSINESS_TIME_ZONE;
+ const zone=configured===undefined||configured===null||configured===''?
+  'Asia/Taipei':configured;
+ if(typeof zone!=='string'||zone.length>80||zone.length<1)
+  throw Error('E_COST_TIME_ZONE');
+ try{return validDate(now.toLocaleDateString('sv-SE',{timeZone:zone}));}
+ catch{throw Error('E_COST_TIME_ZONE');}
 }
 async function query(db,sql,params,limit){
  const statement=db.prepare(sql);
@@ -143,7 +154,7 @@ async function readDishCosts(db,principal,asOf,entity){
  }
  return bounded(entity==='dish_costs'?entries:details);
 }
-export async function nativeCostReadonlyRows(db,principal,entity,asOf=today()){
+export async function nativeCostReadonlyRows(db,principal,entity,asOf=nativeBusinessDate()){
  if(!NATIVE_COST_ENTITIES.includes(entity)||!principal||
    !['owner','manager'].includes(principal.role)||typeof principal.id!=='string'||
    !principal.id)throw Error('E_COST_FORBIDDEN');

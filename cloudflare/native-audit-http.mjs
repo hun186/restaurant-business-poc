@@ -108,9 +108,11 @@ export async function nativeAuditHttp(request,env){
       entity:typeof row.entity==='string'?row.entity.slice(0,80):'',
       summary:summaryOf(row.detail)
     }));
-    const hasMore=rows.results.length>PAGE_SIZE;
+    const extra=rows.results.length>PAGE_SIZE;
+    const truncated=extra&&offset>=MAX_OFFSET;
+    const hasMore=extra&&!truncated;
     return reply(200,{mode:'native_d1',rows:page,offset,has_more:hasMore,
-      next_offset:hasMore?offset+PAGE_SIZE:null});
+      next_offset:hasMore?offset+PAGE_SIZE:null,truncated});
   }catch{
     return reply(503,{code:'E_AUDIT_UNAVAILABLE'});
   }

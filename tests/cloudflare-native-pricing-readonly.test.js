@@ -293,3 +293,36 @@ test('shared unit conversion never changes SQLite weights, volumes or half-cent 
  assert(js.includes("button.hidden=!['owner','manager'].includes(role)"));
  assert(!js.includes('mock.js'));
 });
+
+test('configured business timezone selects same historical effective price across UTC/Taipei midnight',async t=>{
+ const f=await fixture(t);
+ const {costs}=require('../src/pricing.js');
+ const {nativeBusinessDate,nativeCostReadonlyRows}=await import('../cloudflare/native-pricing-costs.mjs');
+ const now=new Date('2026-11-15T20:00:00.000Z');
+ const owner={id:'owner-id',role:'owner'};
+ f.db.prepare("UPDATE dish_ingredients SET qty=1 WHERE id='recipe'").run();
+ for(const [id,date,cents] of [
+  ['tz1511','2026-11-15',100],['tz1611','2026-11-16',200]
+ ])f.db.prepare('INSERT INTO ingredient_prices(id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source) VALUES(?,?,?,?,?,?,?,?)')
+  .run(id,'ing','storeA',date,cents,'kg','合成商','manual');
+ const cases=[['UTC','2026-11-15',1],['Asia/Taipei','2026-11-16',2]];
+ for(const [zone,expectedDate,expectedCost] of cases){
+  const asOf=nativeBusinessDate({BUSINESS_TIME_ZONE:zone},now);
+  assert.equal(asOf,expectedDate);
+  const local=costs(f.db,owner,asOf).entries;
+  const remote=await nativeCostReadonlyRows(f.env.DB,owner,'dish_costs',asOf);
+  const a=local.find(x=>x.dish_name==='便當'&&x.location_name==='A門市');
+  const b=remote.find(x=>x.dish_name==='便當'&&x.location_name==='A門市');
+  assert.equal(a.estimated_cost_twd,expectedCost,zone+' baseline');
+  assert.equal(b.estimated_cost_twd,a.estimated_cost_twd,zone+' cloud parity');
+  assert.equal(b.gross_margin_pct,a.gross_margin_pct,zone+' margin parity');
+ }
+ assert.equal(nativeBusinessDate({},now),'2026-11-16','default is Taiwan');
+ assert.throws(()=>nativeBusinessDate({BUSINESS_TIME_ZONE:'Invalid/Zone'},now),/E_COST_TIME_ZONE/);
+ assert.throws(()=>nativeBusinessDate({BUSINESS_TIME_ZONE:123},now),/E_COST_TIME_ZONE/);
+ const backend=fs.readFileSync(path.join(base,'cloudflare/native-business-http.mjs'),'utf8');
+ assert(backend.includes('nativeCostReadonlyRows(env.DB,principal,entity,nativeBusinessDate(env))'),
+  'actual Worker HTTP must use the runtime business timezone');
+ const local=fs.readFileSync(path.join(base,'src/pricing.js'),'utf8');
+ assert(local.includes("process.env.BUSINESS_TIME_ZONE||'Asia/Taipei'"));
+});

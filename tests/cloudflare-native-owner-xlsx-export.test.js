@@ -101,7 +101,7 @@ test('Native browser export requires live auth and current view, never refetches
  const {presentNativeRows,pageNativeEntries}=await display;
  const {nativeOwnerReportSheet}=await projection;
  const source=fs.readFileSync(path.join(root,'vercel-demo/owner-app.js'),'utf8');
- const a=source.indexOf('function table(entity,rows){'),
+ const a=source.indexOf('function table(entity,rows,asOf=null){'),
   b=source.indexOf('\nfunction render(data){',a);
  assert(a>=0&&b>a);
  class Node{
@@ -120,7 +120,7 @@ test('Native browser export requires live auth and current view, never refetches
   presentNativeRows,pageNativeEntries,nativeOwnerReportSheet,
   document:{createElement:t=>new Node(t),createDocumentFragment:()=>new Node('fragment'),body},
   el:(tag,label)=>{const x=new Node(tag);if(label!==undefined)x.textContent=String(label);return x;},
-  labels:{tasks:'工作'},role:'staff',catalogWriteEnabled:false,
+  labels:{tasks:'工作',dish_costs:'菜品成本／毛利',inventory_values:'庫存估值'},role:'staff',catalogWriteEnabled:false,
   authEpoch:1,csrf:'test_token',revision:10,
   liveAuth:(epoch,token)=>epoch===ctx.authEpoch&&token===ctx.csrf,
   window:{confirm:()=>{confirmations++;return true;}},
@@ -128,7 +128,7 @@ test('Native browser export requires live auth and current view, never refetches
    revokeObjectURL:()=>{}},
   setTimeout:()=>{},say:(msg,err)=>messages.push([msg,err])
  });
- vm.runInContext('globalThis.XlsxLite={buildWorkbook:()=>{return new Uint8Array([80,75]);}}',ctx);
+ vm.runInContext('globalThis.XlsxLite={buildWorkbook:sheets=>{globalThis.lastSheets=sheets;return new Uint8Array([80,75]);}}',ctx);
  vm.runInContext(source.slice(a,b)+'\nthis.nativeTable=table',ctx);
  const rows=[{title:'備料A',location_name:'一店',status:'done'},
              {title:'清潔B',location_name:'一店',status:'todo'}];
@@ -152,6 +152,29 @@ test('Native browser export requires live auth and current view, never refetches
  const secondButton=find(second,n=>n.tag==='button'&&n.textContent.includes('Excel'));
  ctx.authEpoch=2;secondButton.events.click();
  assert.equal(confirmations,1,'previous session must not export');
+ // Historical cost sheets must retain the pricing date even after leaving
+ // the browser, while unrelated lists and current stock must not masquerade
+ // as historic snapshots.
+ ctx.revision=12;ctx.csrf='token_2';
+ const costRow={location_name:'一店',dish_name:'便當',sale_price_twd:120,
+  estimated_cost_twd:45,gross_profit_twd:75,gross_margin_pct:62.5};
+ const dated=ctx.nativeTable('dish_costs',[costRow],'2026-10-01');
+ const datedButton=find(dated,n=>n.tag==='button'&&n.textContent.includes('Excel'));
+ datedButton.events.click();
+ assert.equal(ctx.lastSheets[0].name,'菜品成本／毛利_2026-10-01');
+ assert(body.children.some(n=>n.download==='餐廳好管家_dish_costs_2026-10-01_資料.xlsx'));
+ assert.equal(downloads.length,2);
+ ctx.revision=13;datedButton.events.click();
+ assert.equal(downloads.length,2,'stale dated table cannot export');
+ const stock=ctx.nativeTable('inventory_values',[{
+  location_name:'一店',ingredient_name:'米',on_hand:2,unit:'kg'}],'2026-10-01');
+ find(stock,n=>n.tag==='button'&&n.textContent.includes('Excel')).events.click();
+ assert.equal(ctx.lastSheets[0].name,'庫存估值');
+ assert(body.children.some(n=>n.download==='餐廳好管家_inventory_values_資料.xlsx'));
+ const invalid=ctx.nativeTable('dish_costs',[costRow],'bad');
+ find(invalid,n=>n.tag==='button'&&n.textContent.includes('Excel')).events.click();
+ assert.equal(ctx.lastSheets[0].name,'菜品成本／毛利');
+ assert(source.includes('HISTORICAL_COST_VIEWS.has(view)?data.as_of:null'));
  assert(!source.includes('mock.js'));
  assert(!source.includes('localStorage'));
  assert(!source.includes('sessionStorage'));

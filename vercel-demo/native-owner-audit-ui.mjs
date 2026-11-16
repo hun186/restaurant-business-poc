@@ -1,4 +1,5 @@
 // Native Owner security timeline: authenticated GET only, never Demo or local storage.
+import {NATIVE_AUDIT_EVENTS,taipeiAuditTime,nativeAuditPageSheet} from './native-owner-audit-export.mjs';
 const el=(tag,value)=>{
   const node=document.createElement(tag);
   if(value!==undefined)node.textContent=String(value);
@@ -7,33 +8,13 @@ const el=(tag,value)=>{
 const field=(title,control)=>{
   const label=el('label',title);label.append(control);return label;
 };
-const EVENT_LABEL=Object.freeze({
-  'auth.login':'登入成功','auth.login_failed':'登入失敗',
-  'auth.logout':'安全登出','user.create':'新增帳號',
-  'user.active':'帳號啟用狀態變更','user.role':'帳號角色變更',
-  'user.password':'密碼變更','password.change':'密碼變更',
-  'task.create':'建立工作','task.status':'工作狀態變更',
-  'stocktake.create':'建立盤點','stocktake.confirm':'確認盤點',
-  'order.create':'建立叫貨','order.approve':'核准叫貨',
-  'order.receive':'叫貨入庫','repair.create':'設備報修',
-  'repair.status':'維修狀態變更'
-});
-function taipeiTime(value){
-  if(typeof value!=='string'||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/.test(value))
-    return '時間資料異常';
-  const d=new Date(value.replace(' ','T')+'Z');
-  return Number.isNaN(d.getTime())?'時間資料異常':
-    new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',
-      month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',
-      hour12:false}).format(d);
-}
 export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthExpired}){
   pane.replaceChildren();
   if(role!=='owner'||typeof onAuthExpired!=='function'||typeof live!=='function'){
     notice('只有業主可以查閱安全稽核紀錄。',true);return;
   }
   const heading=el('h3','安全稽核 · 正式 D1');
-  const help=el('p','此頁只供檢視，時間採臺灣時間。只顯示允許的事件摘要，不顯示 IP 雜湊、密碼、Token 或原始細節。變更篩選後須按「查詢」才生效。');
+  const help=el('p','此頁只供檢視，時間採臺灣時間。只顯示允許的事件摘要，不顯示 IP 雜湊、密碼、Token 或原始細節。變更篩選後須按「查詢」才生效。Excel 只下載本頁最多 50 筆，不是全部稽核紀錄。');
   const form=el('form'),category=el('select'),from=el('input'),to=el('input');
   for(const [value,title] of [['all','全部事件'],['auth','登入與登出'],
     ['account','帳號與權限'],['operations','營運資料異動']]){
@@ -46,14 +27,15 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
     field('結束日期（臺灣）',to),search);
   const result=el('section'),pager=el('nav'),
     previous=el('button','上一頁'),next=el('button','下一頁'),
-    pageInfo=el('span','尚未載入');
+    pageInfo=el('span','尚未載入'),
+    exportButton=el('button','下載本頁 Excel (.xlsx)');
   pager.className='native-data-pagination';
   pager.setAttribute('aria-label','安全稽核分頁');
-  previous.type='button';next.type='button';
-  previous.disabled=true;next.disabled=true;
-  pager.append(previous,pageInfo,next);
+  previous.type='button';next.type='button';exportButton.type='button';
+  previous.disabled=true;next.disabled=true;exportButton.disabled=true;
+  pager.append(previous,pageInfo,next,exportButton);
   pane.append(heading,help,form,result,pager);
-  let requestSequence=0,offset=0;
+  let requestSequence=0,offset=0,lastRows=[],loadedSequence=0;
   let applied=Object.freeze({category:'all',from:'',to:''});
   const load=async nextOffset=>{
     if(!live())return;
@@ -66,6 +48,7 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
     if(selected.from)query.set('from',selected.from);
     if(selected.to)query.set('to',selected.to);
     result.replaceChildren();
+    lastRows=[];loadedSequence=0;exportButton.disabled=true;
     previous.disabled=true;next.disabled=true;search.disabled=true;
     pageInfo.textContent='正在讀取…';notice('正在讀取正式 D1 安全稽核紀錄…');
     try{
@@ -85,8 +68,8 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
       head.append(headRow);
       for(const item of data.rows){
         const tr=el('tr');
-        for(const value of [taipeiTime(item.at),item.actor_name||'—',
-          EVENT_LABEL[item.action]||item.action||'—',item.entity||'—',
+        for(const value of [taipeiAuditTime(item.at),item.actor_name||'—',
+          NATIVE_AUDIT_EVENTS[item.action]||item.action||'—',item.entity||'—',
           item.summary||'—']){
           tr.append(el('td',value));
         }
@@ -98,6 +81,8 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
         result.append(scroll);
       }else result.append(el('p','查無符合條件的稽核事件。'));
       offset=nextOffset;
+      lastRows=data.rows;loadedSequence=sequence;
+      exportButton.disabled=!lastRows.length;
       previous.disabled=offset===0;
       next.disabled=!data.has_more;
       pageInfo.textContent='第 '+(Math.floor(offset/50)+1)+' 頁（本頁 '+data.rows.length+' 筆）'+
@@ -124,6 +109,28 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
     }
     applied=Object.freeze({category:category.value||'all',from:from.value,to:to.value});
     return load(0);
+  });
+  exportButton.addEventListener('click',()=>{
+    if(!live()||exportButton.disabled||loadedSequence!==requestSequence||
+       !lastRows.length)return;
+    try{
+      const sheet=nativeAuditPageSheet(lastRows);
+      if(!globalThis.confirm('確認下載本頁 '+sheet.rows.length+
+        ' 筆安全稽核紀錄？檔案含操作者與營運事件，請妥善保管。'))return;
+      if(!live()||loadedSequence!==requestSequence)return;
+      const writer=globalThis.XlsxLite;
+      if(typeof writer?.buildWorkbook!=='function')throw Error('E_AUDIT_EXCEL_UNAVAILABLE');
+      const bytes=writer.buildWorkbook([sheet]);
+      if(!(bytes instanceof Uint8Array))throw Error('E_AUDIT_EXCEL_INVALID');
+      const blob=new Blob([bytes],{type:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const href=URL.createObjectURL(blob),link=el('a');
+      link.href=href;link.download='餐廳好管家_安全稽核_第'+
+        (Math.floor(offset/50)+1)+'頁.xlsx';
+      document.body.append(link);
+      try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(href),30000);}
+      notice('已準備本頁 '+sheet.rows.length+' 筆安全稽核 Excel，請妥善保管。');
+    }catch{notice('安全稽核 Excel 匯出失敗；未修改 D1 紀錄。',true);}
   });
   previous.addEventListener('click',()=>{if(!previous.disabled&&offset>=50)return load(offset-50);});
   next.addEventListener('click',()=>{if(!next.disabled)return load(offset+50);});

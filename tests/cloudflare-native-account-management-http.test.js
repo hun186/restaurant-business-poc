@@ -397,7 +397,7 @@ test('Account state notice matches the independent admin gate reported by D1',()
  const ui=fs.readFileSync(path.join(root,'vercel-demo/native-account-management-ui.mjs'),'utf8');
  assert.match(ui,/element\('p',data.can_manage_status===true\?/);
  assert.match(ui,/停用會撤銷所有登入工作階段並保留歷史紀錄/);
- assert.match(ui,/停用、角色調整及重設他人密碼尚未開放/);
+ assert.match(ui,/各項新增／管理權限依後端獨立設定/);
 });
 
 

@@ -101,22 +101,58 @@ test('Owner account capability uses account-specific backend authorization, not 
   assert.equal(nativeOwnerCapability({view:page,role:'owner',account:true}).pageWritable,false);
  }
 });
-test('Account capability only updates from authenticated fresh can_create response',()=>{
+test('Account capability only updates from authenticated independent D1 grants',()=>{
  const js=asset('owner-app.js'),ui=asset('native-account-management-ui.mjs');
- assert.match(js,/accountWriteEnabled=false;syncView\(\)/);
- assert.match(js,/onCapabilityChange:enabled=>\{/);
- assert.match(js,/accountWriteEnabled=enabled===true;syncView\(\)/);
- assert.match(js,/account:accountWriteEnabled/);
- assert.match(ui,/onCapabilityChange\(data.can_create===true\)/);
+ assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;syncView\(\)/);
+ assert.match(js,/onCapabilityChange:flags=>\{/);
+ assert.match(js,/accountWriteEnabled=flags\?\.create===true/);
+ assert.match(js,/accountStatusWriteEnabled=flags\?\.status===true/);
+ assert.match(js,/accountRoleWriteEnabled=flags\?\.role===true/);
+ assert.match(js,/account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled/);
+ assert.match(js,/accountRole:accountRoleWriteEnabled/);
+ assert.match(ui,/create:data.can_create===true/);
+ assert.match(ui,/status:data.can_manage_status===true/);
+ assert.match(ui,/role:data.can_manage_role===true/);
  assert.match(ui,/onCapabilityChange,offset:newOffset/);
+ for(const expr of ['role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false',
+   'role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false',
+   'authEpoch++;csrf=null;accountWriteEnabled=false;accountStatusWriteEnabled=false'])
+  assert(js.includes(expr),'Account capabilities must clear with auth: '+expr);
 });
 
-
-test('account pagination resets can-create display before the next page request',()=>{
+test('account pagination fails closed for all three grants before next page',()=>{
  const s=asset('native-account-management-ui.mjs'),i=s.indexOf('const navigate=async newOffset=>{'),
   j=s.indexOf("previous.addEventListener('click'",i);
  assert(i>=0&&j>i);
  const block=s.slice(i,j);
- assert.match(block,/onCapabilityChange\(false\)/);
- assert(block.indexOf('onCapabilityChange(false)')<block.indexOf('await renderOwnerAccounts'));
+ assert.match(block,/onCapabilityChange\(null\)/);
+ assert(block.indexOf('onCapabilityChange(null)')<block.indexOf('await renderOwnerAccounts'));
+});
+
+test('independent Owner account grants never leave an authorized account page falsely read-only',async()=>{
+ const {nativeOwnerCapability}=await capability;
+ for(let mask=0;mask<8;mask++){
+  const input={view:'accounts',role:'owner',account:Boolean(mask&1),
+   accountStatus:Boolean(mask&2),accountRole:Boolean(mask&4)};
+  const a=nativeOwnerCapability(input);
+  assert.equal(a.pageWritable,mask!==0,'mask '+mask);
+  assert.equal(a.systemWritable,mask!==0,'mask '+mask);
+  assert.equal(a.pageLabel,mask===0?'帳號管理・僅檢視':
+    mask===1?'帳號管理・可新增':
+    (mask&1)?'帳號管理・可新增及管理':'帳號管理・可管理','mask '+mask);
+  assert.equal(a.description.includes('可建立員工與主管帳號。'),Boolean(mask&1));
+  assert.equal(a.description.includes('可停用／啟用'),Boolean(mask&2));
+  assert.equal(a.description.includes('可調整員工與主管角色'),Boolean(mask&4));
+  assert(Object.isFrozen(a));
+  for(const role of ['manager','staff',null]){
+   const unauthorized=nativeOwnerCapability({...input,role});
+   assert.equal(unauthorized.pageWritable,false,'non-Owner '+mask);
+   assert.equal(unauthorized.pageLabel,'帳號管理・僅檢視');
+  }
+ }
+ for(const v of ['overview','shifts','stock','training_courses']){
+  const a=nativeOwnerCapability({view:v,role:'owner',account:true,
+   accountStatus:true,accountRole:true});
+  assert.equal(a.pageWritable,false,'account grants are not business writes');
+ }
 });

@@ -10,7 +10,9 @@ const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   stock:'庫存',stock_moves:'庫存流水',stocktakes:'盤點',repairs:'維修',
   shifts:'排班',leave_requests:'請假申請',training_records:'訓練紀錄',evaluations:'員工考核',
-  ingredients:'食材',locations:'門市',training_courses:'訓練',account:'我的帳號',
+  ingredients:'食材',locations:'門市',training_courses:'訓練',
+  ingredient_prices:'食材歷史價格',menu_dishes:'菜品與售價',dish_ingredients:'每份食材配方',
+  account:'我的帳號',
   accounts:'帳號管理',audit_logs:'安全稽核'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
@@ -23,6 +25,9 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   shifts:'班表資訊（目前唯讀）',leave_requests:'請假申請及審核狀態（目前唯讀）',
   training_records:'訓練成績與完成狀態（目前唯讀）',
   evaluations:'考核紀錄（目前唯讀）',stock_moves:'門市庫存異動流水（目前唯讀）',
+  ingredient_prices:'已登錄的門市食材歷史單價（目前唯讀）',
+  menu_dishes:'菜品與售價、每份食材項數（目前唯讀）',
+  dish_ingredients:'菜品每份食材用量（目前唯讀，非成本試算）',
   ingredients:'食材及安全庫存主檔',
   locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）',
   account:'個人密碼變更與登入安全',accounts:'業主帳號清單與依後端權限開放的管理功能',
@@ -872,11 +877,17 @@ function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
   authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
+  const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients'];
   for(const onlyOwner of ['accounts','audit_logs']){
     const button=document.querySelector('#nav button[data-view="'+onlyOwner+'"]');
     if(button)button.hidden=role!=='owner';
   }
-  if(role!=='owner'&&(view==='accounts'||view==='audit_logs')){
+  for(const managerView of pricingViews){
+    const button=document.querySelector('#nav button[data-view="'+managerView+'"]');
+    if(button)button.hidden=!['owner','manager'].includes(role);
+  }
+  if((role!=='owner'&&(view==='accounts'||view==='audit_logs'))||
+     (role==='staff'&&pricingViews.includes(view))){
     view='overview';$('title').textContent=labels[view];
   }
   const name=String(me.user.display_name||'');

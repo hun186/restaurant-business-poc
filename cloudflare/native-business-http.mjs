@@ -4,10 +4,11 @@ import {loadPrincipal,hasAccess} from './auth-core.mjs';
 import {queryFor} from './operations-readonly.mjs';
 import {metricQueries} from './overview-readonly.mjs';
 import {nativeParityReadonlyPlan,NATIVE_READONLY_PARITY_ENTITIES} from './native-parity-readonly.mjs';
+import {nativePricingReadonlyPlan,NATIVE_PRICING_ENTITIES} from './native-pricing-readonly.mjs';
 
 const ENTITIES=new Set(['locations','ingredients','training_courses','tasks','assignable_staff',
   'purchase_orders','repairs','shifts','stock','stocktakes',
-  ...NATIVE_READONLY_PARITY_ENTITIES]);
+  ...NATIVE_READONLY_PARITY_ENTITIES,...NATIVE_PRICING_ENTITIES]);
 const HEADERS=Object.freeze({'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff',
   'Referrer-Policy':'no-referrer'});
@@ -72,7 +73,11 @@ export async function nativeBusinessReadHttp(request,env){
           throw Error('E_D1_INVALID_ROWS');
         return reply(200,{mode:'native_d1',entity,rows:list.results});
       }
-      const plan=queryFor(entity,principal)||nativeParityReadonlyPlan(entity,principal);
+      // Prices, dish sale prices and recipes are manager/Owner financial data.
+      if(NATIVE_PRICING_ENTITIES.includes(entity)&&!hasAccess(principal,'manager'))
+        return reply(403,{code:'E_FORBIDDEN'});
+      const plan=queryFor(entity,principal)||nativeParityReadonlyPlan(entity,principal)||
+        nativePricingReadonlyPlan(entity,principal);
       if(!plan)return reply(404,{code:'E_UNKNOWN_ENTITY'});
       const result=await env.DB.prepare(plan.sql).bind(...plan.params).all();
       if(!Array.isArray(result?.results)||result.results.length>500)

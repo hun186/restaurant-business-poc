@@ -47,3 +47,11 @@
 - 每次使用者手動點擊下載均顯示含個資／營運資料的保管確認。登出、重新登入或切換頁面後，舊頁面下載處理器必須 fail closed；前端自行產生檔案，不提交 Excel 至雲端。
 - 空清單共用文案由「此門市」改為「目前授權範圍內」，讓 Owner 全店／Manager 門市／Staff 本人的條件更準確。
 - 仍需最新 PR HEAD Hosted CI 5/5、正式 Codex Completed/0 Finding、Clean Merge Gate；合併後須 Owner 實機 Excel 下載、資料列／隱私核對、行動裝置下載行為驗收。這不是新增稽核查詢或全量 D1 備份。
+
+## 2026-11-16 第四批：正式 D1 食材價格、菜品售價與配方「唯讀」對齊（本 PR 仍需驗證）
+
+- 業主已回報 #190 實機下載的 Excel **檔案正常開啟、中文欄位、資料筆數、數值皆正確**；配合 G0 100% main SHA 驗證後，該項「Owner 實機下載及內容」可標記為使用者回報 PASS。其他角色隔離、D1 全量備份未因此驗證。
+- 原有 D1 v3 Schema **已具備** `ingredient_prices`、`menu_dishes`、`dish_ingredients`，本批只在正式 Native `/api/data`（不擴張 Preview）新增三項 Owner／Manager 唯讀清單：食材歷史價格（依授權且啟用門市限制）、菜品售價、每份食材配方。Manager 沒有任何啟用門市授權時，全球菜單／配方也必須回空；Staff GET 403。後端固定 SQL、參數綁定、先授權篩選後 LIMIT 500、no-store；不回傳查詢用 ID／未投影機密。
+- 前端共用 Native 資料表、中文固定欄位及既有 Excel 產生器，價錢從整數 TWD cents 換算為 **元**；Owner／Manager 才顯示選單，Staff 不顯示，也不能靠猜 API URL 取得資料。沒有新增菜品／配方寫入、修改單價、正式 D1 Schema／Gate，沒有修改 Worker Preview 或帳號權限。
+- **本批不提供成本／毛利試算**：落地版 `src/pricing.js` 依門市、歷史單價有效日、kg/g、L/ml 單位換算、缺價原因，逐行四捨五入到分計算。若未完整移植不得用價格乘數量臆測成本或把這些頁標為成本估算已上線。
+- 發布流程必須 PR 最新 HEAD CI 5/5、Codex completed/0 Findings/0 unresolved、Clean Merge Gate；Main Postmerge CI 與 Cloudflare G0 Active Version／Owner 正式頁資料 UAT 各自驗證。這裡只是**開發中規劃與程式範圍**，不能預先宣稱已上線。

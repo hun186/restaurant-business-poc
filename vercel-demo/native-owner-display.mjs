@@ -12,7 +12,10 @@ const FIELDS={
  stock_moves:[['location_name','門市'],['ingredient_name','食材'],['qty_delta','數量變化'],['unit','單位'],['move_type','流水類別'],['note','備註'],['created_at','紀錄時間']],
  leave_requests:[['location_name','門市'],['staff_name','員工'],['start_date','開始日期'],['end_date','結束日期'],['reason','請假原因'],['status','審核狀態'],['created_at','申請時間']],
  training_records:[['location_name','門市'],['staff_name','員工'],['course_title','訓練課程'],['score','成績'],['required_score','合格分數'],['completed_on','完成日期']],
- evaluations:[['location_name','門市'],['staff_name','員工'],['period','考核期間'],['score','分數'],['feedback','評語'],['created_at','建立時間']]
+ evaluations:[['location_name','門市'],['staff_name','員工'],['period','考核期間'],['score','分數'],['feedback','評語'],['created_at','建立時間']],
+ ingredient_prices:[['location_name','門市'],['ingredient_name','食材'],['price_date','價格生效日'],['unit_price_twd','單價（元）'],['unit','計價單位'],['supplier','供應商'],['source','來源']],
+ menu_dishes:[['name','菜品'],['sale_price_twd','售價（元）'],['ingredient_count','配方食材項數'],['active','啟用狀態']],
+ dish_ingredients:[['dish_name','菜品'],['ingredient_name','食材'],['qty','每份用量'],['unit','用量單位']]
 };
 const STATUS={
  tasks:{todo:'待辦',doing:'進行中',done:'已完成'},
@@ -22,9 +25,11 @@ const STATUS={
  leave_requests:{pending:'待審核',approved:'已核准',rejected:'已駁回'}
 };
 const MOVE_TYPE=Object.freeze({purchase:'進貨',usage:'耗用',adjustment:'調整'});
+const PRICE_SOURCE=Object.freeze({manual:'手動登錄',receiving:'叫貨入庫',direct_purchase:'直接採購'});
 const POSITIVE=new Set(['done','received','confirmed','closed']);
 const ATTENTION=new Set(['todo','doing','requested','approved','pending','reported','assigned']);
-const QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty','required_score','score','qty_delta']);
+const QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty','required_score','score','qty_delta','ingredient_count']);
+const MONEY=new Set(['sale_price_twd','unit_price_twd']);
 const numberFormat=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:3});
 const blank=()=>({text:'—',tone:''});
 function cell(entity,row,key){
@@ -38,6 +43,10 @@ function cell(entity,row,key){
  const value=row[key];
  if(key==='move_type')return typeof value==='string'&&Object.hasOwn(MOVE_TYPE,value)?
   {text:MOVE_TYPE[value],tone:''}:{text:'未識別',tone:'warn'};
+ if(key==='source')return typeof value==='string'&&Object.hasOwn(PRICE_SOURCE,value)?
+  {text:PRICE_SOURCE[value],tone:''}:{text:'未識別',tone:'warn'};
+ if(MONEY.has(key))return typeof value==='number'&&Number.isFinite(value)&&value>=0?
+  {text:value.toFixed(2),tone:''}:blank();
  if(key==='active'){
   if(value===1||value===true)return {text:'啟用',tone:'ok'};
   if(value===0||value===false)return {text:'停用',tone:'muted'};

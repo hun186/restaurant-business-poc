@@ -1,4 +1,4 @@
-name: Cloudflare G0 active Worker version attestation (manual read-only)
+name: Cloudflare G0 active Worker version attestation (manual or post-CI read-only)
 
 on:
   workflow_dispatch:
@@ -7,6 +7,10 @@ on:
         description: 'Type CHECK_ACTIVE_WORKER_READONLY (only Cloudflare GET; no writes/deploy)'
         required: true
         type: string
+  workflow_run:
+    workflows: ['Verify']
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,7 +21,25 @@ concurrency:
 
 jobs:
   active_version:
-    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_ACTIVE_WORKER_READONLY' }}
+    # workflow_run is privileged: accept only a successful push-to-main Verify
+    # from THIS repository, with exactly the currently checked-out main SHA.
+    # In particular, a successful PR Verify must NEVER expose G0 secrets.
+    if: >-
+      ${{
+        github.repository == 'hun186/restaurant-business-poc' &&
+        github.ref == 'refs/heads/main' &&
+        (
+          (github.event_name == 'workflow_dispatch' &&
+           inputs.confirm == 'CHECK_ACTIVE_WORKER_READONLY') ||
+          (github.event_name == 'workflow_run' &&
+           github.event.workflow_run.name == 'Verify' &&
+           github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_branch == 'main' &&
+           github.event.workflow_run.head_repository.full_name == 'hun186/restaurant-business-poc' &&
+           github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_sha == github.sha)
+        )
+      }}
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     environment: cloudflare-g0-readonly
@@ -36,10 +58,25 @@ jobs:
       - name: Get active deployment and version-associated GitHub build (Cloudflare API GET only)
         shell: bash
         env:
-          G0_ACTIVE_CONFIRM: ${{ inputs.confirm }}
+          G0_ACTIVE_CONFIRM: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm || 'CHECK_ACTIVE_WORKER_READONLY' }}
+          G0_AUTO_RETRY: ${{ github.event_name == 'workflow_run' && 'true' || 'false' }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_G0_READONLY_TOKEN }}
         run: |
           set -euo pipefail
-          node tools/cloudflare-g0-active-version-readonly.mjs inspect
-          echo 'G0_VERSION_BUILD_EVIDENCE_ONLY_NOT_PRODUCTION_RELEASE'
+          # CI can finish before Cloudflare Git integration finishes deployment.
+          # Auto runs retry ONLY this read-only attestation; never deploy/release.
+          attempts=1
+          if [[ "$G0_AUTO_RETRY" == 'true' ]]; then attempts=8; fi
+          for ((i=1; i<=attempts; i++)); do
+            if node tools/cloudflare-g0-active-version-readonly.mjs inspect; then
+              echo 'G0_VERSION_BUILD_EVIDENCE_ONLY_NOT_PRODUCTION_RELEASE'
+              exit 0
+            fi
+            if (( i < attempts )); then
+              echo "G0_ACTIVE_READONLY_PENDING attempt=$i/$attempts"
+              sleep 30
+            fi
+          done
+          echo 'G0_ACTIVE_READONLY_NOT_VERIFIED_NO_RELEASE'
+          exit 1

@@ -23,8 +23,11 @@ export function nativeOwnerReportSheet(entity,rows,{keyword='',name}={}){
     precision_columns:model.columns.flatMap((c,i)=>PRECISE_QUANTITIES.has(c.key)?[i]:[]),
     rows:selected.map(({entry,record})=>model.columns.map((col,i)=>{
       const v=record[col.key];
-      if(NUMBERS.has(col.key)&&typeof v==='number'&&Number.isFinite(v))return v;
       const text=entry.cells[i].text;
+      // Respect the display's invalid/missing-value guard before preserving
+      // legitimate numeric precision (especially fractional stock quantities).
+      if(text==='—')return text;
+      if(NUMBERS.has(col.key)&&typeof v==='number'&&Number.isFinite(v))return v;
       return typeof text==='string'?text.slice(0,CELL_LIMIT):'';
     }))
   };

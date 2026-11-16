@@ -33,7 +33,7 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
     notice('只有業主可以查閱安全稽核紀錄。',true);return;
   }
   const heading=el('h3','安全稽核 · 正式 D1');
-  const help=el('p','此頁只供檢視，時間採臺灣時間。只顯示允許的事件摘要，不顯示 IP 雜湊、密碼、Token 或原始細節。');
+  const help=el('p','此頁只供檢視，時間採臺灣時間。只顯示允許的事件摘要，不顯示 IP 雜湊、密碼、Token 或原始細節。變更篩選後須按「查詢」才生效。');
   const form=el('form'),category=el('select'),from=el('input'),to=el('input');
   for(const [value,title] of [['all','全部事件'],['auth','登入與登出'],
     ['account','帳號與權限'],['operations','營運資料異動']]){
@@ -54,13 +54,17 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
   pager.append(previous,pageInfo,next);
   pane.append(heading,help,form,result,pager);
   let requestSequence=0,offset=0;
+  let applied=Object.freeze({category:'all',from:'',to:''});
   const load=async nextOffset=>{
     if(!live())return;
     const sequence=++requestSequence;
-    const query=new URLSearchParams({category:category.value||'all',
+    // Pagination must use the most recently submitted filters, never
+    // unsubmitted input edits or changes made while a fetch is pending.
+    const selected=applied;
+    const query=new URLSearchParams({category:selected.category,
       offset:String(nextOffset)});
-    if(from.value)query.set('from',from.value);
-    if(to.value)query.set('to',to.value);
+    if(selected.from)query.set('from',selected.from);
+    if(selected.to)query.set('to',selected.to);
     result.replaceChildren();
     previous.disabled=true;next.disabled=true;search.disabled=true;
     pageInfo.textContent='正在讀取…';notice('正在讀取正式 D1 安全稽核紀錄…');
@@ -69,7 +73,10 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
       if(!live()||sequence!==requestSequence)return;
       if(data.mode!=='native_d1'||!Array.isArray(data.rows)||data.rows.length>50||
          data.offset!==nextOffset||typeof data.has_more!=='boolean'||
-         (data.has_more&&data.next_offset!==nextOffset+50))
+         typeof data.truncated!=='boolean'||
+         (data.has_more&&data.next_offset!==nextOffset+50)||
+         (!data.has_more&&data.next_offset!==null)||
+         (data.truncated&&data.has_more))
         throw Error('安全稽核資料格式不完整。');
       const table=el('table'),head=el('thead'),headRow=el('tr'),body=el('tbody');
       for(const name of ['時間（臺灣）','操作者','事件','資料類別','內容摘要']){
@@ -93,7 +100,8 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
       offset=nextOffset;
       previous.disabled=offset===0;
       next.disabled=!data.has_more;
-      pageInfo.textContent='第 '+(Math.floor(offset/50)+1)+' 頁（本頁 '+data.rows.length+' 筆）';
+      pageInfo.textContent='第 '+(Math.floor(offset/50)+1)+' 頁（本頁 '+data.rows.length+' 筆）'+
+        (data.truncated?'；超過查詢上限，請縮小日期範圍':'');
       notice('已載入授權範圍內的正式稽核紀錄。');
     }catch(error){
       if(!live()||sequence!==requestSequence||error?.name==='AbortError')return;
@@ -114,6 +122,7 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
     if(from.value&&to.value&&from.value>to.value){
       notice('起始日期不能晚於結束日期。',true);return;
     }
+    applied=Object.freeze({category:category.value||'all',from:from.value,to:to.value});
     load(0);
   });
   previous.addEventListener('click',()=>{if(!previous.disabled&&offset>=50)load(offset-50);});

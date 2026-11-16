@@ -77,3 +77,10 @@
 - 純 `native-owner-audit-export.mjs` 固定五欄：臺灣時間、操作者、事件、資料類別、內容摘要。不讀取或輸出 D1 原始 `detail`、`ip_hash`、`actor_id`、密碼／Token，亦不重新向伺服器查詢或匯出完整稽核歷史。
 - 每次載入新頁清除舊快照、匯出按鈕暫時停用；已登出/切換頁面/權限撤銷後，`live()` 防護禁止下載。匯出前明確提醒保管員工與稽核資訊，不擴張 Staff/Manager 權限。
 - 不變更 Worker、D1、Schema、正式 Gate、稽核寫入或原本上限 5,000 的查閱/分頁規則。此 PR 未通過最新 HEAD CI/Codex/實機 UAT 之前不得標為已發布。
+
+## 2026-11-16 历史成本有效日期（候選 PR，非已部署）
+
+- Native `dish_costs` 和 `dish_cost_lines` 新增 Owner/Manager 指定 `as_of=YYYY-MM-DD` 的 GET 唯讀日期查詢；日曆上限為 Worker `BUSINESS_TIME_ZONE` 對應營業日，伺服器嚴格拒絕非法日期、超前日期、未知/重複參數，沿用原有門市與角色權限、D1 SQL/運算上限。
+- 選定日期只影響**菜品配方按歷史有效單價的成本／毛利估算**；這不是當天的實際售價/銷售報表快照。特別禁止 `inventory_values?as_of=...`，因為目前庫存是當前流水總額，不能套舊價格後冒稱過去庫存值。
+- API 回覆 `as_of` 與 `business_date`，頁面清楚顯示成本日期、提供恢復當日。切換頁面、登出或身份改變時，舊日期操作不可影響新畫面；不新增寫入、Gate、DB Schema 或雲端 Secrets。
+- 遵守最新 HEAD CI／Codex／Clean Merge 與合併後自動 G0；未通過 Owner/Manager 實機查詢和已存在價格的結果核對前，不標示 Live UAT PASS。

@@ -17,6 +17,16 @@ function validDate(asOf){
   throw Error('E_COST_DATE');
  return asOf;
 }
+// Explicit historical cost dates never accept future business dates.
+// Only recipe estimates use this override: current stock quantities cannot be
+// turned into historical inventory valuations by changing the price date.
+export function nativeRequestedCostDate(requested,businessToday){
+ const today=validDate(businessToday);
+ if(requested===null||requested===undefined)return today;
+ const asOf=validDate(requested);
+ if(asOf>today)throw Error('E_COST_FUTURE_DATE');
+ return asOf;
+}
 // Match the existing local BUSINESS_TIME_ZONE override. With no runtime
 // override both installations default to Asia/Taipei; never take this from
 // an unauthenticated URL or change Dashboard configuration in this code.

@@ -15,6 +15,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   dish_costs:'菜品成本／毛利',dish_cost_lines:'食材成本明細',inventory_values:'庫存估值',
   account:'我的帳號',
   accounts:'帳號管理',audit_logs:'安全稽核'};
+const HISTORICAL_COST_VIEWS=new Set(['dish_costs','dish_cost_lines']);
+const COST_VIEWS=new Set(['dish_costs','dish_cost_lines','inventory_values']);
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
@@ -39,7 +41,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false,accountWriteEnabled=false,
-  accountStatusWriteEnabled=false,accountRoleWriteEnabled=false;
+  accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 const labeledField=(caption,control)=>{const label=el('label',caption);label.append(control);return label;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
@@ -66,7 +68,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
+  costAsOf='';authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
@@ -202,6 +204,36 @@ function render(data){
   }
   if(data.entity!==view||!Array.isArray(data.rows)||data.rows.length>500)
     throw Error('營運資料格式不正確。');
+  if(COST_VIEWS.has(view)){
+    if(typeof data.as_of!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.as_of)||
+       typeof data.business_date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.business_date))
+      throw Error('成本日期回應格式不正確。');
+    const panel=el('div');panel.className='native-data-toolbar';
+    const isHistoric=HISTORICAL_COST_VIEWS.has(view);
+    panel.append(el('p',isHistoric?
+      '估算採用截至 '+data.as_of+' 生效的食材價格；非會計實際毛利。':
+      '本頁以目前庫存及 '+data.as_of+' 有效單價估值；不是歷史庫存快照。'));
+    if(isHistoric){
+      const current=revision,epoch=authEpoch,token=csrf;
+      const form=el('form'),date=el('input'),submit=el('button','查詢日期成本'),
+        reset=el('button','恢復當日');
+      date.type='date';date.max=data.business_date;date.min='2000-01-01';
+      date.value=costAsOf||data.as_of;
+      submit.type='submit';reset.type='button';
+      form.append(labeledField('歷史有效日期 ',date),submit,reset);
+      form.addEventListener('submit',event=>{
+        event.preventDefault();
+        if(current!==revision||!liveAuth(epoch,token))return;
+        costAsOf=date.value;refresh();
+      });
+      reset.addEventListener('click',()=>{
+        if(current!==revision||!liveAuth(epoch,token))return;
+        costAsOf='';refresh();
+      });
+      panel.append(form);
+    }
+    content.append(panel);
+  }
   content.append(data.rows.length?table(view,data.rows):el('p','目前授權範圍內沒有符合條件的資料。資料可能尚未建立，或目前身分沒有相關資料可檢視。'));
 }
 
@@ -834,7 +866,8 @@ async function refresh(){
   }
   say('正在讀取真實 D1 資料…');
   try{
-    const url=view==='overview'?'/api/overview':'/api/data?entity='+encodeURIComponent(view);
+    const url=view==='overview'?'/api/overview':'/api/data?entity='+encodeURIComponent(view)+
+      (HISTORICAL_COST_VIEWS.has(view)&&costAsOf?'&as_of='+encodeURIComponent(costAsOf):'');
     const data=await api(url,{signal:controller.signal});
     if(marker!==revision)return;
     render(data);
@@ -879,7 +912,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;$('locked').hidden=true;
+  costAsOf='';authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients',
     'dish_costs','dish_cost_lines','inventory_values'];
@@ -943,6 +976,7 @@ $('logout').addEventListener('click',async()=>{
 for(const b of document.querySelectorAll('#nav button[data-view]'))
   b.addEventListener('click',()=>{
     if(!Object.hasOwn(labels,b.dataset.view))return;
+    if(view!==b.dataset.view)costAsOf='';
     view=b.dataset.view;$('title').textContent=labels[view];
     syncView();closeMenu(true);refresh();
   });

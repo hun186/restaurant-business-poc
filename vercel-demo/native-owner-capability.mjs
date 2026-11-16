@@ -5,14 +5,23 @@ const WRITE_VIEWS=new Set(['tasks','locations','ingredients','purchase_orders',
  'stocktakes','repairs']);
 
 export function nativeOwnerCapability({view,role,task=false,catalog=false,
- order=false,stocktake=false,repair=false,account=false}){
+ order=false,stocktake=false,repair=false,account=false,
+ accountStatus=false,accountRole=false}){
  const anyWrite=Boolean(task||catalog||order||stocktake||repair);
- const accountWritable=account===true&&role==='owner';
- const systemLabel=anyWrite?'正式營運模式':accountWritable?'帳號新增已啟用':'登入服務已啟用';
+ // Keep the three independent Owner account permissions separate. The
+ // capability flags are only supplied by the authenticated /api/accounts GET.
+ const owner=role==='owner';
+ const canCreate=owner&&account===true;
+ const canStatus=owner&&accountStatus===true;
+ const canRole=owner&&accountRole===true;
+ const accountWritable=canCreate||canStatus||canRole;
+ const systemLabel=anyWrite?'正式營運模式':
+  accountWritable?(canCreate&&!canStatus&&!canRole?
+    '帳號新增已啟用':'帳號管理已啟用'):'登入服務已啟用';
  const writable={
   tasks:task,
-  locations:catalog&&role==='owner',
-  ingredients:catalog&&role==='owner',
+  locations:catalog&&owner,
+  ingredients:catalog&&owner,
   purchase_orders:order,
   stocktakes:stocktake,
   repairs:repair
@@ -20,11 +29,16 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
  const pageWritable=WRITE_VIEWS.has(view)&&Boolean(writable[view]);
  if(view==='accounts')return Object.freeze({
   systemLabel,systemWritable:anyWrite||accountWritable,
-  pageLabel:accountWritable?'帳號管理・可新增':'帳號管理・僅檢視',
+  pageLabel:canCreate&&!(canStatus||canRole)?'帳號管理・可新增':
+   canCreate&&(canStatus||canRole)?'帳號管理・可新增及管理':
+   canStatus||canRole?'帳號管理・可管理':'帳號管理・僅檢視',
   pageWritable:accountWritable,
-  description:accountWritable?
-   '業主可以新增員工與主管；停用、角色調整及他人密碼重設尚未開放。':
-   '業主可查看帳號，新增帳號需獨立寫入權限；其他功能依各頁權限顯示。'
+  description:[
+   canCreate?'可建立員工與主管帳號。':'新增帳號尚未開放。',
+   canStatus?'可停用／啟用員工及主管，撤銷原工作階段。':'停用／啟用尚未開放。',
+   canRole?'可調整員工與主管角色，撤銷原工作階段。':'角色調整尚未開放。',
+   '重設他人密碼尚未開放。'
+  ].join('')
  });
  if(view==='account')return Object.freeze({
   systemLabel:anyWrite?'正式營運模式':'登入服務已啟用',

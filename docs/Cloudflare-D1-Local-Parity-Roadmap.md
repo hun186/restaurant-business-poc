@@ -70,3 +70,10 @@
 - Owner 可檢視其全部啟用門市；Manager 只查已授權且啟用門市；沒有任何門市即空清單；Staff GET 403。**資料隔離在 D1 SQL 範圍判斷**，前端只做選單隱藏及固定中文欄位／已授權 Excel 匯出。
 - 嚴格的結果上限 500 筆、原始查詢至多 5,000 筆及門市×配方運算預算；超出即 503 **Fail Closed**，不截斷結果冒稱成本完整。SQL 僅 SELECT，未新增 D1 Schema、Write Gate、Worker Vars/Secrets，無直接 D1 資料寫入。
 - 合併前要求最新 HEAD CI 五項全綠、正式 Codex Review 0 Findings/0 unresolved、clean merge。合併後主線 CI、**自動 G0** 及使用者 Owner/Manager 實機檢視分別驗證；目前此 PR 是「程式開發中」，不是正式報表已上線。
+
+## 2026-11-16 历史成本有效日期（候選 PR，非已部署）
+
+- Native `dish_costs` 和 `dish_cost_lines` 新增 Owner/Manager 指定 `as_of=YYYY-MM-DD` 的 GET 唯讀日期查詢；日曆上限為 Worker `BUSINESS_TIME_ZONE` 對應營業日，伺服器嚴格拒絕非法日期、超前日期、未知/重複參數，沿用原有門市與角色權限、D1 SQL/運算上限。
+- 選定日期只影響**菜品配方按歷史有效單價的成本／毛利估算**；這不是當天的實際售價/銷售報表快照。特別禁止 `inventory_values?as_of=...`，因為目前庫存是當前流水總額，不能套舊價格後冒稱過去庫存值。
+- API 回覆 `as_of` 與 `business_date`，頁面清楚顯示成本日期、提供恢復當日。切換頁面、登出或身份改變時，舊日期操作不可影響新畫面；不新增寫入、Gate、DB Schema 或雲端 Secrets。
+- 遵守最新 HEAD CI／Codex／Clean Merge 與合併後自動 G0；未通過 Owner/Manager 實機查詢和已存在價格的結果核對前，不標示 Live UAT PASS。

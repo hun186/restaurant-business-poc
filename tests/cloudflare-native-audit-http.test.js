@@ -130,7 +130,7 @@ test('Audit pagination caps the next offset and signals a narrower filter is nee
  const prepare=f.env.DB.prepare.bind(f.env.DB);
  const rows=Array.from({length:51},()=>({at:'2026-11-16 03:00:00',
   actor_name:'Synthetic Owner',action:'task.status',entity:'tasks',detail:'{}'}));
- const simulated={...f.env,DB:{prepare(sql){
+ const simulated={...f.env,DB:{...f.env.DB,prepare(sql){
   if(sql.startsWith('SELECT at,actor_name,action,entity,detail FROM audit_logs')){
    return {bind(){return {all:async()=>({results:rows})};}};
   }

@@ -118,7 +118,7 @@ async function readDishCosts(db,principal,asOf,entity){
    const amount=reason?null:roundedCents(finite(qty),finite(p.price_cents));
    if(reason)missing++;
    else{finite(amount);cents+=amount;finite(cents);}
-   details.push({
+   if(entity==='dish_cost_lines')details.push({
     dish_name:dish.name,location_name:shop.name,
     ingredient_name:rec.ingredient_name,qty:rec.qty,unit:rec.unit,
     price_date:p?.price_date||null,price_unit:p?.unit||null,

@@ -125,6 +125,83 @@ test('Audit pagination is stable, bounded at 50 rows and never mutates business 
  f.db.prepare('DELETE FROM cloud_schema_contract').run();
  assert.equal((await f.send('/api/audit',{headers:{cookie:owner}})).status,503);
 });
+test('Audit pagination caps the next offset and signals a narrower filter is needed',async t=>{
+ const f=await fixture(t),owner=await f.login('owner');
+ const prepare=f.env.DB.prepare.bind(f.env.DB);
+ const rows=Array.from({length:51},()=>({at:'2026-11-16 03:00:00',
+  actor_name:'Synthetic Owner',action:'task.status',entity:'tasks',detail:'{}'}));
+ const simulated={...f.env,DB:{prepare(sql){
+  if(sql.startsWith('SELECT at,actor_name,action,entity,detail FROM audit_logs')){
+   return {bind(){return {all:async()=>({results:rows})};}};
+  }
+  return prepare(sql);
+ }}};
+ const first=await (await f.send('/api/audit?offset=4950',
+  {headers:{cookie:owner}},simulated)).json();
+ assert.equal(first.has_more,true);assert.equal(first.next_offset,5000);
+ assert.equal(first.truncated,false);
+ const capped=await (await f.send('/api/audit?offset=5000',
+  {headers:{cookie:owner}},simulated)).json();
+ assert.equal(capped.rows.length,50);
+ assert.equal(capped.has_more,false);assert.equal(capped.next_offset,null);
+ assert.equal(capped.truncated,true);
+ assert.equal((await f.send('/api/audit?offset=5050',{headers:{cookie:owner}},
+  simulated)).status,400);
+});
+
+test('Owner audit UI keeps pagination bound to submitted filters',async t=>{
+ class FakeNode{
+  constructor(tag){this.tag=tag;this.children=[];this.textContent='';this.value='';
+   this.disabled=false;this.events={};}
+  append(...nodes){this.children.push(...nodes);}
+  replaceChildren(...nodes){this.children=[...nodes];}
+  setAttribute(name,value){this[name]=value;}
+  addEventListener(name,listener){this.events[name]=listener;}
+ }
+ const before=globalThis.document;
+ globalThis.document={createElement:tag=>new FakeNode(tag)};
+ t.after(()=>{if(before===undefined)delete globalThis.document;else globalThis.document=before;});
+ const {renderOwnerAudit}=await import('../vercel-demo/native-owner-audit-ui.mjs');
+ const pane=new FakeNode('div'),requests=[],expired=[];
+ const api=async url=>{
+  requests.push(url);
+  const params=new URL(url,site).searchParams,offset=Number(params.get('offset'));
+  return {mode:'native_d1',offset,has_more:offset===0,
+   next_offset:offset===0?50:null,truncated:false,
+   rows:[{at:'2026-11-16 03:00:00',actor_name:'Synthetic',
+    action:'task.status',entity:'tasks',summary:'已更新'}]};
+ };
+ const find=(node,predicate)=>{
+  if(predicate(node))return node;
+  for(const child of node.children){const res=find(child,predicate);if(res)return res;}
+  return null;
+ };
+ await renderOwnerAudit({pane,api,role:'owner',signal:undefined,notice:()=>{},
+  live:()=>true,onAuthExpired:msg=>expired.push(msg)});
+ assert.equal(requests.length,1);assert.match(requests[0],/category=all&offset=0/);
+ const form=find(pane,n=>n.tag==='form');
+ const cat=find(pane,n=>n.tag==='select');
+ const inputs=[];
+ const collect=n=>{if(n.tag==='input')inputs.push(n);for(const child of n.children)collect(child);};
+ collect(form);
+ assert.equal(inputs.length,2);
+ const next=find(pane,n=>n.tag==='button'&&n.textContent==='下一頁');
+ cat.value='account';inputs[0].value='2026-11-15';
+ await next.events.click();
+ assert.equal(requests.length,2);
+ assert.match(requests[1],/category=all&offset=50/);
+ assert(!requests[1].includes('from='),'unsubmitted field must not affect page');
+ await form.events.submit({preventDefault(){}});
+ assert.equal(requests.length,3);
+ assert.match(requests[2],/category=account&offset=0&from=2026-11-15/);
+ const previous=find(pane,n=>n.tag==='button'&&n.textContent==='上一頁');
+ assert.equal(previous.disabled,true);
+ assert.equal(expired.length,0);
+ const html=fs.readFileSync(path.join(root,'vercel-demo/native-owner-audit-ui.mjs'),'utf8');
+ assert.match(html,/const selected=applied/);
+ assert.match(html,/超過查詢上限，請縮小日期範圍/);
+});
+
 test('Owner audit source exposes no mock/local storage and never trusts a client-supplied role',()=>{
  const worker=fs.readFileSync(path.join(root,'cloudflare/worker.mjs'),'utf8');
  const api=fs.readFileSync(path.join(root,'cloudflare/native-audit-http.mjs'),'utf8');

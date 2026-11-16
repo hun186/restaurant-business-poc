@@ -174,8 +174,8 @@ test('Native Excel must not resurrect monetary values rejected by its visible pr
  assert.equal(sheet.rows[0][4],-5.75,'legitimate negative profit stays numeric');
  assert.equal(sheet.rows[0][5],-6.5,'legitimate negative margin stays numeric');
  const xml=zipPart(buildWorkbook([sheet]),'xl/worksheets/sheet1.xml');
- assert.doesNotMatch(xml,/<v>-2\\.25<\\/v>|<v>-3\\.5<\\/v>/);
- assert.match(xml,/<v>-5\\.75<\\/v>/);
+ assert.doesNotMatch(xml,/<v>-2\.25<\/v>|<v>-3\.5<\/v>/);
+ assert.match(xml,/<v>-5\.75<\/v>/);
  assert(!xml.includes('SENSITIVE'));
  const price={location_name:'總店',ingredient_name:'原料A',unit_price_twd:-1.2};
  const priceSheet=nativeOwnerReportSheet('ingredient_prices',[price],{name:'食材歷史價格'});

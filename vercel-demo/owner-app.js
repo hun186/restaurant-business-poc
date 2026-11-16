@@ -16,7 +16,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   account:'我的帳號',
   accounts:'帳號管理',audit_logs:'安全稽核'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
-  open_repairs:'未結維修',low_stock:'庫存不足'};
+  open_repairs:'未結維修',low_stock:'庫存不足',
+  pending_leaves:'待審請假',today_shifts:'今日開始班次'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
 let authEpoch=0;
 const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!==''&&csrf===token;

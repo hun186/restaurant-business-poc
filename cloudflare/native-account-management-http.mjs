@@ -18,6 +18,11 @@ export const nativeAccountsWriteEnabled=env=>
   nativeLoginEnabled(env)&&env?.CLOUD_NATIVE_ACCOUNT_WRITE_GATE==='operator-released';
 export const nativeAccountAdminWriteEnabled=env=>
   nativeLoginEnabled(env)&&env?.CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE==='operator-released';
+// Role promotion/demotion requires TWO independent operator releases.
+// The existing account-create gate and even status-admin gate alone cannot grant it.
+export const nativeAccountRoleWriteEnabled=env=>
+  nativeAccountAdminWriteEnabled(env)&&
+  env?.CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE==='operator-released';
 
 // Production account creation transaction, guarded independently of business writes.
 async function createProductionD1Account(request,env,input={}){
@@ -162,7 +167,8 @@ export async function nativeAccountsHttp(request,env){
       })),offset,has_more:hasMore,
         next_offset:hasMore?offset+PAGE_SIZE:null,
         can_create:nativeAccountsWriteEnabled(env),
-        can_manage_status:nativeAccountAdminWriteEnabled(env)});
+        can_manage_status:nativeAccountAdminWriteEnabled(env),
+        can_manage_role:nativeAccountRoleWriteEnabled(env)});
     }
     if(!authorizedMutation(request,principal,'owner'))
       return reply(403,{code:'E_FORBIDDEN'});
@@ -282,6 +288,104 @@ export async function nativeAccountStatusHttp(request,env){
        changed(out[1])!==1||changed(out[3])!==1)
       return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
     return reply(200,{code:'OK',user:{id,active:input.active}});
+  }catch{
+    return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
+  }
+}
+
+
+// Separate Owner-only role change: staff <-> manager, never owner.
+// Production writes are default-denied, even when account creation/status gates are on.
+export async function nativeAccountRoleHttp(request,env){
+  if(!nativeLoginEnabled(env)||!nativeAccountRoleWriteEnabled(env))
+    return reply(503,{code:'E_NOT_READY'});
+  if(request?.method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
+  let url;try{url=new URL(request.url);}catch{return reply(400,{code:'E_INVALID_REQUEST'});}
+  if(url.protocol!=='https:'||url.pathname!=='/api/accounts/role'||
+     url.search||url.hash)return reply(400,{code:'E_INVALID_REQUEST'});
+  if(request.headers.get('sec-fetch-site')&&
+     request.headers.get('sec-fetch-site')!=='same-origin')
+    return reply(403,{code:'E_FORBIDDEN'});
+  if(request.headers.has('authorization')||request.headers.has('x-forwarded-user'))
+    return reply(400,{code:'E_INVALID_REQUEST'});
+  if(request.headers.get('content-type')!=='application/json'||
+     request.headers.has('content-encoding'))
+    return reply(415,{code:'E_INVALID_REQUEST'});
+  const len=request.headers.get('content-length');
+  if(len!==null&&(!/^(0|[1-9][0-9]*)$/.test(len)||Number(len)>2048))
+    return reply(413,{code:'E_INVALID_REQUEST'});
+  try{
+    const p=await loadPrincipal(env.DB,request);
+    if(!p)return reply(401,{code:'E_UNAUTHENTICATED'});
+    if(p.role!=='owner'||!authorizedMutation(request,p,'owner'))
+      return reply(403,{code:'E_FORBIDDEN'});
+    const schema=await env.DB.prepare(
+      'SELECT contract_version FROM cloud_schema_contract WHERE id=1').first();
+    if(Number(schema?.contract_version)!==3)
+      return reply(503,{code:'E_SCHEMA_NOT_READY'});
+    let input;try{input=JSON.parse(await bodyWithinLimit(request));}
+    catch{return reply(400,{code:'E_INVALID_JSON'});}
+    if(!input||typeof input!=='object'||Array.isArray(input)||
+       Object.keys(input).sort().join(',')!=='expectedRole,role,targetUserId'||
+       !['staff','manager'].includes(input.role)||
+       !['staff','manager'].includes(input.expectedRole)||
+       input.role===input.expectedRole||
+       typeof input.targetUserId!=='string'||!UUID.test(input.targetUserId))
+      return reply(400,{code:'E_INVALID_INPUT'});
+    if(p.id===input.targetUserId)return reply(403,{code:'E_FORBIDDEN'});
+    const target=await env.DB.prepare(
+      'SELECT id,role,active FROM users WHERE id=?'
+    ).bind(input.targetUserId).first();
+    if(!target)return reply(404,{code:'E_ACCOUNT_NOT_FOUND'});
+    if(!canOwnerManageAccountStatus(p.role,p.id,target.role,target.id))
+      return reply(403,{code:'E_FORBIDDEN'});
+    if(target.active!==1||target.role!==input.expectedRole)
+      return reply(409,{code:'E_CONCURRENT_CHANGE'});
+    const quota=await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM audit_logs WHERE actor_id=? AND action='user.role' "+
+      "AND at>=datetime('now','-1 hour')"
+    ).bind(p.id).first();
+    if(!Number.isSafeInteger(quota?.n)||quota.n<0)
+      return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
+    if(quota.n>=20)return reply(429,{code:'E_RATE_LIMITED'});
+    const id=input.targetUserId,auditId=crypto.randomUUID();
+    const actorGate="a.id=? AND a.role='owner' AND a.active=1 "+
+      "AND s.token_hash=? AND s.csrf_token=? "+
+      "AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') "+
+      "AND (SELECT COUNT(*) FROM audit_logs WHERE actor_id=a.id "+
+      "AND action='user.role' AND at>=datetime('now','-1 hour'))<20";
+    const audit=env.DB.prepare(
+      'INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,detail) '+
+      "SELECT ?,a.id,a.username,'user.role','users',t.id,? FROM users a "+
+      'JOIN sessions s ON s.user_id=a.id JOIN users t ON t.id=? WHERE '+
+      actorGate+" AND t.id<>a.id AND t.active=1 AND t.role=? "+
+      "AND t.role IN ('staff','manager')"
+    ).bind(auditId,JSON.stringify({from:input.expectedRole,to:input.role}),
+      id,p.id,p.token_hash,p.csrf,input.expectedRole);
+    const change=env.DB.prepare(
+      "UPDATE users SET role=? WHERE id=? AND active=1 AND role=? "+
+      "AND role IN ('staff','manager') "+
+      "AND EXISTS(SELECT 1 FROM audit_logs WHERE id=? AND action='user.role')"
+    ).bind(input.role,id,input.expectedRole,auditId);
+    const revoke=env.DB.prepare(
+      'DELETE FROM sessions WHERE user_id=? AND EXISTS '+
+      "(SELECT 1 FROM audit_logs WHERE id=? AND action='user.role') "+
+      'AND EXISTS(SELECT 1 FROM users WHERE id=? AND active=1 AND role=?)'
+    ).bind(id,auditId,id,input.role);
+    // NOT NULL owner.display_name is a fail-closed transactional sentinel:
+    // missing audit/CAS or a still-live target session rolls back all steps.
+    const guard=env.DB.prepare(
+      'UPDATE users SET display_name=CASE WHEN '+
+      "EXISTS(SELECT 1 FROM audit_logs WHERE id=? AND action='user.role' AND entity_id=?) "+
+      'AND EXISTS(SELECT 1 FROM users WHERE id=? AND active=1 AND role=?) '+
+      'AND NOT EXISTS(SELECT 1 FROM sessions WHERE user_id=?) '+
+      'THEN display_name ELSE NULL END WHERE id=?'
+    ).bind(auditId,id,id,input.role,id,p.id);
+    const out=await env.DB.batch([audit,change,revoke,guard]);
+    if(!Array.isArray(out)||out.length!==4||changed(out[0])!==1||
+       changed(out[1])!==1||changed(out[3])!==1)
+      return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
+    return reply(200,{code:'OK',user:{id,role:input.role}});
   }catch{
     return reply(503,{code:'E_ACCOUNT_UNAVAILABLE'});
   }

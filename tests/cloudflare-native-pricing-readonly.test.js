@@ -321,8 +321,117 @@ test('configured business timezone selects same historical effective price acros
  assert.throws(()=>nativeBusinessDate({BUSINESS_TIME_ZONE:'Invalid/Zone'},now),/E_COST_TIME_ZONE/);
  assert.throws(()=>nativeBusinessDate({BUSINESS_TIME_ZONE:123},now),/E_COST_TIME_ZONE/);
  const backend=fs.readFileSync(path.join(base,'cloudflare/native-business-http.mjs'),'utf8');
- assert(backend.includes('nativeCostReadonlyRows(env.DB,principal,entity,nativeBusinessDate(env))'),
-  'actual Worker HTTP must use the runtime business timezone');
+ assert(backend.includes('nativeBusinessDate(env)')&&
+   backend.includes('nativeRequestedCostDate(requestedAsOf,businessDate)')&&
+   backend.includes('nativeCostReadonlyRows(env.DB,principal,entity,asOf)'),
+  'actual Worker HTTP must use the runtime business timezone and validated as-of date');
  const local=fs.readFileSync(path.join(base,'src/pricing.js'),'utf8');
  assert(local.includes("process.env.BUSINESS_TIME_ZONE||'Asia/Taipei'"));
+});
+
+test('Native D1 historical cost as_of matches SQLite and rejects future/malformed/stock override',async t=>{
+ const f=await fixture(t);
+ const owner=await f.login('owner'),manager=await f.login('manager'),staff=await f.login('staff');
+ const {costs}=require('../src/pricing.js');
+ const {nativeRequestedCostDate}=await import('../cloudflare/native-pricing-costs.mjs');
+ f.db.prepare("INSERT INTO ingredient_prices(id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source) VALUES('oldA','ing','storeA','2026-10-01',2300,'kg','合成供應商','manual')").run();
+ const initial=f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n;
+ for(const entity of ['dish_costs','dish_cost_lines']){
+  for(const asOf of ['2026-10-01','2026-11-01']){
+   const response=await f.send('/api/data?entity='+entity+'&as_of='+asOf,
+     {headers:{cookie:manager}});
+   assert.equal(response.status,200,entity+' '+asOf);
+   const data=await response.json();
+   assert.equal(data.as_of,asOf);
+   assert.match(data.business_date,/^\d{4}-\d{2}-\d{2}$/);
+   const columns=(await display).presentNativeRows(entity,[]).columns.map(c=>c.key);
+   const local=costs(f.db,{id:'manager-1',role:'manager'},asOf);
+   const expected=entity==='dish_costs'?local.entries:local.details;
+   assert.deepEqual(data.rows,expected.map(row=>
+     Object.fromEntries(columns.map(key=>[key,row[key]]))),entity+' '+asOf);
+   assert(data.rows.every(x=>x.location_name==='A門市'));
+  }
+  for(const q of [
+   '?entity='+entity+'&as_of=2026-02-30',
+   '?entity='+entity+'&as_of=2099-12-31',
+   '?entity='+entity+'&as_of=',
+   '?entity='+entity+'&as_of=2026-11-01&as_of=2026-10-01',
+   '?entity='+entity+'&as_of=2026-10-01&wrong=1'
+  ]){
+   const response=await f.send('/api/data'+q,{headers:{cookie:owner}});
+   assert.equal(response.status,400,q);
+  }
+  const forbidden=await f.send('/api/data?entity='+entity+'&as_of=2026-10-01',
+    {headers:{cookie:staff}});
+  assert.equal(forbidden.status,403);
+  assert.equal((await f.send('/api/data?entity='+entity+'&as_of=2026-10-01')).status,401);
+ }
+ const noHistory=await f.send('/api/data?entity=inventory_values&as_of=2026-10-01',
+   {headers:{cookie:owner}});
+ assert.equal(noHistory.status,400,'current stock can never be presented as an older stock snapshot');
+ const current=await f.send('/api/data?entity=inventory_values',{headers:{cookie:owner}});
+ assert.equal(current.status,200);
+ const status=await current.json();
+ assert.equal(status.as_of,status.business_date);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n,initial);
+ assert.equal(nativeRequestedCostDate(null,'2026-11-16'),'2026-11-16');
+ assert.equal(nativeRequestedCostDate('2026-11-15','2026-11-16'),'2026-11-15');
+ assert.throws(()=>nativeRequestedCostDate('2026-11-17','2026-11-16'),/E_COST_FUTURE_DATE/);
+ assert.throws(()=>nativeRequestedCostDate('2026-02-30','2026-11-16'),/E_COST_DATE/);
+});
+
+test('Native cost date UI is session-epoch guarded and cannot revalue current stock historically',()=>{
+ const vm=require('node:vm');
+ const source=fs.readFileSync(path.join(base,'vercel-demo/owner-app.js'),'utf8');
+ const a=source.indexOf('function render(data){'),b=source.indexOf('\nconst taskId=',a);
+ assert(a>=0&&b>a,'real Native cost UI function must be callable');
+ class Node{
+  constructor(tag,text=''){this.tag=tag;this.textContent=text;this.children=[];this.events={};
+    this.value='';this.className='';}
+  append(...children){this.children.push(...children);}
+  replaceChildren(...children){this.children=[...children];}
+  addEventListener(name,listener){this.events[name]=listener;}
+ }
+ const pane=new Node('div');
+ const context=vm.createContext({
+  $:id=>{assert.equal(id,'content');return pane;},
+  view:'dish_costs',revision:10,authEpoch:2,csrf:'tokenA',costAsOf:'',
+  HISTORICAL_COST_VIEWS:new Set(['dish_costs','dish_cost_lines']),
+  COST_VIEWS:new Set(['dish_costs','dish_cost_lines','inventory_values']),
+  el:(tag,label)=>new Node(tag,label===undefined?'':String(label)),
+  labeledField:(label,input)=>{const n=new Node('label',label);n.append(input);return n;},
+  liveAuth:(epoch,token)=>epoch===context.authEpoch&&token===context.csrf,
+  refresh:()=>{context.refreshed=(context.refreshed||0)+1;},
+  table:()=>new Node('table'),metrics:{},
+ });
+ vm.runInContext(source.slice(a,b)+'\nthis.mount=render;',context);
+ const find=(n,tag)=>{
+  if(n.tag===tag)return n;
+  for(const child of n.children){const x=find(child,tag);if(x)return x;}
+  return null;
+ };
+ const response={mode:'native_d1',entity:'dish_costs',rows:[],
+  as_of:'2026-11-16',business_date:'2026-11-16'};
+ context.mount(response);
+ const form=find(pane,'form'),date=find(form,'input');
+ assert(form&&date);
+ assert.equal(date.type,'date');assert.equal(date.max,'2026-11-16');
+ date.value='2026-10-01';form.events.submit({preventDefault(){}});
+ assert.equal(context.costAsOf,'2026-10-01');assert.equal(context.refreshed,1);
+ context.revision=11;date.value='2026-09-01';
+ form.events.submit({preventDefault(){}});
+ assert.equal(context.costAsOf,'2026-10-01','old view cannot change current cost date');
+ context.view='inventory_values';
+ context.mount({...response,entity:'inventory_values'});
+ assert.equal(find(pane,'form'),null,'today stock cannot offer historical date picker');
+ assert(pane.children.some(n=>n.children.some(c=>c.textContent.includes('不是歷史庫存快照'))));
+ context.view='dish_cost_lines';context.revision=12;context.csrf='tokenB';
+ context.mount({...response,entity:'dish_cost_lines'});
+ const nextForm=find(pane,'form'),nextDate=find(nextForm,'input');
+ nextDate.value='2026-08-01';
+ context.authEpoch=3;nextForm.events.submit({preventDefault(){}});
+ assert.equal(context.costAsOf,'2026-10-01','revoked session cannot change cost date');
+ assert.equal(context.refreshed,1);
+ assert.match(source,/HISTORICAL_COST_VIEWS\.has\(view\)&&costAsOf/);
+ assert.match(source,/if\(view!==b\.dataset\.view\)costAsOf=''/);
 });

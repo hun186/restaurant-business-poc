@@ -1,4 +1,5 @@
 // Owner-only native D1 account management UI. No client-side authorization claims.
+import {effectiveStoreGrantLabel} from './native-account-grant-display.mjs';
 // All permissions and account writes must be validated by the Worker/D1 backend.
 const field=(caption,input)=>{
   const label=document.createElement('label');label.textContent=caption;label.append(input);return label;
@@ -31,8 +32,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       status:data.can_manage_status===true,
       role:data.can_manage_role===true
     });
-    const storeNames=new Map(stores.rows.map(row=>[row.id,row.name]));
     const activeStores=stores.rows.filter(row=>row.active===1);
+    let grantWarnings=0;
     pane.replaceChildren();
     pane.append(element('h3','帳號管理'),
       element('p',data.can_manage_status===true?
@@ -52,13 +53,17 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     thead.append(tr);
     for(const user of data.users){
       const row=element('tr');
-      const locations=Array.isArray(user.location_ids)?
-        user.location_ids.map(id=>storeNames.get(id)||'（舊門市）').join('、'):'';
+      const grants=effectiveStoreGrantLabel(user,stores.rows);
+      if(grants.warning&&user.active===true)grantWarnings++;
       for(const value of [user.username,user.display_name,
           {owner:'業主',manager:'主管',staff:'員工'}[user.role]||'未知',
-          user.active?'啟用':'停用',locations||'—']){
+          user.active?'啟用':'停用']){
         row.append(element('td',value));
       }
+      const grantCell=element('td',(grants.warning?'⚠ ':'')+grants.text);
+      if(grants.warning)grantCell.setAttribute('title',
+        '請核對此帳號的門市授權；本頁不會自動修改正式資料。');
+      row.append(grantCell);
       if(data.can_manage_status===true||data.can_manage_role===true){
         const cell=element('td');
         if(user.role==='staff'||user.role==='manager'){
@@ -130,6 +135,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       tbody.append(row);
     }
     table.append(thead,tbody);scroll.append(table);pane.append(scroll);
+    if(grantWarnings)pane.append(element('p',
+      '本頁有 '+grantWarnings+' 個啟用帳號存在無有效門市或停用／未列出門市授權，請核對；本頁不會修改授權。'));
     const pager=element('nav'),previous=element('button','上一頁'),
       next=element('button','下一頁');
     previous.type='button';next.type='button';

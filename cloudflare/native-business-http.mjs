@@ -6,7 +6,7 @@ import {metricQueries} from './overview-readonly.mjs';
 import {nativeHrMetricQueries} from './native-hr-overview-readonly.mjs';
 import {nativeParityReadonlyPlan,NATIVE_READONLY_PARITY_ENTITIES} from './native-parity-readonly.mjs';
 import {nativePricingReadonlyPlan,NATIVE_PRICING_ENTITIES} from './native-pricing-readonly.mjs';
-import {nativeCostReadonlyRows,nativeBusinessDate,NATIVE_COST_ENTITIES} from './native-pricing-costs.mjs';
+import {nativeCostReadonlyRows,nativeBusinessDate,nativeRequestedCostDate,NATIVE_COST_ENTITIES} from './native-pricing-costs.mjs';
 
 const ENTITIES=new Set(['locations','ingredients','training_courses','tasks','assignable_staff',
   'purchase_orders','repairs','shifts','stock','stocktakes',
@@ -26,12 +26,21 @@ export async function nativeBusinessReadHttp(request,env){
       return reply(400,{code:'E_BAD_QUERY'});
     const isData=url.pathname==='/api/data',isOverview=url.pathname==='/api/overview';
     if(!isData&&!isOverview)return reply(404,{code:'E_NOT_FOUND'});
-    let entity=null;
+    let entity=null,requestedAsOf=null;
     if(isData){
       const keys=[...url.searchParams.keys()];
-      if(keys.length!==1||keys[0]!=='entity')return reply(400,{code:'E_BAD_QUERY'});
+      if(keys[0]!=='entity'||keys.length>2||
+         (keys.length===2&&keys[1]!=='as_of'))
+        return reply(400,{code:'E_BAD_QUERY'});
       entity=url.searchParams.get('entity');
       if(!ENTITIES.has(entity))return reply(404,{code:'E_UNKNOWN_ENTITY'});
+      if(keys.length===2){
+        // Current stock is not a historical stock snapshot. Prevent a misleading
+        // valuation obtained by changing price dates but not stock quantities.
+        if(entity!=='dish_costs'&&entity!=='dish_cost_lines')
+          return reply(400,{code:'E_BAD_QUERY'});
+        requestedAsOf=url.searchParams.get('as_of');
+      }
     }else if(url.search)return reply(400,{code:'E_BAD_QUERY'});
     const principal=await loadPrincipal(env.DB,request);
     if(!hasAccess(principal,'staff'))return reply(401,{code:'E_UNAUTHENTICATED'});
@@ -81,8 +90,13 @@ export async function nativeBusinessReadHttp(request,env){
          !hasAccess(principal,'manager'))
         return reply(403,{code:'E_FORBIDDEN'});
       if(NATIVE_COST_ENTITIES.includes(entity)){
-        const rows=await nativeCostReadonlyRows(env.DB,principal,entity,nativeBusinessDate(env));
-        return reply(200,{mode:'native_d1',entity,rows});
+        const businessDate=nativeBusinessDate(env);
+        let asOf;
+        try{asOf=nativeRequestedCostDate(requestedAsOf,businessDate);}
+        catch{return reply(400,{code:'E_BAD_COST_DATE'});}
+        const rows=await nativeCostReadonlyRows(env.DB,principal,entity,asOf);
+        return reply(200,{mode:'native_d1',entity,rows,as_of:asOf,
+          business_date:businessDate});
       }
       const plan=queryFor(entity,principal)||nativeParityReadonlyPlan(entity,principal)||
         nativePricingReadonlyPlan(entity,principal);

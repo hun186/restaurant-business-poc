@@ -128,7 +128,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-native-stocktake-live.test.js":"2e55031dadd5dd5bd67a707b36996a2511febadab71950400f4dff66ada8574e",
   "tests/cloudflare-native-repair-live.test.js":"e74e3db1972cc41ca448fed89231b2329b440b4ee03f104a904682dd50047c8c",
   "tests/cloudflare-native-task-live.test.js":"dba640665763dbc9312db35c8a3e6a50e3dc1f020a126b9b79512a984568fc40",
-  "tests/cloudflare-native-owner-business-http.test.js":"65a95553d18a0cd75ff13824686c6a63144c9af371aef47d5437a0652a8edaff",
+  "tests/cloudflare-native-owner-business-http.test.js":"930c881401839313b91549f1d0d912469e23cb1f161c1dc7681219b0a19e2045",
   "tests/cloudflare-native-password-change.test.js":"e005063f273f413707c140d912ff8f5beee3a047510f09725d0a5ce05eb7ef43",
   "tests/cloudflare-native-login-http.test.js":"5a8fc37b5915977ae4cccf9c27736b98ca8bd72e18470ebaeb748108677fabe8",
   "cloudflare/native-password-change-http.mjs":"d34237c2ccc6d7d9008c68358ae0818bb85c76c24ff148b7994eceadf58bfd38",

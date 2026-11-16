@@ -43,6 +43,7 @@ test('Real Owner account list renders safe grant warnings, without granting muta
  t.after(()=>{if(before===undefined)delete globalThis.document;else globalThis.document=before;});
  const {renderOwnerAccounts}=await import('../vercel-demo/native-account-management-ui.mjs');
  const pane=new Node('main'),requests=[],messages=[],caps=[];
+ let isLive=true;
  const api=async(url,opts)=>{
   requests.push({url,method:opts?.method||'GET'});
   if(url.startsWith('/api/accounts'))return {
@@ -65,7 +66,7 @@ test('Real Owner account list renders safe grant warnings, without granting muta
    return {rows:[{id:'A',name:'臺北店',active:1},{id:'B',name:'停用店',active:0}]};
   throw Error('unexpected API '+url);
  };
- await renderOwnerAccounts({pane,api,role:'owner',live:()=>true,token:'synthetic-token',
+ await renderOwnerAccounts({pane,api,role:'owner',live:()=>isLive,token:'synthetic-token',
   notice:(message)=>messages.push(message),onAuthExpired:()=>{},
   onCapabilityChange:x=>caps.push(x),refresh:async()=>{}});
  const all=[];const visit=node=>{
@@ -109,6 +110,9 @@ test('Real Owner account list renders safe grant warnings, without granting muta
  const status=find(pane,node=>node.tag==='span'&&
   node.attributes['aria-live']==='polite');
  assert(status.textContent.includes('僅篩選目前分頁'));
+ isLive=false;select.value='grant';select.events.change();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false],
+  'detached or signed-out Owner page controls cannot mutate the displayed table');
  const src=fs.readFileSync(path.join(project,'vercel-demo/native-account-management-ui.mjs'),'utf8');
  assert(!src.includes('innerHTML'));
  assert(src.includes("effectiveStoreGrantLabel(user,stores.rows)"));

@@ -1,4 +1,4 @@
-// Owner-only native D1 account creation UI. No client-side authorization claims.
+// Owner-only native D1 account management UI. No client-side authorization claims.
 // All permissions and account writes must be validated by the Worker/D1 backend.
 const field=(caption,input)=>{
   const label=document.createElement('label');label.textContent=caption;label.append(input);return label;
@@ -26,7 +26,11 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
        typeof data.has_more!=='boolean'||
        (data.has_more&&data.next_offset!==offset+50))
       throw Error('帳號資料格式不完整。');
-    if(typeof onCapabilityChange==='function')onCapabilityChange(data.can_create===true);
+    if(typeof onCapabilityChange==='function')onCapabilityChange({
+      create:data.can_create===true,
+      status:data.can_manage_status===true,
+      role:data.can_manage_role===true
+    });
     const storeNames=new Map(stores.rows.map(row=>[row.id,row.name]));
     const activeStores=stores.rows.filter(row=>row.active===1);
     pane.replaceChildren();
@@ -37,7 +41,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整與他人密碼重設尚未開放。'):
         (data.can_manage_role===true?
           '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用與他人密碼重設尚未開放。':
-          '只有 Owner 可以查看帳號與建立員工／主管；停用、角色調整及重設他人密碼尚未開放。')));
+          '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。')));
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');
@@ -137,15 +141,15 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const navigate=async newOffset=>{
       if(!live())return;
       // Do not present prior-page capability as current during a new request.
-      if(typeof onCapabilityChange==='function')onCapabilityChange(false);
+      if(typeof onCapabilityChange==='function')onCapabilityChange(null);
       previous.disabled=true;next.disabled=true;
       await renderOwnerAccounts({pane,api,role,signal,notice,refresh,live,token,onAuthExpired,onCapabilityChange,offset:newOffset});
     };
     previous.addEventListener('click',()=>navigate(Math.max(0,offset-50)));
     next.addEventListener('click',()=>navigate(data.next_offset));
     if(data.can_create!==true){
-      pane.append(element('p','帳號新增功能目前未獲獨立授權，現有帳號可正常使用。'));
-      notice('帳號清單已載入；帳號建立 Gate 尚未開放。');return;
+      pane.append(element('p','帳號新增功能目前未獲獨立授權；其他帳號操作依各自權限開放。'));
+      notice('帳號清單已載入；新增權限未開放，其他操作依獨立 Gate。');return;
     }
     if(!activeStores.length){
       pane.append(element('p','目前沒有啟用中的門市，不能建立員工帳號。'));return;

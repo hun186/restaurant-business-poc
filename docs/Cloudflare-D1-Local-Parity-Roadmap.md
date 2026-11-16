@@ -55,3 +55,9 @@
 - 前端共用 Native 資料表、中文固定欄位及既有 Excel 產生器，價錢從整數 TWD cents 換算為 **元**；Owner／Manager 才顯示選單，Staff 不顯示，也不能靠猜 API URL 取得資料。沒有新增菜品／配方寫入、修改單價、正式 D1 Schema／Gate，沒有修改 Worker Preview 或帳號權限。
 - **本批不提供成本／毛利試算**：落地版 `src/pricing.js` 依門市、歷史單價有效日、kg/g、L/ml 單位換算、缺價原因，逐行四捨五入到分計算。若未完整移植不得用價格乘數量臆測成本或把這些頁標為成本估算已上線。
 - 發布流程必須 PR 最新 HEAD CI 5/5、Codex completed/0 Findings/0 unresolved、Clean Merge Gate；Main Postmerge CI 與 Cloudflare G0 Active Version／Owner 正式頁資料 UAT 各自驗證。這裡只是**開發中規劃與程式範圍**，不能預先宣稱已上線。
+
+## 2026-11-16 自動化部署版本核對（#192 提案，非已部署宣告）
+
+- 原本每次合併 `main` 後都需操作員手動執行 Cloudflare G0。新增固定 Workflow `cloudflare-g0-active-version-readonly.yml` 的 `workflow_run` 入口，在**同一 Repo 的 `Verify`、`push` 主線、結論 success、觸發 Commit 與當前 main GitHub SHA 完全一致**時，才啟動既有 G0 Cloudflare GET-only 建置關聯核對。來自 PR、失敗/取消 CI、非 main、非同 Repo、過時 Commit 的觸發一律略過，不能使用 Cloudflare Secrets。
+- 原有手動 `workflow_dispatch` + `CHECK_ACTIVE_WORKER_READONLY` 留作備援；新自動模式最多 8 次、每次失敗後間隔 30 秒，處理 CI 完成而 Cloudflare Git 建置尚在切版的合理延遲。逾上限仍 **FAIL，絕不自動部署、放行寫入或宣稱 Live UAT 完成**；不讀取 D1 營運資料，也不更改任何正式 Workers 版本。
+- 自動 G0 只有版本與 Git 建置 Commit/100% 流量的證據，不檢驗網域路由、業主登入、檔案下載或操作正確性。跨批可在同一 PR 完成 2～3 個低風險功能，先完成完整 CI＋Codex 再合併一次，讓主線自動跑 G0；**含資料庫寫入/帳號安全/復原/正式 Gate 變更的 PR 必須分開做**。

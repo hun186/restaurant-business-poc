@@ -32,3 +32,10 @@
 ## 交付策略
 
 採「同功能同規則、先可使用再擴大全覆蓋」：每一項補齊以實際 D1 API、身份／稽核／Session、UI 和跨平台契約測試為一組；不增加無關產品開關、不把 Zero Trust 當必要條件、不延後已可安全交付的 Owner 基本功能。若涉及 Production D1 Schema、Gate 啟用、員工安全異動或 Restore，必須另有操作員明確授權與可驗證回退證據。
+
+## 2026-11-16 第二批：庫存與人事唯讀頁面（PR 進行中）
+
+- #188 安全稽核程式已 Squash Merge 至 `main` `bed040e07eec6f410cc6ebee24d75e6fc8af0320`；合併後 Hosted CI／Cloudflare Active Version／Owner 現場 UAT 必須各自核實。
+- 本批預備在 Native D1（**不擴充 Preview GET 白名單**）提供 `stock_moves`、`leave_requests`、`training_records`、`evaluations` 四個已有 v3 資料表的**真實唯讀**列表。查詢必須在 LIMIT 500 前，以 SQL 驗證啟用中的門市授權；員工本人紀錄限制於自己的 user_id，庫存流水限制所屬門市；Owner 可查全店，主管查授權門市。
+- 前端共用原有資料表與欄位白名單，用中文狀態顯示，頁面清楚標示「唯讀」。**不新增任何建立、審核、修改、匯入或匯出**，不觸發資料庫/Worker 寫入 Gate，亦不因本次功能呈現而開啟角色寫入。
+- 這不代表本機的請假審核／訓練評分／考核新增／庫存耗用寫入已完整移植；上述是後續獨立受控 Write PR。CI/Codex 以及真正 Active Worker／角色 UAT 各自判定，不得以新選單顯示當作已上線。

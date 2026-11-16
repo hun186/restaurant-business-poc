@@ -310,7 +310,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/native-admin-quota-do-preflight-integration.test.js":"dd6a6a1eae947b45248727a0d045fb5a21637488e3ea201d4302d3b6cc2c34ef",
   "tests/native-admin-quota-preflight-integration.test.js":"b2c2aba404972c6db7734629461e4c91757ac512b29b3cb20e44f26eb559dbb3",
   "db/schema.sql":"81b2be4f700f34e0fb978a7054677d79ede35255f91cb5a9d58d518c3339e2ce",
-  "cloudflare/native-audit-http.mjs":"eb84b35455e2415c9581303e165d824bbd56fcf89a5b50bdc87f7e6696cca9bc",
-  "vercel-demo/native-owner-audit-ui.mjs":"8761dd98f1323919833c5b941f5789790da53b9451dbea1b58ae7f40f2b1d571",
-  "tests/cloudflare-native-audit-http.test.js":"fd2c6bcb4020972b1e57a2a9aa80b2f351a1f0ffa71a74a54cb8023833cccf81",
+  "cloudflare/native-audit-http.mjs":"1cd00381bf4d9e92441d6d0f671b107f57a4fd2bb75e4d197ad6509f61e36475",
+  "vercel-demo/native-owner-audit-ui.mjs":"6c94fcc58330a73fdb9cdab95d3f694f1e511ba1f9e2b9e8c6580bdbbcf99bc1",
+  "tests/cloudflare-native-audit-http.test.js":"0558984de7a40522eea535f81e2ccb2ebabef3e73520b002dae10697b25f65cd",
 });

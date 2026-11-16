@@ -183,3 +183,36 @@ test('manual protected read-only workflow, preflight and closed production gate'
  assert.doesNotMatch(source,/method:'POST'|method:'PUT'|method:'DELETE'|method:'PATCH'/);
  assert.doesNotMatch(source,/console\.log\([^\n]*(token|response)/);
 });
+
+test('post-CI G0 auto-attestation is main-push-only, exact-SHA, read-only and bounded',()=>{
+ const root=path.join(__dirname,'..');
+ const workflow=fs.readFileSync(path.join(root,'.github/workflows/cloudflare-g0-active-version-readonly.yml'),'utf8');
+ assert.match(workflow,/workflow_dispatch:\s*\n/,'manual fallback preserved');
+ assert.match(workflow,/workflow_run:\s*\n\s+workflows:\s*\['Verify'\]/);
+ assert.match(workflow,/types:\s*\[completed\]/);
+ assert.match(workflow,/branches:\s*\[main\]/);
+ assert.match(workflow,/github\.repository == 'hun186\/restaurant-business-poc'/);
+ assert.match(workflow,/github\.ref == 'refs\/heads\/main'/);
+ assert.match(workflow,/github\.event_name == 'workflow_dispatch'/);
+ assert.match(workflow,/inputs\.confirm == 'CHECK_ACTIVE_WORKER_READONLY'/);
+ assert.match(workflow,/github\.event_name == 'workflow_run'/);
+ assert.match(workflow,/github\.event\.workflow_run\.event == 'push'/);
+ assert.match(workflow,/github\.event\.workflow_run\.head_branch == 'main'/);
+ assert.match(workflow,/github\.event\.workflow_run\.head_repository\.full_name == 'hun186\/restaurant-business-poc'/);
+ assert.match(workflow,/github\.event\.workflow_run\.conclusion == 'success'/);
+ assert.match(workflow,/github\.event\.workflow_run\.head_sha == github\.sha/);
+ assert.match(workflow,/G0_AUTO_RETRY:/);
+ assert.match(workflow,/attempts=1/);
+ assert.match(workflow,/if \[\[ "\$G0_AUTO_RETRY" == 'true' \]\]; then attempts=8; fi/);
+ assert.match(workflow,/sleep 30/);
+ assert.match(workflow,/if node tools\/cloudflare-g0-active-version-readonly\.mjs inspect; then/);
+ assert.match(workflow,/G0_ACTIVE_READONLY_NOT_VERIFIED_NO_RELEASE/);
+ assert.match(workflow,/exit 1/);
+ const preflight=workflow.indexOf('node tools/cloudflare-hosted-probe-preflight.mjs');
+ const token=workflow.indexOf('CLOUDFLARE_G0_READONLY_TOKEN');
+ assert(preflight>=0&&token>preflight,'preflight must run before token exposure');
+ assert.match(workflow,/environment: cloudflare-g0-readonly/);
+ assert.match(workflow,/permissions:\s*\n\s*contents:\s*read/);
+ assert.doesNotMatch(workflow,/write-all|contents:\s*write|id-token:\s*write/);
+ assert.doesNotMatch(workflow,/wrangler deploy|d1 execute|--remote|workflow_dispatch\s+via\s+API|curl\s+-X\s+POST/);
+});

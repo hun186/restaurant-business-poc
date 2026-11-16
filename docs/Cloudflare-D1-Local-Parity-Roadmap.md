@@ -91,6 +91,13 @@
 - 當啟用帳號沒有有效門市授權，UI 顯示醒目提示並記錄本頁需要核對的帳號數；本頁只顯示不修改 Grant，未知門市僅寫「未在本次門市清單」，不臆測已刪除；門市資料最多顯示已載入的 500 筆，帳號清單每頁 50 筆。
 - **仍未新增「修改員工門市授權」或「重設他人密碼」**：需要獨立 Gate、Owner 身分驗證、D1 transaction/audit/session 撤銷與正式測試，不因 UI 警示而放行。本批不增 Worker API、資料庫讀寫、Schema、Token、正式設定。
 
+## 2026-11-16 Windows 本機加密備份副本檔案身分精度修復（本 PR 待 CI/Review）
+
+- 獨立副本稽核 `verifyIndependentCopy` 原使用一般 `fs.lstatSync()` 的 Number 型 `ino`。NTFS 64 位元檔案識別碼可能超過 JavaScript 可安全表示的整數精度，導致兩個不同檔案錯判為 `COPY_SAME_FILE`。正式主線 Verify #43884410667 Windows Node24 首輪即遇此問題；此項僅為受控 GitHub CI 合成檔案，不是正式業主備份失效證據。
+- 改採 `fs.lstatSync(file,{bigint:true})` 的完整 `BigInt` 裝置與 inode 識別碼，連同 `BigInt` 檔案大小比較，保留 realpath 相同、Symlink、硬連結、格式／MAC／密碼／SQLite replay 等全部既有安全防線；不得以刪除同一檔案檢查來處理偶發誤判。
+- 新增 Windows NTFS 大整數精度以及實體硬連結「兩個路徑但一個檔案」拒絕測試。仍**不能證明離線副本確實存放異地**，且不會新增 Cloudflare D1 查詢／寫入、遠端還原、部署、正式 Secrets/Vars/Gate 變更。
+- 任何合併須最新 HEAD CI 5/5 與 Codex Review completed 0 Findings；合成測試通過不等於已由業主重做真實加密備份驗證。
+
 ## 2026-11-16 Native 營運總覽人事指標（本 PR 待 CI/Review）
 
 - 於 Cloudflare Native 真實 `/api/overview` 增加兩個**唯讀計數**：`pending_leaves` 待審請假（各門市 pending 狀態總數）及 `today_shifts` 今日排定開始班次（`shift_date` 等於當地營業日的班次，**不包含昨日開始仍延續到今天的跨日班**）。日期取正式 Worker 既有 `BUSINESS_TIME_ZONE`，預設臺灣。

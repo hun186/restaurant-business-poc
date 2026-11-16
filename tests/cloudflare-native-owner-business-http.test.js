@@ -111,3 +111,63 @@ test('revoked owner immediately loses access; D1 schema mismatch stays unavailab
   const r=await f.send('/api/data?entity=tasks',{headers:{cookie:owner.cookie}});
   assert.equal(r.status,503);assert.equal((await r.json()).code,'E_SCHEMA_NOT_READY');
 });
+
+test('Native D1 dashboard counts scoped pending leave and starting-today shifts without writes',async t=>{
+ const f=await fixture(t);
+ const {nativeBusinessDate}=await import('../cloudflare/native-pricing-costs.mjs');
+ const {nativeHrMetricQueries}=await import('../cloudflare/native-hr-overview-readonly.mjs');
+ const {metricQueries}=await import('../cloudflare/overview-readonly.mjs');
+ const day=nativeBusinessDate(f.env),yesterday=new Date(day+'T00:00:00Z');
+ yesterday.setUTCDate(yesterday.getUTCDate()-1);
+ const previous=yesterday.toISOString().slice(0,10);
+ const owner=f.db.prepare("SELECT password_salt,password_hash FROM users WHERE username='owner'").get();
+ const add=f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES(?,?,?,?,?,?)');
+ add.run('staff-one','staff1','員工一','staff',owner.password_salt,owner.password_hash);
+ add.run('staff-two','staff2','員工二','staff',owner.password_salt,owner.password_hash);
+ f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)').run('staff-one',f.a);
+ f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)').run('staff-two',f.b);
+ for(const [suffix,store,user] of [['A',f.a,'staff-one'],['B',f.b,'staff-two']]){
+  f.db.prepare("INSERT INTO leave_requests(id,user_id,location_id,start_date,end_date,reason,status) VALUES(?,?,?,?,?,?,'pending')")
+   .run('leave-'+suffix,user,store,day,day,'合成請假');
+  f.db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time) VALUES(?,?,?,?,?,?)')
+   .run('shift-'+suffix,store,user,day,'09:00','18:00');
+ }
+ f.db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time) VALUES(?,?,?,?,?,?)')
+  .run('shift-old',f.a,'staff-one',previous,'08:00','17:00');
+ const tokens={};
+ for(const username of ['owner','manager','staff1','staff2'])
+  tokens[username]=(await f.login(username)).cookie;
+ const auditBefore=f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n;
+ const expected=[
+  ['owner',2,2],['manager',1,1],['staff1',1,1],['staff2',1,1]
+ ];
+ for(const [actor,leaves,shifts] of expected){
+  const response=await f.send('/api/overview',{headers:{cookie:tokens[actor]}});
+  assert.equal(response.status,200,actor);
+  assert.equal(response.headers.get('cache-control'),'private, no-store, max-age=0');
+  const data=await response.json();
+  assert.equal(data.mode,'native_d1');
+  assert.equal(data.metrics.pending_leaves,leaves,actor+' pending leaves');
+  assert.equal(data.metrics.today_shifts,shifts,actor+' today starting shifts');
+  assert.equal(Object.keys(data.metrics).length,6,'original 4 metrics plus 2 HR metrics');
+ }
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n,auditBefore);
+ f.db.prepare("UPDATE locations SET active=0 WHERE id=?").run(f.a);
+ for(const actor of ['manager','staff1']){
+  const data=await (await f.send('/api/overview',{headers:{cookie:tokens[actor]}})).json();
+  assert.equal(data.metrics.pending_leaves,0,actor+' revoked-store leave');
+  assert.equal(data.metrics.today_shifts,0,actor+' revoked-store shift');
+ }
+ const remaining=(await (await f.send('/api/overview',{headers:{cookie:tokens.owner}})).json()).metrics;
+ assert.equal(remaining.pending_leaves,1);assert.equal(remaining.today_shifts,1);
+ // Preview remains unchanged: only the Native route gets HR extensions.
+ assert.equal(metricQueries({role:'owner',id:'owner-1'}).length,4);
+ const scoped=nativeHrMetricQueries({role:'staff',id:'staff-one'},day);
+ assert.deepEqual(scoped.map(x=>x[2]),[['staff-one','staff-one'],[day,'staff-one','staff-one']]);
+ assert.throws(()=>nativeHrMetricQueries({role:'guest',id:'X'},day));
+ const source=fs.readFileSync(path.join(root,'cloudflare/native-business-http.mjs'),'utf8');
+ assert(source.includes('nativeHrMetricQueries(principal,nativeBusinessDate(env))'));
+ const js=fs.readFileSync(path.join(root,'vercel-demo/owner-app.js'),'utf8');
+ assert(js.includes("pending_leaves:'待審請假'"));
+ assert(js.includes("today_shifts:'今日開始班次'"));
+});

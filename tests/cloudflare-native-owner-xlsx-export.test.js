@@ -158,3 +158,26 @@ test('Native browser export requires live auth and current view, never refetches
  assert(!source.includes('innerHTML='));
  assert(source.includes("import './xlsx-lite.js'"));
 });
+
+test('Native Excel must not resurrect monetary values rejected by its visible projection',async()=>{
+ const {nativeOwnerReportSheet}=await projection;
+ const {presentNativeRows}=await display;
+ const row={location_name:'總店',dish_name:'菜品A',sale_price_twd:-2.25,
+  estimated_cost_twd:-3.5,gross_profit_twd:-5.75,gross_margin_pct:-6.5,
+  cost_status:'invalid_price',password_hash:'SENSITIVE'};
+ const view=presentNativeRows('dish_costs',[row]);
+ assert.equal(view.entries[0].cells[2].text,'—');
+ assert.equal(view.entries[0].cells[3].text,'—');
+ const sheet=nativeOwnerReportSheet('dish_costs',[row],{name:'菜品成本'});
+ assert.equal(sheet.rows[0][2],'—');
+ assert.equal(sheet.rows[0][3],'—');
+ assert.equal(sheet.rows[0][4],-5.75,'legitimate negative profit stays numeric');
+ assert.equal(sheet.rows[0][5],-6.5,'legitimate negative margin stays numeric');
+ const xml=zipPart(buildWorkbook([sheet]),'xl/worksheets/sheet1.xml');
+ assert.doesNotMatch(xml,/<v>-2\\.25<\\/v>|<v>-3\\.5<\\/v>/);
+ assert.match(xml,/<v>-5\\.75<\\/v>/);
+ assert(!xml.includes('SENSITIVE'));
+ const price={location_name:'總店',ingredient_name:'原料A',unit_price_twd:-1.2};
+ const priceSheet=nativeOwnerReportSheet('ingredient_prices',[price],{name:'食材歷史價格'});
+ assert.equal(priceSheet.rows[0][3],'—','invalid input price cannot leak as raw number');
+});

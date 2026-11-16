@@ -7,7 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"25aab44e89a2eb8c6ade645a8912cbdabd34197d40caea7f5c1838c8fd67fd4e"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
-  ".github/workflows/cloudflare-g0-active-version-readonly.yml":"e2890697c8af0ee5eef148d27d12160602c939250841013f66050d3e0ed7e962",
+  ".github/workflows/cloudflare-g0-active-version-readonly.yml":"e927199741499c49a3074da5a26f1c2affbb8ddf7ec8b00a539fc284b6737d98",
   ".github/workflows/cloudflare-public-runtime-readonly.yml":"0c8a5a330780bc1371b76e1252e3ee733dbd6bea6180a5ab2802bb623cab71b4",
   ".github/workflows/d1-production-auth-activity-readonly.yml":"dc411df3dcacec01a53b250117a85ebc2e747751aba7ad903dde013646373a2d",
   ".github/workflows/d1-production-enrolled-owner-readonly.yml":"1902fe8b3f010fba6c636ab098a4ad6496e6b9450900bc549ddd13ba703d91b2",
@@ -114,7 +114,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-native-owner-session-race.test.js":"e1a25e274c4269267470793a3a71793b1af7b1a8b1cd35e55f43868816660e48",
   "tests/native-owner-capability.test.js":"f81f26157746e6e629504a30bc8b317ff1ca94afe4ea7b939bc4085242c8f5f7",
    "tests/cloudflare-native-owner-ui-parity.test.js":"27f9301f86e35ec3690b77dc788eea4c1cd3a8dec0c547668f4a8eba0e7a8329",
-  "tests/cloudflare-g0-active-version-readonly.test.js":"e651654b44d081bea34fd32785b86eb7c2b3ac1aebb7bc5005601bb0434e2cec",
+  "tests/cloudflare-g0-active-version-readonly.test.js":"8fa5c63ba072c8c3a94d6fd55f972203f8a4bc1187bd2900e545d774497dabf0",
   "tests/cloudflare-public-runtime-readonly.test.js":"e7009ab6561f7015366cb2483bd47003ec923f0714ad80b28866a938ce704176",
   "tests/cloudflare-prod-d1-encrypted-backup.test.js":"6840faa4858b965824873900c88931317e9d9ed97abc3bab8e0fdc5cb6b74de1",
   "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",

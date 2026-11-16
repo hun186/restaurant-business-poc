@@ -107,11 +107,11 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
 
   "tests/native-owner-login-uat-gate-readonly.test.js":"0bdbcbae5e18c8bcdba188a2b58e0b96fa9a9ed1b9c173d6b79ba0a57acf4282",
   "tests/native-owner-public-assets-readonly.test.js":"96c612ef61879d010174325313d5e00c80e73fc6d94723c31b4c8f8231b396b0",
-  "tests/cloudflare-native-owner-readable-tables.test.js":"e70b5986c1f8481fc4b0b56556116fe76fd876bebc3d4742437f45be91a9ac4c",
+  "tests/cloudflare-native-owner-readable-tables.test.js":"c54f9d5590790ea280cbf1121a9773ee58f5111c168faf218d2da0bace8fde73",
   "vercel-demo/native-owner-capability.mjs":"b560946181ec8c4d8841d9b5b991d5111c64604e59e9362ed8b2507cd0685c25",
   "vercel-demo/native-owner-display.mjs":"4ea16345f31eec0be3c6002e56d583d76957d25bb5df8ccb46f0ed4e4ca546bc",
   "tests/cloudflare-native-owner-password-response-ui.test.js":"087eec27a5c73e6ba6902d156adf59ab99624db976e2177f5869edeccd546c62",
-  "tests/cloudflare-native-owner-session-race.test.js":"e1a25e274c4269267470793a3a71793b1af7b1a8b1cd35e55f43868816660e48",
+  "tests/cloudflare-native-owner-session-race.test.js":"347801cbb70b33c38f8772f4e7c2e1bd3fce599366b84a39e6dd930f29437db1",
   "tests/native-owner-capability.test.js":"f81f26157746e6e629504a30bc8b317ff1ca94afe4ea7b939bc4085242c8f5f7",
    "tests/cloudflare-native-owner-ui-parity.test.js":"27f9301f86e35ec3690b77dc788eea4c1cd3a8dec0c547668f4a8eba0e7a8329",
   "tests/cloudflare-g0-active-version-readonly.test.js":"8fa5c63ba072c8c3a94d6fd55f972203f8a4bc1187bd2900e545d774497dabf0",

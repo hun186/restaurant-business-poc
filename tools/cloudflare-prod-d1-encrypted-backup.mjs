@@ -323,13 +323,16 @@ export function verifyIndependentCopy(originalFile,copyFile,passphrase){
  try{
   a=fs.realpathSync.native(originalFile);
   b=fs.realpathSync.native(copyFile);
-  sa=fs.lstatSync(originalFile);
-  sb=fs.lstatSync(copyFile);
+  // Windows NTFS file IDs may exceed Number.MAX_SAFE_INTEGER. Number-based
+  // Stats.ino can collapse two distinct file IDs to the same rounded value.
+  // BigIntStats preserves exact dev/ino and still rejects real hardlinks.
+  sa=fs.lstatSync(originalFile,{bigint:true});
+  sb=fs.lstatSync(copyFile,{bigint:true});
  }catch{fail('COPY_PATH');}
  if(!sa.isFile()||!sb.isFile()||sa.isSymbolicLink()||sb.isSymbolicLink()||
-    sa.size>MAX_SQL_BYTES*2||sb.size>MAX_SQL_BYTES*2)fail('COPY_PATH');
+    sa.size>BigInt(MAX_SQL_BYTES*2)||sb.size>BigInt(MAX_SQL_BYTES*2))fail('COPY_PATH');
  if((process.platform==='win32'?a.toLowerCase()===b.toLowerCase():a===b)||
-   (sa.ino!==0&&sa.ino===sb.ino&&sa.dev===sb.dev))
+   (sa.ino>0n&&sb.ino>0n&&sa.ino===sb.ino&&sa.dev===sb.dev))
    fail('COPY_SAME_FILE');
  const original=verifyArchive(originalFile,passphrase);
  const copy=verifyArchive(copyFile,passphrase);

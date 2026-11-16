@@ -43,6 +43,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
         (data.can_manage_role===true?
           '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用與他人密碼重設尚未開放。':
           '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。')));
+    // A local filter never expands the server's Owner-only 50-row page.
+    const rowStates=[];
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');
@@ -54,7 +56,9 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     for(const user of data.users){
       const row=element('tr');
       const grants=effectiveStoreGrantLabel(user,stores.rows);
-      if(grants.warning&&user.active===true)grantWarnings++;
+      const needsGrantReview=grants.warning&&user.active===true;
+      if(needsGrantReview)grantWarnings++;
+      rowStates.push({node:row,needsGrantReview,inactive:user.active!==true});
       for(const value of [user.username,user.display_name,
           {owner:'業主',manager:'主管',staff:'員工'}[user.role]||'未知',
           user.active?'啟用':'停用']){
@@ -134,7 +138,35 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       }
       tbody.append(row);
     }
-    table.append(thead,tbody);scroll.append(table);pane.append(scroll);
+    table.append(thead,tbody);scroll.append(table);
+    const filterBar=element('div');filterBar.className='native-data-toolbar';
+    const filterLabel=element('label','篩選本頁帳號 '),filter=element('select'),
+      filterCount=element('span');
+    filter.setAttribute('aria-label','篩選本頁帳號');
+    for(const [value,caption] of [
+      ['all','全部帳號'],['grant','需核對門市授權'],['inactive','已停用帳號']
+    ]){
+      const option=element('option',caption);option.value=value;filter.append(option);
+    }
+    filter.value='all';filterLabel.append(filter);
+    filterCount.setAttribute('aria-live','polite');
+    filterBar.append(filterLabel,filterCount);
+    const applyFilter=()=>{
+      if(!live())return; // Detached Owner pages must not react to stale controls.
+      const mode=filter.value;
+      if(!['all','grant','inactive'].includes(mode))return;
+      let shown=0;
+      for(const entry of rowStates){
+        const show=mode==='all'||(mode==='grant'&&entry.needsGrantReview)||
+          (mode==='inactive'&&entry.inactive);
+        entry.node.hidden=!show;
+        if(show)shown++;
+      }
+      filterCount.textContent='本頁顯示 '+shown+' / '+rowStates.length+
+        ' 筆；僅篩選目前分頁（每頁最多 50 筆），其他頁不受影響。';
+    };
+    filter.addEventListener('change',applyFilter);applyFilter();
+    pane.append(filterBar,scroll);
     if(grantWarnings)pane.append(element('p',
       '本頁有 '+grantWarnings+' 個啟用帳號存在無有效門市或停用／未列出門市授權，請核對；本頁不會修改授權。'));
     const pager=element('nav'),previous=element('button','上一頁'),

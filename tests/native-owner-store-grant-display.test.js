@@ -117,3 +117,63 @@ test('Real Owner account list renders safe grant warnings, without granting muta
  assert(!src.includes('innerHTML'));
  assert(src.includes("effectiveStoreGrantLabel(user,stores.rows)"));
 });
+
+test('Owner account filter resets on the next server page and never expands scope',async t=>{
+ class Node{
+  constructor(tag){this.tag=tag;this.textContent='';this.children=[];this.events={};
+   this.attributes={};this.hidden=false;this.disabled=false;this.value='';}
+  append(...nodes){this.children.push(...nodes);}
+  replaceChildren(...nodes){this.children=[...nodes];}
+  addEventListener(name,cb){this.events[name]=cb;}
+  setAttribute(name,value){this.attributes[name]=value;}
+ }
+ const previous=globalThis.document;
+ globalThis.document={createElement:tag=>new Node(tag)};
+ t.after(()=>{if(previous===undefined)delete globalThis.document;else globalThis.document=previous;});
+ const {renderOwnerAccounts}=await import('../vercel-demo/native-account-management-ui.mjs');
+ const pane=new Node('main'),requests=[];
+ const api=async url=>{
+  requests.push(url);
+  if(url==='/api/data?entity=locations')return {rows:[
+   {id:'A',name:'正常店',active:1},{id:'B',name:'舊店',active:0}]};
+  if(url==='/api/accounts')return {
+   offset:0,has_more:true,next_offset:50,can_create:false,
+   can_manage_status:false,can_manage_role:false,
+   users:Array.from({length:50},(_,i)=>({
+    id:'staff-'+i,username:'staff'+i,display_name:'員工'+i,
+    role:'staff',active:true,location_ids:[i===5?'B':'A']
+   }))
+  };
+  if(url==='/api/accounts?offset=50')return {
+   offset:50,has_more:false,next_offset:null,can_create:false,
+   can_manage_status:false,can_manage_role:false,
+   users:[{id:'staff-50',username:'staff50',display_name:'員工50',
+    role:'staff',active:true,location_ids:['A']}]
+  };
+  throw Error('Unexpected GET '+url);
+ };
+ await renderOwnerAccounts({pane,api,role:'owner',live:()=>true,token:'test',
+  notice:()=>{},refresh:async()=>{},onAuthExpired:()=>{}});
+ const find=(node,tester)=>{
+  if(tester(node))return node;
+  for(const child of node.children){const found=find(child,tester);if(found)return found;}
+  return null;
+ };
+ const select=find(pane,n=>n.tag==='select');
+ let table=find(pane,n=>n.tag==='tbody');
+ assert.equal(table.children.length,50);
+ select.value='grant';select.events.change();
+ assert.equal(table.children.filter(n=>!n.hidden).length,1,'first page only warning');
+ const next=find(pane,n=>n.tag==='button'&&n.textContent==='下一頁');
+ assert(next&&!next.disabled);
+ await next.events.click();
+ const newSelect=find(pane,n=>n.tag==='select'),newTable=find(pane,n=>n.tag==='tbody');
+ assert.notEqual(newSelect,select,'new page is a fresh authenticated projection');
+ assert.equal(newSelect.value,'all','filters reset instead of leaking across server pages');
+ assert.equal(newTable.children.length,1);
+ assert.equal(newTable.children[0].hidden,false);
+ assert.deepEqual(requests,[
+  '/api/accounts','/api/data?entity=locations',
+  '/api/accounts?offset=50','/api/data?entity=locations'
+ ]);
+});

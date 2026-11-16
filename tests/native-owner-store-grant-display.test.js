@@ -56,7 +56,9 @@ test('Real Owner account list renders safe grant warnings, without granting muta
     {id:'staff-2',username:'staff2',display_name:'員工二',role:'staff',
       active:true,location_ids:['B']},
     {id:'mgr-1',username:'manager1',display_name:'主管',role:'manager',
-      active:true,location_ids:['A','absent']}
+      active:true,location_ids:['A','absent']},
+    {id:'inactive-1',username:'former',display_name:'已離職',role:'staff',
+      active:false,location_ids:[]}
    ]
   };
   if(url==='/api/data?entity=locations')
@@ -80,6 +82,33 @@ test('Real Owner account list renders safe grant warnings, without granting muta
  assert.equal(caps.at(-1).create,false);
  assert.equal(caps.at(-1).status,false);
  assert.equal(caps.at(-1).role,false);
+ // Filter is strictly a view of the authenticated current 50-row page:
+ // no extra D1 request, no new account permission, no cross-page total.
+ const find=(node,predicate)=>{
+  if(predicate(node))return node;
+  for(const child of node.children){const found=find(child,predicate);if(found)return found;}
+  return null;
+ };
+ const select=find(pane,node=>node.tag==='select'&&
+  node.attributes['aria-label']==='篩選本頁帳號');
+ const table=find(pane,node=>node.tag==='table');
+ const tbody=find(table,node=>node.tag==='tbody');
+ assert(select&&tbody);
+ assert.equal(tbody.children.length,5);
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false]);
+ select.value='grant';select.events.change();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,false,false,true],
+  'only active accounts with questionable store grants');
+ select.value='inactive';select.events.change();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,true,false],
+  'inactive account remains visible separately, not as an active grant warning');
+ select.value='all';select.events.change();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false]);
+ assert.deepEqual(requests.map(x=>x.method),['GET','GET'],
+  'filtering cannot issue new network requests or writes');
+ const status=find(pane,node=>node.tag==='span'&&
+  node.attributes['aria-live']==='polite');
+ assert(status.textContent.includes('僅篩選目前分頁'));
  const src=fs.readFileSync(path.join(project,'vercel-demo/native-account-management-ui.mjs'),'utf8');
  assert(!src.includes('innerHTML'));
  assert(src.includes("effectiveStoreGrantLabel(user,stores.rows)"));

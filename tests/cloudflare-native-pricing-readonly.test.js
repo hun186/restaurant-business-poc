@@ -321,8 +321,10 @@ test('configured business timezone selects same historical effective price acros
  assert.throws(()=>nativeBusinessDate({BUSINESS_TIME_ZONE:'Invalid/Zone'},now),/E_COST_TIME_ZONE/);
  assert.throws(()=>nativeBusinessDate({BUSINESS_TIME_ZONE:123},now),/E_COST_TIME_ZONE/);
  const backend=fs.readFileSync(path.join(base,'cloudflare/native-business-http.mjs'),'utf8');
- assert(backend.includes('nativeCostReadonlyRows(env.DB,principal,entity,nativeBusinessDate(env))'),
-  'actual Worker HTTP must use the runtime business timezone');
+ assert(backend.includes('nativeBusinessDate(env)')&&
+   backend.includes('nativeRequestedCostDate(requestedAsOf,businessDate)')&&
+   backend.includes('nativeCostReadonlyRows(env.DB,principal,entity,asOf)'),
+  'actual Worker HTTP must use the runtime business timezone and validated as-of date');
  const local=fs.readFileSync(path.join(base,'src/pricing.js'),'utf8');
  assert(local.includes("process.env.BUSINESS_TIME_ZONE||'Asia/Taipei'"));
 });
@@ -330,7 +332,7 @@ test('configured business timezone selects same historical effective price acros
 test('Native D1 historical cost as_of matches SQLite and rejects future/malformed/stock override',async t=>{
  const f=await fixture(t);
  const owner=await f.login('owner'),manager=await f.login('manager'),staff=await f.login('staff');
- const {pricingRows}=require('../src/pricing.js');
+ const {costs}=require('../src/pricing.js');
  const {nativeRequestedCostDate}=await import('../cloudflare/native-pricing-costs.mjs');
  f.db.prepare("INSERT INTO ingredient_prices(id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source) VALUES('oldA','ing','storeA','2026-10-01',2300,'kg','合成供應商','manual')").run();
  const initial=f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n;
@@ -343,8 +345,10 @@ test('Native D1 historical cost as_of matches SQLite and rejects future/malforme
    assert.equal(data.as_of,asOf);
    assert.match(data.business_date,/^\d{4}-\d{2}-\d{2}$/);
    const columns=(await display).presentNativeRows(entity,[]).columns.map(c=>c.key);
-   assert.deepEqual(data.rows,pricingRows(f.db,{id:'manager-1',role:'manager'},entity,asOf)
-     .map(row=>Object.fromEntries(columns.map(key=>[key,row[key]]))),entity+' '+asOf);
+   const local=costs(f.db,{id:'manager-1',role:'manager'},asOf);
+   const expected=entity==='dish_costs'?local.entries:local.details;
+   assert.deepEqual(data.rows,expected.map(row=>
+     Object.fromEntries(columns.map(key=>[key,row[key]]))),entity+' '+asOf);
    assert(data.rows.every(x=>x.location_name==='A門市'));
   }
   for(const q of [

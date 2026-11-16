@@ -103,6 +103,9 @@ async function readDishCosts(db,principal,asOf,entity){
   if(!byDish.has(rec.dish_id))byDish.set(rec.dish_id,[]);
   byDish.get(rec.dish_id).push(rec);
  }
+ // Even overview estimates must not iterate an unbounded store×recipe set.
+ if(stores.length*recipes.length>INPUT_MAX)
+  throw Error('E_COST_INPUT_LIMIT');
  if(entity==='dish_cost_lines'&&
    stores.length*recipes.length>OUTPUT_MAX)
   throw Error('E_COST_RESULT_LIMIT');

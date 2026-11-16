@@ -58,7 +58,9 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       const grants=effectiveStoreGrantLabel(user,stores.rows);
       const needsGrantReview=grants.warning&&user.active===true;
       if(needsGrantReview)grantWarnings++;
-      rowStates.push({node:row,needsGrantReview,inactive:user.active!==true});
+      rowStates.push({node:row,needsGrantReview,inactive:user.active!==true,
+        search:[user.username,user.display_name,grants.text]
+          .filter(value=>typeof value==='string').join(' ').toLocaleLowerCase('zh-TW')});
       for(const value of [user.username,user.display_name,
           {owner:'業主',manager:'主管',staff:'員工'}[user.role]||'未知',
           user.active?'啟用':'停用']){
@@ -141,6 +143,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     table.append(thead,tbody);scroll.append(table);
     const filterBar=element('div');filterBar.className='native-data-toolbar';
     const filterLabel=element('label','篩選本頁帳號 '),filter=element('select'),
+      searchLabel=element('label','搜尋本頁帳號 '),search=element('input'),
       filterCount=element('span');
     filter.setAttribute('aria-label','篩選本頁帳號');
     for(const [value,caption] of [
@@ -149,23 +152,30 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       const option=element('option',caption);option.value=value;filter.append(option);
     }
     filter.value='all';filterLabel.append(filter);
+    search.type='search';search.maxLength=80;
+    search.placeholder='帳號、姓名或門市名稱';
+    search.setAttribute('aria-label','搜尋本頁帳號');
+    searchLabel.append(search);
     filterCount.setAttribute('aria-live','polite');
-    filterBar.append(filterLabel,filterCount);
+    filterBar.append(filterLabel,searchLabel,filterCount);
     const applyFilter=()=>{
       if(!live())return; // Detached Owner pages must not react to stale controls.
-      const mode=filter.value;
-      if(!['all','grant','inactive'].includes(mode))return;
+      const mode=filter.value,term=search.value.trim().toLocaleLowerCase('zh-TW');
+      if(!['all','grant','inactive'].includes(mode)||term.length>80)return;
       let shown=0;
       for(const entry of rowStates){
-        const show=mode==='all'||(mode==='grant'&&entry.needsGrantReview)||
+        const matchesType=mode==='all'||(mode==='grant'&&entry.needsGrantReview)||
           (mode==='inactive'&&entry.inactive);
+        const show=matchesType&&(!term||entry.search.includes(term));
         entry.node.hidden=!show;
         if(show)shown++;
       }
       filterCount.textContent='本頁顯示 '+shown+' / '+rowStates.length+
         ' 筆；僅篩選目前分頁（每頁最多 50 筆），其他頁不受影響。';
     };
-    filter.addEventListener('change',applyFilter);applyFilter();
+    filter.addEventListener('change',applyFilter);
+    search.addEventListener('input',applyFilter);
+    applyFilter();
     pane.append(filterBar,scroll);
     if(grantWarnings)pane.append(element('p',
       '本頁有 '+grantWarnings+' 個啟用帳號存在無有效門市或停用／未列出門市授權，請核對；本頁不會修改授權。'));

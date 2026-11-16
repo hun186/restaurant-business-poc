@@ -2,7 +2,7 @@
 // Matches local src/pricing.js, using exactly the same pure unit/cents helpers.
 // This is NOT FIFO, moving-average valuation or accounting gross profit.
 // No dynamic SQL identifiers, client-supplied store IDs, writes or migrations.
-import pricingUnits from '../src/pricing-units.cjs';
+import pricingUnits from './pricing-units.cjs';
 const {conversion,roundedCents}=pricingUnits;
 const OUTPUT_MAX=500,INPUT_MAX=5000;
 const ACTIVE_GRANT=' l.id IN (SELECT ul.location_id FROM user_locations ul '+

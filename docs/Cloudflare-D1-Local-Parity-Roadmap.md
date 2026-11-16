@@ -61,3 +61,12 @@
 - 原本每次合併 `main` 後都需操作員手動執行 Cloudflare G0。新增固定 Workflow `cloudflare-g0-active-version-readonly.yml` 的 `workflow_run` 入口，在**同一 Repo 的 `Verify`、`push` 主線、結論 success、觸發 Commit 與當前 main GitHub SHA 完全一致**時，才啟動既有 G0 Cloudflare GET-only 建置關聯核對。來自 PR、失敗/取消 CI、非 main、非同 Repo、過時 Commit 的觸發一律略過，不能使用 Cloudflare Secrets。
 - 原有手動 `workflow_dispatch` + `CHECK_ACTIVE_WORKER_READONLY` 留作備援；新自動模式最多 8 次、每次失敗後間隔 30 秒，處理 CI 完成而 Cloudflare Git 建置尚在切版的合理延遲。逾上限仍 **FAIL，絕不自動部署、放行寫入或宣稱 Live UAT 完成**；不讀取 D1 營運資料，也不更改任何正式 Workers 版本。
 - 自動 G0 只有版本與 Git 建置 Commit/100% 流量的證據，不檢驗網域路由、業主登入、檔案下載或操作正確性。跨批可在同一 PR 完成 2～3 個低風險功能，先完成完整 CI＋Codex 再合併一次，讓主線自動跑 G0；**含資料庫寫入/帳號安全/復原/正式 Gate 變更的 PR 必須分開做**。
+
+## 2026-11-16 第五批：三項估算查閱（菜品成本／成本明細／庫存估值，本 PR 仍待驗收）
+
+- 前一個自動化 PR #192 已 Squash Merge `main=76150543f6894ebb0f4cba8898f3837146ff8ee7`，合併後 Verify [#43842313061](https://github.com/hun186/restaurant-business-poc/actions/runs/43842313061) 5/5 成功，GitHub **自行觸發** [G0 #43842650947](https://github.com/hun186/restaurant-business-poc/actions/runs/43842650947)；真實執行日誌顯示 Active Worker 100% 對應 `76150543...`，未執行 Worker 或 D1 寫入。因此後續低風險 PR 不再要求操作員每次手動點 G0。
+- 本批將落地 SQLite 已有的三種**估算型、非會計財務**報表移植為真實 D1 Native 唯讀頁面：`dish_costs`（每店每菜品的估算成本、毛利、毛利率）、`dish_cost_lines`（每份配方的食材明細/缺價與單位不相容原因）、`inventory_values`（按門市食材庫存流水、最新單價換算的估計庫存值）。
+- **共用核心規則**：從本機 `src/pricing.js` 將純 `conversion` 與 `roundedCents` 擷取成無 IO 的 `src/pricing-units.cjs`，供本機及 D1 同時呼叫；D1 自行根據當日臺灣日期挑選有效價格 `price_date<=asOf`，同日以 `created_at DESC,rowid DESC` 分出最新。保留 kg/g、L/ml 相容單位換算、逐行 `Math.round(qty*price_cents)` 至整數分、缺價/不相容/尚無配方回傳 null、負毛利/負庫存顯示，不能用未完整成本誤標為有效利潤。
+- Owner 可檢視其全部啟用門市；Manager 只查已授權且啟用門市；沒有任何門市即空清單；Staff GET 403。**資料隔離在 D1 SQL 範圍判斷**，前端只做選單隱藏及固定中文欄位／已授權 Excel 匯出。
+- 嚴格的結果上限 500 筆、原始查詢至多 5,000 筆及門市×配方運算預算；超出即 503 **Fail Closed**，不截斷結果冒稱成本完整。SQL 僅 SELECT，未新增 D1 Schema、Write Gate、Worker Vars/Secrets，無直接 D1 資料寫入。
+- 合併前要求最新 HEAD CI 五項全綠、正式 Codex Review 0 Findings/0 unresolved、clean merge。合併後主線 CI、**自動 G0** 及使用者 Owner/Manager 實機檢視分別驗證；目前此 PR 是「程式開發中」，不是正式報表已上線。

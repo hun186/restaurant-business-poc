@@ -74,7 +74,11 @@ function showLogin(message){
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
 }
-function table(entity,rows){
+function table(entity,rows,asOf=null){
+ // A dated historical cost workbook must retain its pricing as-of date.
+ // Inventory is current stock only; never present it as historic stock.
+ const costExportDate=(entity==='dish_costs'||entity==='dish_cost_lines')&&
+   typeof asOf==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(asOf)?asOf:null;
  const model=presentNativeRows(entity,rows);
  const catalogManage=catalogWriteEnabled&&role==='owner'&&
    (entity==='locations'||entity==='ingredients');
@@ -167,7 +171,8 @@ function table(entity,rows){
   // Old rendered tables must never export after navigation, logout or re-login.
   if(current!==revision||!liveAuth(exportEpoch,exportToken)||exportButton.disabled)return;
   try{
-   const sheet=nativeOwnerReportSheet(entity,rows,{keyword:input.value,name:labels[entity]});
+   const name=costExportDate?labels[entity]+'_'+costExportDate:labels[entity];
+   const sheet=nativeOwnerReportSheet(entity,rows,{keyword:input.value,name});
    if(!sheet.rows.length){say('目前沒有可匯出的資料。',true);return;}
    if(!window.confirm('確認將目前搜尋結果 '+sheet.rows.length+' 筆下載為 Excel？'
      +'檔案可能含員工或營運資料，請妥善保管。'))return;
@@ -179,7 +184,8 @@ function table(entity,rows){
    const blob=new Blob([bytes],{type:
      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
    const href=URL.createObjectURL(blob),link=el('a');
-   link.href=href;link.download='餐廳好管家_'+entity+'_資料.xlsx';
+   link.href=href;link.download='餐廳好管家_'+entity+
+     (costExportDate?'_'+costExportDate:'')+'_資料.xlsx';
    document.body.append(link);
    try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(href),30000);}
    say('已準備 Excel：'+sheet.rows.length+' 筆，只含已載入且符合搜尋條件的欄位。');
@@ -235,7 +241,8 @@ function render(data){
     }
     content.append(panel);
   }
-  content.append(data.rows.length?table(view,data.rows):el('p','目前授權範圍內沒有符合條件的資料。資料可能尚未建立，或目前身分沒有相關資料可檢視。'));
+  content.append(data.rows.length?
+    table(view,data.rows,HISTORICAL_COST_VIEWS.has(view)?data.as_of:null):el('p','目前授權範圍內沒有符合條件的資料。資料可能尚未建立，或目前身分沒有相關資料可檢視。'));
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;

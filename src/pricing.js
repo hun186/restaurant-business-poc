@@ -4,14 +4,7 @@
 const {uuid,cleanText,requiredRole}=require('./security');
 const {inTransaction}=require('./db');
 function bad(msg,status=400){const e=new Error(msg);e.status=status;throw e;}
-const grams=new Map([['kg',1000],['公斤',1000],['千克',1000],['g',1],['公克',1],['克',1]]);
-const milliliters=new Map([['L',1000],['l',1000],['公升',1000],['升',1000],['ml',1],['mL',1],['毫升',1]]);
-function conversion(qty,from,to){
- if(from===to)return qty;
- if(grams.has(from)&&grams.has(to))return qty*grams.get(from)/grams.get(to);
- if(milliliters.has(from)&&milliliters.has(to))return qty*milliliters.get(from)/milliliters.get(to);
- return null;
-}
+const {conversion,roundedCents}=require('./pricing-units.cjs');
 const today=()=>new Date().toLocaleDateString('sv-SE',{timeZone:process.env.BUSINESS_TIME_ZONE||'Asia/Taipei'});
 function validDate(v){
  if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v+'T00:00:00Z'))||new Date(v+'T00:00:00Z').toISOString().slice(0,10)!==v)bad('日期格式需為 YYYY-MM-DD');
@@ -64,7 +57,7 @@ function costs(db,u,asOf=today()){
   for(const r of recipe){
    const p=latest(db,r.ingredient_id,shop.id,asOf),qty=p?conversion(r.qty,r.unit,p.unit):null;
    const reason=!p?'缺少有效食材單價':qty===null?'單位不相容':null;
-   const amount=reason?null:Math.round(qty*p.price_cents);
+   const amount=reason?null:roundedCents(qty,p.price_cents);
    if(reason)missing++;else cents+=amount;
    details.push({dish_id:dish.id,dish_name:dish.name,location_id:shop.id,location_name:shop.name,
     ingredient_id:r.ingredient_id,ingredient_name:r.ingredient_name,qty:r.qty,unit:r.unit,
@@ -87,7 +80,7 @@ function inventoryValue(db,u,asOf=today()){
  return stock.filter(s=>allowed.has(s.location_id)).map(s=>{
   const p=latest(db,s.ingredient_id,s.location_id,asOf),converted=p?conversion(s.on_hand,s.unit,p.unit):null;
   return {...s,price_date:p?.price_date||null,price_unit:p?.unit||null,unit_price_twd:p?p.price_cents/100:null,
-   estimated_value_twd:converted===null?null:Math.round(converted*p.price_cents)/100,
+   estimated_value_twd:converted===null?null:roundedCents(converted,p.price_cents)/100,
    cost_status:!p?'缺少價格':converted===null?'單位不相容':'最新單價估值（非會計成本）'};
  });
 }

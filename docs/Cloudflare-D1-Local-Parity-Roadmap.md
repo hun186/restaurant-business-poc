@@ -39,3 +39,11 @@
 - 本批預備在 Native D1（**不擴充 Preview GET 白名單**）提供 `stock_moves`、`leave_requests`、`training_records`、`evaluations` 四個已有 v3 資料表的**真實唯讀**列表。查詢必須在 LIMIT 500 前，以 SQL 驗證啟用中的門市授權；員工本人紀錄限制於自己的 user_id，庫存流水限制所屬門市；Owner 可查全店，主管查授權門市。
 - 前端共用原有資料表與欄位白名單，用中文狀態顯示，頁面清楚標示「唯讀」。**不新增任何建立、審核、修改、匯入或匯出**，不觸發資料庫/Worker 寫入 Gate，亦不因本次功能呈現而開啟角色寫入。
 - 這不代表本機的請假審核／訓練評分／考核新增／庫存耗用寫入已完整移植；上述是後續獨立受控 Write PR。CI/Codex 以及真正 Active Worker／角色 UAT 各自判定，不得以新選單顯示當作已上線。
+
+## 2026-11-16 第三批：正式 Native D1 使用者可匯出已授權列表（本 PR 審查中）
+
+- Cloudflare Native 正式登入者在已授權的清單（工作、叫貨、盤點、維修、門市／食材／庫存、排班、請假、訓練紀錄、考核等）可下載目前搜尋結果 Excel `.xlsx`，使用**本機 SQLite / Vercel Demo 已存在且內容一致**的 `xlsx-lite.js` 工作簿產生器；不新增 D1 SQL、Export API、帳號、查詢 Gate 或正式 D1 寫入。
+- 匯出資料完全透過 `presentNativeRows()` 的固定中文欄位白名單，再由純 `nativeOwnerReportSheet()` 產生，僅涵蓋當前 Session 已經 GET 取得且符合本機搜尋的前 500 筆；**不代表完整資料庫備份或全量報表**。數量欄位保留可運算數字，字串依現有 XLSX writer 寫成 `inlineStr`，避免公式執行。
+- 每次使用者手動點擊下載均顯示含個資／營運資料的保管確認。登出、重新登入或切換頁面後，舊頁面下載處理器必須 fail closed；前端自行產生檔案，不提交 Excel 至雲端。
+- 空清單共用文案由「此門市」改為「目前授權範圍內」，讓 Owner 全店／Manager 門市／Staff 本人的條件更準確。
+- 仍需最新 PR HEAD Hosted CI 5/5、正式 Codex Completed/0 Finding、Clean Merge Gate；合併後須 Owner 實機 Excel 下載、資料列／隱私核對、行動裝置下載行為驗收。這不是新增稽核查詢或全量 D1 備份。

@@ -2,6 +2,7 @@ import { inspectD1Contract } from './d1-readiness.mjs';
 import { nativeLoginHttp,nativeLoginEnabled } from './native-login-http.mjs';
 import {nativePasswordChangeHttp} from './native-password-change-http.mjs';
 import {nativeAccountsHttp,nativeAccountStatusHttp,nativeAccountRoleHttp} from './native-account-management-http.mjs';
+import {nativeAuditHttp} from './native-audit-http.mjs';
 import { nativeBusinessReadHttp } from './native-business-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
@@ -43,6 +44,7 @@ export default {
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/password/change') return nativePasswordChangeHttp(request,env);
     if (pathname === '/api/accounts') return nativeAccountsHttp(request,env);
+    if (pathname === '/api/audit') return nativeAuditHttp(request,env);
     if (pathname === '/api/accounts/status') return nativeAccountStatusHttp(request,env);
     if (pathname === '/api/accounts/role') return nativeAccountRoleHttp(request,env);
     if (pathname === '/api/task') return nativeTaskHttp(request,env);

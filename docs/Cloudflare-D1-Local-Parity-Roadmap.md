@@ -84,3 +84,9 @@
 - 選定日期只影響**菜品配方按歷史有效單價的成本／毛利估算**；這不是當天的實際售價/銷售報表快照。特別禁止 `inventory_values?as_of=...`，因為目前庫存是當前流水總額，不能套舊價格後冒稱過去庫存值。
 - API 回覆 `as_of` 與 `business_date`，頁面清楚顯示成本日期、提供恢復當日。切換頁面、登出或身份改變時，舊日期操作不可影響新畫面；不新增寫入、Gate、DB Schema 或雲端 Secrets。
 - 遵守最新 HEAD CI／Codex／Clean Merge 與合併後自動 G0；未通過 Owner/Manager 實機查詢和已存在價格的結果核對前，不標示 Live UAT PASS。
+
+## 2026-11-16 Owner 帳號所屬門市權限提示（本 PR 待 CI/Review）
+
+- 原有正式 D1 `GET /api/accounts` 已向 Owner 回傳每個員工/主管的 `location_ids`，`GET /api/data?entity=locations` 提供門市名稱與啟用狀態。本批僅將**目前有效的門市授權**、停用門市及不在本次門市清單的授權，明確區分顯示。Owner 角色是全部啟用門市的權限，不應錯誤顯示為無授權。
+- 當啟用帳號沒有有效門市授權，UI 顯示醒目提示並記錄本頁需要核對的帳號數；本頁只顯示不修改 Grant，未知門市僅寫「未在本次門市清單」，不臆測已刪除；門市資料最多顯示已載入的 500 筆，帳號清單每頁 50 筆。
+- **仍未新增「修改員工門市授權」或「重設他人密碼」**：需要獨立 Gate、Owner 身分驗證、D1 transaction/audit/session 撤銷與正式測試，不因 UI 警示而放行。本批不增 Worker API、資料庫讀寫、Schema、Token、正式設定。

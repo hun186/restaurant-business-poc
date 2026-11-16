@@ -205,8 +205,8 @@ function render(data){
   if(data.entity!==view||!Array.isArray(data.rows)||data.rows.length>500)
     throw Error('營運資料格式不正確。');
   if(COST_VIEWS.has(view)){
-    if(typeof data.as_of!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(data.as_of)||
-       typeof data.business_date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(data.business_date))
+    if(typeof data.as_of!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.as_of)||
+       typeof data.business_date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.business_date))
       throw Error('成本日期回應格式不正確。');
     const panel=el('div');panel.className='native-data-toolbar';
     const isHistoric=HISTORICAL_COST_VIEWS.has(view);

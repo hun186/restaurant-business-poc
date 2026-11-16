@@ -356,7 +356,7 @@ test('copied archive verifier rejects same file, missing copies and different va
 });
 test('Windows inode comparison retains BigInt precision for distinct >2^53 file IDs',()=>{
  // JS numeric Stats can collapse distinct NTFS 64-bit file indices.
- const high=9007199254740993n,next=high+1n;
+ const high=9007199254740992n,next=high+1n;
  assert.equal(Number(high),Number(next));
  assert.notEqual(high,next);
  const source=fs.readFileSync(path.join(root,'tools/cloudflare-prod-d1-encrypted-backup.mjs'),'utf8');

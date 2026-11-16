@@ -156,3 +156,21 @@ test('independent Owner account grants never leave an authorized account page fa
   assert.equal(a.pageWritable,false,'account grants are not business writes');
  }
 });
+
+test('Native Owner audit is a distinct read-only page even when all write gates are active',async()=>{
+ const {nativeOwnerCapability}=await capability;
+ for(const role of ['owner','manager','staff',null]){
+  const x=nativeOwnerCapability({view:'audit_logs',role,task:true,
+   catalog:true,order:true,stocktake:true,repair:true,
+   account:true,accountStatus:true,accountRole:true});
+  assert.equal(x.pageWritable,false);
+  assert.equal(x.pageLabel,'安全稽核・僅檢視');
+  assert.match(x.description,/只有業主可檢視/);
+  assert(Object.isFrozen(x));
+ }
+ const html=asset('owner-app.html'),js=asset('owner-app.js');
+ assert.match(html,/data-view="audit_logs" hidden/);
+ assert.match(js,/if\(view==='audit_logs'\)/);
+ assert.match(js,/renderOwnerAudit\(\{pane:\$\('content'\),api,role/);
+ assert.match(js,/onlyOwner of \['accounts','audit_logs'\]/);
+});

@@ -66,7 +66,7 @@
 
 - 前一個自動化 PR #192 已 Squash Merge `main=76150543f6894ebb0f4cba8898f3837146ff8ee7`，合併後 Verify [#43842313061](https://github.com/hun186/restaurant-business-poc/actions/runs/43842313061) 5/5 成功，GitHub **自行觸發** [G0 #43842650947](https://github.com/hun186/restaurant-business-poc/actions/runs/43842650947)；真實執行日誌顯示 Active Worker 100% 對應 `76150543...`，未執行 Worker 或 D1 寫入。因此後續低風險 PR 不再要求操作員每次手動點 G0。
 - 本批將落地 SQLite 已有的三種**估算型、非會計財務**報表移植為真實 D1 Native 唯讀頁面：`dish_costs`（每店每菜品的估算成本、毛利、毛利率）、`dish_cost_lines`（每份配方的食材明細/缺價與單位不相容原因）、`inventory_values`（按門市食材庫存流水、最新單價換算的估計庫存值）。
-- **共用核心規則**：從本機 `src/pricing.js` 將純 `conversion` 與 `roundedCents` 擷取成無 IO 的 `src/pricing-units.cjs`，供本機及 D1 同時呼叫；D1 自行根據當日臺灣日期挑選有效價格 `price_date<=asOf`，同日以 `created_at DESC,rowid DESC` 分出最新。保留 kg/g、L/ml 相容單位換算、逐行 `Math.round(qty*price_cents)` 至整數分、缺價/不相容/尚無配方回傳 null、負毛利/負庫存顯示，不能用未完整成本誤標為有效利潤。
+- **共用核心規則**：從本機 `src/pricing.js` 將純 `conversion` 與 `roundedCents` 擷取成無 IO 的 `cloudflare/pricing-units.cjs`，供本機及 D1 同時呼叫；D1 自行根據當日臺灣日期挑選有效價格 `price_date<=asOf`，同日以 `created_at DESC,rowid DESC` 分出最新。保留 kg/g、L/ml 相容單位換算、逐行 `Math.round(qty*price_cents)` 至整數分、缺價/不相容/尚無配方回傳 null、負毛利/負庫存顯示，不能用未完整成本誤標為有效利潤。
 - Owner 可檢視其全部啟用門市；Manager 只查已授權且啟用門市；沒有任何門市即空清單；Staff GET 403。**資料隔離在 D1 SQL 範圍判斷**，前端只做選單隱藏及固定中文欄位／已授權 Excel 匯出。
 - 嚴格的結果上限 500 筆、原始查詢至多 5,000 筆及門市×配方運算預算；超出即 503 **Fail Closed**，不截斷結果冒稱成本完整。SQL 僅 SELECT，未新增 D1 Schema、Write Gate、Worker Vars/Secrets，無直接 D1 資料寫入。
 - 合併前要求最新 HEAD CI 五項全綠、正式 Codex Review 0 Findings/0 unresolved、clean merge。合併後主線 CI、**自動 G0** 及使用者 Owner/Manager 實機檢視分別驗證；目前此 PR 是「程式開發中」，不是正式報表已上線。

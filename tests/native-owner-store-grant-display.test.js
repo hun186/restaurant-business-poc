@@ -92,9 +92,11 @@ test('Real Owner account list renders safe grant warnings, without granting muta
  };
  const select=find(pane,node=>node.tag==='select'&&
   node.attributes['aria-label']==='篩選本頁帳號');
+ const search=find(pane,node=>node.tag==='input'&&
+  node.attributes['aria-label']==='搜尋本頁帳號');
  const table=find(pane,node=>node.tag==='table');
  const tbody=find(table,node=>node.tag==='tbody');
- assert(select&&tbody);
+ assert(select&&search&&tbody);
  assert.equal(tbody.children.length,5);
  assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false]);
  select.value='grant';select.events.change();
@@ -105,12 +107,26 @@ test('Real Owner account list renders safe grant warnings, without granting muta
   'inactive account remains visible separately, not as an active grant warning');
  select.value='all';select.events.change();
  assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false]);
+ search.value='員工二';search.events.input();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+  'search is limited to this page and visible name');
+ search.value='停用店';search.events.input();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+  'already rendered store name can be searched locally');
+ select.value='grant';select.events.change();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+  'status filter and search term are conjunctive');
+ search.value='';search.events.input();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,false,false,true]);
+ select.value='all';select.events.change();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false]);
  assert.deepEqual(requests.map(x=>x.method),['GET','GET'],
   'filtering cannot issue new network requests or writes');
  const status=find(pane,node=>node.tag==='span'&&
   node.attributes['aria-live']==='polite');
  assert(status.textContent.includes('僅篩選目前分頁'));
  isLive=false;select.value='grant';select.events.change();
+ search.value='former';search.events.input();
  assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false],
   'detached or signed-out Owner page controls cannot mutate the displayed table');
  const src=fs.readFileSync(path.join(project,'vercel-demo/native-account-management-ui.mjs'),'utf8');
@@ -164,12 +180,20 @@ test('Owner account filter resets on the next server page and never expands scop
  assert.equal(table.children.length,50);
  select.value='grant';select.events.change();
  assert.equal(table.children.filter(n=>!n.hidden).length,1,'first page only warning');
+ const originalSearch=find(pane,n=>n.tag==='input'&&
+  n.attributes['aria-label']==='搜尋本頁帳號');
+ originalSearch.value='staff5';originalSearch.events.input();
+ assert.equal(table.children.filter(n=>!n.hidden).length,1);
  const next=find(pane,n=>n.tag==='button'&&n.textContent==='下一頁');
  assert(next&&!next.disabled);
  await next.events.click();
  const newSelect=find(pane,n=>n.tag==='select'),newTable=find(pane,n=>n.tag==='tbody');
+ const newSearch=find(pane,n=>n.tag==='input'&&
+  n.attributes['aria-label']==='搜尋本頁帳號');
  assert.notEqual(newSelect,select,'new page is a fresh authenticated projection');
  assert.equal(newSelect.value,'all','filters reset instead of leaking across server pages');
+ assert(newSearch&&newSearch!==originalSearch);
+ assert.equal(newSearch.value,'','search must not silently carry over to next server page');
  assert.equal(newTable.children.length,1);
  assert.equal(newTable.children[0].hidden,false);
  assert.deepEqual(requests,[

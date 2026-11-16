@@ -221,5 +221,74 @@ test('Owner audit source exposes no mock/local storage and never trusts a client
  }
  assert.match(ui,/textContent=String\(value\)/);
  assert.match(ui,/new URLSearchParams/);
- assert.match(ui,/timeZone:'Asia\/Taipei'/);
+ const projection=fs.readFileSync(path.join(root,'vercel-demo/native-owner-audit-export.mjs'),'utf8');
+ assert.match(projection,/timeZone:'Asia\/Taipei'/);
+ assert.match(ui,/nativeAuditPageSheet\(lastRows\)/);
+});
+
+test('Audit page Excel contains only visible allowlisted values and not private event fields',async()=>{
+ const {nativeAuditPageSheet,taipeiAuditTime}=await import('../vercel-demo/native-owner-audit-export.mjs');
+ const {buildWorkbook}=require('../public/xlsx-lite.js');
+ const rows=[{at:'2026-11-16 02:00:00',actor_name:'測試業主',
+  action:'user.role',entity:'users',summary:'=HYPERLINK("https://evil.invalid","sample")',
+  ip_hash:'SHOULD_NOT_EXPORT_IPHASH',actor_id:'SHOULD_NOT_EXPORT_ACTOR',
+  detail:'SHOULD_NOT_EXPORT_DETAIL',password:'SHOULD_NOT_EXPORT_PASSWORD'}];
+ const sheet=nativeAuditPageSheet(rows);
+ assert.equal(sheet.rows.length,1);
+ assert.equal(sheet.headers.length,5);
+ assert.equal(sheet.rows[0][1],'測試業主');
+ assert.equal(sheet.rows[0][2],'帳號角色變更');
+ assert.match(sheet.rows[0][0],/2026/);
+ assert.equal(taipeiAuditTime('not-a-date'),'時間資料異常');
+ assert(!JSON.stringify(sheet).includes('SHOULD_NOT_EXPORT'));
+ const xml=Buffer.from(buildWorkbook([sheet])).toString('utf8');
+ assert(xml.includes('inlineStr'),'audit user content is text not an Excel formula');
+ assert(!xml.includes('SHOULD_NOT_EXPORT'));
+ assert(!/<f(?:\s|>)/.test(xml),'no formula element');
+ assert.throws(()=>nativeAuditPageSheet(Array(51).fill(rows[0])));
+ assert.throws(()=>nativeAuditPageSheet([{at:'2026-11-16',actor_name:'A'},null]));
+});
+test('Native Owner audit export button uses only loaded current page and live Owner session',async t=>{
+ class FakeNode{
+  constructor(tag){this.tag=tag;this.children=[];this.textContent='';this.value='';
+   this.disabled=false;this.events={};}
+  append(...nodes){this.children.push(...nodes);}
+  replaceChildren(...nodes){this.children=[...nodes];}
+  setAttribute(name,value){this[name]=value;}
+  addEventListener(name,listener){this.events[name]=listener;}
+ }
+ const beforeDoc=globalThis.document,beforeConfirm=globalThis.confirm;
+ globalThis.document={createElement:tag=>new FakeNode(tag)};
+ let confirms=0,live=true,requests=0;
+ globalThis.confirm=()=>{confirms++;return false;};
+ t.after(()=>{
+  if(beforeDoc===undefined)delete globalThis.document;else globalThis.document=beforeDoc;
+  if(beforeConfirm===undefined)delete globalThis.confirm;else globalThis.confirm=beforeConfirm;
+ });
+ const {renderOwnerAudit}=await import('../vercel-demo/native-owner-audit-ui.mjs');
+ const pane=new FakeNode('div');
+ const api=async()=>{requests++;return {mode:'native_d1',offset:0,has_more:false,
+  next_offset:null,truncated:false,rows:[{
+   at:'2026-11-16 02:00:00',actor_name:'業主',action:'auth.login',
+   entity:'users',summary:'登入成功',password_hash:'must-not-export'
+  }]};};
+ await renderOwnerAudit({pane,api,role:'owner',signal:undefined,notice:()=>{},
+  live:()=>live,onAuthExpired:()=>{}});
+ const find=(node,predicate)=>{
+  if(predicate(node))return node;
+  for(const child of node.children){const a=find(child,predicate);if(a)return a;}
+  return null;
+ };
+ const button=find(pane,n=>n.tag==='button'&&n.textContent.includes('Excel'));
+ assert(button&&!button.disabled);
+ button.events.click();assert.equal(confirms,1);
+ assert.equal(requests,1,'download must not issue new D1 requests');
+ live=false;button.events.click();
+ assert.equal(confirms,1,'revoked session cannot export previously loaded data');
+ assert.equal(requests,1);
+ const denied=new FakeNode('div');live=true;
+ await renderOwnerAudit({pane:denied,api,role:'staff',signal:undefined,notice:()=>{},
+  live:()=>true,onAuthExpired:()=>{}});
+ assert.equal(find(denied,n=>n.tag==='button'&&n.textContent.includes('Excel')),null,
+  'staff cannot be shown an audit export control');
 });

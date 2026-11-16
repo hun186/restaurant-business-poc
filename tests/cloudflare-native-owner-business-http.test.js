@@ -129,11 +129,11 @@ test('Native D1 dashboard counts scoped pending leave and starting-today shifts 
  for(const [suffix,store,user] of [['A',f.a,'staff-one'],['B',f.b,'staff-two']]){
   f.db.prepare("INSERT INTO leave_requests(id,user_id,location_id,start_date,end_date,reason,status) VALUES(?,?,?,?,?,?,'pending')")
    .run('leave-'+suffix,user,store,day,day,'合成請假');
-  f.db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time) VALUES(?,?,?,?,?,?)')
-   .run('shift-'+suffix,store,user,day,'09:00','18:00');
+  f.db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time,created_by) VALUES(?,?,?,?,?,?,?)')
+   .run('shift-'+suffix,store,user,day,'09:00','18:00',f.owner);
  }
- f.db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time) VALUES(?,?,?,?,?,?)')
-  .run('shift-old',f.a,'staff-one',previous,'08:00','17:00');
+ f.db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time,created_by) VALUES(?,?,?,?,?,?,?)')
+  .run('shift-old',f.a,'staff-one',previous,'08:00','17:00',f.owner);
  const tokens={};
  for(const username of ['owner','manager','staff1','staff2'])
   tokens[username]=(await f.login(username)).cookie;

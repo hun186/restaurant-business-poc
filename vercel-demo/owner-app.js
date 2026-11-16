@@ -18,7 +18,8 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
 const HISTORICAL_COST_VIEWS=new Set(['dish_costs','dish_cost_lines']);
 const COST_VIEWS=new Set(['dish_costs','dish_cost_lines','inventory_values']);
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
-  open_repairs:'未結維修',low_stock:'庫存不足'};
+  open_repairs:'未結維修',low_stock:'庫存不足',
+  pending_leaves:'待審請假',today_shifts:'今日開始班次'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
 let authEpoch=0;
 const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!==''&&csrf===token;

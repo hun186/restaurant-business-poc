@@ -97,3 +97,10 @@
 - 改採 `fs.lstatSync(file,{bigint:true})` 的完整 `BigInt` 裝置與 inode 識別碼，連同 `BigInt` 檔案大小比較，保留 realpath 相同、Symlink、硬連結、格式／MAC／密碼／SQLite replay 等全部既有安全防線；不得以刪除同一檔案檢查來處理偶發誤判。
 - 新增 Windows NTFS 大整數精度以及實體硬連結「兩個路徑但一個檔案」拒絕測試。仍**不能證明離線副本確實存放異地**，且不會新增 Cloudflare D1 查詢／寫入、遠端還原、部署、正式 Secrets/Vars/Gate 變更。
 - 任何合併須最新 HEAD CI 5/5 與 Codex Review completed 0 Findings；合成測試通過不等於已由業主重做真實加密備份驗證。
+
+## 2026-11-16 Native 營運總覽人事指標（本 PR 待 CI/Review）
+
+- 於 Cloudflare Native 真實 `/api/overview` 增加兩個**唯讀計數**：`pending_leaves` 待審請假（各門市 pending 狀態總數）及 `today_shifts` 今日排定開始班次（`shift_date` 等於當地營業日的班次，**不包含昨日開始仍延續到今天的跨日班**）。日期取正式 Worker 既有 `BUSINESS_TIME_ZONE`，預設臺灣。
+- Owner 查看全部啟用門市、Manager 限授權且啟用門市、Staff 限本人且所屬啟用門市；計數由 D1 固定 `SELECT COUNT` 與 SQL 範圍過濾完成，沒有新寫入、額外 D1 Schema/Vars/Gate。未登入仍受原生 Session 驗證阻擋。
+- **原 Preview/Staging 四項 KPI 完全不擴張**。只在正式 Native `nativeBusinessReadHttp` 組合額外兩項；顯示文字明確為「今日開始班次」，避免把它誤認為整天在勤人數。
+- 使用實際 SQLite v3/D1 adapter 合成 HTTP 驗證 Owner/Manager/兩個不同門市的 Staff、昨日班次、停用門市即時收回範圍、原本四項不受影響、沒有額外營運/稽核寫入。需最新 HEAD CI、正式 Codex 0 Findings/0 unresolved 及實機 UAT，不能直接標示 Live PASS。

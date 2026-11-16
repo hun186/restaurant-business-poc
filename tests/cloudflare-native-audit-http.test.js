@@ -12,7 +12,13 @@ function d1(db){
   all:async()=>({results:db.prepare(sql).all(...args)}),
   run:async()=>({meta:db.prepare(sql).run(...args)})
  });
- return {prepare(sql){return {...stmt(sql),bind:(...args)=>stmt(sql,args)};}};
+ return {prepare(sql){return {...stmt(sql),bind:(...args)=>stmt(sql,args)};},
+  async batch(statements){
+   db.exec('BEGIN IMMEDIATE');try{
+    const results=[];for(const statement of statements)results.push(await statement.run());
+    db.exec('COMMIT');return results;
+   }catch(e){db.exec('ROLLBACK');throw e;}
+  }};
 }
 async function fixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());

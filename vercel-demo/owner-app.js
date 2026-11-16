@@ -12,6 +12,7 @@ const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   shifts:'排班',leave_requests:'請假申請',training_records:'訓練紀錄',evaluations:'員工考核',
   ingredients:'食材',locations:'門市',training_courses:'訓練',
   ingredient_prices:'食材歷史價格',menu_dishes:'菜品與售價',dish_ingredients:'每份食材配方',
+  dish_costs:'菜品成本／毛利',dish_cost_lines:'食材成本明細',inventory_values:'庫存估值',
   account:'我的帳號',
   accounts:'帳號管理',audit_logs:'安全稽核'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
@@ -28,6 +29,9 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   ingredient_prices:'已登錄的門市食材歷史單價（目前唯讀）',
   menu_dishes:'菜品與售價、每份食材項數（目前唯讀）',
   dish_ingredients:'菜品每份食材用量（目前唯讀，非成本試算）',
+  dish_costs:'依最新有效歷史價格估計成本及毛利；非會計實際毛利（唯讀）',
+  dish_cost_lines:'逐項依門市價格、換算單位估算配方食材成本（唯讀）',
+  inventory_values:'最新有效單價估值，非 FIFO／移動平均會計成本（唯讀）',
   ingredients:'食材及安全庫存主檔',
   locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）',
   account:'個人密碼變更與登入安全',accounts:'業主帳號清單與依後端權限開放的管理功能',
@@ -877,7 +881,8 @@ function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
   authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
-  const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients'];
+  const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients',
+    'dish_costs','dish_cost_lines','inventory_values'];
   for(const onlyOwner of ['accounts','audit_logs']){
     const button=document.querySelector('#nav button[data-view="'+onlyOwner+'"]');
     if(button)button.hidden=role!=='owner';

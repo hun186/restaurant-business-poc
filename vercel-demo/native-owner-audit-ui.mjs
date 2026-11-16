@@ -123,9 +123,9 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
       notice('起始日期不能晚於結束日期。',true);return;
     }
     applied=Object.freeze({category:category.value||'all',from:from.value,to:to.value});
-    load(0);
+    return load(0);
   });
-  previous.addEventListener('click',()=>{if(!previous.disabled&&offset>=50)load(offset-50);});
-  next.addEventListener('click',()=>{if(!next.disabled)load(offset+50);});
+  previous.addEventListener('click',()=>{if(!previous.disabled&&offset>=50)return load(offset-50);});
+  next.addEventListener('click',()=>{if(!next.disabled)return load(offset+50);});
   await load(0);
 }

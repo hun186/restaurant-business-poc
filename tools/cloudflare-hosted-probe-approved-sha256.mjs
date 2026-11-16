@@ -318,7 +318,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/native-owner-report.mjs":"c43c84c0218bfc3fe8f48f2a09e4fb7a8a4bb317459161ddd2915a68da1e968d",
   "tests/cloudflare-native-owner-xlsx-export.test.js":"f98142295705f74bba4239d7182a63b8f8f9e4af5ec4b3ac8c382d0d5fdc8b49",
   "cloudflare/native-pricing-readonly.mjs":"b7be585025ce8277a3eefc994237841bb0a57ffe08fa5f90dd79f70d6a74e15b",
-  "tests/cloudflare-native-pricing-readonly.test.js":"9509d5d656bfdbe467174dd9a3670c2b889aec11afb707a532b6ccaf169766ab",
+  "tests/cloudflare-native-pricing-readonly.test.js":"f3770f67336c7f6f3148fcec629b2aa8ca987fd6e6e89842705cb610d2267a49",
   "cloudflare/native-pricing-costs.mjs":"d2a8d8c3d36221f2e9103609a0d53a415ea4ef2ad2be30ffa3eaa2dc4b8e12b5",
   "cloudflare/pricing-units.cjs":"f2ea93e3be1b3c6f5f588848e51e023174c5dabfd64a5eb416f2b4a98c3e7e9f",
 });

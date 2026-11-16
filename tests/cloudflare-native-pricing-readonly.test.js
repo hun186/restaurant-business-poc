@@ -268,7 +268,7 @@ test('cost view capacity uses fail-closed 503 instead of silently truncated or m
  assert.equal((await res.json()).code,'E_BUSINESS_UNAVAILABLE');
 });
 test('shared unit conversion never changes SQLite weights, volumes or half-cent rounding',()=>{
- const {conversion,roundedCents}=require('../src/pricing-units.cjs');
+ const {conversion,roundedCents}=require('../cloudflare/pricing-units.cjs');
  const local=fs.readFileSync(path.join(base,'src/pricing.js'),'utf8');
  const cloud=fs.readFileSync(path.join(base,'cloudflare/native-pricing-costs.mjs'),'utf8');
  for(const [qty,from,to,expected] of [
@@ -277,8 +277,8 @@ test('shared unit conversion never changes SQLite weights, volumes or half-cent 
  ])assert.equal(conversion(qty,from,to),expected);
  assert.equal(roundedCents(0.15,6250),938);
  assert.equal(roundedCents(1,999),999);
- assert.match(local,/require\('\.\/pricing-units\.cjs'\)/);
- assert.match(cloud,/import pricingUnits from '\.\.\/src\/pricing-units\.cjs'/);
+ assert.match(local,/require\('\.\.\/cloudflare\/pricing-units\.cjs'\)/);
+ assert.match(cloud,/import pricingUnits from '\.\/pricing-units\.cjs'/);
  assert(!cloud.includes('INSERT INTO'));
  assert(!cloud.includes('UPDATE '));
  assert(!cloud.includes('DELETE FROM'));

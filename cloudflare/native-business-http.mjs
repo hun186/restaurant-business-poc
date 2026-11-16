@@ -5,7 +5,7 @@ import {queryFor} from './operations-readonly.mjs';
 import {metricQueries} from './overview-readonly.mjs';
 import {nativeParityReadonlyPlan,NATIVE_READONLY_PARITY_ENTITIES} from './native-parity-readonly.mjs';
 import {nativePricingReadonlyPlan,NATIVE_PRICING_ENTITIES} from './native-pricing-readonly.mjs';
-import {nativeCostReadonlyRows,NATIVE_COST_ENTITIES} from './native-pricing-costs.mjs';
+import {nativeCostReadonlyRows,nativeBusinessDate,NATIVE_COST_ENTITIES} from './native-pricing-costs.mjs';
 
 const ENTITIES=new Set(['locations','ingredients','training_courses','tasks','assignable_staff',
   'purchase_orders','repairs','shifts','stock','stocktakes',
@@ -80,7 +80,7 @@ export async function nativeBusinessReadHttp(request,env){
          !hasAccess(principal,'manager'))
         return reply(403,{code:'E_FORBIDDEN'});
       if(NATIVE_COST_ENTITIES.includes(entity)){
-        const rows=await nativeCostReadonlyRows(env.DB,principal,entity);
+        const rows=await nativeCostReadonlyRows(env.DB,principal,entity,nativeBusinessDate(env));
         return reply(200,{mode:'native_d1',entity,rows});
       }
       const plan=queryFor(entity,principal)||nativeParityReadonlyPlan(entity,principal)||

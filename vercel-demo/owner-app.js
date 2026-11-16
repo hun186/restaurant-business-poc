@@ -2,11 +2,13 @@ import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs';
 import {normalizeCatalogCommand} from './catalog-crud-contract.mjs';
 import {nativeOwnerCapability} from './native-owner-capability.mjs';
 import {renderOwnerAccounts} from './native-account-management-ui.mjs';
+import {renderOwnerAudit} from './native-owner-audit-ui.mjs';
 // Dedicated native D1 browser client; never imports the public demo mock.
 const $=id=>document.getElementById(id);
 const labels={overview:'今日總覽',tasks:'工作',purchase_orders:'叫貨',
   stock:'庫存',stocktakes:'盤點',repairs:'維修',shifts:'排班',ingredients:'食材',
-  locations:'門市',training_courses:'訓練',account:'我的帳號',accounts:'帳號管理'};
+  locations:'門市',training_courses:'訓練',account:'我的帳號',
+  accounts:'帳號管理',audit_logs:'安全稽核'};
 const metrics={open_tasks:'待辦工作',pending_orders:'待處理叫貨',
   open_repairs:'未結維修',low_stock:'庫存不足'};
 const mobileNav=window.matchMedia('(max-width: 760px)');
@@ -17,7 +19,8 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
   shifts:'班表資訊（目前唯讀）',ingredients:'食材及安全庫存主檔',
   locations:'門市基本資訊',training_courses:'教育訓練資訊（目前唯讀）',
-  account:'個人密碼變更與登入安全',accounts:'業主帳號清單與依後端權限開放的管理功能'};
+  account:'個人密碼變更與登入安全',accounts:'業主帳號清單與依後端權限開放的管理功能',
+  audit_logs:'僅業主可檢閱的登入與重要異動紀錄'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false,accountWriteEnabled=false,
@@ -766,6 +769,13 @@ async function refresh(){
     say('可安全變更密碼；此操作不會修改營運資料。');
     return;
   }
+  if(view==='audit_logs'){
+    const epoch=authEpoch,token=csrf;
+    await renderOwnerAudit({pane:$('content'),api,role,signal:controller.signal,
+      notice:say,live:()=>marker===revision&&liveAuth(epoch,token),
+      onAuthExpired:showLogin});
+    return;
+  }
   if(view==='accounts'){
     accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;syncView();
     const epoch=authEpoch,token=csrf;
@@ -830,8 +840,13 @@ function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
   authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
-  const button=document.querySelector('#nav button[data-view="accounts"]');
-  if(button)button.hidden=role!=='owner';
+  for(const onlyOwner of ['accounts','audit_logs']){
+    const button=document.querySelector('#nav button[data-view="'+onlyOwner+'"]');
+    if(button)button.hidden=role!=='owner';
+  }
+  if(role!=='owner'&&(view==='accounts'||view==='audit_logs')){
+    view='overview';$('title').textContent=labels[view];
+  }
   const name=String(me.user.display_name||'');
   $('identity').textContent=name+'（'+
     ({owner:'業主',manager:'主管',staff:'員工'}[me.user.role]||'')+'）';

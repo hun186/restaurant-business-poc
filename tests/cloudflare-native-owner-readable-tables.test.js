@@ -94,7 +94,7 @@ test('local pagination respects page boundaries, empty rows and the 500-row cap'
 test('native Owner browser uses only DOM text and scoped, loaded rows for search',()=>{
  const js=src('owner-app.js'),projection=src('native-owner-display.mjs');
  assert(js.includes("import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs'"));
- assert(js.includes('table(view,data.rows)'));
+ assert(js.includes('table(view,data.rows,HISTORICAL_COST_VIEWS.has(view)?data.as_of:null)'));
  assert(js.includes('presentNativeRows(entity,rows)'));
  assert(js.includes('document.createDocumentFragment()'));
  assert(js.includes('pageNativeEntries(shown,page,pageSize)'));

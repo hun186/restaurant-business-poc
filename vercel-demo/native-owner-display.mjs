@@ -22,8 +22,8 @@ const STATUS={
  leave_requests:{pending:'待審核',approved:'已核准',rejected:'已駁回'}
 };
 const MOVE_TYPE=Object.freeze({purchase:'進貨',usage:'耗用',adjustment:'調整'});
-const POSITIVE=new Set(['done','received','confirmed','closed','approved']);
-const ATTENTION=new Set(['todo','doing','requested','pending','reported','assigned']);
+const POSITIVE=new Set(['done','received','confirmed','closed']);
+const ATTENTION=new Set(['todo','doing','requested','approved','pending','reported','assigned']);
 const QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty','required_score','score','qty_delta']);
 const numberFormat=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:3});
 const blank=()=>({text:'—',tone:''});
@@ -46,7 +46,7 @@ function cell(entity,row,key){
  if(key==='status'){
   if(typeof value!=='string'||!Object.hasOwn(STATUS[entity]||{},value))
    return {text:'未識別',tone:'warn'};
-  return {text:STATUS[entity][value],tone:POSITIVE.has(value)?'ok':ATTENTION.has(value)?'warn':'muted'};
+  return {text:STATUS[entity][value],tone:(entity==='leave_requests'&&value==='approved')||POSITIVE.has(value)?'ok':ATTENTION.has(value)?'warn':'muted'};
  }
  if(QUANTITIES.has(key)){
   return typeof value==='number'&&Number.isFinite(value)?

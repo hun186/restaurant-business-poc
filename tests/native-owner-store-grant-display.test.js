@@ -108,14 +108,17 @@ test('Real Owner account list renders safe grant warnings, without granting muta
  select.value='all';select.events.change();
  assert.deepEqual(tbody.children.map(row=>row.hidden),[false,false,false,false,false]);
  search.value='員工二';search.events.input();
- assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,false,true,true],
   'search is limited to this page and visible name');
  search.value='停用店';search.events.input();
- assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,false,true,true],
   'already rendered store name can be searched locally');
  select.value='grant';select.events.change();
- assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,false,true,true],
   'status filter and search term are conjunctive');
+ search.value='主管';search.events.input();
+ assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,true,false,true],
+  'manager row can be found within the grant-warning subset');
  search.value='';search.events.input();
  assert.deepEqual(tbody.children.map(row=>row.hidden),[true,true,false,false,true]);
  select.value='all';select.events.change();

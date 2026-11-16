@@ -8,17 +8,23 @@ const FIELDS={
  stock:[['location_name','門市'],['name','食材'],['sku','代碼'],['on_hand','現有庫存'],['min_stock','最低庫存'],['unit','單位'],['stock_alert','庫存狀態']],
  stocktakes:[['location_name','門市'],['ingredient_name','食材'],['expected_qty','帳面庫存'],['counted_qty','實際盤點'],['unit','單位'],['status','盤點狀態'],['created_at','建立時間']],
  repairs:[['location_name','門市'],['equipment','設備'],['description','故障說明'],['assigned_name','指派人員'],['status','維修狀態'],['created_at','報修時間']],
- shifts:[['location_name','門市'],['staff_name','員工'],['shift_date','班表日期'],['start_time','開始時間'],['end_time','結束時間'],['note','備註']]
+ shifts:[['location_name','門市'],['staff_name','員工'],['shift_date','班表日期'],['start_time','開始時間'],['end_time','結束時間'],['note','備註']],
+ stock_moves:[['location_name','門市'],['ingredient_name','食材'],['qty_delta','數量變化'],['unit','單位'],['move_type','流水類別'],['note','備註'],['created_at','紀錄時間']],
+ leave_requests:[['location_name','門市'],['staff_name','員工'],['start_date','開始日期'],['end_date','結束日期'],['reason','請假原因'],['status','審核狀態'],['created_at','申請時間']],
+ training_records:[['location_name','門市'],['staff_name','員工'],['course_title','訓練課程'],['score','成績'],['required_score','合格分數'],['completed_on','完成日期']],
+ evaluations:[['location_name','門市'],['staff_name','員工'],['period','考核期間'],['score','分數'],['feedback','評語'],['created_at','建立時間']]
 };
 const STATUS={
  tasks:{todo:'待辦',doing:'進行中',done:'已完成'},
  purchase_orders:{requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消'},
  stocktakes:{pending:'待確認',confirmed:'已確認'},
- repairs:{reported:'待處理',assigned:'已指派',closed:'已結案'}
+ repairs:{reported:'待處理',assigned:'已指派',closed:'已結案'},
+ leave_requests:{pending:'待審核',approved:'已核准',rejected:'已駁回'}
 };
-const POSITIVE=new Set(['done','received','confirmed','closed']);
-const ATTENTION=new Set(['todo','doing','requested','approved','pending','reported','assigned']);
-const QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty','required_score']);
+const MOVE_TYPE=Object.freeze({purchase:'進貨',usage:'耗用',adjustment:'調整'});
+const POSITIVE=new Set(['done','received','confirmed','closed','approved']);
+const ATTENTION=new Set(['todo','doing','requested','pending','reported','assigned']);
+const QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty','required_score','score','qty_delta']);
 const numberFormat=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:3});
 const blank=()=>({text:'—',tone:''});
 function cell(entity,row,key){
@@ -30,6 +36,8 @@ function cell(entity,row,key){
  }
  if(!Object.hasOwn(row,key)||row[key]===null||row[key]===undefined||row[key]==='')return blank();
  const value=row[key];
+ if(key==='move_type')return typeof value==='string'&&Object.hasOwn(MOVE_TYPE,value)?
+  {text:MOVE_TYPE[value],tone:''}:{text:'未識別',tone:'warn'};
  if(key==='active'){
   if(value===1||value===true)return {text:'啟用',tone:'ok'};
   if(value===0||value===false)return {text:'停用',tone:'muted'};

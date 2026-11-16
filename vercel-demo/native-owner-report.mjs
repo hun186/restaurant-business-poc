@@ -4,7 +4,7 @@
 import {presentNativeRows} from './native-owner-display.mjs';
 
 const NUMBERS=new Set(['qty','on_hand','min_stock','expected_qty','counted_qty',
-  'required_score','score','qty_delta']);
+  'required_score','score','qty_delta','sale_price_twd','unit_price_twd','ingredient_count']);
 const CELL_LIMIT=32767;
 const PRECISE_QUANTITIES=new Set(['qty','on_hand','min_stock','expected_qty',
   'counted_qty','qty_delta']);

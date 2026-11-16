@@ -70,3 +70,9 @@
 - Owner 可檢視其全部啟用門市；Manager 只查已授權且啟用門市；沒有任何門市即空清單；Staff GET 403。**資料隔離在 D1 SQL 範圍判斷**，前端只做選單隱藏及固定中文欄位／已授權 Excel 匯出。
 - 嚴格的結果上限 500 筆、原始查詢至多 5,000 筆及門市×配方運算預算；超出即 503 **Fail Closed**，不截斷結果冒稱成本完整。SQL 僅 SELECT，未新增 D1 Schema、Write Gate、Worker Vars/Secrets，無直接 D1 資料寫入。
 - 合併前要求最新 HEAD CI 五項全綠、正式 Codex Review 0 Findings/0 unresolved、clean merge。合併後主線 CI、**自動 G0** 及使用者 Owner/Manager 實機檢視分別驗證；目前此 PR 是「程式開發中」，不是正式報表已上線。
+
+## 2026-11-16 Owner 帳號所屬門市權限提示（本 PR 待 CI/Review）
+
+- 原有正式 D1 `GET /api/accounts` 已向 Owner 回傳每個員工/主管的 `location_ids`，`GET /api/data?entity=locations` 提供門市名稱與啟用狀態。本批僅將**目前有效的門市授權**、停用門市及不在本次門市清單的授權，明確區分顯示。Owner 角色是全部啟用門市的權限，不應錯誤顯示為無授權。
+- 當啟用帳號沒有有效門市授權，UI 顯示醒目提示並記錄本頁需要核對的帳號數；本頁只顯示不修改 Grant，未知門市僅寫「未在本次門市清單」，不臆測已刪除；門市資料最多顯示已載入的 500 筆，帳號清單每頁 50 筆。
+- **仍未新增「修改員工門市授權」或「重設他人密碼」**：需要獨立 Gate、Owner 身分驗證、D1 transaction/audit/session 撤銷與正式測試，不因 UI 警示而放行。本批不增 Worker API、資料庫讀寫、Schema、Token、正式設定。

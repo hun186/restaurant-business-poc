@@ -44,7 +44,7 @@ const summaryOf=raw=>{
     else if(typeof field==='number'&&Number.isFinite(field)&&Math.abs(field)<=1e9)
       items.push(label+'：'+String(field));
     else if(typeof field==='string'&&field.length<=48&&
-      /^[\\p{L}\\p{N} ._:\\/-]+$/u.test(field))
+      /^[A-Za-z0-9\u4e00-\u9fff ._:-]+$/u.test(field))
       items.push(label+'：'+field);
   }
   return items.join('；').slice(0,240);

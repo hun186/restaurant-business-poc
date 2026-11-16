@@ -333,6 +333,18 @@ test('copied archive verifier rejects same file, missing copies and different va
    e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_MISMATCH');
   assert.throws(()=>m.verifyIndependentCopy(original,original,pass),
    e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_SAME_FILE');
+  // Different real paths that are filesystem hardlinks still point to one
+  // physical archive and must never pass the independent-copy check.
+  const alias=path.join(folder,'hardlink.sql.aes');
+  fs.linkSync(original,alias);
+  const sourceStat=fs.lstatSync(original,{bigint:true});
+  const aliasStat=fs.lstatSync(alias,{bigint:true});
+  assert.equal(typeof sourceStat.ino,'bigint');
+  assert.equal(typeof sourceStat.dev,'bigint');
+  assert.equal(sourceStat.ino,aliasStat.ino);
+  assert.equal(sourceStat.dev,aliasStat.dev);
+  assert.throws(()=>m.verifyIndependentCopy(original,alias,pass),
+   e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_SAME_FILE');
   assert.throws(()=>m.verifyIndependentCopy(original,path.join(folder,'missing.sql.aes'),pass),
    e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='COPY_PATH');
   assert.throws(()=>m.verifyIndependentCopy('original.sql.aes',copy,pass),
@@ -341,6 +353,17 @@ test('copied archive verifier rejects same file, missing copies and different va
   assert.throws(()=>m.verifyIndependentCopy(original,copy,'wrong-passphrase-12345'),
    e=>e.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='ARCHIVE_AUTH');
  }finally{fs.rmSync(folder,{recursive:true,force:true});}
+});
+test('Windows inode comparison retains BigInt precision for distinct >2^53 file IDs',()=>{
+ // JS numeric Stats can collapse distinct NTFS 64-bit file indices.
+ const high=9007199254740993n,next=high+1n;
+ assert.equal(Number(high),Number(next));
+ assert.notEqual(high,next);
+ const source=fs.readFileSync(path.join(root,'tools/cloudflare-prod-d1-encrypted-backup.mjs'),'utf8');
+ assert.match(source,/fs\.lstatSync\(originalFile,\{bigint:true\}\)/);
+ assert.match(source,/fs\.lstatSync\(copyFile,\{bigint:true\}\)/);
+ assert.match(source,/sa\.ino>0n&&sb\.ino>0n&&sa\.ino===sb\.ino&&sa\.dev===sb\.dev/);
+ assert.match(source,/sa\.size>BigInt\(MAX_SQL_BYTES\*2\)/);
 });
 test('copy mode keeps network, SQL write and external-media attestation strictly absent',async()=>{
  const m=await mod;

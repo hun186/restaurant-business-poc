@@ -9,6 +9,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const cloudflareRoot=path.join(root,'cloudflare');
 const entry=path.join(cloudflareRoot,'worker.mjs');
+const reviewedSharedCjs=path.join(cloudflareRoot,'pricing-units.cjs');
 const config=JSON.parse(fs.readFileSync(path.join(root,'wrangler.jsonc'),'utf8'));
 const dormant=new Set([
   path.join(cloudflareRoot,'account-access-internal.mjs'),
@@ -43,6 +44,13 @@ function inspectWorkerImports(read=source){
     assert.ok(!dormant.has(file),'E_DORMANT_ACCOUNT_IMPORT: '+path.basename(file));
     visited.add(file);
     const body=read(file);
+    if(path.extname(file)==='.cjs'){
+      // Release graph explicitly permits only this reviewed, pure CJS shared
+      // calculator. Reject require(), dynamic import or a new CJS delegate.
+      assert.equal(file,reviewedSharedCjs,'E_UNREVIEWED_WORKER_CJS');
+      assert.doesNotMatch(body,/\brequire\s*\(|\bimport\s*\(/,
+        'E_UNREVIEWED_WORKER_CJS_DEPENDENCY');
+    }
     // An opaque dynamic import prevents this deliberately conservative scan
     // from certifying the dependency graph. Review it before allowing release.
     assert.doesNotMatch(body,/\bimport\s*\(/,'E_DYNAMIC_IMPORT_NEEDS_REVIEW');
@@ -86,6 +94,7 @@ test('production Worker import graph excludes both dormant native-account mutati
   assert.ok(graph.size>=6,'entrypoint scan must cover transitive dependencies');
   assert.ok(graph.has(path.join(cloudflareRoot,'native-login-http.mjs')));
   assert.ok(graph.has(path.join(cloudflareRoot,'auth-core.mjs')));
+  assert.ok(graph.has(reviewedSharedCjs),'reviewed CJS helper reached within Worker graph');
   for(const hidden of dormant)assert.ok(!graph.has(hidden));
 });
 
@@ -106,6 +115,15 @@ test('import-graph guard fails on direct, transitive and dynamic exposure',()=>{
     /E_DYNAMIC_IMPORT_NEEDS_REVIEW/);
 });
 
+test('reviewed shared CJS refuses hidden require() and external Worker imports',()=>{
+  assert.throws(()=>inspectWorkerImports(file=>file===reviewedSharedCjs?
+    source(file)+"\nrequire('../src/pricing.js');\n":source(file)),
+    /E_UNREVIEWED_WORKER_CJS_DEPENDENCY/);
+  const cost=path.join(cloudflareRoot,'native-pricing-costs.mjs');
+  assert.throws(()=>inspectWorkerImports(file=>file===cost?
+    source(file)+"\nimport '../src/pricing.js';\n":source(file)),
+    /E_WORKER_IMPORT_OUTSIDE_CLOUDFLARE/);
+});
 test('same-line and comment-adjacent ESM imports cannot bypass the release guard',()=>{
   const original=source(entry);
   const first="import { inspectD1Contract } from './d1-readiness.mjs';";

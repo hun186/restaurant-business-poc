@@ -30,11 +30,11 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "run-native-owner-grant-uat-readonly.bat":"8c74d13a1552841edaf4058659f1e487861636861e617d0db992b17f81d2253e",
-  "tools/native-owner-grant-uat-readonly.mjs":"f879bcd7d2900324ddf66bd4e5840d79d3efb842ed59db5d0a474a8a5990a4c1",
+  "tools/native-owner-grant-uat-readonly.mjs":"a3f0ffd90f585aa3e35ef1288841df45a839d2fe05c093dfc1922d49adf84374",
   "tools/cloudflare-prod-owner-recovery-runner.mjs":"5447e187384d28aca9938dcb0e85563e9275bc333082c4a2a6d231a1b8613d26",
   "重設雲端業主密碼.bat":"39e74c6cba3fffbac81f28892b67fa17940ba9334db171934e37e37c2082d3b4",
   "tools/cloudflare-prod-owner-password-recovery.mjs":"0daf481021e212391f2f157f6deaf8133d12183ef8b0bd327247550c1557784f",
-  "tools/native-owner-login-uat-gate-readonly.ps1":"2cb1b2b00237f4b9e140fb45b20ed086019501defcbbf479e3af7e4c2f6614a6",
+  "tools/native-owner-login-uat-gate-readonly.ps1":"3de8334147f33ba44858ab334a5a81e9405b854a7de9222c4a830761ae645039",
   "tools/native-owner-public-assets-readonly.ps1":"9fcf3904fd609c1d379320c028f899ebdc54b7b8298bd4978a82ca28b6e4e1eb",
   "run-native-owner-login-uat-preflight.bat":"ff776fcf55af5a36c4703e4edcd7cbc31831f21ce916a26d5dfe8b3551ace906",
   "run-native-owner-login-uat-closeout.bat":"8aa27dfcb3ec304577a9e53561de29225a516e2cee5ea1830e1a107d711b3549",
@@ -89,7 +89,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-native-price-write.test.js":"e00c9b3fee9a0d313470f6860e961d6eee81b5d0f264d88c2f848676a19a0ade",
   "cloudflare/native-price-http.mjs":"9784cdfbe24250a3edfbef1be237e896016acc010924c90e06e3109a5c888e03",
-  "tests/native-owner-grant-uat-readonly.test.js":"722967ea151fd47bc3641406db0c87e91af14831ba73b3898f7b1e876cdaccaf",
+  "tests/native-owner-grant-uat-readonly.test.js":"7c31dc4dc4a18bc5910703441df610deb6611931afcf87be180bff8baf842a83",
   "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
   "tests/account-status-three-runtime-contract.test.js":"a3bd478c114414fac548ad737f569c7e077842d8b0e87f13ff2d3c7213fffa18",
   "vercel-demo/native-account-management-ui.mjs":"e7cc8cd69fbc7557fce3341fc85cbeb26592738007a596b60852ff04683e8b38",
@@ -111,7 +111,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/catalog-three-platform-contract.test.js":"23127abb68ac9d88a99e8b9d2fc8167b4a9f93010bc6bb32e0fc2de29608df34",
   "src/catalog-crud-contract.mjs":"c5706ea94f5ba936497e212e4924cd49cc8616359ee6476001fe5e608a87c06c",
 
-  "tests/native-owner-login-uat-gate-readonly.test.js":"0bdbcbae5e18c8bcdba188a2b58e0b96fa9a9ed1b9c173d6b79ba0a57acf4282",
+  "tests/native-owner-login-uat-gate-readonly.test.js":"c46d2654d970bde4474b49a8a11aa0b47ce36ef6b7fb2bd4c432d79f00ec36d2",
   "tests/native-owner-public-assets-readonly.test.js":"96c612ef61879d010174325313d5e00c80e73fc6d94723c31b4c8f8231b396b0",
   "tests/cloudflare-native-owner-readable-tables.test.js":"1be13b6a407309919782850c5d5fefdb35d914cd5f5466707a40d9de5057af9d",
   "vercel-demo/native-owner-capability.mjs":"e490707d694f87313a9e62cd498215b3d3ed9436c9dfb0df98aa903748ae5580",

@@ -98,7 +98,7 @@ test('Owner browser timeline and current-page Excel use identical translations a
  assert.equal(JSON.stringify(rows),originalRows,'projection must not alter audit evidence');
  assert(!JSON.stringify(sheet).includes('DONT_EXPOSE'));
  const enroll=fs.readFileSync(path.join(__dirname,'../tools/cloudflare-production-owner.mjs'),'utf8');
- assert.match(enroll,/auth\\.owner_bootstrap/);
+ assert.match(enroll,/auth\.owner_bootstrap/);
  assert.match(enroll,/production-bootstrap/);
  const api=fs.readFileSync(path.join(__dirname,'../cloudflare/native-audit-http.mjs'),'utf8');
  assert.match(api,/SELECT at,actor_name,action,entity,detail FROM audit_logs/);

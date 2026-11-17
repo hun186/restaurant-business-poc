@@ -36,6 +36,21 @@ const MONEY=new Set(['sale_price_twd','unit_price_twd','estimated_cost_twd',
  'gross_profit_twd','line_cost_twd','estimated_value_twd']);
 const SIGNED_MONEY=new Set(['gross_profit_twd','estimated_value_twd']);
 const numberFormat=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:3});
+// D1 CURRENT_TIMESTAMP is a UTC clock, not a browser-local timestamp.
+// Translate only created_at for presentation; leave day-only dates, raw D1
+// values, server-side filtering/sorting and audit evidence untouched.
+const SQLITE_CREATED_AT=/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]) ([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/;
+function taipeiCreatedAt(value){
+ if(typeof value!=='string'||!SQLITE_CREATED_AT.test(value))
+  return '時間資料異常';
+ const utc=new Date(value.replace(' ','T')+'Z');
+ if(Number.isNaN(utc.getTime())||
+    utc.toISOString().slice(0,19).replace('T',' ')!==value)
+  return '時間資料異常';
+ // Taiwan's supported 20xx local times are UTC+08 without daylight saving.
+ const taipei=new Date(utc.getTime()+8*3600000);
+ return taipei.toISOString().slice(0,19).replace('T',' ').replaceAll('-','/');
+}
 const blank=()=>({text:'—',tone:''});
 function cell(entity,row,key){
  if(key==='stock_alert'){
@@ -46,6 +61,7 @@ function cell(entity,row,key){
  }
  if(!Object.hasOwn(row,key)||row[key]===null||row[key]===undefined||row[key]==='')return blank();
  const value=row[key];
+ if(key==='created_at')return {text:taipeiCreatedAt(value),tone:''};
  if(key==='move_type')return typeof value==='string'&&Object.hasOwn(MOVE_TYPE,value)?
   {text:MOVE_TYPE[value],tone:''}:{text:'未識別',tone:'warn'};
  if(key==='source')return typeof value==='string'&&Object.hasOwn(PRICE_SOURCE,value)?
@@ -77,7 +93,8 @@ export function presentNativeRows(entity,rows){
  if(!Object.hasOwn(FIELDS,entity)||!Array.isArray(rows)||rows.length>500||
     rows.some(row=>!row||typeof row!=='object'||Array.isArray(row)))
   throw Error('E_NATIVE_DISPLAY_INVALID');
- const columns=FIELDS[entity].map(([key,label])=>({key,label}));
+ const columns=FIELDS[entity].map(([key,label])=>({key,label:
+  key==='created_at'?label+'（臺灣）':label}));
  return {columns,entries:rows.map(row=>{
   const cells=columns.map(col=>cell(entity,row,col.key));
   return {cells,search:cells.map(c=>c.text).join(' ').toLocaleLowerCase('zh-TW')};

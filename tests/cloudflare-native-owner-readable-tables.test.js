@@ -11,7 +11,7 @@ test('Chinese column allowlist hides opaque UUIDs and unexpected secrets',async(
   id:'private-uuid',location_id:'secret-store',password_hash:'hash123',csrf_token:'csrf123',
   title:'開店盤點',location_name:'中壢店',assigned_name:'小王',status:'doing',due_date:'2026-11-15'
  }]);
- assert.deepEqual(x.columns.map(c=>c.label),['工作事項','門市','指派人員','進度','到期日','建立時間']);
+ assert.deepEqual(x.columns.map(c=>c.label),['工作事項','門市','指派人員','進度','到期日','建立時間（臺灣）']);
  assert.equal(x.entries[0].cells[3].text,'進行中');
  assert.equal(x.entries[0].cells[3].tone,'warn');
  for(const value of ['private-uuid','secret-store','hash123','csrf123'])
@@ -110,4 +110,37 @@ test('native Owner browser uses only DOM text and scoped, loaded rows for search
   assert(!source.includes('innerHTML='));
   assert(!source.includes('/api/access/'));
  }
+});
+
+
+test('D1 UTC created_at timestamps use Taiwan local time consistently without shifting day-only fields',async()=>{
+ const {presentNativeRows}=await display;
+ const stock=presentNativeRows('stock_moves',[{
+  location_name:'測試門市',ingredient_name:'奶油球',qty_delta:1,
+  unit:'包',move_type:'purchase',created_at:'2026-11-17 06:15:15'
+ }]);
+ assert.equal(stock.columns.at(-1).label,'紀錄時間（臺灣）');
+ assert.equal(stock.entries[0].cells.at(-1).text,'2026/11/17 14:15:15');
+ const order=presentNativeRows('purchase_orders',[{
+  created_at:'2026-11-17 18:05:15',status:'received',qty:1
+ }]);
+ assert.equal(order.entries[0].cells.at(-1).text,'2026/11/18 02:05:15');
+ assert.equal(order.columns.at(-1).label,'申請時間（臺灣）');
+ const task=presentNativeRows('tasks',[{
+  title:'測試工作',due_date:'2026-11-17',created_at:'2026-11-17 02:00:00'
+ }]);
+ assert.equal(task.entries[0].cells[4].text,'2026-11-17',
+  'date-only due_date cannot be shifted across calendar boundaries');
+ assert.equal(task.entries[0].cells.at(-1).text,'2026/11/17 10:00:00');
+ const shift=presentNativeRows('shifts',[{
+  shift_date:'2026-11-17',start_time:'08:00',end_time:'16:00'
+ }]);
+ assert.equal(shift.entries[0].cells[2].text,'2026-11-17');
+ const bad=presentNativeRows('stock_moves',[
+  {created_at:'2026-02-30 02:00:00'},
+  {created_at:'2026-11-17T06:15:15Z'},
+  {created_at:'=HYPERLINK("https://invalid.example","x")'}
+ ]);
+ assert.deepEqual(bad.entries.map(x=>x.cells.at(-1).text),
+  ['時間資料異常','時間資料異常','時間資料異常']);
 });

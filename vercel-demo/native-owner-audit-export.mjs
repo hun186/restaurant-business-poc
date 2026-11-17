@@ -4,6 +4,7 @@
 export const NATIVE_AUDIT_EVENTS=Object.freeze({
   'auth.login':'登入成功','auth.login_failed':'登入失敗',
   'auth.logout':'安全登出','auth.password_change':'變更登入密碼',
+  'auth.owner_bootstrap':'正式業主帳號初始化',
   'password.change':'密碼變更',
   'user.create':'新增帳號','user.active':'帳號啟用狀態變更',
   'user.role':'帳號角色變更','user.password':'重設帳號密碼',

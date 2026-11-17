@@ -68,6 +68,28 @@ foreign-key/integrity checks, new move kinds and invalid-move rejection, full
 rollback of an injected mid-migration error, and replay refusal. The test
 **does not emulate D1 remote migration transaction semantics**.
 
+## Extra read-only source preflight (follow-up stage)
+
+`src/stock-move-v3-readonly-preflight.cjs` exports `inspectStockMoveV3(db,origin)`
+where `origin` is `local` or `d1`. It only calls `SELECT` and
+`PRAGMA` on a **caller-supplied, already-open offline SQLite connection**;
+the module cannot open paths, hold secrets, call a network service or mutate a
+database. It fails closed if the existing v3 stock_moves DDL or index differs,
+a v4 marker exists, schema versions disagree, a view/trigger/foreign key
+depends on the table, `quick_check` or foreign-key check fails, or the
+historical move count is inconsistent. Its output is sanitized count/boolean
+metadata, not account, password, supplier or source-row contents.
+
+The associated `tests/stock-move-v3-readonly-preflight.test.js` runs against
+**synthetic in-memory Local and D1 v3 schemas**, with injected drift,
+missing indexes, dependent views/triggers, unexpected incoming foreign
+keys, orphan records and version mismatch. The returned status explicitly
+sets `migration_authorized=false` and `remote_d1_verified=false`:
+**a PASS is not permission to apply D1 SQL.** A future, separately approved
+migration runner must enforce the same invariants on an independently restored
+snapshot, then check the actual remote D1 ledger/binding and rollback
+semantics without logging business data.
+
 ## Before any live/staging migration is authorized
 
 1. Create a new isolated D1 binding and run a read-only inventory of actual

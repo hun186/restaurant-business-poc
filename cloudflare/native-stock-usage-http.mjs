@@ -102,14 +102,18 @@ export async function nativeStockUsageHttp(request,env){
     const parsed=parse(raw);
     if(!parsed)return reply(400,{code:'E_INVALID_COMMAND'});
     if(!hasAccess(principal,'manager',parsed.locationId))return reply(403,{code:'E_FORBIDDEN'});
-    const [store,ing,stock]=await Promise.all([
+    const [store,ing,stock,duplicate]=await Promise.all([
       env.DB.prepare('SELECT active FROM locations WHERE id=?').bind(parsed.locationId).first(),
       env.DB.prepare('SELECT active FROM ingredients WHERE id=?').bind(parsed.ingredientId).first(),
       env.DB.prepare('SELECT COALESCE(SUM(qty_delta),0) AS n FROM stock_moves '+
         'WHERE location_id=? AND ingredient_id=?')
-        .bind(parsed.locationId,parsed.ingredientId).first()
+        .bind(parsed.locationId,parsed.ingredientId).first(),
+      env.DB.prepare("SELECT 1 AS found FROM stock_moves WHERE move_type='usage' "+
+        'AND reference_id=? AND actor_id=? LIMIT 1')
+        .bind(key,principal.id).first()
     ]);
     if(store?.active!==1||ing?.active!==1)return reply(404,{code:'E_NOT_FOUND'});
+    if(duplicate?.found===1)return reply(409,{code:'E_DUPLICATE_STOCK_USAGE'});
     if(!Number.isFinite(stock?.n)||stock.n<parsed.qty)
       return reply(409,{code:'E_INSUFFICIENT_STOCK'});
     return await writeUsage(env.DB,principal,parsed,key);

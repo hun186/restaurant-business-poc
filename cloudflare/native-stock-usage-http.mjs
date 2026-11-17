@@ -39,8 +39,8 @@ async function writeUsage(db,principal,x,ref){
     'WHERE l.id=? AND l.active=1 AND i.active=1 AND '+sessionSql()+
     " AND (?='owner' OR EXISTS(SELECT 1 FROM user_locations ul "+
     'WHERE ul.user_id=? AND ul.location_id=l.id)) '+
-    'AND COALESCE((SELECT SUM(m.qty_delta) FROM stock_moves m '+
-    'WHERE m.location_id=l.id AND m.ingredient_id=i.id),0)>=? '+
+    'AND ROUND(COALESCE((SELECT SUM(m.qty_delta) FROM stock_moves m '+
+    'WHERE m.location_id=l.id AND m.ingredient_id=i.id),0),3)>=? '+
     'AND NOT EXISTS(SELECT 1 FROM stock_moves used '+
     "WHERE used.move_type='usage' AND used.reference_id=? AND used.actor_id=?)"
   ).bind(id,-x.qty,ref,x.note,principal.id,x.ingredientId,x.locationId,
@@ -114,7 +114,10 @@ export async function nativeStockUsageHttp(request,env){
     ]);
     if(store?.active!==1||ing?.active!==1)return reply(404,{code:'E_NOT_FOUND'});
     if(duplicate?.found===1)return reply(409,{code:'E_DUPLICATE_STOCK_USAGE'});
-    if(!Number.isFinite(stock?.n)||stock.n<parsed.qty)
+    // Ledger quantities are recorded to three decimal places. Float SUM(0.3,-0.1)
+    // can be 0.19999999999999998; compare the same precision used by the D1
+    // transactional predicate, without accepting an extra 0.001 debit.
+    if(!Number.isFinite(stock?.n)||Math.round(stock.n*1000)<Math.round(parsed.qty*1000))
       return reply(409,{code:'E_INSUFFICIENT_STOCK'});
     return await writeUsage(env.DB,principal,parsed,key);
   }catch{return reply(503,{code:'E_STOCK_USAGE_UNAVAILABLE'});}

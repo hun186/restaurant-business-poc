@@ -41,6 +41,8 @@ test('UAT gate check uses fixed anonymous GET only and cannot enable remote serv
  assert.match(script,/release_authorized=\$false/);
  assert.match(script,/price_write_gate_closed=\$true/);
  assert.match(script,/all_six_business_write_gates_closed=\$true/);
+ assert.match(script,/stock_usage_write_gate_closed=\$true/);
+ assert.match(script,/all_seven_business_write_gates_closed=\$true/);
 });
 
 test('both Windows BAT launchers keep fixed phase, do not prompt for secrets or mutate Cloudflare',()=>{
@@ -56,7 +58,7 @@ test('both Windows BAT launchers keep fixed phase, do not prompt for secrets or 
 test('strict fail-closed UAT phase contract requires zero writes and anonymous auth boundary',()=>{
  for(const x of ['mode','login_enabled','task_write_enabled','catalog_write_enabled',
  'order_write_enabled','stocktake_write_enabled','repair_write_enabled',
- 'price_write_enabled']){
+ 'price_write_enabled','stock_usage_write_enabled']){
   assert(script.includes("'"+x+"'"),'missing validated gate '+x);
  }
  assert.match(script,/if\(\$mode -cne 'native' -or !\$login\)/);

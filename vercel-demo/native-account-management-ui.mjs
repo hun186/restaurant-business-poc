@@ -30,7 +30,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     if(typeof onCapabilityChange==='function')onCapabilityChange({
       create:data.can_create===true,
       status:data.can_manage_status===true,
-      role:data.can_manage_role===true
+      role:data.can_manage_role===true,
+      grants:data.can_manage_grants===true
     });
     const activeStores=stores.rows.filter(row=>row.active===1);
     let grantWarnings=0;
@@ -42,14 +43,85 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整與他人密碼重設尚未開放。'):
         (data.can_manage_role===true?
           '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用與他人密碼重設尚未開放。':
-          '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。')));
+          (data.can_manage_grants===true?
+          '業主可逐一新增或移除員工門市授權；每次修改將撤銷該員工全部登入工作階段，保留稽核歷史。':
+          '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。'))));
     // A local filter never expands the server's Owner-only 50-row page.
     const rowStates=[];
+    const grantPanel=element('section');grantPanel.className='panel';grantPanel.hidden=true;
+    const showGrantEditor=user=>{
+      if(!live()||data.can_manage_grants!==true||user.active!==true||
+         !['staff','manager'].includes(user.role))return;
+      const possible=stores.rows.filter(store=>typeof store.id==='string'&&
+        typeof store.name==='string'&&(store.active===1||
+          user.location_ids.includes(store.id)));
+      if(!possible.length){notice('沒有可調整的門市；請先核對門市主檔。',true);return;}
+      const form=element('form'),choose=element('select'),title=element('h3',
+        '調整門市授權：'+user.username),desc=element('p',
+        '每次僅修改一間門市，成功後該員工所有裝置須重新登入。');
+      const labeled=element('label','選擇門市 ');
+      const submit=element('button'),cancel=element('button','取消');
+      choose.required=true;choose.setAttribute('aria-label','授權目標門市');
+      for(const store of possible){
+        const option=element('option',store.name+
+          (store.active===1?'':'（已停用）'));
+        option.value=store.id;choose.append(option);
+      }
+      const updateVerb=()=>{
+        const assigned=user.location_ids.includes(choose.value);
+        submit.textContent=assigned?'移除授權':'新增授權';
+        submit.disabled=!possible.some(store=>store.id===choose.value&&
+          (assigned||store.active===1));
+      };
+      choose.value=possible[0].id;choose.addEventListener('change',updateVerb);
+      submit.type='submit';cancel.type='button';
+      cancel.addEventListener('click',()=>{
+        if(!live())return;
+        grantPanel.hidden=true;grantPanel.replaceChildren();
+      });
+      labeled.append(choose);form.append(labeled,submit,cancel);
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();
+        if(!live()||submit.disabled)return;
+        const location=possible.find(store=>store.id===choose.value);
+        if(!location)return;
+        const wasAssigned=user.location_ids.includes(location.id);
+        if(!wasAssigned&&location.active!==1){
+          notice('停用門市不能新增授權。',true);return;
+        }
+        const action=wasAssigned?'unassign':'assign';
+        if(!globalThis.confirm('確定'+(wasAssigned?'移除':'新增')+
+          '「'+user.username+'」對「'+location.name+'」的授權？'+
+          '該員工所有登入工作階段都會撤銷，歷史紀錄保留。'))return;
+        submit.disabled=true;notice('正在變更員工門市授權…');
+        try{
+          const result=await api('/api/accounts/grant',{method:'POST',signal,
+            referrerPolicy:'same-origin',
+            headers:{Accept:'application/json','Content-Type':'application/json',
+              'X-CSRF-Token':token},
+            body:JSON.stringify({action,expectedAssigned:wasAssigned,
+              expectedRole:user.role,locationId:location.id,targetUserId:user.id})});
+          if(!live())return;
+          if(result.code!=='OK'||result.user?.id!==user.id||
+             result.user?.locationId!==location.id||
+             result.user?.assigned!==!wasAssigned)
+            throw Error('伺服器未確認門市授權更新。');
+          await refresh();
+        }catch(error){
+          if(!live())return;
+          if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
+          if(error.status===409)notice('門市授權已變更、目前門市不可用或這是最後一間可用門市，請重新整理核對。',true);
+          else notice(error.message||'門市授權更新失敗，未確認寫入。',true);
+        }finally{submit.disabled=false;}
+      });
+      updateVerb();grantPanel.replaceChildren(title,desc,form);grantPanel.hidden=false;
+    };
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');
     for(const name of ['登入帳號','顯示名稱','角色','狀態','所屬門市',
-      ...(data.can_manage_status===true||data.can_manage_role===true?['操作']:[])]){
+      ...(data.can_manage_status===true||data.can_manage_role===true||
+        data.can_manage_grants===true?['操作']:[])]){
       const th=element('th',name);th.scope='col';tr.append(th);
     }
     thead.append(tr);
@@ -70,9 +142,17 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       if(grants.warning)grantCell.setAttribute('title',
         '請核對此帳號的門市授權；本頁不會自動修改正式資料。');
       row.append(grantCell);
-      if(data.can_manage_status===true||data.can_manage_role===true){
+      if(data.can_manage_status===true||data.can_manage_role===true||
+         data.can_manage_grants===true){
         const cell=element('td');
         if(user.role==='staff'||user.role==='manager'){
+          if(data.can_manage_grants===true&&user.active===true){
+            const editGrant=element('button','調整門市');
+            editGrant.type='button';editGrant.className='btn';
+            editGrant.setAttribute('aria-label','調整帳號 '+user.username+' 的門市授權');
+            editGrant.addEventListener('click',()=>showGrantEditor(user));
+            cell.append(editGrant);
+          }
           if(data.can_manage_status===true){
           const action=element('button',user.active?'停用':'啟用');
           action.type='button';action.className='btn';
@@ -176,7 +256,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     filter.addEventListener('change',applyFilter);
     search.addEventListener('input',applyFilter);
     applyFilter();
-    pane.append(filterBar,scroll);
+    pane.append(filterBar,scroll,grantPanel);
     if(grantWarnings)pane.append(element('p',
       '本頁有 '+grantWarnings+' 個啟用帳號存在無有效門市或停用／未列出門市授權，請核對；本頁不會修改授權。'));
     const pager=element('nav'),previous=element('button','上一頁'),

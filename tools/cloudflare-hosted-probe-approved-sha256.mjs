@@ -87,7 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/cloudflare-native-price-write.test.js":"a8b9e26525abd5e4377724286cbd7e33ed42b2dc66b698f451b8af6485963ad3",
+  "tests/cloudflare-native-price-write.test.js":"e00c9b3fee9a0d313470f6860e961d6eee81b5d0f264d88c2f848676a19a0ade",
   "cloudflare/native-price-http.mjs":"9784cdfbe24250a3edfbef1be237e896016acc010924c90e06e3109a5c888e03",
   "tests/native-owner-grant-uat-readonly.test.js":"722967ea151fd47bc3641406db0c87e91af14831ba73b3898f7b1e876cdaccaf",
   "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
@@ -200,7 +200,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/mock.js":"d7b77b0b7bfe4feecd7077a31c31a7ce1e6d9ab92ad76d341cbec8f45037437f",
   "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",
   "vercel-demo/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
-  "vercel-demo/pricing-demo.js":"2054ec8de38c6004a029fba83786691587084b096e6f19b8f6c4dcee3e25349a",
+  "vercel-demo/pricing-demo.js":"9e7f7f9126b3156624ea4ca830b0169aa1b98d40ab0d024ff9edd8a567532419",
   "vercel-demo/report-ui.js":"cf3b85b543d1b0be50ed82b0c56c41bea48431ce1f16dfd6573d44753f1000b2",
   "vercel-demo/styles.css":"50e210212deba7f48261b795dfba72db1eb0df87a26bfd8f6f3598b88aebf1ad",
   "vercel-demo/xlsx-lite.js":"03d9bf27044adec97fa1450a48e55e5785c2f1e99143c636376515af7844b268",

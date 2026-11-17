@@ -320,6 +320,75 @@ async function priceActions(marker){
   }
 }
 
+
+async function stockUsageActions(marker){
+  if(!stockUsageWriteEnabled||!['owner','manager'].includes(role)||!csrf||
+    marker!==revision)return;
+  const epoch=authEpoch,token=csrf;
+  const panel=el('section'),form=el('form'),title=el('h3','登錄食材耗用'),
+    tip=el('p','將扣除正式庫存並新增不可覆寫的耗用流水與稽核紀錄；庫存不足時會拒絕。'),
+    store=el('select'),ingredient=el('select'),qty=el('input'),
+    note=el('textarea'),submit=el('button','確認登錄耗用');
+  panel.className='native-stock-usage-panel';
+  const options=(select,rows,label)=>{
+    const first=el('option','請選擇'+label);first.value='';select.append(first);
+    for(const r of rows){
+      if(typeof r?.id!=='string'||typeof r?.name!=='string'||r.active!==1)continue;
+      const option=el('option',r.name);option.value=r.id;select.append(option);
+    }
+  };
+  try{
+    const [locations,ingredients]=await Promise.all([
+      api('/api/data?entity=locations'),api('/api/data?entity=ingredients')]);
+    if(marker!==revision||!liveAuth(epoch,token))return;
+    if(locations.mode!=='native_d1'||ingredients.mode!=='native_d1'||
+      !Array.isArray(locations.rows)||!Array.isArray(ingredients.rows))
+      throw Error('授權清單不完整');
+    options(store,locations.rows,'門市');options(ingredient,ingredients.rows,'食材');
+    store.required=true;ingredient.required=true;
+    qty.type='number';qty.min='0.001';qty.max='1000000';qty.step='0.001';qty.required=true;
+    note.maxLength=300;note.placeholder='用途說明（選填）';
+    submit.type='submit';
+    form.append(labeledField('門市',store),labeledField('食材',ingredient),
+      labeledField('耗用數量',qty),labeledField('用途說明（選填）',note),submit);
+    const requestId=crypto.randomUUID();
+    form.addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      if(submit.disabled||marker!==revision||!liveAuth(epoch,token)||
+        !stockUsageWriteEnabled)return;
+      const q=Number(qty.value);
+      if(!Number.isFinite(q)||q<=0||q>1000000||
+        Math.abs(q*1000-Math.round(q*1000))>=0.0000001){
+        say('耗用數量須大於零且最多三位小數。',true);return;
+      }
+      if(!window.confirm('確定扣除此門市食材 '+qty.value+'？耗用流水不能覆寫。'))return;
+      submit.disabled=true;say('正在寫入正式庫存耗用，請勿重複送出…');
+      const data={location_id:store.value,ingredient_id:ingredient.value,qty:q};
+      if(note.value.trim())data.note=note.value.trim();
+      try{
+        const result=await api('/api/stock/usage',{method:'POST',referrerPolicy:'same-origin',
+          headers:{Accept:'application/json','Content-Type':'application/json',
+            'X-CSRF-Token':token,'X-Idempotency-Key':requestId},
+          body:JSON.stringify({action:'stock.usage',data})});
+        if(!liveAuth(epoch,token))return;
+        if(result.ok!==true||typeof result.result?.id!=='string')
+          throw Error('伺服器未確認耗用');
+        if(marker===revision)await refresh();
+      }catch(err){
+        if(!liveAuth(epoch,token))return;
+        if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+        if(marker===revision)say(
+          '耗用結果未確認，請先重新整理查閱庫存流水，不可直接重送。',true);
+      }finally{submit.disabled=false;}
+    });
+    if(marker!==revision||!liveAuth(epoch,token))return;
+    panel.append(title,tip,form);$('content').prepend(panel);
+  }catch{
+    if(marker===revision&&liveAuth(epoch,token))
+      say('庫存耗用表單的門市或食材清單無法取得。',true);
+  }
+}
+
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
 async function writeTask(action,data,marker){
   if(marker!==revision||!writeEnabled||!csrf)return;

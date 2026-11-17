@@ -117,6 +117,17 @@ for(const origin of ['local','d1']){
   db.exec('CREATE TABLE linked(move_id TEXT NOT NULL REFERENCES stock_moves(id))');
   assert.throws(()=>inspectStockMoveV3(db,origin),/INCOMING_FOREIGN_KEY/);
  });
+ test(origin+' rejects unrelated views and triggers with broken schema references',t=>{
+  const db=setup(t,origin);
+  db.exec('CREATE VIEW leftover AS SELECT * FROM removed_table');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/UNVERIFIED_VIEWS/);
+  db.exec('DROP VIEW leftover');
+  db.exec('CREATE TRIGGER leftover AFTER UPDATE ON locations BEGIN SELECT COUNT(*) FROM removed_table; END');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/UNVERIFIED_TRIGGERS/);
+  db.exec('DROP TRIGGER leftover');
+  db.exec('CREATE VIEW harmless AS SELECT 1 AS n');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/UNVERIFIED_VIEWS/);
+ });
  test(origin+' rejects orphan foreign keys without changing the snapshot',t=>{
   const db=setup(t,origin);
   db.exec('PRAGMA foreign_keys=OFF');

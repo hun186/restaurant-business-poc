@@ -86,8 +86,14 @@ function inspectStockMoveV3(db,origin){
  const triggers=rows("SELECT name,sql,tbl_name FROM sqlite_master WHERE type='trigger'");
  if(triggers.some(t=>String(t.tbl_name).toLowerCase()==='stock_moves'||
    /\bstock_moves\b/i.test(String(t.sql))))fail('STOCK_TRIGGERS');
+ // The legacy v3 contracts define no triggers. Any other trigger could be
+ // unresolvable during ALTER TABLE even when it never names stock_moves.
+ if(triggers.length)fail('UNVERIFIED_TRIGGERS');
  if(rows("SELECT name FROM sqlite_master WHERE type='view' AND sql LIKE '%stock_moves%'").length)
    fail('STOCK_VIEWS');
+ // Likewise an unrelated view can reference a missing table and block RENAME.
+ if(rows("SELECT name FROM sqlite_master WHERE type='view'").length)
+   fail('UNVERIFIED_VIEWS');
  // LIKE '_' is a wildcard and would wrongly skip e.g. sqliteX_links.
  const tables=rows("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'");
  if(tables.length>200)fail('UNEXPECTED_TABLE_INVENTORY');

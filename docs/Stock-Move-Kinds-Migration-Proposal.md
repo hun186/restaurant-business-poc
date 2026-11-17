@@ -75,7 +75,9 @@ where `origin` is `local` or `d1`. It only calls `SELECT` and
 `PRAGMA` on a **caller-supplied, already-open offline SQLite connection**;
 the module cannot open paths, hold secrets, call a network service or mutate a
 database. It fails closed if the existing v3 stock_moves DDL or index differs,
-a v4 marker exists, schema versions disagree, a view/trigger/foreign key
+a v4 marker exists, schema versions disagree, **any view or trigger is
+present** (the known-good v3 source schemas define neither; even unrelated
+unresolvable objects can block SQLite table rename), an incoming foreign key
 depends on the table, `quick_check` or foreign-key check fails, or the
 historical move count is inconsistent. Its output is sanitized count/boolean
 metadata, not account, password, supplier or source-row contents.

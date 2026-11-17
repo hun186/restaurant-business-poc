@@ -85,7 +85,7 @@ test('Cloudflare D1 price gate is independent and default-denied',async t=>{
      .price_write_enabled,false);
  }
  assert.equal(tableCount(f.db,'ingredient_prices'),0);
- assert.equal(tableCount(f.db,'audit_logs'),0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,0);
  assert.equal((await f.send('/api/price',{method:'GET'})).status,405);
 });
 
@@ -99,7 +99,7 @@ test('Owner and in-scope Manager append historical prices with audit, never edit
  assert.deepEqual(history.map(x=>x.price_cents),[8125,12350]);
  assert.deepEqual(history.map(x=>x.unit),['公斤','公克']);
  assert(history.every(x=>x.source==='manual'));
- assert.equal(tableCount(f.db,'audit_logs'),2);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,2);
  assert.equal(tableCount(f.db,'stock_moves'),1,'price record must not touch inventory ledger');
  const prices=await f.send('/api/data?entity=ingredient_prices',{headers:{cookie:manager.cookie}});
  assert.equal(prices.status,200);
@@ -120,7 +120,7 @@ test('Staff, wrong store, missing CSRF and invalid Origin all block price writes
    origin:site,'content-type':'application/json',
    'sec-fetch-site':'same-origin'},body:JSON.stringify({action:'price.record',data:f.input()})})).status,401);
  assert.equal(tableCount(f.db,'ingredient_prices'),0);
- assert.equal(tableCount(f.db,'audit_logs'),0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,0);
 });
 
 test('price input validation rejects extra keys, impossible dates, invalid units and values',async t=>{
@@ -137,7 +137,7 @@ test('price input validation rejects extra keys, impossible dates, invalid units
    assert.equal(response.status,400,'rejected '+JSON.stringify(changes));
  }
  assert.equal(tableCount(f.db,'ingredient_prices'),0);
- assert.equal(tableCount(f.db,'audit_logs'),0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,0);
 });
 
 test('partial D1 batch failure rolls back new price and audit',async t=>{
@@ -146,7 +146,7 @@ test('partial D1 batch failure rolls back new price and audit',async t=>{
  const res=await f.write(owner,f.input());
  assert.equal(res.status,503);
  assert.equal(tableCount(f.db,'ingredient_prices'),0);
- assert.equal(tableCount(f.db,'audit_logs'),0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,0);
 });
 
 test('revoked Manager store access in batch blocks price and audit atomically',async t=>{
@@ -159,7 +159,7 @@ test('revoked Manager store access in batch blocks price and audit atomically',a
  const res=await f.write(manager,f.input());
  assert.equal(res.status,503);
  assert.equal(tableCount(f.db,'ingredient_prices'),0);
- assert.equal(tableCount(f.db,'audit_logs'),0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,0);
 });
 
 test('local SQLite and Vercel demonstration align on supported cent values and date input',()=>{

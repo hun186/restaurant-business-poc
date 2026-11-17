@@ -24,7 +24,7 @@ const mobileNav=window.matchMedia('(max-width: 760px)');
 let authEpoch=0;
 const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!==''&&csrf===token;
 const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
-  purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況',
+  purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況；受控登錄耗用會新增流水',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
   shifts:'班表資訊（目前唯讀）',leave_requests:'請假申請及審核狀態（目前唯讀）',
   training_records:'訓練成績與完成狀態（目前唯讀）',
@@ -41,7 +41,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   audit_logs:'僅業主可檢閱的登入與重要異動紀錄'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
-  repairWriteEnabled=false,priceWriteEnabled=false,accountWriteEnabled=false,
+  repairWriteEnabled=false,priceWriteEnabled=false,stockUsageWriteEnabled=false,accountWriteEnabled=false,
   accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,
   accountGrantWriteEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
@@ -959,6 +959,7 @@ async function refresh(){
     if(view==='locations'||view==='ingredients')await catalogActions(marker);
     if(view==='purchase_orders')await orderActions(data.rows,marker);
     if(view==='stocktakes')await stocktakeActions(data.rows,marker);
+    if(view==='stock')await stockUsageActions(marker);
     if(view==='repairs')await repairActions(data.rows,marker);
    if(view==='ingredient_prices')await priceActions(marker);
     if(marker===revision)say('已取得授權範圍內的最新資料。');
@@ -981,6 +982,7 @@ function syncView(){
   const capability=nativeOwnerCapability({view,role,task:writeEnabled,
     catalog:catalogWriteEnabled,order:orderWriteEnabled,
     stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,price:priceWriteEnabled,
+    stockUsage:stockUsageWriteEnabled,
     account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled,
     accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled});
   $('operation-mode').textContent=capability.systemLabel;
@@ -1036,6 +1038,7 @@ async function start(){
     stocktakeWriteEnabled=status.stocktake_write_enabled===true;
     repairWriteEnabled=status.repair_write_enabled===true;
    priceWriteEnabled=status.price_write_enabled===true;
+    stockUsageWriteEnabled=status.stock_usage_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
   }catch(e){$('locked').hidden=false;say(e.message||'無法確認正式服務狀態。',true);}

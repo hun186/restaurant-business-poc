@@ -23,6 +23,10 @@ export const nativeAccountAdminWriteEnabled=env=>
 export const nativeAccountRoleWriteEnabled=env=>
   nativeAccountAdminWriteEnabled(env)&&
   env?.CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE==='operator-released';
+// Separate operator release. Create, status, role and store grants are independent.
+export const nativeAccountGrantWriteEnabled=env=>
+  nativeAccountAdminWriteEnabled(env)&&
+  env?.CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE==='operator-released';
 
 // Production account creation transaction, guarded independently of business writes.
 async function createProductionD1Account(request,env,input={}){
@@ -168,7 +172,8 @@ export async function nativeAccountsHttp(request,env){
         next_offset:hasMore?offset+PAGE_SIZE:null,
         can_create:nativeAccountsWriteEnabled(env),
         can_manage_status:nativeAccountAdminWriteEnabled(env),
-        can_manage_role:nativeAccountRoleWriteEnabled(env)});
+        can_manage_role:nativeAccountRoleWriteEnabled(env),
+        can_manage_grants:nativeAccountGrantWriteEnabled(env)});
     }
     if(!authorizedMutation(request,principal,'owner'))
       return reply(403,{code:'E_FORBIDDEN'});

@@ -81,7 +81,13 @@ function move(db,u,x,kind,reference){
  if(!ingredient.active)bad('食材已停用');
  scope(db,u,x.location_id,kind==='adjustment'?'manager':'staff');
  requiredRole(u,'manager');
- const raw=nonneg(x.qty,true), delta=kind==='usage'?-raw:kind==='adjustment'?Number(x.qty_delta):raw;
+ const raw=nonneg(x.qty,true);
+ // Match the Native D1 usage contract: max 1,000,000 and 0.001 precision.
+ // Do not narrow order receiving or stocktake adjustment validation here.
+ if(kind==='usage'&&(raw>1000000||
+    Math.abs(raw*1000-Math.round(raw*1000))>=0.0000001))
+   bad('耗用數量最多 1000000，且不可超過三位小數');
+ const delta=kind==='usage'?-raw:kind==='adjustment'?Number(x.qty_delta):raw;
  if(!Number.isFinite(delta)||delta===0)bad('調整量不可為零');
  const next=balance(db,ingredient.id,x.location_id)+delta;
  if(next < -0.000001)bad('庫存不足，禁止負庫存',409);

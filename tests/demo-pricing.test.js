@@ -256,3 +256,25 @@ test('actual Demo showForm create payload converts FormData number strings',asyn
  assert.deepEqual(fromForm('location.create',{name:' 測試 '},normalizeCatalogCommand),
   {name:'測試'});
 });
+
+test('Vercel virtual stock.usage matches Local/Native three-decimal rules, including 0.3 - 0.1 - 0.2',async()=>{
+ const d=demo();
+ const ing=await d.request('/api/command','ingredient.create',{
+   sku:'FRACTIONAL-001',name:'虛構小數用品',unit:'公斤',min_stock:0
+ });
+ assert.equal(ing.status,200);
+ const data={location_id:'l1',ingredient_id:ing.body.result.id};
+ assert.equal((await d.request('/api/command','stock.opening',{
+   ...data,qty:0.3,note:'虛構期初'
+ })).status,200);
+ assert.equal((await d.request('/api/command','stock.usage',{...data,qty:0.1})).status,200);
+ assert.equal((await d.request('/api/command','stock.usage',{...data,qty:0.2})).status,200);
+ const stock=()=>d.state().stock.find(x=>x.location_id==='l1'&&x.ingredient_id===data.ingredient_id);
+ assert.equal(stock().on_hand,0);
+ assert.equal((await d.request('/api/command','stock.usage',{...data,qty:0.001})).status,400);
+ for(const qty of [0,-0.001,0.0001,1.2345,1000000.001,'invalid']){
+   assert.equal((await d.request('/api/command','stock.usage',{...data,qty})).status,400);
+ }
+ assert.equal(stock().on_hand,0);
+ assert.equal(d.state().stock_moves.filter(x=>x.ingredient_name==='虛構小數用品'&&x.move_type==='usage').length,2);
+});

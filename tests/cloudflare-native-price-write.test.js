@@ -228,6 +228,22 @@ test('local SQLite and Vercel demonstration align on supported cent values and d
  },'demo'));
 });
 
+test('all three deployments agree on weight/volume aliases and reject unrelated units',()=>{
+ const {conversion}=require('../cloudflare/pricing-units.cjs');
+ const win={};
+ vm.runInNewContext(fs.readFileSync(path.join(root,'vercel-demo/pricing-demo.js'),'utf8'),
+   {window:win,Date,console});
+ const converted=win.RestaurantDemoPricing.converted;
+ for(const [qty,from,to] of [
+   [1,'千克','公克'],[1,'公斤','克'],[3000,'g','kg'],
+   [1,'升','毫升'],[1,'l','mL'],[1,'L','ml'],[500,'毫升','公升'],
+   [4,'顆','公斤'],[2,'公升','千克']
+ ]){
+   assert.equal(converted(qty,from,to),conversion(qty,from,to),
+     from+' → '+to+' must match SQLite/Cloudflare units');
+ }
+});
+
 test('Native UI preserves append-only price view and independent role-specific gate',async()=>{
  const ui=fs.readFileSync(path.join(root,'vercel-demo/owner-app.js'),'utf8');
  const html=fs.readFileSync(path.join(root,'vercel-demo/owner-app.html'),'utf8');

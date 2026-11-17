@@ -14,7 +14,7 @@ function money(v,allowZero=false){
  const s=String(v??'').trim();
  if(!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(s))bad('金額須為非負數，最多兩位小數');
  const a=s.split('.'), cents=Number(a[0])*100+Number((a[1]||'').padEnd(2,'0'));
- if(!Number.isSafeInteger(cents)||(!allowZero&&cents<=0))bad('金額必須有效且大於零');
+ if(!Number.isSafeInteger(cents)||cents>100000000000||(!allowZero&&cents<=0))bad('金額必須有效且大於零');
  return cents;
 }
 function locationScope(db,u,locationId){

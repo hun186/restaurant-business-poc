@@ -9,14 +9,14 @@ function validDate(value){
 }
 function positive(value,allowZero=false){
  const s=String(value??'').trim();
- if(!/^(0|[1-9]\d{0,8})(\.\d{1,2})?$/.test(s))throw Error('金額須為有效非負數，最多兩位小數');
+ if(!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(s))throw Error('金額須為有效非負數，最多兩位小數');
  const cents=Math.round(Number(s)*100);
- if(!Number.isSafeInteger(cents)||(!allowZero&&cents<=0))throw Error('金額必須大於零');
+ if(!Number.isSafeInteger(cents)||cents>100000000000||(!allowZero&&cents<=0))throw Error('金額必須大於零');
  return cents;
 }
 function qty(value){const n=Number(value);if(!Number.isFinite(n)||n<=0||n>1000000)throw Error('配方用量須大於零');return n;}
-const unitWeight={'kg':1000,'公斤':1000,'公克':1,'g':1,'克':1};
-const unitVolume={'L':1000,'公升':1000,'ml':1,'mL':1,'毫升':1};
+const unitWeight={'kg':1000,'公斤':1000,'千克':1000,'公克':1,'g':1,'克':1};
+const unitVolume={'L':1000,'l':1000,'公升':1000,'升':1000,'ml':1,'mL':1,'毫升':1};
 function converted(amount,from,to){
  if(from===to)return amount;
  if(Object.hasOwn(unitWeight,from)&&Object.hasOwn(unitWeight,to))return amount*unitWeight[from]/unitWeight[to];
@@ -51,8 +51,11 @@ function latest(db,ing,loc,at=DAY()){
 function makePrice(db,d,id,source='manual'){
  const ing=requireItem(db,'ingredients',d.ingredient_id),loc=requireItem(db,'locations',d.location_id);
  const unit=String(d.unit||ing.unit).trim();
+ if(!unit||unit.length>20)throw Error('計價單位不可空白或超過 20 字');
  if(converted(1,unit,ing.unit)===null)throw Error('食材價格單位與食材庫存單位不相容');
- return {id,ingredient_id:ing.id,location_id:loc.id,price_date:validDate(d.price_date||DAY()),price_cents:positive(d.unit_price_twd),unit,supplier:String(d.supplier||'').trim().slice(0,120),source};
+ const supplier=String(d.supplier||'').trim();
+ if(supplier.length>120)throw Error('供應商名稱超過 120 字');
+ return {id,ingredient_id:ing.id,location_id:loc.id,price_date:validDate(d.price_date||DAY()),price_cents:positive(d.unit_price_twd),unit,supplier,source};
 }
 function handle(db,action,d,id){
  if(action==='price.record'){

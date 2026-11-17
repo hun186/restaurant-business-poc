@@ -5,6 +5,7 @@ import {nativeAccountsHttp,nativeAccountStatusHttp,nativeAccountRoleHttp} from '
 import {nativeAccountGrantHttp} from './native-account-grant-http.mjs';
 import {nativeAuditHttp} from './native-audit-http.mjs';
 import { nativeBusinessReadHttp } from './native-business-http.mjs';
+import {nativePriceHttp,nativePriceWriteEnabled} from './native-price-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
@@ -40,7 +41,8 @@ export default {
         catalog_write_enabled:nativeCatalogWriteEnabled(env),
         order_write_enabled:nativeOrderWriteEnabled(env),
         stocktake_write_enabled:nativeStocktakeWriteEnabled(env),
-        repair_write_enabled:nativeRepairWriteEnabled(env)});
+        repair_write_enabled:nativeRepairWriteEnabled(env),
+        price_write_enabled:nativePriceWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/password/change') return nativePasswordChangeHttp(request,env);
@@ -54,6 +56,7 @@ export default {
     if (pathname === '/api/order') return nativeOrderHttp(request,env);
     if (pathname === '/api/stocktake') return nativeStocktakeHttp(request,env);
     if (pathname === '/api/repair') return nativeRepairHttp(request,env);
+    if (pathname === '/api/price') return nativePriceHttp(request,env);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);

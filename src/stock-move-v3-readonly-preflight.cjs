@@ -14,14 +14,38 @@ const FIELD_NAMES=Object.freeze([
  'reference_id','note','actor_id','created_at'
 ]);
 const fail=code=>{const e=new Error('E_STOCK_MOVE_PREFLIGHT_'+code);e.code='E_STOCK_MOVE_PREFLIGHT';throw e;};
-const norm=sql=>String(sql||'').replace(/\bIF\s+NOT\s+EXISTS\b/gi,'')
-  .replace(/;\s*$/,'').replace(/\s+/g,'').toUpperCase();
+// Normalize only SQL tokens, preserving quoted string literals verbatim.
+// E.g. DEFAULT '' vs DEFAULT ' ' and 'purchase' vs 'PURCHASE' are NOT equal.
+function norm(sql){
+ const source=String(sql||'').trim().replace(/;\s*$/,'')
+   .replace(/^(CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+)IF\s+NOT\s+EXISTS\s+/i,'$1');
+ let result='',quote=null;
+ for(let i=0;i<source.length;i++){
+   const ch=source[i];
+   if(quote){
+     result+=ch;
+     if(quote==='['){if(ch===']')quote=null;}
+     else if(ch===quote){
+       if(source[i+1]===quote)result+=source[++i];
+       else quote=null;
+     }
+   }else if(ch==="'"||ch==='"'||ch.charCodeAt(0)===96||ch==='['){
+     quote=ch;result+=ch;
+   }else if(!/\s/.test(ch))result+=ch.toUpperCase();
+ }
+ if(quote)fail('DDL_QUOTING');
+ return result;
+}
 const quote=name=>'"'+name.replace(/"/g,'""')+'"';
 function inspectStockMoveV3(db,origin){
  if(!db||typeof db.prepare!=='function'||!['local','d1'].includes(origin))
    fail('INVALID_INPUT');
  const rows=sql=>{
-   try{return db.prepare(sql).all();}catch{fail('SQL_READ_FAILED');}
+   try{
+     const out=db.prepare(sql).all();
+     if(!Array.isArray(out))fail('SQL_READ_FAILED');
+     return out;
+   }catch{fail('SQL_READ_FAILED');}
  };
  const first=sql=>rows(sql)[0];
  if(first('PRAGMA quick_check(1)')?.quick_check!=='ok')fail('INTEGRITY');
@@ -36,7 +60,7 @@ function inspectStockMoveV3(db,origin){
    if(first('SELECT contract_version FROM cloud_schema_contract WHERE id=1')?.contract_version!==3)
      fail('D1_SCHEMA_VERSION');
  }
- if(rows("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('stock_moves_v4','stock_move_kind_contract')").length)
+ if(rows("SELECT name FROM sqlite_master WHERE type='table' AND lower(name) IN ('stock_moves_v4','stock_move_kind_contract')").length)
    fail('PARTIAL_OR_ALREADY_MIGRATED');
  const actual=first("SELECT sql FROM sqlite_master WHERE type='table' AND name='stock_moves'")?.sql;
  if(norm(actual)!==norm(EXPECTED_STOCK_MOVES_DDL))fail('STOCK_SCHEMA_DRIFT');
@@ -50,11 +74,14 @@ function inspectStockMoveV3(db,origin){
  if(JSON.stringify(indexColumns)!==JSON.stringify(['ingredient_id','location_id']))
    fail('STOCK_INDEX_COLUMNS');
  // Rebuilding a referenced parent can silently break unrelated schema.
- if(rows("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='stock_moves'").length)
-   fail('STOCK_TRIGGERS');
+ // Triggers on other tables can still read this ledger during a rebuild.
+ const triggers=rows("SELECT name,sql,tbl_name FROM sqlite_master WHERE type='trigger'");
+ if(triggers.some(t=>String(t.tbl_name).toLowerCase()==='stock_moves'||
+   /\bstock_moves\b/i.test(String(t.sql))))fail('STOCK_TRIGGERS');
  if(rows("SELECT name FROM sqlite_master WHERE type='view' AND sql LIKE '%stock_moves%'").length)
    fail('STOCK_VIEWS');
- const tables=rows("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+ // LIKE '_' is a wildcard and would wrongly skip e.g. sqliteX_links.
+ const tables=rows("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'");
  if(tables.length>200)fail('UNEXPECTED_TABLE_INVENTORY');
  for(const item of tables){
    if(typeof item.name!=='string'||!/^[A-Za-z_][A-Za-z_0-9]*$/.test(item.name))

@@ -162,6 +162,48 @@ test('revoked Manager store access in batch blocks price and audit atomically',a
  assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'").get().n,0);
 });
 
+
+test('concurrent catalog unit change before D1 batch rejects explicit incompatible price atomically',async t=>{
+  let f,run=false;
+  const control={beforeBatch(){
+    if(run)f.db.prepare('UPDATE ingredients SET unit=? WHERE id=?')
+      .run('公升',f.ids.ing);
+  }};
+  f=await fixture(t,control);
+  // In a real catalog update the ingredient must not yet have inventory,
+  // prices, orders or recipes: remove this synthetic fixture's stock movement.
+  f.db.prepare('DELETE FROM stock_moves WHERE ingredient_id=?')
+    .run(f.ids.ing);
+  const owner=await f.login('owner');run=true;
+  const response=await f.write(owner,f.input());
+  assert.equal(response.status,503);
+  assert.equal(f.db.prepare('SELECT unit FROM ingredients WHERE id=?')
+    .get(f.ids.ing).unit,'公升');
+  assert.equal(tableCount(f.db,'ingredient_prices'),0);
+  assert.equal(f.db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'"
+  ).get().n,0);
+});
+
+test('concurrent catalog unit change rejects omitted price unit, not just explicit units',async t=>{
+  let f,run=false;
+  const control={beforeBatch(){
+    if(run)f.db.prepare('UPDATE ingredients SET unit=? WHERE id=?')
+      .run('公升',f.ids.ing);
+  }};
+  f=await fixture(t,control);
+  f.db.prepare('DELETE FROM stock_moves WHERE ingredient_id=?')
+    .run(f.ids.ing);
+  const manager=await f.login('manager');run=true;
+  const {unit,...withoutUnit}=f.input();
+  const response=await f.write(manager,withoutUnit);
+  assert.equal(response.status,503);
+  assert.equal(tableCount(f.db,'ingredient_prices'),0);
+  assert.equal(f.db.prepare(
+    "SELECT COUNT(*) AS n FROM audit_logs WHERE action='price.record'"
+  ).get().n,0);
+});
+
 test('local SQLite and Vercel demonstration align on supported cent values and date input',()=>{
  const {money}=require('../src/pricing');
  const win={};

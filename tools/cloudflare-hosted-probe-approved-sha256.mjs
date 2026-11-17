@@ -87,7 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/cloudflare-native-price-write.test.js":"dbca68b5115876a9f87c51579f4adf1c1d669e9c267752ea7548c49ce87c18ff",
+  "tests/cloudflare-native-price-write.test.js":"18b030592c99b4bd4f6aef9d87e8aa85d1a254306c9b39ecfda02538cbec4077",
   "cloudflare/native-price-http.mjs":"5dccee3f309a38bc8fa6e80b7d83066f29d918c8ac2395ee4301181081b807d7",
   "tests/native-owner-grant-uat-readonly.test.js":"722967ea151fd47bc3641406db0c87e91af14831ba73b3898f7b1e876cdaccaf",
   "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
@@ -133,8 +133,8 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-native-order-live.test.js":"7747df51c1800233e2c38b4f740336291a6a4635f34ddca22d8618fba56b4dea",
   "tests/cloudflare-native-stocktake-live.test.js":"2e55031dadd5dd5bd67a707b36996a2511febadab71950400f4dff66ada8574e",
   "tests/cloudflare-native-repair-live.test.js":"e74e3db1972cc41ca448fed89231b2329b440b4ee03f104a904682dd50047c8c",
-  "tests/cloudflare-native-task-live.test.js":"dba640665763dbc9312db35c8a3e6a50e3dc1f020a126b9b79512a984568fc40",
-  "tests/cloudflare-native-owner-business-http.test.js":"930c881401839313b91549f1d0d912469e23cb1f161c1dc7681219b0a19e2045",
+  "tests/cloudflare-native-task-live.test.js":"a1c1601f0b42c72514b67b81ef8fdd60de7d1e74fac3f0d286444ebfda63f336",
+  "tests/cloudflare-native-owner-business-http.test.js":"780be76ff104528f3d2d977dd22a3adc07926b4efac1aab07e9ead786b3793ca",
   "tests/cloudflare-native-password-change.test.js":"e005063f273f413707c140d912ff8f5beee3a047510f09725d0a5ce05eb7ef43",
   "tests/cloudflare-native-login-http.test.js":"5a8fc37b5915977ae4cccf9c27736b98ca8bd72e18470ebaeb748108677fabe8",
   "cloudflare/native-password-change-http.mjs":"d34237c2ccc6d7d9008c68358ae0818bb85c76c24ff148b7994eceadf58bfd38",
@@ -148,7 +148,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-staging-access-preview-ui.test.js":"eebb492804fc844eea3a08f622357228af7060a94579f267166888456fd5fef6",
   "vercel-demo/owner-app.html":"26d1292cf39b84b5e305133b643662b04a7061d48e453857e446d96d0776c93d",
   "vercel-demo/owner-app.css":"c100766867a15264f0d7f4173bf14ae4d33cef31fb9f0e53963a1cdbbd0a5101",
-  "vercel-demo/owner-app.js":"0ac9cffeea352e524a81b90f9f9e1d5f2e032ae65401f9c726514e003299c330",
+  "vercel-demo/owner-app.js":"ab9bb5b09b9c7290f387c345b19d9b95fed7923061db7e63c19f235307cb0445",
   "vercel-demo/staging-access-preview.js":"49ffe225114e50bd0f3217684ca8c45dd5c53ae0b7557c45a46bdec1f672171c",
   "vercel-demo/staging-access-preview.css":"39323fe4a1a7d4a5c0b9473797a7c3b4abc9ad77f1856d65e376230f03a4f219",
   "vercel-demo/staging-access-preview.html":"625a1e29867f804e8fc0b4c5b80b92a760242b587fa415ae7e1f62f60f0ef05a",

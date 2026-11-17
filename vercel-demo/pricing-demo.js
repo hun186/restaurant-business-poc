@@ -15,8 +15,8 @@ function positive(value,allowZero=false){
  return cents;
 }
 function qty(value){const n=Number(value);if(!Number.isFinite(n)||n<=0||n>1000000)throw Error('配方用量須大於零');return n;}
-const unitWeight={'kg':1000,'公斤':1000,'公克':1,'g':1,'克':1};
-const unitVolume={'L':1000,'公升':1000,'ml':1,'mL':1,'毫升':1};
+const unitWeight={'kg':1000,'公斤':1000,'千克':1000,'公克':1,'g':1,'克':1};
+const unitVolume={'L':1000,'l':1000,'公升':1000,'升':1000,'ml':1,'mL':1,'毫升':1};
 function converted(amount,from,to){
  if(from===to)return amount;
  if(Object.hasOwn(unitWeight,from)&&Object.hasOwn(unitWeight,to))return amount*unitWeight[from]/unitWeight[to];

@@ -375,3 +375,39 @@ test('copy mode keeps network, SQL write and external-media attestation strictly
  assert.match(launcher,/node tools\\cloudflare-prod-d1-encrypted-backup\.mjs --verify-copy/);
  assert.match(launcher,/It does NOT certify an offsite location/);
 });
+
+
+test('interactive option 3 accepts safely quoted Windows-style pasted paths and rejects malformed ones',async t=>{
+ const m=await mod,os=require('node:os');
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'d1-backup-prompt-path-'));
+ t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));
+ const a=path.join(folder,'original archive.sql.aes');
+ const b=path.join(folder,'copied archive.sql.aes');
+ const pass='synthetic-lab-password-123456';
+ const archive=m.encryptSql(SQL,pass);
+ fs.writeFileSync(a,archive,{flag:'wx',mode:0o600});
+ fs.copyFileSync(a,b,fs.constants.COPYFILE_EXCL);
+ for(const [input,expected] of [
+  [a,a],['"'+a+'"',a],['  "'+a+'"  ',a],
+  [b,b],['"'+b+'"',b]
+ ])assert.equal(m.normalizeCopyPromptPath(input),path.resolve(expected));
+ const accepted=m.verifyIndependentCopy(
+   m.normalizeCopyPromptPath('"'+a+'"'),m.normalizeCopyPromptPath('"'+b+'"'),pass);
+ assert.equal(accepted.status,'PROD_D1_ENCRYPTED_COPY_VERIFY_PASS');
+ assert.equal(accepted.copy_matches_source,true);
+ assert.equal(accepted.both_archives_offline_sqlite_replay_verified,true);
+ assert.equal(accepted.production_write_performed,false);
+ for(const invalid of [
+  '', '  ', '"', '"'+a, a+'"', '"'+a+'""',
+  '"'+a+'"PRIVATE', '"'+a+'\\n', 'relative.sql.aes',
+  '"'+a.replace('.sql.aes','.sqlite')+'"', null
+ ])assert.throws(()=>m.normalizeCopyPromptPath(invalid),e=>
+  e?.message==='E_PRODUCTION_D1_BACKUP'&&e?.reason==='COPY_PATH');
+ // The fix must not weaken hardlink/same-archive rejection.
+ assert.throws(()=>m.verifyIndependentCopy(m.normalizeCopyPromptPath('"'+a+'"'),
+  m.normalizeCopyPromptPath('"'+a+'"'),pass),
+  e=>e?.reason==='COPY_SAME_FILE');
+ const launcher=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8');
+ assert.match(launcher,/--verify-copy/);
+ assert.doesNotMatch(launcher,/--restore|--import/);
+});

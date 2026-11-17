@@ -311,6 +311,23 @@ export function verifyArchive(file,passphrase) {
   archive_sha256:createHash('sha256').update(bytes).digest('hex'),
   ...v,source_file_unchanged:true,production_write_performed:false});
 }
+// Accept the two common Windows console paste forms: C:\path\file.sql.aes
+// and "C:\path\file.sql.aes". Only an outer balanced pair is removed;
+// reject embedded/mismatched quotes instead of accidentally treating them as
+// filename characters. This normalizes *input text*, never filesystem links.
+export function normalizeCopyPromptPath(input){
+ if(typeof input!=='string')fail('COPY_PATH');
+ let value=input.trim();
+ if(value.startsWith('"')||value.endsWith('"')){
+  if(value.length<3||!value.startsWith('"')||!value.endsWith('"'))
+   fail('COPY_PATH');
+  value=value.slice(1,-1);
+ }
+ if(!value||value!==value.trim()||value.includes('"')||
+    /[\x00-\x1f\x7f]/.test(value)||!path.isAbsolute(value)||
+    !value.endsWith('.sql.aes'))fail('COPY_PATH');
+ return path.resolve(value);
+}
 // Offline only: compare an independently stored encrypted copy with the
 // original ciphertext, then authenticate + replay BOTH archives in memory.
 // It does not inspect media identity, assert physical offsite custody, or copy.
@@ -382,7 +399,7 @@ async function main(args){
   if(!originalFile?.trim()||!copyFile?.trim())fail('COPY_PATH');
   const pass=await hidden('Backup passphrase (hidden): ');
   console.log(JSON.stringify(verifyIndependentCopy(
-   path.resolve(originalFile.trim()),path.resolve(copyFile.trim()),pass)));
+   normalizeCopyPromptPath(originalFile),normalizeCopyPromptPath(copyFile),pass)));
   return;
  }
  if(args.length===2&&args[0]==='--verify'){

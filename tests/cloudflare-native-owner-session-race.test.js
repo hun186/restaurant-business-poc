@@ -125,7 +125,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
   say:(message,error)=>trace.notice.push({message,error})
  });
  const code=take('function clearSensitiveForms(){','function showLogin(message){')+
-  take('function showLogin(message){','function table(entity,rows){');
+  take('function showLogin(message){','function table(entity,rows,asOf=null){');
  vm.runInContext(code+'\nthis.invoke=showLogin;',ctx);
  ctx.invoke('登入已失效。');
  assert.deepEqual(panePasswords.map(x=>x.value),['','','']);

@@ -12,7 +12,7 @@ $MaxBytes=4096
 $TimeoutMs=10000
 $Utf8=New-Object System.Text.UTF8Encoding($false,$true)
 $WriteFlags=@('task_write_enabled','catalog_write_enabled','order_write_enabled',
- 'stocktake_write_enabled','repair_write_enabled')
+ 'stocktake_write_enabled','repair_write_enabled','price_write_enabled')
 function Deny([string]$stage,[string]$code){
  throw [System.InvalidOperationException]::new("E_OWNER_LOGIN_UAT_GATE|$stage|$code")
 }
@@ -123,8 +123,8 @@ function Get-Fixed($client,[string]$route,[int]$expected){
  }
 }
 function Test-Synthetic{
- $open='{"mode":"native","login_enabled":true,"task_write_enabled":false,"catalog_write_enabled":false,"order_write_enabled":false,"stocktake_write_enabled":false,"repair_write_enabled":false}'
- $closed='{"mode":"demo","login_enabled":false,"task_write_enabled":false,"catalog_write_enabled":false,"order_write_enabled":false,"stocktake_write_enabled":false,"repair_write_enabled":false}'
+ $open='{"mode":"native","login_enabled":true,"task_write_enabled":false,"catalog_write_enabled":false,"order_write_enabled":false,"stocktake_write_enabled":false,"repair_write_enabled":false,"price_write_enabled":false}'
+ $closed='{"mode":"demo","login_enabled":false,"task_write_enabled":false,"catalog_write_enabled":false,"order_write_enabled":false,"stocktake_write_enabled":false,"repair_write_enabled":false,"price_write_enabled":false}'
  Assert-Status 'preflight' (ConvertFrom-Json $open)
  Assert-Status 'closeout' (ConvertFrom-Json $closed)
  Assert-Route 'preflight' '/api/login' 405 (ConvertFrom-Json '{"code":"METHOD_NOT_ALLOWED"}')
@@ -136,6 +136,8 @@ function Test-Synthetic{
   @{phase='preflight';data=$closed},
   @{phase='closeout';data=$open},
   @{phase='preflight';data=$open.Replace('"task_write_enabled":false','"task_write_enabled":true')},
+  @{phase='preflight';data=$open.Replace('"price_write_enabled":false','"price_write_enabled":true')},
+  @{phase='preflight';data=$open.Replace(',"price_write_enabled":false','')},
   @{phase='preflight';data=$open.Replace('"login_enabled":true','"login_enabled":"true"')},
   @{phase='closeout';data='{"mode":"demo","login_enabled":false}'}
  )){
@@ -150,7 +152,7 @@ function Test-Synthetic{
   try{Assert-Route $entry.phase $entry.route $entry.status (ConvertFrom-Json $entry.body)}
   catch{if($_.Exception.Message -like 'E_OWNER_LOGIN_UAT_GATE|*'){$rejections++}}
  }
- if($rejections -ne 8){Deny 'SELFTEST' 'ASSERTION'}
+ if($rejections -ne 10){Deny 'SELFTEST' 'ASSERTION'}
  Write-Output 'NATIVE_OWNER_LOGIN_UAT_GATE_SELFTEST_PASS'
 }
 try{
@@ -182,6 +184,8 @@ try{
   status=$result
   phase=$Phase
   five_business_write_gates_closed=$true
+  price_write_gate_closed=$true
+  all_six_business_write_gates_closed=$true
   anonymous_identity_exposure_detected=$false
   request_methods='GET_ONLY'
   cookie_sent=$false

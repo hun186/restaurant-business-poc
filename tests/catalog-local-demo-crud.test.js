@@ -90,3 +90,28 @@ test('shared contract served in local/Vercel and demo never reuses real D1 authe
  assert.equal(prodConfig.keep_vars,true);
  assert.equal(Object.hasOwn(prodConfig,'vars'),false);
 });
+
+test('Local stock.usage matches Native D1 three-place bounds and depletes fractional inventory',()=>{
+ const {db,actor}=ready();
+ try{
+  const location=command(db,actor,'location.create',{name:'小數測試店'}).id;
+  const ingredient=command(db,actor,'ingredient.create',{
+    sku:'FRACTIONAL-01',name:'虛構小數食材',unit:'公斤',min_stock:0
+  }).id;
+  const data={location_id:location,ingredient_id:ingredient};
+  command(db,actor,'stock.opening',{...data,qty:0.3,note:'虛構庫存'});
+  assert.equal(command(db,actor,'stock.usage',{...data,qty:0.1}).id.length,36);
+  assert.equal(command(db,actor,'stock.usage',{...data,qty:0.2}).id.length,36);
+  const remaining=db.prepare('SELECT COALESCE(SUM(qty_delta),0) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?')
+    .get(ingredient,location).n;
+  assert(Math.abs(remaining)<1e-9);
+  expectFail(()=>command(db,actor,'stock.usage',{...data,qty:0.001}),409);
+  for(const qty of [0,-0.001,0.0001,1.2345,1000000.001,'not-a-number']){
+   expectFail(()=>command(db,actor,'stock.usage',{...data,qty}),400);
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM stock_moves WHERE ingredient_id=? AND move_type='usage'")
+    .get(ingredient).n,2);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action='stock.usage'")
+    .get().n,2);
+ }finally{db.close();}
+});

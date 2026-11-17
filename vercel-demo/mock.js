@@ -75,7 +75,10 @@
   if(ing.active===0||lookup('locations',location_id)?.active===0)throw Error('食材或門市已停用');
   let item=stockFor(location_id,ingredient_id);
   if(!item){item={id:makeId(),location_id,location_name:lName(location_id),ingredient_id,name:ing.name,unit:ing.unit,min_stock:Number(ing.min_stock),on_hand:0};db.stock.push(item);}
-  const next=Number(item.on_hand)+Number(delta);
+  let next=Number(item.on_hand)+Number(delta);
+  // Only normalize a floating residual at exact three-decimal usage depletion.
+  // Other receipts and adjustments keep their existing stored quantities.
+  if(type==='usage'&&next<0&&next>-0.000000001)next=0;
   if(!Number.isFinite(next)||next<0)throw Error('展示庫存不足或數量無效');
   item.on_hand=next;
   db.stock_moves.unshift({id:makeId(),created_at:new Date().toLocaleString('zh-TW'),location_name:lName(location_id),ingredient_name:ing.name,move_type:type,qty_delta:Number(delta),note:note||'瀏覽器示範'});
@@ -203,7 +206,10 @@
    db[group].unshift(r);log(action,group,r.id);save();return r;
   }
   if(action==='stock.usage'){
-   const q=Number(d.qty);if(!Number.isFinite(q)||q<=0)throw Error('數量必須大於 0');
+   const q=Number(d.qty);
+   if(!Number.isFinite(q)||q<=0||q>1000000||
+      Math.abs(q*1000-Math.round(q*1000))>=0.0000001)
+     throw Error('耗用數量須大於零、最多 1000000，且最多三位小數');
    changeStock(d.location_id,d.ingredient_id,-q,'usage',d.note);
   }else{
    const groups={'task.status':'tasks','order.approve':'purchase_orders','order.receive':'purchase_orders','order.cancel':'purchase_orders',

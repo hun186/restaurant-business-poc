@@ -90,7 +90,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/native-account-management-ui.mjs":"e7cc8cd69fbc7557fce3341fc85cbeb26592738007a596b60852ff04683e8b38",
   "cloudflare/native-account-management-http.mjs":"4ad5fa372d8f7d3394e072fd53f88265b237a163c7634faa9fe671e7e1eae316",
   "cloudflare/native-account-grant-http.mjs":"09cb6349590a0996e023fd3644cebf288d595074653fb626452eaf7ad905aaf1",
-  "tests/cloudflare-native-account-management-http.test.js":"a89cfbc6e9a8368ddd98d869cfc6f6965898b2d32639f454f67174b23c2a568a",
+  "tests/cloudflare-native-account-management-http.test.js":"62473397e91d526d618edc20b486bb0e61d1021b2bee95442ad39a966e883009",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",

@@ -53,10 +53,11 @@ for(const origin of ['local','d1']){
   db.exec('ALTER TABLE stock_moves ADD COLUMN unsafe_extra TEXT');
   assert.throws(()=>inspectStockMoveV3(db,origin),/STOCK_SCHEMA_DRIFT/);
  });
- test(origin+' preserves quoted DDL literals, rejecting changed defaults and kind case even when empty',t=>{
+ test(origin+' rejects SQL token-boundary and quoted-literal DDL drift even when empty',t=>{
   const baseline=origin==='d1'?oldD1:oldLocal;
   for(const [from,to] of [
     ["note TEXT NOT NULL DEFAULT ''","note TEXT NOT NULL DEFAULT ' '"],
+    ["note TEXT NOT NULL DEFAULT ''","note TEXTNOTNULL DEFAULT ''"],
     ["move_type IN ('purchase','usage','adjustment')",
      "move_type IN ('PURCHASE','usage','adjustment')"]
   ]){

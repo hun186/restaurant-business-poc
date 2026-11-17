@@ -272,7 +272,7 @@ async function priceActions(marker){
        !Array.isArray(loc.rows)||!Array.isArray(ings.rows))
       throw Error('選單資料不完整');
     makeOptions(store,loc.rows,'門市');makeOptions(ingredient,ings.rows,'食材');
-    // Price entry uses the same six fields as local /api/command price.record.
+    // Price entry uses the same fields as the local SQLite price.record operation.
     store.required=true;ingredient.required=true;
     price.type='number';price.min='0.01';price.step='0.01';price.required=true;
     unit.maxLength=20;unit.placeholder='留空使用食材單位';

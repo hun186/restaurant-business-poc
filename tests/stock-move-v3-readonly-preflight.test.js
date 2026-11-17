@@ -86,6 +86,18 @@ for(const origin of ['local','d1']){
   db.exec('CREATE TABLE StoCk_MoVeS_v4(id TEXT PRIMARY KEY)');
   assert.throws(()=>inspectStockMoveV3(db,origin),/PARTIAL_OR_ALREADY_MIGRATED/);
  });
+ test(origin+' fails closed when view or index collides with the v4 migration marker',t=>{
+  for(const sql of [
+    'CREATE VIEW stock_move_kind_contract AS SELECT 1 AS id',
+    'CREATE INDEX stock_move_kind_contract ON locations(id)',
+    'CREATE VIEW StoCk_MoVeS_v4 AS SELECT 1 AS id',
+    'CREATE INDEX StoCk_MoVeS_v4 ON locations(id)'
+  ]){
+    const db=setup(t,origin);
+    db.exec(sql);
+    assert.throws(()=>inspectStockMoveV3(db,origin),/PARTIAL_OR_ALREADY_MIGRATED/);
+  }
+ });
  test(origin+' rejects sqliteX prefixed tables that refer to stock_moves via FK',t=>{
   const db=setup(t,origin);
   db.exec('CREATE TABLE sqliteX_links(move_id TEXT REFERENCES stock_moves(id))');

@@ -68,7 +68,7 @@ function inspectStockMoveV3(db,origin){
    if(first('SELECT contract_version FROM cloud_schema_contract WHERE id=1')?.contract_version!==3)
      fail('D1_SCHEMA_VERSION');
  }
- if(rows("SELECT name FROM sqlite_master WHERE type='table' AND lower(name) IN ('stock_moves_v4','stock_move_kind_contract')").length)
+ if(rows("SELECT name FROM sqlite_master WHERE lower(name) IN ('stock_moves_v4','stock_move_kind_contract')").length)
    fail('PARTIAL_OR_ALREADY_MIGRATED');
  const actual=first("SELECT sql FROM sqlite_master WHERE type='table' AND name='stock_moves'")?.sql;
  if(norm(actual)!==norm(EXPECTED_STOCK_MOVES_DDL))fail('STOCK_SCHEMA_DRIFT');

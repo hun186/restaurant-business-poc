@@ -87,8 +87,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/stock-move-v3-readonly-preflight.test.js":"bde8729eac5ee6e3636943391c2043de58e5253d4d291e3d765b02020bd0ce5c",
-  "src/stock-move-v3-readonly-preflight.cjs":"4a15df3348c53a6f150f06608db9ca0b4db8a5d932ea22b87c1ee8e8a67a6858",
+  "tests/stock-move-v3-readonly-preflight.test.js":"a372d7e93baf632a497f1869eed722c48c024561817330a593d57641f54f02d2",
+  "src/stock-move-v3-readonly-preflight.cjs":"610d05d93f6a3c5ceb23c140aa138df881599d0c2fbfac829700ffc8427ea808",
   "tests/stock-move-kinds-migration-proposal.test.js":"3cd415bec443ba42d1a046683ebf4dcd40825cf854c2a79794850ec81082bff8",
   "cloudflare/migration-proposals/0004_stock_move_kinds.sql":"b1a7d59c6c488ffb3451500ba3833721456ee50d3099a64754bf66c32a2535df",
   "db/migration-proposals/0004_stock_move_kinds.sql":"b1a7d59c6c488ffb3451500ba3833721456ee50d3099a64754bf66c32a2535df",

@@ -47,7 +47,13 @@ The two source files are **identical**:
 - `db/migration-proposals/0004_stock_move_kinds.sql`
 - `cloudflare/migration-proposals/0004_stock_move_kinds.sql`
 
-Each creates a new checked table, copies **every existing column including
+Each first creates a standalone `stock_move_kind_contract` version-4 marker,
+which **refuses any replay** and is rolled back with the rebuild on failure.
+This marker does not alter Local `PRAGMA user_version` or D1's existing
+`cloud_schema_contract` yet; an actual deployment requires separately
+reviewed version transitions and postflight checks.
+
+Each then creates a new checked table, copies **every existing column including
 original `created_at`, id, actor, reference, note and quantity**, replaces
 the old ledger and recreates its `stock_moves_stock` index. No customer
 rows, credentials or audit records are inserted/deleted or re-initialized.

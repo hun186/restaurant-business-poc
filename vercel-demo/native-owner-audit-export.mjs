@@ -3,15 +3,44 @@
 // Never touch raw detail/ip_hash/actor_id, D1 or storage.
 export const NATIVE_AUDIT_EVENTS=Object.freeze({
   'auth.login':'登入成功','auth.login_failed':'登入失敗',
-  'auth.logout':'安全登出','user.create':'新增帳號',
-  'user.active':'帳號啟用狀態變更','user.role':'帳號角色變更',
-  'user.password':'密碼變更','password.change':'密碼變更',
+  'auth.logout':'安全登出','auth.password_change':'變更登入密碼',
+  'password.change':'密碼變更',
+  'user.create':'新增帳號','user.active':'帳號啟用狀態變更',
+  'user.role':'帳號角色變更','user.password':'重設帳號密碼',
+  'user.assign-location':'新增門市授權',
+  'user.unassign-location':'移除門市授權',
+  'location.create':'建立門市','location.update':'修改門市',
+  'location.active':'門市啟用狀態變更',
+  'ingredient.create':'建立食材','ingredient.update':'修改食材',
+  'ingredient.active':'食材啟用狀態變更',
   'task.create':'建立工作','task.status':'工作狀態變更',
-  'stocktake.create':'建立盤點','stocktake.confirm':'確認盤點',
+  'task.assign':'變更工作指派','task.due':'變更工作期限',
   'order.create':'建立叫貨','order.approve':'核准叫貨',
-  'order.receive':'叫貨入庫','repair.create':'設備報修',
-  'repair.status':'維修狀態變更'
+  'order.receive':'叫貨入庫','order.cancel':'取消叫貨',
+  'stocktake.create':'建立盤點','stocktake.confirm':'確認盤點',
+  'repair.create':'設備報修','repair.status':'維修狀態變更',
+  'repair.update':'更新維修單'
 });
+// The two Owner presentation surfaces share this display-only allowlist.
+// D1 still stores and filters the exact immutable original action/entity codes.
+export const NATIVE_AUDIT_ENTITIES=Object.freeze({
+  users:'帳號',sessions:'登入工作階段',user_locations:'門市授權',
+  locations:'門市',ingredients:'食材',tasks:'工作',
+  purchase_orders:'叫貨單',stocktakes:'盤點紀錄',
+  stock_moves:'庫存流水',repairs:'維修單',
+  audit_logs:'安全稽核'
+});
+const auditCode=value=>typeof value==='string'?value.slice(0,80):'';
+export function nativeAuditEventLabel(value){
+ const code=auditCode(value);
+ return !code?'—':Object.hasOwn(NATIVE_AUDIT_EVENTS,code)?
+   NATIVE_AUDIT_EVENTS[code]:'其他事件（'+code+'）';
+}
+export function nativeAuditEntityLabel(value){
+ const code=auditCode(value);
+ return !code?'—':Object.hasOwn(NATIVE_AUDIT_ENTITIES,code)?
+   NATIVE_AUDIT_ENTITIES[code]:'其他類別（'+code+'）';
+}
 const safeText=x=>typeof x==='string'?x.slice(0,32767):'—';
 export function taipeiAuditTime(value){
  if(typeof value!=='string'||!/^20[0-9]{2}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/.test(value))
@@ -31,9 +60,8 @@ export function nativeAuditPageSheet(rows){
   headers:['時間（臺灣）','操作者','事件','資料類別','內容摘要'],
   rows:rows.map(item=>[
    taipeiAuditTime(item.at),safeText(item.actor_name),
-   (typeof item.action==='string'&&Object.hasOwn(NATIVE_AUDIT_EVENTS,item.action)?
-     NATIVE_AUDIT_EVENTS[item.action]:safeText(item.action)),
-   safeText(item.entity),safeText(item.summary)
+   nativeAuditEventLabel(item.action),
+   nativeAuditEntityLabel(item.entity),safeText(item.summary)
   ])
  });
 }

@@ -1,5 +1,5 @@
 // Native Owner security timeline: authenticated GET only, never Demo or local storage.
-import {NATIVE_AUDIT_EVENTS,taipeiAuditTime,nativeAuditPageSheet} from './native-owner-audit-export.mjs';
+import {nativeAuditEventLabel,nativeAuditEntityLabel,taipeiAuditTime,nativeAuditPageSheet} from './native-owner-audit-export.mjs';
 const el=(tag,value)=>{
   const node=document.createElement(tag);
   if(value!==undefined)node.textContent=String(value);
@@ -69,7 +69,7 @@ export async function renderOwnerAudit({pane,api,role,signal,notice,live,onAuthE
       for(const item of data.rows){
         const tr=el('tr');
         for(const value of [taipeiAuditTime(item.at),item.actor_name||'—',
-          NATIVE_AUDIT_EVENTS[item.action]||item.action||'—',item.entity||'—',
+          nativeAuditEventLabel(item.action),nativeAuditEntityLabel(item.entity),
           item.summary||'—']){
           tr.append(el('td',value));
         }

@@ -61,6 +61,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
         '每次僅修改一間門市，成功後該員工所有裝置須重新登入。');
       const labeled=element('label','選擇門市 ');
       const submit=element('button'),cancel=element('button','取消');
+      let grantPending=false;
       choose.required=true;choose.setAttribute('aria-label','授權目標門市');
       for(const store of possible){
         const option=element('option',store.name+
@@ -70,19 +71,21 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       const updateVerb=()=>{
         const assigned=user.location_ids.includes(choose.value);
         submit.textContent=assigned?'移除授權':'新增授權';
-        submit.disabled=!possible.some(store=>store.id===choose.value&&
+        submit.disabled=grantPending||!possible.some(store=>store.id===choose.value&&
           (assigned||store.active===1));
+        choose.disabled=grantPending;
+        cancel.disabled=grantPending;
       };
       choose.value=possible[0].id;choose.addEventListener('change',updateVerb);
       submit.type='submit';cancel.type='button';
       cancel.addEventListener('click',()=>{
-        if(!live())return;
+        if(!live()||grantPending)return;
         grantPanel.hidden=true;grantPanel.replaceChildren();
       });
       labeled.append(choose);form.append(labeled,submit,cancel);
       form.addEventListener('submit',async event=>{
         event.preventDefault();
-        if(!live()||submit.disabled)return;
+        if(!live()||grantPending||submit.disabled)return;
         const location=possible.find(store=>store.id===choose.value);
         if(!location)return;
         const wasAssigned=user.location_ids.includes(location.id);
@@ -93,7 +96,9 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
         if(!globalThis.confirm('確定'+(wasAssigned?'移除':'新增')+
           '「'+user.username+'」對「'+location.name+'」的授權？'+
           '該員工所有登入工作階段都會撤銷，歷史紀錄保留。'))return;
-        submit.disabled=true;notice('正在變更員工門市授權…');
+        // Keep the in-flight guard independent of selection-change handlers.
+        // A second POST must not start until the first outcome is confirmed.
+        grantPending=true;updateVerb();notice('正在變更員工門市授權…');
         try{
           const result=await api('/api/accounts/grant',{method:'POST',signal,
             referrerPolicy:'same-origin',
@@ -112,7 +117,10 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
           if(error.status===409)notice('門市授權已變更、目前門市不可用或這是最後一間可用門市，請重新整理核對。',true);
           else notice(error.message||'門市授權更新失敗，未確認寫入。',true);
-        }finally{submit.disabled=false;}
+        }finally{
+          grantPending=false;
+          if(live())updateVerb();
+        }
       });
       updateVerb();grantPanel.replaceChildren(title,desc,form);grantPanel.hidden=false;
     };

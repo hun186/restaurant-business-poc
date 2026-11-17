@@ -532,3 +532,156 @@ test('Native role controls are behind authenticated role gate and never target O
  assert.match(backend,/can_manage_role:nativeAccountRoleWriteEnabled\(env\)/);
  assert.match(backend,/CLOUD_NATIVE_ACCOUNT_ROLE_WRITE_GATE==='operator-released'/);
 });
+
+
+test('Native Owner store grant: independent gate, auth, CAS, last active store and session revocation',async t=>{
+ const f=await fixture(t),owner=await f.login();assert.equal(owner.status,200);
+ const targetId='123e4567-e89b-42d3-a456-426614174099';
+ const A='123e4567-e89b-42d3-a456-426614174000';
+ const B='123e4567-e89b-42d3-a456-426614174001';
+ const C='123e4567-e89b-42d3-a456-426614174002';
+ f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+  .run(targetId,'grantemployee','Employee','staff','synthetic-salt','synthetic-hash',1);
+ f.db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(B,'第二門市');
+ f.db.prepare('INSERT INTO locations(id,name,active) VALUES(?,?,0)').run(C,'停用門市');
+ const grants=f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)');
+ grants.run(targetId,A);grants.run(targetId,C);
+ f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+  .run('grant-employee-session','grant-employee-csrf',targetId,new Date(Date.now()+3600000).toISOString());
+ const input={action:'assign',expectedAssigned:false,expectedRole:'staff',
+  locationId:B,targetUserId:targetId};
+ const createOnly={...f.env,CLOUD_NATIVE_ACCOUNT_WRITE_GATE:'operator-released'};
+ const adminOnly={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released'};
+ const grantOnly={...f.env,CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE:'operator-released'};
+ const both={...adminOnly,CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE:'operator-released'};
+ const req=(data=input,env=both,csrf=owner.csrf,origin=site)=>f.send('/api/accounts/grant',{
+  method:'POST',headers:{cookie:owner.cookie,origin,'x-csrf-token':csrf,
+   'content-type':'application/json','sec-fetch-site':'same-origin'},
+  body:JSON.stringify(data)},env);
+ for(const env of [f.env,createOnly,adminOnly,grantOnly])
+  assert.equal((await req(input,env)).status,503,'all independent gates required');
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=?').get(targetId).n,2);
+ assert.equal((await req(input,both,'invalid-csrf')).status,403);
+ assert.equal((await req(input,both,owner.csrf,'https://evil.invalid')).status,403);
+ for(const bad of [
+  {...input,expectedRole:'owner'},
+  {...input,expectedAssigned:true},
+  {...input,targetUserId:'invalid'},
+  {...input,extra:'nope'},
+  {...input,action:'revoke'},
+  {...input,locationId:'invalid'}
+ ])assert.equal((await req(bad)).status,400);
+ assert.equal((await req({...input,targetUserId:'synthetic-owner'})).status,400);
+ assert.equal((await req({...input,locationId:C})).status,409,'disabled store cannot be newly assigned');
+ const active=await (await f.send('/api/accounts',{headers:{cookie:owner.cookie}},both)).json();
+ assert.equal(active.can_manage_grants,true);
+ assert.equal(active.can_create,false);
+ assert.equal(active.can_manage_role,false);
+ assert.equal((await (await f.send('/api/accounts',{headers:{cookie:owner.cookie}})).json()).can_manage_grants,false);
+ const success=await req();
+ assert.equal(success.status,200,JSON.stringify(await success.json()));
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=? AND location_id=?').get(targetId,B).n,1);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=?').get(targetId).n,0);
+ assert.equal(f.db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE actor_id='synthetic-owner' AND action='user.assign-location' AND entity_id=?").get(targetId).n,1);
+ assert.equal((await req()).status,409,'replayed assign cannot duplicate');
+ const removeA={action:'unassign',expectedAssigned:true,expectedRole:'staff',
+  locationId:A,targetUserId:targetId};
+ assert.equal((await req(removeA)).status,200,'safe to unassign when another active grant remains');
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=? AND location_id=?').get(targetId,A).n,0);
+ assert.equal((await req({...removeA,locationId:B})).status,409,'cannot unassign last active store');
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=? AND location_id=?').get(targetId,B).n,1);
+ assert.equal((await req({...removeA,locationId:C})).status,200,'obsolete disabled store may be removed with another active grant');
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=? AND location_id=?').get(targetId,C).n,0);
+ assert.equal((await req({...input,expectedRole:'manager',locationId:A})).status,409);
+ assert.equal((await req({...input,targetUserId:targetId,locationId:B,action:'unassign',expectedAssigned:false})).status,400);
+ assert.equal((await req({...input,targetUserId:'123e4567-e89b-42d3-a456-426614174098'})).status,404);
+ const ownerId='123e4567-e89b-42d3-a456-426614174088';
+ f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES(?,?,?,?,?,?)')
+  .run(ownerId,'owner-two','Owner 2','owner','synthetic-salt','synthetic-hash');
+ assert.equal((await req({...input,targetUserId:ownerId})).status,403);
+ const content=JSON.stringify(await (await f.send('/api/accounts',{headers:{cookie:owner.cookie}},both)).json());
+ assert.doesNotMatch(content,/token_hash|password_hash|password_salt|grant-employee-csrf/);
+});
+
+test('Native store-grant D1.batch is rollback-atomic at every statement, never revokes Session partially',async t=>{
+ const targetId='123e4567-e89b-42d3-a456-426614174099';
+ const B='123e4567-e89b-42d3-a456-426614174001';
+ for(const faultIndex of [0,1,2,3]){
+  await t.test('batch failure '+faultIndex,async sub=>{
+   const f=await fixture(sub),owner=await f.login();assert.equal(owner.status,200);
+   f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash,active) VALUES(?,?,?,?,?,?,?)')
+    .run(targetId,'grantworker','Employee','staff','salt','hash',1);
+   f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)')
+    .run(targetId,'123e4567-e89b-42d3-a456-426614174000');
+   f.db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(B,'Second');
+   f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+    .run('grant-target-session','grant-target-csrf',targetId,new Date(Date.now()+3600000).toISOString());
+   const db=f.env.DB,realBatch=db.batch.bind(db);
+   const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released',
+    CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE:'operator-released',DB:{...db,
+    async batch(stmts){return realBatch(stmts.map((item,i)=>({...item,
+     async run(){if(i===faultIndex)throw Error('SYNTHETIC_GRANT_BATCH_FAULT');return item.run();}
+    })));}}};
+   const response=await f.send('/api/accounts/grant',{method:'POST',headers:{
+    origin:site,cookie:owner.cookie,'x-csrf-token':owner.csrf,
+    'sec-fetch-site':'same-origin','content-type':'application/json'},
+    body:JSON.stringify({action:'assign',expectedAssigned:false,expectedRole:'staff',
+     locationId:B,targetUserId:targetId})},env);
+   assert.equal(response.status,503);
+   assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=? AND location_id=?').get(targetId,B).n,0);
+   assert.equal(f.db.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=?').get(targetId).n,1);
+   assert.equal(f.db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE entity_id=? AND action='user.assign-location'").get(targetId).n,0);
+  });
+ }
+});
+
+test('Native store grant rechecks Owner/target/store identity when queued D1.batch begins',async t=>{
+ const id='123e4567-e89b-42d3-a456-426614174099',
+  B='123e4567-e89b-42d3-a456-426614174001';
+ for(const race of ['owner-revoked','owner-demoted','target-promoted','target-inactive','store-disabled','grant-already-created']){
+  await t.test(race,async sub=>{
+   const f=await fixture(sub),owner=await f.login();assert.equal(owner.status,200);
+   f.db.prepare('INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES(?,?,?,?,?,?)')
+    .run(id,'grant-race','Employee','staff','salt','hash');
+   f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)')
+    .run(id,'123e4567-e89b-42d3-a456-426614174000');
+   f.db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(B,'Second');
+   f.db.prepare('INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES(?,?,?,?)')
+    .run('target-race-session','target-csrf',id,new Date(Date.now()+3600000).toISOString());
+   const db=f.env.DB,realBatch=db.batch.bind(db);
+   const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:'operator-released',
+    CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE:'operator-released',DB:{...db,
+    async batch(stmts){
+     if(race==='owner-revoked')f.db.prepare("DELETE FROM sessions WHERE user_id='synthetic-owner'").run();
+     if(race==='owner-demoted')f.db.prepare("UPDATE users SET role='staff' WHERE id='synthetic-owner'").run();
+     if(race==='target-promoted')f.db.prepare("UPDATE users SET role='owner' WHERE id=?").run(id);
+     if(race==='target-inactive')f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(id);
+     if(race==='store-disabled')f.db.prepare('UPDATE locations SET active=0 WHERE id=?').run(B);
+     if(race==='grant-already-created')f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)').run(id,B);
+     return realBatch(stmts);
+    }}};
+   const res=await f.send('/api/accounts/grant',{method:'POST',headers:{
+    origin:site,cookie:owner.cookie,'x-csrf-token':owner.csrf,
+    'sec-fetch-site':'same-origin','content-type':'application/json'},
+    body:JSON.stringify({action:'assign',expectedAssigned:false,expectedRole:'staff',
+     locationId:B,targetUserId:id})},env);
+   assert.equal(res.status,503,race);
+   assert.equal(f.db.prepare("SELECT COUNT(*) n FROM sessions WHERE user_id=?").get(id).n,1);
+   assert.equal(f.db.prepare("SELECT COUNT(*) n FROM audit_logs WHERE entity_id=? AND action='user.assign-location'").get(id).n,0);
+   assert.equal(f.db.prepare('SELECT COUNT(*) n FROM user_locations WHERE user_id=? AND location_id=?').get(id,B).n,
+    race==='grant-already-created'?1:0);
+  });
+ }
+});
+
+test('Native grant HTTP route is isolated from create/role gates and never deletes account rows',()=>{
+ const worker=fs.readFileSync(path.join(root,'cloudflare/worker.mjs'),'utf8'),
+  handler=fs.readFileSync(path.join(root,'cloudflare/native-account-grant-http.mjs'),'utf8'),
+  accounts=fs.readFileSync(path.join(root,'cloudflare/native-account-management-http.mjs'),'utf8');
+ assert.match(worker,/pathname === '\/api\/accounts\/grant'/);
+ assert.match(handler,/CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE|nativeAccountGrantWriteEnabled/);
+ assert.match(accounts,/CLOUD_NATIVE_ACCOUNT_GRANT_WRITE_GATE==='operator-released'/);
+ assert.match(accounts,/can_manage_grants:nativeAccountGrantWriteEnabled\(env\)/);
+ assert.doesNotMatch(handler,/DELETE FROM users WHERE/);
+ assert.doesNotMatch(handler,/localStorage|sessionStorage|innerHTML/);
+});

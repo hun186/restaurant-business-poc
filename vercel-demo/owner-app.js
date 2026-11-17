@@ -29,7 +29,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   shifts:'班表資訊（目前唯讀）',leave_requests:'請假申請及審核狀態（目前唯讀）',
   training_records:'訓練成績與完成狀態（目前唯讀）',
   evaluations:'考核紀錄（目前唯讀）',stock_moves:'門市庫存異動流水（目前唯讀）',
-  ingredient_prices:'已登錄的門市食材歷史單價（目前唯讀）',
+  ingredient_prices:'已登錄的門市食材歷史單價；開放寫入時只能新增價格，不覆寫歷史',
   menu_dishes:'菜品與售價、每份食材項數（目前唯讀）',
   dish_ingredients:'菜品每份食材用量（目前唯讀，非成本試算）',
   dish_costs:'依最新有效歷史價格估計成本及毛利；非會計實際毛利（唯讀）',
@@ -41,7 +41,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   audit_logs:'僅業主可檢閱的登入與重要異動紀錄'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
-  repairWriteEnabled=false,accountWriteEnabled=false,
+  repairWriteEnabled=false,priceWriteEnabled=false,accountWriteEnabled=false,
   accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,
   accountGrantWriteEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
@@ -244,6 +244,80 @@ function render(data){
   }
   content.append(data.rows.length?
     table(view,data.rows,HISTORICAL_COST_VIEWS.has(view)?data.as_of:null):el('p','目前授權範圍內沒有符合條件的資料。資料可能尚未建立，或目前身分沒有相關資料可檢視。'));
+}
+
+
+async function priceActions(marker){
+  if(!priceWriteEnabled||!['owner','manager'].includes(role)||!csrf||
+     marker!==revision)return;
+  const epoch=authEpoch,token=csrf;
+  const panel=el('section'),form=el('form'),title=el('h3','新增食材歷史單價'),
+    tip=el('p','新價格依生效日期加入歷史，不覆寫既有紀錄；庫存估值與菜品成本會使用最新有效單價。'),
+    store=el('select'),ingredient=el('select'),price=el('input'),
+    unit=el('input'),date=el('input'),supplier=el('input'),
+    submit=el('button','新增價格');
+  panel.className='native-price-panel';
+  const makeOptions=(select,rows,title)=>{
+    const empty=el('option','請選擇'+title);empty.value='';select.append(empty);
+    for(const r of rows){
+      if(typeof r?.id!=='string'||typeof r?.name!=='string'||r.active!==1)continue;
+      const option=el('option',r.name);option.value=r.id;select.append(option);
+    }
+  };
+  try{
+    const [loc,ings]=await Promise.all([
+      api('/api/data?entity=locations'),api('/api/data?entity=ingredients')]);
+    if(marker!==revision||!liveAuth(epoch,token))return;
+    if(loc.mode!=='native_d1'||ings.mode!=='native_d1'||
+       !Array.isArray(loc.rows)||!Array.isArray(ings.rows))
+      throw Error('選單資料不完整');
+    makeOptions(store,loc.rows,'門市');makeOptions(ingredient,ings.rows,'食材');
+    // Price entry uses the same six fields as local /api/command price.record.
+    store.required=true;ingredient.required=true;
+    price.type='number';price.min='0.01';price.step='0.01';price.required=true;
+    unit.maxLength=20;unit.placeholder='留空使用食材單位';
+    supplier.maxLength=120;
+    date.type='date';date.required=true;
+    date.value=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'});
+    submit.type='submit';
+    form.append(labeledField('門市',store),labeledField('食材',ingredient),
+      labeledField('單價（元）',price),labeledField('計價單位（選填）',unit),
+      labeledField('生效日期',date),labeledField('供應商（選填）',supplier),submit);
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if(submit.disabled||marker!==revision||!liveAuth(epoch,token)||!priceWriteEnabled)return;
+      const amount=price.value.trim();
+      if(!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(amount)||Number(amount)<=0){
+        say('請填入大於零、最多兩位小數的價格。',true);return;
+      }
+      if(!window.confirm('確定為選定門市與食材新增生效價格？歷史價格不會被覆寫。'))return;
+      submit.disabled=true;say('正在儲存正式食材價格，請勿重複送出…');
+      const data={location_id:store.value,ingredient_id:ingredient.value,
+        unit_price_twd:amount,price_date:date.value};
+      if(unit.value.trim())data.unit=unit.value.trim();
+      if(supplier.value.trim())data.supplier=supplier.value.trim();
+      try{
+        const result=await api('/api/price',{method:'POST',
+          referrerPolicy:'same-origin',
+          headers:{Accept:'application/json','Content-Type':'application/json',
+            'X-CSRF-Token':token},
+          body:JSON.stringify({action:'price.record',data})});
+        if(!liveAuth(epoch,token))return;
+        if(result.code!=='OK'||typeof result.result?.id!=='string')
+          throw Error('伺服器未確認價格已建立');
+        if(marker===revision)await refresh();
+      }catch(err){
+        if(!liveAuth(epoch,token))return;
+        if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+        if(marker===revision)say('儲存未確認，請重新整理查閱歷史價格，避免重複新增。',true);
+      }finally{submit.disabled=false;}
+    });
+    if(marker!==revision||!liveAuth(epoch,token))return;
+    panel.append(title,tip,form);$('content').prepend(panel);
+  }catch{
+    if(marker===revision&&liveAuth(epoch,token))
+      say('價格建立表單所需的門市或食材清單無法載入。',true);
+  }
 }
 
 const taskId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
@@ -886,6 +960,7 @@ async function refresh(){
     if(view==='purchase_orders')await orderActions(data.rows,marker);
     if(view==='stocktakes')await stocktakeActions(data.rows,marker);
     if(view==='repairs')await repairActions(data.rows,marker);
+   if(view==='ingredient_prices')await priceActions(marker);
     if(marker===revision)say('已取得授權範圍內的最新資料。');
   }catch(e){if(marker!==revision||e.name==='AbortError')return;
     if(e.status===401){showLogin('工作階段已失效，請重新登入。');return;}
@@ -905,7 +980,7 @@ function syncView(){
   $('section-hint').textContent=viewHints[view];
   const capability=nativeOwnerCapability({view,role,task:writeEnabled,
     catalog:catalogWriteEnabled,order:orderWriteEnabled,
-    stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,
+    stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,price:priceWriteEnabled,
     account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled,
     accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled});
   $('operation-mode').textContent=capability.systemLabel;
@@ -913,6 +988,9 @@ function syncView(){
   $('capability').textContent=capability.pageLabel;
   $('capability').classList.toggle('enabled',capability.pageWritable);
   $('capability-detail').textContent=capability.description;
+  const priceNav=document.querySelector('#nav button[data-view="ingredient_prices"]');
+  if(priceNav)priceNav.textContent=priceWriteEnabled&&['owner','manager'].includes(role)?
+    '＄ 食材歷史價格（可新增）':'＄ 食材歷史價格（唯讀）';
   for(const b of document.querySelectorAll('#nav button[data-view]')){
     const selected=b.dataset.view===view;
     b.classList.toggle('active',selected);
@@ -957,6 +1035,7 @@ async function start(){
     orderWriteEnabled=status.order_write_enabled===true;
     stocktakeWriteEnabled=status.stocktake_write_enabled===true;
     repairWriteEnabled=status.repair_write_enabled===true;
+   priceWriteEnabled=status.price_write_enabled===true;
     try{showWorkspace(await api('/api/me'));}
     catch(e){if(e.status===401){showLogin();return;}throw e;}
   }catch(e){$('locked').hidden=false;say(e.message||'無法確認正式服務狀態。',true);}

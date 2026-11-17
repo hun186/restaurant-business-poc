@@ -1,13 +1,13 @@
 // Presentation-only labels for the authenticated Native Owner workspace.
 // Backend authorization, role restrictions and Cloudflare write gates remain
 // authoritative. Never use these labels to decide whether a write is allowed.
-const WRITE_VIEWS=new Set(['tasks','locations','ingredients','purchase_orders',
+const WRITE_VIEWS=new Set(['tasks','locations','ingredients','ingredient_prices','purchase_orders',
  'stocktakes','repairs']);
 
 export function nativeOwnerCapability({view,role,task=false,catalog=false,
- order=false,stocktake=false,repair=false,account=false,
+ order=false,stocktake=false,repair=false,price=false,account=false,
  accountStatus=false,accountRole=false,accountGrants=false}){
- const anyWrite=Boolean(task||catalog||order||stocktake||repair);
+ const anyWrite=Boolean(task||catalog||order||stocktake||repair||price);
  // Keep the three independent Owner account permissions separate. The
  // capability flags are only supplied by the authenticated /api/accounts GET.
  const owner=role==='owner';
@@ -23,6 +23,7 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
   tasks:task,
   locations:catalog&&owner,
   ingredients:catalog&&owner,
+  ingredient_prices:price&&['owner','manager'].includes(role),
   purchase_orders:order,
   stocktakes:stocktake,
   repairs:repair

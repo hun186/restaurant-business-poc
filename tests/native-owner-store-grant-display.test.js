@@ -234,7 +234,7 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  const owner={id:'owner-id',username:'owner',display_name:'業主',
   role:'owner',active:true,location_ids:[]};
  const calls=[],caps=[],messages=[];
- let allowed=false,live=true,refreshes=0,grantResponse={
+ let allowed=false,live=true,refreshes=0,holdGrant=false,resolveGrant,grantResponse={
   code:'OK',user:{id:'staff-id',locationId:'B',assigned:true}};
  const api=async(url,options)=>{
   calls.push({url,options});
@@ -244,7 +244,10 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
    can_manage_grants:allowed
   };
   if(url==='/api/data?entity=locations')return {rows:stores};
-  if(url==='/api/accounts/grant')return grantResponse;
+  if(url==='/api/accounts/grant'){
+   if(holdGrant)return new Promise(resolve=>{resolveGrant=resolve;});
+   return grantResponse;
+  }
   throw Error('unexpected API '+url);
  };
  const launch=async()=>{
@@ -295,6 +298,30 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  await nextForm.events.submit({preventDefault(){}});
  assert.equal(refreshes,2);
  assert.equal(JSON.parse(calls.at(-1).options.body).action,'unassign');
+ // Code review P2 regression: selector change must never release the
+ // submit/cancel lock while the previous grant POST has not settled.
+ button.events.click();
+ const busyForm=find(edit,n=>n.tag==='form');
+ const busySelect=find(busyForm,n=>n.tag==='select');
+ const busySubmit=find(busyForm,n=>n.tag==='button'&&n.type==='submit');
+ const busyCancel=find(busyForm,n=>n.tag==='button'&&n.textContent==='取消');
+ holdGrant=true;busySelect.value='B';busySelect.events.change();
+ const pending=busyForm.events.submit({preventDefault(){}});
+ assert.equal(busySubmit.disabled,true);
+ assert.equal(busySelect.disabled,true);
+ assert.equal(busyCancel.disabled,true);
+ const posted=calls.filter(x=>x.url==='/api/accounts/grant').length;
+ busySelect.value='C';busySelect.events.change();
+ assert.equal(busySubmit.disabled,true,'selector change must not unlock pending mutation');
+ await busyForm.events.submit({preventDefault(){}});
+ assert.equal(calls.filter(x=>x.url==='/api/accounts/grant').length,posted,
+  'no parallel grant transaction may be submitted');
+ assert.equal(refreshes,2,'no refresh until first grant completes');
+ resolveGrant({code:'OK',user:{id:'staff-id',locationId:'B',assigned:true}});
+ await pending;holdGrant=false;
+ assert.equal(refreshes,3);
+ assert.equal(busySelect.disabled,false);
+ assert.equal(busyCancel.disabled,false);
  // No detached view may issue a stale D1 mutation.
  live=false;button.events.click();
  const before=calls.length;

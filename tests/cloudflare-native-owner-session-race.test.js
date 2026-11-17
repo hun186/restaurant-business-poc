@@ -118,7 +118,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
  const trace={aborted:0,menuClosed:0,notice:[]};
  const ctx=vm.createContext({
   authEpoch:4,csrf:'previous-csrf',role:'owner',accountWriteEnabled:true,accountStatusWriteEnabled:true,
-  accountRoleWriteEnabled:true,revision:7,
+  accountRoleWriteEnabled:true,accountGrantWriteEnabled:true,revision:7,
   controller:{abort(){trace.aborted++;}},
   closeMenu(){trace.menuClosed++;},
   $:name=>nodes[name],
@@ -137,6 +137,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
  assert.equal(ctx.accountWriteEnabled,false);
  assert.equal(ctx.accountStatusWriteEnabled,false);
  assert.equal(ctx.accountRoleWriteEnabled,false);
+ assert.equal(ctx.accountGrantWriteEnabled,false);
  assert.equal(ctx.revision,8);
  assert.equal(trace.aborted,1);
  assert.equal(trace.menuClosed,1);

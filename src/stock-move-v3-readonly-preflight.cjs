@@ -31,7 +31,15 @@ function norm(sql){
      }
    }else if(ch==="'"||ch==='"'||ch.charCodeAt(0)===96||ch==='['){
      quote=ch;result+=ch;
-   }else if(!/\s/.test(ch))result+=ch.toUpperCase();
+   }else if(/\s/.test(ch)){
+     // Preserve boundaries between bare word tokens. SQLite accepts
+     // TEXTNOTNULL as a type name, which is not TEXT NOT NULL.
+     let next=i+1;
+     while(next<source.length&&/\s/.test(source[next]))next++;
+     if(/[A-Za-z0-9_]/.test(result.at(-1)||'')&&
+        /[A-Za-z0-9_]/.test(source[next]||''))result+=' ';
+     i=next-1;
+   }else result+=ch.toUpperCase();
  }
  if(quote)fail('DDL_QUOTING');
  return result;

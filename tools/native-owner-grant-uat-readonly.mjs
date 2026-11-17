@@ -6,7 +6,8 @@ import {fileURLToPath} from 'node:url';
 const ORIGIN='https://restaurant-business-poc.hungyuan-chen.workers.dev';
 const ROUTES=Object.freeze(['/api/native/status','/api/accounts','/api/accounts/grant']);
 const WRITE_KEYS=Object.freeze(['task_write_enabled','catalog_write_enabled',
-  'order_write_enabled','stocktake_write_enabled','repair_write_enabled']);
+  'order_write_enabled','stocktake_write_enabled','repair_write_enabled',
+  'price_write_enabled']);
 const fail=code=>{throw Error(code);};
 
 async function readJsonBounded(response){
@@ -67,6 +68,7 @@ export async function probeNativeOwnerGrantReadonly(fetcher=globalThis.fetch){
   grant_endpoint_default_denial_observed:true,
   grant_write_gate_configuration_verified:false,
   login_gate_observed:true,five_business_write_gates_closed:true,
+  price_write_gate_closed:true,all_six_business_write_gates_closed:true,
   requests:'3 GET_ONLY',cookie_sent:false,credentials_sent:false,
   owner_login_uat_verified:false,authenticated_grant_uat_verified:false,
   production_write_performed:false,cloudflare_write_performed:false,

@@ -236,13 +236,14 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  const manager={id:'manager-id',username:'manager1',display_name:'主管',
   role:'manager',active:true,location_ids:['A']};
  const calls=[],caps=[],messages=[];
- let allowed=false,live=true,refreshes=0,holdGrant=false,resolveGrant,grantResponse={
+ let allowed=false,accountOps=false,live=true,refreshes=0,
+  holdGrant=false,resolveGrant,holdStatus=false,resolveStatus,grantResponse={
   code:'OK',user:{id:'staff-id',locationId:'B',assigned:true}};
  const api=async(url,options)=>{
   calls.push({url,options});
   if(url.startsWith('/api/accounts')&&options?.method!=='POST')return {
    users:[owner,original,manager],offset:0,has_more:false,next_offset:null,
-   can_create:false,can_manage_status:false,can_manage_role:false,
+   can_create:accountOps,can_manage_status:accountOps,can_manage_role:accountOps,
    can_manage_grants:allowed
   };
   if(url==='/api/data?entity=locations')return {rows:stores};
@@ -250,6 +251,11 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
    if(holdGrant)return new Promise(resolve=>{resolveGrant=resolve;});
    return grantResponse;
   }
+  if(url==='/api/accounts/status'){
+   if(holdStatus)return new Promise(resolve=>{resolveStatus=resolve;});
+   return {code:'OK',user:{id:'staff-id',active:false}};
+  }
+  if(url==='/api/accounts/role')return {code:'OK',user:{id:'staff-id',role:'manager'}};
   throw Error('unexpected API '+url);
  };
  const launch=async()=>{
@@ -265,12 +271,18 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  assert.equal(caps.at(-1).grants,false);
  assert.equal(find(pane,n=>n.tag==='button'&&n.textContent==='調整門市'),null);
  assert.equal(calls.filter(x=>x.options?.method==='POST').length,0);
- allowed=true;pane=await launch();
+ allowed=true;accountOps=true;pane=await launch();
  assert.equal(caps.at(-1).grants,true);
  const button=find(pane,n=>n.tag==='button'&&n.textContent==='調整門市');
  const managerButton=find(pane,n=>n.tag==='button'&&
   n.attributes['aria-label']==='調整帳號 manager1 的門市授權');
  assert(button&&managerButton,'active staff and manager get per-store actions');
+ const statusButton=find(pane,n=>n.tag==='button'&&
+  n.attributes['aria-label']==='停用帳號 employee1');
+ const roleButton=find(pane,n=>n.tag==='button'&&
+  n.attributes['aria-label']==='將帳號 employee1 角色調整為 主管');
+ const createButton=find(pane,n=>n.tag==='button'&&n.textContent==='建立帳號');
+ assert(statusButton&&roleButton&&createButton);
  button.events.click();
  const form=find(pane,n=>n.tag==='form');
  const edit=find(pane,n=>n.tag==='section'&&n.hidden===false);
@@ -317,6 +329,12 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  const posted=calls.filter(x=>x.url==='/api/accounts/grant').length;
  assert.equal(button.disabled,true,'all grant edit entry points lock during POST');
  assert.equal(managerButton.disabled,true,'another staff member cannot bypass the lock');
+ for(const b of [statusButton,roleButton,createButton])
+  assert.equal(b.disabled,true,'no other account operation can race with grant');
+ await statusButton.events.click();
+ await roleButton.events.click();
+ assert.equal(calls.filter(x=>x.options?.method==='POST').length,posted,
+  'status and role must not run alongside the outstanding grant');
  // DOM handlers can still be invoked synthetically: the shared lock must
  // reject reopening both the same employee and another employee's editor.
  button.events.click();
@@ -336,6 +354,25 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  assert.equal(busyCancel.disabled,false);
  assert.equal(button.disabled,false);
  assert.equal(managerButton.disabled,false);
+ assert.equal(statusButton.disabled,false);
+ assert.equal(roleButton.disabled,false);
+ assert.equal(createButton.disabled,false);
+ // The reverse race is blocked too: an in-flight status POST prevents grant.
+ holdStatus=true;
+ const pendingStatus=statusButton.events.click();
+ assert.equal(button.disabled,true);
+ assert.equal(managerButton.disabled,true);
+ assert.equal(roleButton.disabled,true);
+ assert.equal(createButton.disabled,true);
+ const beforeStatusGrantPosts=calls.filter(x=>x.url==='/api/accounts/grant').length;
+ button.events.click();
+ await busyForm.events.submit({preventDefault(){}});
+ assert.equal(calls.filter(x=>x.url==='/api/accounts/grant').length,beforeStatusGrantPosts);
+ assert.equal(refreshes,3);
+ resolveStatus({code:'OK',user:{id:'staff-id',active:false}});
+ await pendingStatus;holdStatus=false;
+ assert.equal(refreshes,4);
+ assert.equal(button.disabled,false);
  // No detached view may issue a stale D1 mutation.
  live=false;button.events.click();
  const before=calls.length;

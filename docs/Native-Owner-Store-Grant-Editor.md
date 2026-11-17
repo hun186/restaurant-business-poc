@@ -17,3 +17,7 @@
 - Node DOM 回歸涵蓋 Gate OFF 完全不顯示、Owner 不可調整、有效員工授權與移除停用門市、固定單次 payload 與 CSRF、確認結果後刷新、舊 Session 不提交。
 - 不修改 Cloudflare Worker、D1 Schema、正式帳號／門市／資料、Variables、Secrets、Operator Gates、正式部署或 Restore；本次的 mock API 是離線合成測，不是正式 UAT。
 - #202／#203 主線完成與相依版本核對後，最新 HEAD Hosted Verify 5/5、正式 Codex Review completed/0 Findings/0 unresolved、clean merge 才能合併 UI。實際啟用 Production Grant Gate 及正式員工授權異動**需使用者另行核准、備份與現場驗收**。
+
+## 2026-11-17｜跨帳號操作並行鎖（合成驗證）
+
+帳號頁的單筆操作鎖擴展至門市授權、員工啟停、角色異動和建立帳號，以及前後頁導航。只要任一 POST 尚未確認，其他操作按鈕立即停用，事件處理器仍額外檢查頁面共用狀態以防重複提交；結果確認後才釋放。Node DOM 延遲 Promise 測試驗證 Grant POST 期間不會發出角色／狀態 POST，且狀態 POST 期間不能再送門市授權。本功能僅阻止同一前端頁面的並行操作，不取代 D1 後端 CAS／授權交易與跨裝置競爭防護；沒有更動正式 Gate、D1 或 Worker。

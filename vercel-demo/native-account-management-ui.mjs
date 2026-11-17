@@ -48,17 +48,21 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。'))));
     // A local filter never expands the server's Owner-only 50-row page.
     const rowStates=[];
-    // A single in-flight grant lock belongs to the entire account page, not
-    // to an individual editor instance. Re-opening must never reset it.
-    let grantPending=false;
-    const grantButtons=[];
-    const setGrantPending=pending=>{
-      grantPending=pending;
-      for(const button of grantButtons)button.disabled=pending;
+    // One cross-action lock for Grant, status, role and create. A pending
+    // transaction must not be masked by another successful refresh.
+    let accountPending=false;
+    const accountButtons=[],pagerButtons=[];
+    let updateGrantEditor=()=>{};
+    const setAccountPending=pending=>{
+      accountPending=pending;
+      for(const button of accountButtons)button.disabled=pending;
+      for(const [button,originalDisabled] of pagerButtons)
+        button.disabled=pending||originalDisabled;
+      updateGrantEditor();
     };
     const grantPanel=element('section');grantPanel.className='panel';grantPanel.hidden=true;
     const showGrantEditor=user=>{
-      if(!live()||grantPending||data.can_manage_grants!==true||user.active!==true||
+      if(!live()||accountPending||data.can_manage_grants!==true||user.active!==true||
          !['staff','manager'].includes(user.role))return;
       const possible=stores.rows.filter(store=>typeof store.id==='string'&&
         typeof store.name==='string'&&(store.active===1||
@@ -78,21 +82,23 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       const updateVerb=()=>{
         const assigned=user.location_ids.includes(choose.value);
         submit.textContent=assigned?'移除授權':'新增授權';
-        submit.disabled=grantPending||!possible.some(store=>store.id===choose.value&&
+        submit.disabled=accountPending||!possible.some(store=>store.id===choose.value&&
           (assigned||store.active===1));
-        choose.disabled=grantPending;
-        cancel.disabled=grantPending;
+        choose.disabled=accountPending;
+        cancel.disabled=accountPending;
       };
+      updateGrantEditor=updateVerb;
       choose.value=possible[0].id;choose.addEventListener('change',updateVerb);
       submit.type='submit';cancel.type='button';
       cancel.addEventListener('click',()=>{
-        if(!live()||grantPending)return;
+        if(!live()||accountPending)return;
         grantPanel.hidden=true;grantPanel.replaceChildren();
+        updateGrantEditor=()=>{};
       });
       labeled.append(choose);form.append(labeled,submit,cancel);
       form.addEventListener('submit',async event=>{
         event.preventDefault();
-        if(!live()||grantPending||submit.disabled)return;
+        if(!live()||accountPending||submit.disabled)return;
         const location=possible.find(store=>store.id===choose.value);
         if(!location)return;
         const wasAssigned=user.location_ids.includes(location.id);
@@ -105,7 +111,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '該員工所有登入工作階段都會撤銷，歷史紀錄保留。'))return;
         // Keep the in-flight guard independent of selection-change handlers.
         // A second POST must not start until the first outcome is confirmed.
-        setGrantPending(true);updateVerb();notice('正在變更員工門市授權…');
+        setAccountPending(true);updateVerb();notice('正在變更員工門市授權…');
         try{
           const result=await api('/api/accounts/grant',{method:'POST',signal,
             referrerPolicy:'same-origin',
@@ -125,7 +131,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           if(error.status===409)notice('門市授權已變更、目前門市不可用或這是最後一間可用門市，請重新整理核對。',true);
           else notice(error.message||'門市授權更新失敗，未確認寫入。',true);
         }finally{
-          setGrantPending(false);
+          setAccountPending(false);
           if(live())updateVerb();
         }
       });
@@ -166,7 +172,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
             editGrant.type='button';editGrant.className='btn';
             editGrant.setAttribute('aria-label','調整帳號 '+user.username+' 的門市授權');
             editGrant.addEventListener('click',()=>showGrantEditor(user));
-            grantButtons.push(editGrant);
+            accountButtons.push(editGrant);
             cell.append(editGrant);
           }
           if(data.can_manage_status===true){
@@ -175,10 +181,10 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           const nextActive=!user.active;
           action.setAttribute('aria-label',(nextActive?'啟用':'停用')+'帳號 '+user.username);
           action.addEventListener('click',async()=>{
-            if(!live()||action.disabled)return;
+            if(!live()||accountPending||action.disabled)return;
             if(!globalThis.confirm('確定'+(nextActive?'啟用':'停用')+
               '「'+user.username+'」？已登入的工作階段將全部撤銷，歷史紀錄保留。'))return;
-            action.disabled=true;notice('正在更新帳號狀態…');
+            setAccountPending(true);notice('正在更新帳號狀態…');
             try{
               const result=await api('/api/accounts/status',{method:'POST',signal,
                 referrerPolicy:'same-origin',
@@ -196,8 +202,9 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
               if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
               if(error.status===409)notice('帳號狀態已變更，請重新整理。',true);
               else notice(error.message||'帳號狀態更新失敗。',true);
-            }finally{action.disabled=false;}
+            }finally{setAccountPending(false);}
           });
+          accountButtons.push(action);
           cell.append(action);
           }
           if(data.can_manage_role===true&&user.active===true){
@@ -207,11 +214,11 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
             roleAction.setAttribute('aria-label',
               '將帳號 '+user.username+' 角色調整為 '+(newRole==='manager'?'主管':'員工'));
             roleAction.addEventListener('click',async()=>{
-              if(!live()||roleAction.disabled)return;
+              if(!live()||accountPending||roleAction.disabled)return;
               if(!globalThis.confirm('確定要將「'+user.username+'」'+
                 (newRole==='manager'?'升為主管':'改為員工')+
                 '？這會撤銷該帳號的全部登入工作階段，保留歷史紀錄。'))return;
-              roleAction.disabled=true;notice('正在更新員工角色…');
+              setAccountPending(true);notice('正在更新員工角色…');
               try{
                 const result=await api('/api/accounts/role',{method:'POST',signal,
                   referrerPolicy:'same-origin',
@@ -227,8 +234,9 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
                 if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
                 if(error.status===409)notice('員工角色已變更，請重新整理。',true);
                 else notice(error.message||'角色更新失敗。',true);
-              }finally{roleAction.disabled=false;}
+              }finally{setAccountPending(false);}
             });
+            accountButtons.push(roleAction);
             cell.append(roleAction);
           }
         }
@@ -279,12 +287,13 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       next=element('button','下一頁');
     previous.type='button';next.type='button';
     previous.disabled=offset===0;next.disabled=!data.has_more;
+    pagerButtons.push([previous,previous.disabled],[next,next.disabled]);
     pager.className='native-data-pagination';
     pager.setAttribute('aria-label','帳號清單分頁');
     const info=element('span','第 '+(Math.floor(offset/50)+1)+' 頁（本頁 '+data.users.length+' 筆）');
     pager.append(previous,info,next);pane.append(pager);
     const navigate=async newOffset=>{
-      if(!live()||grantPending)return;
+      if(!live()||accountPending)return;
       // Do not present prior-page capability as current during a new request.
       if(typeof onCapabilityChange==='function')onCapabilityChange(null);
       previous.disabled=true;next.disabled=true;
@@ -320,13 +329,13 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       const checkbox=element('input');checkbox.type='checkbox';checkbox.value=store.id;
       checks.push(checkbox);storesGroup.append(field(store.name,checkbox));
     }
-    submit.type='submit';
+    submit.type='submit';accountButtons.push(submit);
     form.append(field('登入帳號',name),field('顯示名稱',display),
       field('角色',roleSelect),field('初始密碼（至少 12 字）',password),
       field('再次確認密碼',confirm),storesGroup,submit);
     form.addEventListener('submit',async event=>{
       event.preventDefault();
-      if(!live()||submit.disabled)return;
+      if(!live()||accountPending||submit.disabled)return;
       const locationIds=checks.filter(x=>x.checked).map(x=>x.value);
       if(!locationIds.length||locationIds.length>16){
         notice('請選擇 1～16 個門市。',true);return;
@@ -334,7 +343,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       if(password.value!==confirm.value){
         notice('兩次輸入的密碼不相同。',true);return;
       }
-      submit.disabled=true;notice('正在建立帳號…');
+      setAccountPending(true);notice('正在建立帳號…');
       try{
         const result=await api('/api/accounts',{method:'POST',signal,
           referrerPolicy:'same-origin',
@@ -354,7 +363,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
         if(error.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
         else if(error.status===409)notice('帳號已存在，請更換帳號名稱。',true);
         else notice(error.message||'建立帳號失敗。',true);
-      }finally{submit.disabled=false;}
+      }finally{setAccountPending(false);}
     });
     section.append(form,element('p',
       '請由安全管道交付初始密碼，讓員工首次登入後立即修改。此頁不保留密碼。'));

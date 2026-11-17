@@ -96,7 +96,7 @@ test('navigation without an auth change must not refresh another view after old 
 });
 
 test('native Owner login, logout and catalog-create form enforce auth and view epochs',()=>{
- assert.match(source,/function showLogin\(message\)\{[\s\S]*?authEpoch\+\+;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;revision\+\+/);
+ assert.match(source,/function showLogin\(message\)\{[\s\S]*?authEpoch\+\+;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;revision\+\+/);
  assert.match(source,/function showWorkspace\(me\)\{[\s\S]*?authEpoch\+\+;csrf=me\.csrf/);
  assert.match(source,/if\(!csrf\)return;const token=csrf;authEpoch\+\+;csrf=null/);
  assert.match(source,/if\(marker!==revision\|\|!catalogWriteEnabled\|\|role!=='owner'\|\|!csrf\|\|submit\.disabled\)return/);

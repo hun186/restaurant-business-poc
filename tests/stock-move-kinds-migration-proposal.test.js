@@ -89,6 +89,7 @@ for(const type of ['local','d1']){
    assert.deepEqual(db.prepare('SELECT * FROM audit_logs ORDER BY id').all(),audits);
    assert.deepEqual(db.prepare('SELECT * FROM ingredient_prices ORDER BY id').all(),prices);
    assert.equal(db.prepare('PRAGMA user_version').get().user_version,priorVersion);
+   assert.equal(db.prepare('SELECT kind_version FROM stock_move_kind_contract WHERE id=1').get().kind_version,4);
    if(type==='d1')assert.equal(
      db.prepare('SELECT contract_version FROM cloud_schema_contract WHERE id=1').get().contract_version,3);
    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='stock_moves_v4'").get().n,0);
@@ -133,6 +134,7 @@ for(const type of ['local','d1']){
    assert.deepEqual(schemaObject(db),priorSchema);
    assert.deepEqual(oldKinds(db),priorMoves);
    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='stock_moves_v4'").get().n,0);
+   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='stock_move_kind_contract'").get().n,0);
    integrity(db);
   }finally{db.close();}
  });
@@ -142,6 +144,7 @@ for(const type of ['local','d1']){
    inTransaction(db,type==='d1'?proposalCloud:proposalLocal);
    newMove(db,'m-ret','supplier_return',-1,'有來源的退貨','po-1');
    const previous=oldKinds(db),before=schemaObject(db);
+   assert.equal(db.prepare('SELECT kind_version FROM stock_move_kind_contract WHERE id=1').get().kind_version,4);
    assert.throws(()=>inTransaction(db,type==='d1'?proposalCloud:proposalLocal),
      /already exists/i);
    assert.deepEqual(oldKinds(db),previous);

@@ -526,7 +526,7 @@ test('Native role controls are behind authenticated role gate and never target O
  assert.match(ui,/user.role==='staff'\|\|user.role==='manager'/);
  assert.match(ui,/api\('\/api\/accounts\/role'/);
  assert.match(ui,/expectedRole:user.role,role:newRole/);
- assert.match(ui,/roleAction.disabled=true/);
+ assert.match(ui,/setAccountPending\(true\);notice\('正在更新員工角色…'\)/);
  assert.match(ui,/if\(error.status===401\)\{onAuthExpired/);
  assert.match(ui,/if\(error.status===409\)/);
  assert.match(backend,/can_manage_role:nativeAccountRoleWriteEnabled\(env\)/);

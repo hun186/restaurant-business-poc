@@ -48,9 +48,17 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。'))));
     // A local filter never expands the server's Owner-only 50-row page.
     const rowStates=[];
+    // A single in-flight grant lock belongs to the entire account page, not
+    // to an individual editor instance. Re-opening must never reset it.
+    let grantPending=false;
+    const grantButtons=[];
+    const setGrantPending=pending=>{
+      grantPending=pending;
+      for(const button of grantButtons)button.disabled=pending;
+    };
     const grantPanel=element('section');grantPanel.className='panel';grantPanel.hidden=true;
     const showGrantEditor=user=>{
-      if(!live()||data.can_manage_grants!==true||user.active!==true||
+      if(!live()||grantPending||data.can_manage_grants!==true||user.active!==true||
          !['staff','manager'].includes(user.role))return;
       const possible=stores.rows.filter(store=>typeof store.id==='string'&&
         typeof store.name==='string'&&(store.active===1||
@@ -61,7 +69,6 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
         '每次僅修改一間門市，成功後該員工所有裝置須重新登入。');
       const labeled=element('label','選擇門市 ');
       const submit=element('button'),cancel=element('button','取消');
-      let grantPending=false;
       choose.required=true;choose.setAttribute('aria-label','授權目標門市');
       for(const store of possible){
         const option=element('option',store.name+
@@ -98,7 +105,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '該員工所有登入工作階段都會撤銷，歷史紀錄保留。'))return;
         // Keep the in-flight guard independent of selection-change handlers.
         // A second POST must not start until the first outcome is confirmed.
-        grantPending=true;updateVerb();notice('正在變更員工門市授權…');
+        setGrantPending(true);updateVerb();notice('正在變更員工門市授權…');
         try{
           const result=await api('/api/accounts/grant',{method:'POST',signal,
             referrerPolicy:'same-origin',
@@ -118,7 +125,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           if(error.status===409)notice('門市授權已變更、目前門市不可用或這是最後一間可用門市，請重新整理核對。',true);
           else notice(error.message||'門市授權更新失敗，未確認寫入。',true);
         }finally{
-          grantPending=false;
+          setGrantPending(false);
           if(live())updateVerb();
         }
       });
@@ -159,6 +166,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
             editGrant.type='button';editGrant.className='btn';
             editGrant.setAttribute('aria-label','調整帳號 '+user.username+' 的門市授權');
             editGrant.addEventListener('click',()=>showGrantEditor(user));
+            grantButtons.push(editGrant);
             cell.append(editGrant);
           }
           if(data.can_manage_status===true){
@@ -276,7 +284,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const info=element('span','第 '+(Math.floor(offset/50)+1)+' 頁（本頁 '+data.users.length+' 筆）');
     pager.append(previous,info,next);pane.append(pager);
     const navigate=async newOffset=>{
-      if(!live())return;
+      if(!live()||grantPending)return;
       // Do not present prior-page capability as current during a new request.
       if(typeof onCapabilityChange==='function')onCapabilityChange(null);
       previous.disabled=true;next.disabled=true;

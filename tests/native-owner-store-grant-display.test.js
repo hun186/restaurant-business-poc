@@ -233,13 +233,15 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
   role:'staff',active:true,location_ids:['A','C']};
  const owner={id:'owner-id',username:'owner',display_name:'業主',
   role:'owner',active:true,location_ids:[]};
+ const manager={id:'manager-id',username:'manager1',display_name:'主管',
+  role:'manager',active:true,location_ids:['A']};
  const calls=[],caps=[],messages=[];
  let allowed=false,live=true,refreshes=0,holdGrant=false,resolveGrant,grantResponse={
   code:'OK',user:{id:'staff-id',locationId:'B',assigned:true}};
  const api=async(url,options)=>{
   calls.push({url,options});
   if(url.startsWith('/api/accounts')&&options?.method!=='POST')return {
-   users:[owner,original],offset:0,has_more:false,next_offset:null,
+   users:[owner,original,manager],offset:0,has_more:false,next_offset:null,
    can_create:false,can_manage_status:false,can_manage_role:false,
    can_manage_grants:allowed
   };
@@ -266,7 +268,9 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  allowed=true;pane=await launch();
  assert.equal(caps.at(-1).grants,true);
  const button=find(pane,n=>n.tag==='button'&&n.textContent==='調整門市');
- assert(button,'active employee gets per-store action');
+ const managerButton=find(pane,n=>n.tag==='button'&&
+  n.attributes['aria-label']==='調整帳號 manager1 的門市授權');
+ assert(button&&managerButton,'active staff and manager get per-store actions');
  button.events.click();
  const form=find(pane,n=>n.tag==='form');
  const edit=find(pane,n=>n.tag==='section'&&n.hidden===false);
@@ -311,6 +315,14 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  assert.equal(busySelect.disabled,true);
  assert.equal(busyCancel.disabled,true);
  const posted=calls.filter(x=>x.url==='/api/accounts/grant').length;
+ assert.equal(button.disabled,true,'all grant edit entry points lock during POST');
+ assert.equal(managerButton.disabled,true,'another staff member cannot bypass the lock');
+ // DOM handlers can still be invoked synthetically: the shared lock must
+ // reject reopening both the same employee and another employee's editor.
+ button.events.click();
+ managerButton.events.click();
+ assert.equal(find(edit,n=>n.tag==='form'),busyForm,
+  'reopening during pending POST must retain the existing form');
  busySelect.value='C';busySelect.events.change();
  assert.equal(busySubmit.disabled,true,'selector change must not unlock pending mutation');
  await busyForm.events.submit({preventDefault(){}});
@@ -322,6 +334,8 @@ test('Native Owner store-grant editor is hidden until the independent D1 capabil
  assert.equal(refreshes,3);
  assert.equal(busySelect.disabled,false);
  assert.equal(busyCancel.disabled,false);
+ assert.equal(button.disabled,false);
+ assert.equal(managerButton.disabled,false);
  // No detached view may issue a stale D1 mutation.
  live=false;button.events.click();
  const before=calls.length;

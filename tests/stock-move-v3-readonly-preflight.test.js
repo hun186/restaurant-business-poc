@@ -25,7 +25,6 @@ const dump=db=>({
   ledger:db.prepare('SELECT * FROM stock_moves ORDER BY id').all(),
   users:db.prepare('SELECT id,username,role FROM users').all(),
 });
-const denials=inspect=>(predicate,expected)=>assert.throws(predicate,new RegExp('E_STOCK_MOVE_PREFLIGHT_'+expected));
 for(const origin of ['local','d1']){
  test(origin+' clean synthetic v3 snapshot is inspected with SELECT/PRAGMA only',t=>{
   const db=setup(t,origin),before=dump(db),queries=[];
@@ -54,6 +53,21 @@ for(const origin of ['local','d1']){
   db.exec('ALTER TABLE stock_moves ADD COLUMN unsafe_extra TEXT');
   assert.throws(()=>inspectStockMoveV3(db,origin),/STOCK_SCHEMA_DRIFT/);
  });
+ test(origin+' preserves quoted DDL literals, rejecting changed defaults and kind case even when empty',t=>{
+  const baseline=origin==='d1'?oldD1:oldLocal;
+  for(const [from,to] of [
+    ["note TEXT NOT NULL DEFAULT ''","note TEXT NOT NULL DEFAULT ' '"],
+    ["move_type IN ('purchase','usage','adjustment')",
+     "move_type IN ('PURCHASE','usage','adjustment')"]
+  ]){
+    const altered=baseline.replace(from,to);
+    assert.notEqual(altered,baseline);
+    const db=new DatabaseSync(':memory:');t.after(()=>db.close());
+    db.exec(altered);
+    assert.throws(()=>inspectStockMoveV3(db,origin),/STOCK_SCHEMA_DRIFT/,
+      'source DDL with changed literal must be denied: '+from);
+  }
+ });
  test(origin+' refuses nonstandard index or preexisting v4 marker',t=>{
   const db=setup(t,origin);
   db.exec('DROP INDEX stock_moves_stock');
@@ -63,6 +77,19 @@ for(const origin of ['local','d1']){
   db.exec('INSERT INTO stock_move_kind_contract(id,kind_version) VALUES(1,4)');
   assert.throws(()=>inspectStockMoveV3(db,origin),/PARTIAL_OR_ALREADY_MIGRATED/);
  });
+ test(origin+' rejects mixed-case partial migration marker table names',t=>{
+  const db=setup(t,origin);
+  db.exec('CREATE TABLE STOCK_MOVE_KIND_CONTRACT(id INTEGER PRIMARY KEY,kind_version INTEGER)');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/PARTIAL_OR_ALREADY_MIGRATED/);
+  db.exec('DROP TABLE STOCK_MOVE_KIND_CONTRACT');
+  db.exec('CREATE TABLE StoCk_MoVeS_v4(id TEXT PRIMARY KEY)');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/PARTIAL_OR_ALREADY_MIGRATED/);
+ });
+ test(origin+' rejects sqliteX prefixed tables that refer to stock_moves via FK',t=>{
+  const db=setup(t,origin);
+  db.exec('CREATE TABLE sqliteX_links(move_id TEXT REFERENCES stock_moves(id))');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/INCOMING_FOREIGN_KEY/);
+ });
  test(origin+' refuses dependent views, triggers and incoming foreign keys',t=>{
   const db=setup(t,origin);
   db.exec('CREATE VIEW suspicious AS SELECT * FROM stock_moves');
@@ -71,6 +98,9 @@ for(const origin of ['local','d1']){
   db.exec('CREATE TRIGGER suspicious AFTER INSERT ON stock_moves BEGIN SELECT 1; END');
   assert.throws(()=>inspectStockMoveV3(db,origin),/STOCK_TRIGGERS/);
   db.exec('DROP TRIGGER suspicious');
+  db.exec('CREATE TRIGGER dependent AFTER UPDATE ON locations BEGIN SELECT COUNT(*) FROM stock_moves; END');
+  assert.throws(()=>inspectStockMoveV3(db,origin),/STOCK_TRIGGERS/);
+  db.exec('DROP TRIGGER dependent');
   db.exec('CREATE TABLE linked(move_id TEXT NOT NULL REFERENCES stock_moves(id))');
   assert.throws(()=>inspectStockMoveV3(db,origin),/INCOMING_FOREIGN_KEY/);
  });
@@ -101,4 +131,6 @@ test('invalid arguments do not throw raw SQL errors or expose business data',t=>
  assert.throws(()=>inspectStockMoveV3(db,'not-production'),/INVALID_INPUT/);
  assert.throws(()=>inspectStockMoveV3({prepare(){throw Error('sensitive secret');}},'d1'),
    e=>e.message==='E_STOCK_MOVE_PREFLIGHT_SQL_READ_FAILED'&&!e.message.includes('sensitive'));
+ assert.throws(()=>inspectStockMoveV3({prepare(){return {all(){return null;}};}},'local'),
+   /SQL_READ_FAILED/);
 });

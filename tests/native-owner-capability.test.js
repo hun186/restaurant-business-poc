@@ -103,7 +103,7 @@ test('Owner account capability uses account-specific backend authorization, not 
 });
 test('Account capability only updates from authenticated independent D1 grants',()=>{
  const js=asset('owner-app.js'),ui=asset('native-account-management-ui.mjs');
- assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;syncView\(\)/);
+ assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;syncView\(\)/);
  assert.match(js,/onCapabilityChange:flags=>\{/);
  assert.match(js,/accountWriteEnabled=flags\?\.create===true/);
  assert.match(js,/accountStatusWriteEnabled=flags\?\.status===true/);

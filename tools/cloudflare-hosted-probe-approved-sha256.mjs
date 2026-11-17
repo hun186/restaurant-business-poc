@@ -87,10 +87,10 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
   "tests/account-status-three-runtime-contract.test.js":"a3bd478c114414fac548ad737f569c7e077842d8b0e87f13ff2d3c7213fffa18",
-  "vercel-demo/native-account-management-ui.mjs":"1f3c870ea71b618de70ea5a18da822edad9d3d7863a7e9a716c711ec835231f6",
+  "vercel-demo/native-account-management-ui.mjs":"e7cc8cd69fbc7557fce3341fc85cbeb26592738007a596b60852ff04683e8b38",
   "cloudflare/native-account-management-http.mjs":"4ad5fa372d8f7d3394e072fd53f88265b237a163c7634faa9fe671e7e1eae316",
   "cloudflare/native-account-grant-http.mjs":"09cb6349590a0996e023fd3644cebf288d595074653fb626452eaf7ad905aaf1",
-  "tests/cloudflare-native-account-management-http.test.js":"a89cfbc6e9a8368ddd98d869cfc6f6965898b2d32639f454f67174b23c2a568a",
+  "tests/cloudflare-native-account-management-http.test.js":"62473397e91d526d618edc20b486bb0e61d1021b2bee95442ad39a966e883009",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
   "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",
@@ -324,6 +324,6 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/pricing-units.cjs":"f2ea93e3be1b3c6f5f588848e51e023174c5dabfd64a5eb416f2b4a98c3e7e9f",
   "vercel-demo/native-owner-audit-export.mjs":"2004b5ffcad6634dbdf32821eca5c553185c23c38ac3c7c7fccf8411e0aa5bad",
   "vercel-demo/native-account-grant-display.mjs":"7cc17f426dd3572f023957646ad27206ae02196f87557e68b1db399a157251e8",
-  "tests/native-owner-store-grant-display.test.js":"5d92b224a7989ad479db9fdeb5db0ebbf49b658352a15a0374e1b691230ad7d6",
+  "tests/native-owner-store-grant-display.test.js":"9107c7a56712eac7d62d57be8bb1f391e4b0eb45b4478af4e946f70c92e42b32",
   "cloudflare/native-hr-overview-readonly.mjs":"6cd72ccb3544e67b5866930bbac0bce8d03ed747a65cb541703f8974ee43eeb3",
 });

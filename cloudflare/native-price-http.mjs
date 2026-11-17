@@ -91,15 +91,17 @@ export async function nativePriceHttp(request,env){
      "s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') "+
      "AND (u.role='owner' OR EXISTS (SELECT 1 FROM user_locations ul "+
      "WHERE ul.user_id=u.id AND ul.location_id=?)))";
+   // The previously validated ingredient unit must still be current INSIDE
+   // the atomic batch; a simultaneous catalog unit change invalidates this price.
    const insert=env.DB.prepare(
      'INSERT INTO ingredient_prices(id,ingredient_id,location_id,price_date,'+
      'price_cents,unit,supplier,source,reference_id,created_by) '+
      "SELECT ?,?,?,?,?,?,?,'manual',NULL,? WHERE "+
      'EXISTS(SELECT 1 FROM locations WHERE id=? AND active=1) AND '+
-     'EXISTS(SELECT 1 FROM ingredients WHERE id=? AND active=1) AND '+actor
+     'EXISTS(SELECT 1 FROM ingredients WHERE id=? AND active=1 AND unit=?) AND '+actor
    ).bind(id,data.ingredientId,data.locationId,data.priceDate,data.priceCents,
      unit,data.supplier,principal.id,data.locationId,data.ingredientId,
-     principal.id,principal.token_hash,principal.csrf,data.locationId);
+     ingredient.unit,principal.id,principal.token_hash,principal.csrf,data.locationId);
    const audit=env.DB.prepare(
      'INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) '+
      "SELECT ?,u.id,u.username,'price.record','ingredient_prices',p.id,p.location_id,? "+

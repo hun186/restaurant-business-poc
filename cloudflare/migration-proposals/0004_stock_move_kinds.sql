@@ -3,7 +3,15 @@
 -- without separately approved backup, readiness, deployment gate and rollback.
 -- Execute atomically on an isolated database clone with foreign_keys=ON.
 -- Existing id/quantity/type/reference/note/actor/timestamp must survive exactly.
+-- A separate marker prevents accidental replay and identifies the proposed
+-- extended ledger; it is not a substitute for a formal app version upgrade.
 -- No business data, Owner credentials or migration ledger are seeded.
+CREATE TABLE stock_move_kind_contract (
+ id INTEGER PRIMARY KEY CHECK(id=1),
+ kind_version INTEGER NOT NULL CHECK(kind_version=4),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO stock_move_kind_contract(id,kind_version) VALUES(1,4);
 CREATE TABLE stock_moves_v4 (
  id TEXT PRIMARY KEY, ingredient_id TEXT NOT NULL REFERENCES ingredients(id),
  location_id TEXT NOT NULL REFERENCES locations(id),

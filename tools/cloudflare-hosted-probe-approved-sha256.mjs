@@ -29,6 +29,8 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "run-native-owner-grant-uat-readonly.bat":"8c74d13a1552841edaf4058659f1e487861636861e617d0db992b17f81d2253e",
+  "tools/native-owner-grant-uat-readonly.mjs":"f879bcd7d2900324ddf66bd4e5840d79d3efb842ed59db5d0a474a8a5990a4c1",
   "tools/cloudflare-prod-owner-recovery-runner.mjs":"5447e187384d28aca9938dcb0e85563e9275bc333082c4a2a6d231a1b8613d26",
   "重設雲端業主密碼.bat":"39e74c6cba3fffbac81f28892b67fa17940ba9334db171934e37e37c2082d3b4",
   "tools/cloudflare-prod-owner-password-recovery.mjs":"0daf481021e212391f2f157f6deaf8133d12183ef8b0bd327247550c1557784f",
@@ -85,6 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/native-owner-grant-uat-readonly.test.js":"722967ea151fd47bc3641406db0c87e91af14831ba73b3898f7b1e876cdaccaf",
   "cloudflare/account-status-contract.mjs":"d3524e08637823ec1f9e2b39cfa4d7805b7c02cc6e9368ce0c0156c8f48c7263",
   "tests/account-status-three-runtime-contract.test.js":"a3bd478c114414fac548ad737f569c7e077842d8b0e87f13ff2d3c7213fffa18",
   "vercel-demo/native-account-management-ui.mjs":"e7cc8cd69fbc7557fce3341fc85cbeb26592738007a596b60852ff04683e8b38",

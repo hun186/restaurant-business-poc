@@ -7,6 +7,7 @@ test('Owner timeline translates all known Native D1 audit actions into consisten
    await import('../vercel-demo/native-owner-audit-export.mjs');
  const examples={
   'auth.password_change':'變更登入密碼',
+  'auth.owner_bootstrap':'正式業主帳號初始化',
   'order.cancel':'取消叫貨',
   'order.receive':'叫貨入庫',
   'ingredient.create':'建立食材',
@@ -61,6 +62,8 @@ test('Owner browser timeline and current-page Excel use identical translations a
     action:'ingredient.active',entity:'ingredients',summary:'已停用'},
   {at:'2026-11-17 06:10:00',actor_name:'owner',
     action:'auth.password_change',entity:'users',summary:'—'},
+  {at:'2026-11-08 13:01:00',actor_name:'production-bootstrap',
+    action:'auth.owner_bootstrap',entity:'users',summary:'—'},
   {at:'2026-11-17 06:09:00',actor_name:'owner',
     action:'future.action',entity:'future_table',summary:'—',password_hash:'DONT_EXPOSE'}
  ];
@@ -88,9 +91,15 @@ test('Owner browser timeline and current-page Excel use identical translations a
  assert.equal(sheet.rows[0][2],'叫貨入庫');
  assert.equal(sheet.rows[0][3],'叫貨單');
  assert.equal(sheet.rows[1][2],'取消叫貨');
- assert.equal(sheet.rows[4][2],'其他事件（future.action）');
+ assert.equal(sheet.rows[4][2],'正式業主帳號初始化');
+ assert.equal(sheet.rows[4][1],'production-bootstrap');
+ assert.equal(sheet.rows[4][3],'帳號');
+ assert.equal(sheet.rows[5][2],'其他事件（future.action）');
  assert.equal(JSON.stringify(rows),originalRows,'projection must not alter audit evidence');
  assert(!JSON.stringify(sheet).includes('DONT_EXPOSE'));
+ const enroll=fs.readFileSync(path.join(__dirname,'../tools/cloudflare-production-owner.mjs'),'utf8');
+ assert.match(enroll,/auth\\.owner_bootstrap/);
+ assert.match(enroll,/production-bootstrap/);
  const api=fs.readFileSync(path.join(__dirname,'../cloudflare/native-audit-http.mjs'),'utf8');
  assert.match(api,/SELECT at,actor_name,action,entity,detail FROM audit_logs/);
 });

@@ -112,6 +112,40 @@ test('insufficient stock, zero stock, malformed quantity and extra keys reject w
  }
  assert.equal(f.balance(),3);assert.equal(f.count(),0);assert.equal(f.audit(),0);
 });
+test('three-decimal balance: 0.3 minus 0.1 allows 0.2, then rejects 0.001',async t=>{
+ const f=await fixture(t);f.stock(0.3);
+ const mgr=await f.login('manager');
+ assert.equal((await f.write(mgr,f.payload(0.1))).status,200);
+ assert.equal(f.balance(),0.19999999999999998);
+ assert.equal((await f.write(mgr,f.payload(0.2))).status,200,
+   'legitimate remaining 0.2 must not fail from floating-point SUM');
+ assert(Math.abs(f.balance())<0.000000001);
+ assert.equal((await f.write(mgr,f.payload(0.001))).status,409,
+   'one minimum stock unit beyond the ledger must still be rejected');
+ assert.equal(f.count(),2);assert.equal(f.audit(),2);
+});
+
+test('transactional rounding also handles stale fractional balance at batch time',async t=>{
+ let f,trigger=false;
+ const opt={beforeBatch(){if(trigger){f.stock(-0.1);trigger=false;}}};
+ f=await fixture(t,opt);f.stock(0.3);
+ const mgr=await f.login('manager');trigger=true;
+ assert.equal((await f.write(mgr,f.payload(0.2))).status,200,
+   'D1 INSERT must apply the same three-place balance check as preflight');
+ assert(Math.abs(f.balance())<0.000000001);
+ assert.equal(f.count(),1);assert.equal(f.audit(),1);
+});
+
+test('transaction rechecks minimum step and refuses a late 0.001 overdraft',async t=>{
+ let f,trigger=false;
+ const opt={beforeBatch(){if(trigger){f.stock(-0.001);trigger=false;}}};
+ f=await fixture(t,opt);f.stock(0.2);
+ const mgr=await f.login('manager');trigger=true;
+ assert.equal((await f.write(mgr,f.payload(0.2))).status,503);
+ assert(Math.abs(f.balance()-0.199)<0.000000001);
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);
+});
+
 test('Staff, out-of-store Manager, CSRF mismatch and missing auth fail closed',async t=>{
  const f=await fixture(t);f.stock(10);
  const mgr=await f.login('manager'),staff=await f.login('staff');

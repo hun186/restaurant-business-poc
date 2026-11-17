@@ -42,7 +42,8 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false,accountWriteEnabled=false,
-  accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,costAsOf='';
+  accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,
+  accountGrantWriteEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 const labeledField=(caption,control)=>{const label=el('label',caption);label.append(control);return label;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
@@ -69,7 +70,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  costAsOf='';authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
+  costAsOf='';authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
@@ -858,7 +859,7 @@ async function refresh(){
     return;
   }
   if(view==='accounts'){
-    accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;syncView();
+    accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;syncView();
     const epoch=authEpoch,token=csrf;
     await renderOwnerAccounts({pane:$('content'),api,role,
       signal:controller.signal,notice:say,refresh,
@@ -868,7 +869,8 @@ async function refresh(){
         if(marker!==revision||!liveAuth(epoch,token))return;
         accountWriteEnabled=flags?.create===true;
         accountStatusWriteEnabled=flags?.status===true;
-        accountRoleWriteEnabled=flags?.role===true;syncView();
+        accountRoleWriteEnabled=flags?.role===true;
+        accountGrantWriteEnabled=flags?.grants===true;syncView();
       }});
     return;
   }
@@ -905,7 +907,7 @@ function syncView(){
     catalog:catalogWriteEnabled,order:orderWriteEnabled,
     stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,
     account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled,
-    accountRole:accountRoleWriteEnabled});
+    accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled});
   $('operation-mode').textContent=capability.systemLabel;
   $('operation-mode').classList.toggle('enabled',capability.systemWritable);
   $('capability').textContent=capability.pageLabel;
@@ -920,7 +922,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  costAsOf='';authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;$('locked').hidden=true;
+  costAsOf='';authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients',
     'dish_costs','dish_cost_lines','inventory_values'];

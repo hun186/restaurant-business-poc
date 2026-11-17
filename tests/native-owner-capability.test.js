@@ -103,7 +103,7 @@ test('Owner account capability uses account-specific backend authorization, not 
 });
 test('Account capability only updates from authenticated independent D1 grants',()=>{
  const js=asset('owner-app.js'),ui=asset('native-account-management-ui.mjs');
- assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;syncView\(\)/);
+ assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;syncView\(\)/);
  assert.match(js,/onCapabilityChange:flags=>\{/);
  assert.match(js,/accountWriteEnabled=flags\?\.create===true/);
  assert.match(js,/accountStatusWriteEnabled=flags\?\.status===true/);
@@ -173,4 +173,30 @@ test('Native Owner audit is a distinct read-only page even when all write gates 
  assert.match(js,/if\(view==='audit_logs'\)/);
  assert.match(js,/renderOwnerAudit\(\{pane:\$\('content'\),api,role/);
  assert.match(js,/onlyOwner of \['accounts','audit_logs'\]/);
+});
+
+test('Grant editor capability only enables from the authenticated backend Owner flag',async()=>{
+ const {nativeOwnerCapability}=await capability;
+ const active=nativeOwnerCapability({view:'accounts',role:'owner',accountGrants:true});
+ assert.equal(active.pageWritable,true);
+ assert.equal(active.systemWritable,true);
+ assert.equal(active.pageLabel,'帳號管理・可管理');
+ assert.match(active.description,/可逐一調整員工門市授權/);
+ for(const role of ['staff','manager',null]){
+  const denied=nativeOwnerCapability({view:'accounts',role,accountGrants:true});
+  assert.equal(denied.pageWritable,false);
+  assert.equal(denied.pageLabel,'帳號管理・僅檢視');
+ }
+ const create=nativeOwnerCapability({view:'accounts',role:'owner',account:true,accountGrants:true});
+ assert.equal(create.pageLabel,'帳號管理・可新增及管理');
+ const other=nativeOwnerCapability({view:'overview',role:'owner',accountGrants:true});
+ assert.equal(other.pageWritable,false,'account grant is not business write access');
+ const js=asset('owner-app.js'),ui=asset('native-account-management-ui.mjs');
+ assert(js.includes('accountGrantWriteEnabled=flags?.grants===true'));
+ assert(js.includes('accountGrants:accountGrantWriteEnabled'));
+ assert(js.includes('accountRoleWriteEnabled=false;accountGrantWriteEnabled=false'));
+ assert(ui.includes('grants:data.can_manage_grants===true'));
+ assert(ui.includes('data.can_manage_grants===true&&user.active===true'));
+ assert(ui.includes("api('/api/accounts/grant'"));
+ assert(!ui.includes('innerHTML'));
 });

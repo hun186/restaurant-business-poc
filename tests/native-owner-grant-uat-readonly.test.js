@@ -7,7 +7,8 @@ const launcher=fs.readFileSync(path.join(root,'run-native-owner-grant-uat-readon
 const origin='https://restaurant-business-poc.hungyuan-chen.workers.dev';
 const status={mode:'native',login_enabled:true,task_write_enabled:false,
  catalog_write_enabled:false,order_write_enabled:false,
- stocktake_write_enabled:false,repair_write_enabled:false,price_write_enabled:false};
+ stocktake_write_enabled:false,repair_write_enabled:false,price_write_enabled:false,
+ stock_usage_write_enabled:false};
 const endpoints=['/api/native/status','/api/accounts','/api/accounts/grant'];
 const probe=import('../tools/native-owner-grant-uat-readonly.mjs');
 const fake=(bodies=[
@@ -34,6 +35,8 @@ test('readonly grant UAT checks exactly three anonymous GET routes, no cookies o
  assert.equal(result.grant_write_gate_configuration_verified,false);
  assert.equal(result.price_write_gate_closed,true);
  assert.equal(result.all_six_business_write_gates_closed,true);
+ assert.equal(result.stock_usage_write_gate_closed,true);
+ assert.equal(result.all_seven_business_write_gates_closed,true);
  assert.equal(result.production_write_performed,false);
  assert.equal(result.authenticated_grant_uat_verified,false);
  assert.deepEqual(calls.map(c=>c.url),endpoints.map(e=>origin+e));
@@ -62,6 +65,8 @@ test('anonymous probe fail-closes on all gate, auth and response regressions',as
   x=>{delete x[0].body.repair_write_enabled;},
   x=>{x[0].body.price_write_enabled=true;},
   x=>{delete x[0].body.price_write_enabled;},
+  x=>{x[0].body.stock_usage_write_enabled=true;},
+  x=>{delete x[0].body.stock_usage_write_enabled;},
   x=>{x[1].status=200;x[1].body={users:[]};},
   x=>{x[1].status=403;},
   x=>{x[2].status=405;x[2].body={code:'METHOD_NOT_ALLOWED'};},

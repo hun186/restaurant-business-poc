@@ -63,7 +63,9 @@ export async function probeNativeOwnerGrantReadonly(fetcher=globalThis.fetch){
   fail('E_GRANT_GATE_NOT_CLOSED');
  return Object.freeze({
   status:'NATIVE_OWNER_GRANT_UAT_READONLY_PREFLIGHT_PASS',
-  anonymous_account_access_denied:true,grant_write_gate_closed:true,
+  anonymous_account_access_denied:true,
+  grant_endpoint_default_denial_observed:true,
+  grant_write_gate_configuration_verified:false,
   login_gate_observed:true,five_business_write_gates_closed:true,
   requests:'3 GET_ONLY',cookie_sent:false,credentials_sent:false,
   owner_login_uat_verified:false,authenticated_grant_uat_verified:false,

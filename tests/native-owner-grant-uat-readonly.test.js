@@ -30,7 +30,8 @@ test('readonly grant UAT checks exactly three anonymous GET routes, no cookies o
  const calls=[];
  const result=await probeNativeOwnerGrantReadonly(fake(undefined,calls));
  assert.equal(result.status,'NATIVE_OWNER_GRANT_UAT_READONLY_PREFLIGHT_PASS');
- assert.equal(result.grant_write_gate_closed,true);
+ assert.equal(result.grant_endpoint_default_denial_observed,true);
+ assert.equal(result.grant_write_gate_configuration_verified,false);
  assert.equal(result.production_write_performed,false);
  assert.equal(result.authenticated_grant_uat_verified,false);
  assert.deepEqual(calls.map(c=>c.url),endpoints.map(e=>origin+e));

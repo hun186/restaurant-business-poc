@@ -17,7 +17,7 @@ created_at 與 rowid 決定有效價格。不得直接刪除或覆寫既有價�
 未來生效單價不影響當日估值；未定義價格顯示缺價，不得當零元成本。
 
 Cloudflare 使用固定 HTTPS + same-origin + Cookie Session + CSRF，
-生效門市/食材與角色/門市授權在寫入前及同筆 D1 transaction 內檢查；
+生效門市/食材、**食材庫存單位未變更（交易內 CAS 驗證）**、角色/門市授權在寫入前及同筆 D1 transaction 內檢查；
 稽核 \`price.record\` 與新增 row 同批執行，失敗回滾。
 寫入成功不直接改 stock_moves、既有收貨單、目前庫存。
 不延伸 Vercel Demo 至真實身分認證或伺服器資料；不得在展示版填真實資料。

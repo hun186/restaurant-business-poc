@@ -204,3 +204,26 @@ test('Native Excel must not resurrect monetary values rejected by its visible pr
  const priceSheet=nativeOwnerReportSheet('ingredient_prices',[price],{name:'食材歷史價格'});
  assert.equal(priceSheet.rows[0][3],'—','invalid input price cannot leak as raw number');
 });
+
+
+test('Native D1 created_at timezone is identical in visible table and current-page Excel',async()=>{
+ const {nativeOwnerReportSheet}=await projection;
+ const {presentNativeRows}=await display;
+ const rows=[{location_name:'測試門市',ingredient_name:'奶油球',qty_delta:1,
+  unit:'包',move_type:'purchase',created_at:'2026-11-17 06:15:15',
+  password_hash:'NOT_FOR_EXPORT'}];
+ const view=presentNativeRows('stock_moves',rows);
+ const sheet=nativeOwnerReportSheet('stock_moves',rows,{name:'庫存流水'});
+ assert.deepEqual(sheet.headers,view.columns.map(x=>x.label));
+ assert.deepEqual(sheet.rows[0].map(String),view.entries[0].cells.map(x=>x.text));
+ assert.equal(sheet.rows[0].at(-1),'2026/11/17 14:15:15');
+ const xml=zipPart(buildWorkbook([sheet]),'xl/worksheets/sheet1.xml');
+ assert.match(xml,/2026\/11\/17 14:15:15/);
+ assert(!xml.includes('2026-11-17 06:15:15'));
+ assert(!xml.includes('NOT_FOR_EXPORT'));
+ const order=nativeOwnerReportSheet('purchase_orders',[{
+  number:'PO-TEST',location_name:'測試門市',created_at:'2026-11-17 06:15:15'
+ }],{name:'叫貨管理'});
+ assert.equal(order.headers.at(-1),'申請時間（臺灣）');
+ assert.equal(order.rows[0].at(-1),'2026/11/17 14:15:15');
+});

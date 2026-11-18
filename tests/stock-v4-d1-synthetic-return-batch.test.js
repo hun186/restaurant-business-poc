@@ -106,13 +106,13 @@ test('duplicate and uppercase UUID replay cannot double debit',async t=>{
 test('prior supplier return cap, available stock and late stock debits fail closed',async t=>{
  const db=fixture(t),q=await build(payload(2)),before=snapshot(db);
  assert.throws(()=>batch(db,q,{before:()=>{
-  db.prepare("UPDATE stock_moves SET qty_delta=-7 WHERE id='historical-usage'").run();
+  db.prepare("UPDATE stock_moves SET qty_delta=-8 WHERE id='historical-usage'").run();
  }}),/constraint/i);
  assert.equal(snapshot(db).moves.length,before.moves.length);
  assert.equal(snapshot(db).audit.length,0);
  const onHand=db.prepare('SELECT SUM(qty_delta) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?')
   .get(U.ingredient,U.store).n;
- assert.equal(onHand,2);
+ assert.equal(onHand,1);
 });
 test('invalid received PO, mismatched history and cross-store returns reject with rollback',async t=>{
  const db=fixture(t),q=await build(payload());

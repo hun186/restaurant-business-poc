@@ -45,6 +45,10 @@ async function inspectSupplierReturnFacts(db,payload){
  const contract=await read(db,
    'SELECT kind_version FROM stock_move_kind_contract WHERE id=1');
  if(contract.length!==1||contract[0].kind_version!==4)fail('SCHEMA_NOT_READY');
+ const stores=await read(db,'SELECT active FROM locations WHERE id=?',x.location_id);
+ const ingredients=await read(db,'SELECT active FROM ingredients WHERE id=?',x.ingredient_id);
+ if(stores.length!==1||stores[0].active!==1||
+    ingredients.length!==1||ingredients[0].active!==1)fail('INACTIVE_SCOPE');
  const orders=await read(db,
    'SELECT id,location_id,ingredient_id,status,qty FROM purchase_orders WHERE id=?',
    x.reference_id);

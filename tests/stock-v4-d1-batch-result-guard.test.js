@@ -46,6 +46,7 @@ test('failed/missing data and conflicting metadata cannot impersonate success',a
  const failures=[
   {success:false,meta:{changes:1}},
   {success:null,meta:{changes:1}},
+  {success:undefined,meta:{changes:1}},
   {success:'true',meta:{changes:1}},
   {success:true,error:'E_INSERT',meta:{changes:1}},
   {success:true,error:{message:'bad'},meta:{changes:1}},

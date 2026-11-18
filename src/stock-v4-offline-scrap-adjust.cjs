@@ -133,4 +133,67 @@ function executeSyntheticStockV4(db,request){
    fail('TRANSACTION_FAILED');
  }
 }
-module.exports={executeSyntheticStockV4,createSyntheticStockV4MemoryDb};
+
+
+// Distinct ASYNC synthetic supplier-return transaction. All source-of-truth
+// receipt and budget SELECTs run *after* BEGIN IMMEDIATE on the same connection.
+// The existing SELECT-only helper is NOT a pretransaction authorization.
+const {inspectSupplierReturnFacts}=require('./stock-return-receipt-facts.cjs');
+async function executeSyntheticSupplierReturn(db,request){
+ ephemeral(db);
+ if(!shape(request,['actor_id','request_id','action','data'])||
+    typeof request.actor_id!=='string'||!UUID.test(request.actor_id)||
+    typeof request.request_id!=='string'||!UUID.test(request.request_id)||
+    request.action!=='stock.supplier_return')
+   fail('REQUEST');
+ const requestId=request.request_id.toLowerCase();
+ const actorId=request.actor_id.toLowerCase();
+ let move;
+ try{move=normalizeStockV4(request.action,request.data);}
+ catch{fail('PAYLOAD');}
+ try{db.exec('BEGIN IMMEDIATE');}
+ catch{fail('BEGIN_FAILED');}
+ try{
+   const actor=actorAndScope(db,actorId,move.location_id,move.ingredient_id);
+   if(one(db,'SELECT 1 AS found FROM stock_moves WHERE lower(id)=?',requestId))
+     fail('DUPLICATE_REQUEST');
+   const requestedMilli=-asMilli(move.qty_delta);
+   if(requestedMilli<1)fail('PAYLOAD');
+   // Re-read the original received PO, its unique purchase ledger entry,
+   // all prior returns and current stock INSIDE the locked write transaction.
+   const facts=await inspectSupplierReturnFacts(db,{
+     ingredient_id:move.ingredient_id,location_id:move.location_id,
+     reference_id:move.reference_id,requested_milli:requestedMilli
+   });
+   if(facts.approved_milli!==requestedMilli||facts.writes_performed!==false||
+      facts.transaction_authorized!==false)fail('RETURN_FACTS_INVALID');
+   const row=db.prepare(
+     'INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id) VALUES(?,?,?,?,?,?,?,?)'
+   ).run(requestId,move.ingredient_id,move.location_id,move.qty_delta,
+     'supplier_return',move.reference_id,move.note,actor.id);
+   if(row.changes!==1)fail('WRITE_COUNT');
+   const audit=db.prepare(
+     'INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) VALUES(?,?,?,?,?,?,?,?)'
+   ).run(randomUUID(),actor.id,actor.username,'stock.supplier_return',
+     'stock_moves',requestId,move.location_id,JSON.stringify({
+       ingredient_id:move.ingredient_id,qty_delta:move.qty_delta,
+       reference_id:move.reference_id
+     }));
+   if(audit.changes!==1)fail('AUDIT_COUNT');
+   if(query(db,'PRAGMA foreign_key_check').length)fail('INTEGRITY');
+   db.exec('COMMIT');
+   return Object.freeze({status:'SYNTHETIC_V4_RETURN_COMMITTED',
+     id:requestId,action:'stock.supplier_return',
+     receipt_remaining_milli:facts.receipt_remaining_milli,
+     stock_remaining_milli:facts.stock_remaining_milli,
+     synthetic_only:true,remote_d1_verified:false,
+     production_write_authorized:false});
+ }catch(e){
+   try{db.exec('ROLLBACK');}catch{}
+   if(typeof e?.message==='string'&&
+      /^(E_STOCK_V4_OFFLINE_|E_STOCK_RETURN_FACTS_)/.test(e.message))throw e;
+   fail('TRANSACTION_FAILED');
+ }
+}
+
+module.exports={executeSyntheticStockV4,executeSyntheticSupplierReturn,createSyntheticStockV4MemoryDb};

@@ -190,7 +190,8 @@ test('receipt return cap rejects 9.001 even when store has ample independent sto
  db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,note) VALUES(?,?,?,?,?,?)')
   .run('independent-add',U.ingredient,U.store,10,'adjustment','synthetic top-up');
  const before=snapshot(db);
- assert.throws(()=>batch(db,await build(payload(9.001))),/constraint/i);
+ const excessive=await build(payload(9.001));
+ assert.throws(()=>batch(db,excessive),/constraint/i);
  assert.deepEqual(snapshot(db),before);
  assert.deepEqual(batch(db,await build(payload(9))),[1,1]);
  const qty=db.prepare('SELECT SUM(qty_delta) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?')

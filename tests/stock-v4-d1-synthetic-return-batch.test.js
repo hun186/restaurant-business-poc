@@ -93,9 +93,74 @@ test('proposed D1 SQL atomically inserts exact negative movement and matching au
  assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
 });
 test('duplicate and uppercase UUID replay cannot double debit',async t=>{
- const db=fixture(t);let q=payload();
- q.request.request_id=U.key.toUpperCase();batch(db,await build(q));
- const before=snapshot(db),next=payload();
- next.audit_id=U.key2;
- assert.throws(()=>batch(db,awaited),/DUMMY/) ;
+ const db=fixture(t),first=payload();
+ first.request.request_id=U.key.toUpperCase();
+ batch(db,await build(first));
+ const before=snapshot(db),second=payload();
+ second.audit_id=U.key2;
+ const replayPlan=await build(second);
+ assert.throws(()=>batch(db,replayPlan),/constraint/i);
+ assert.deepEqual(snapshot(db),before);
+});
+
+test('prior supplier return cap, available stock and late stock debits fail closed',async t=>{
+ const db=fixture(t),q=await build(payload(2)),before=snapshot(db);
+ assert.throws(()=>batch(db,q,{before:()=>{
+  db.prepare("UPDATE stock_moves SET qty_delta=-7 WHERE id='historical-usage'").run();
+ }}),/constraint/i);
+ assert.equal(snapshot(db).moves.length,before.moves.length);
+ assert.equal(snapshot(db).audit.length,0);
+ const onHand=db.prepare('SELECT SUM(qty_delta) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?')
+  .get(U.ingredient,U.store).n;
+ assert.equal(onHand,2);
+});
+test('invalid received PO, mismatched history and cross-store returns reject with rollback',async t=>{
+ const db=fixture(t),q=await build(payload());
+ db.prepare("UPDATE purchase_orders SET status='approved' WHERE id=?").run(U.po);
+ const b=snapshot(db);assert.throws(()=>batch(db,q),/constraint/i);assert.deepEqual(snapshot(db),b);
+ db.prepare("UPDATE purchase_orders SET status='received' WHERE id=?").run(U.po);
+ db.prepare("UPDATE stock_moves SET qty_delta=9 WHERE id='historical-purchase'").run();
+ const c=snapshot(db);assert.throws(()=>batch(db,q),/constraint/i);assert.deepEqual(snapshot(db),c);
+ db.prepare("UPDATE stock_moves SET qty_delta=10 WHERE id='historical-purchase'").run();
+ db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,reference_id,note) VALUES(?,?,?,?,?,?,?)')
+  .run('wrong-store-return',U.ingredient,U.other,-1,'supplier_return',U.po,'wrong store');
+ const d=snapshot(db);assert.throws(()=>batch(db,q),/constraint/i);assert.deepEqual(snapshot(db),d);
+});
+test('expired session, wrong CSRF, disabled actor and denied Manager reject',async t=>{
+ const db=fixture(t),original=await build(payload());
+ const badCsrf=payload();badCsrf.auth.csrf='wrong-but-long-csrf';
+ const before=snapshot(db),invalidPlan=await build(badCsrf);
+ assert.throws(()=>batch(db,invalidPlan),/constraint/i);
+ db.prepare("UPDATE sessions SET expires_at='2000-01-01T00:00:00.000Z'").run();
+ assert.throws(()=>batch(db,original),/constraint/i);
+ db.prepare("UPDATE sessions SET expires_at='2999-01-01T00:00:00.000Z'").run();
+ db.prepare("UPDATE users SET active=0 WHERE id=?").run(U.owner);
+ assert.throws(()=>batch(db,original),/constraint/i);
+ db.prepare("UPDATE users SET active=1 WHERE id=?").run(U.owner);
+ db.prepare('UPDATE sessions SET user_id=?').run(U.manager);
+ const manager=payload();manager.auth.actor_id=U.manager;
+ db.prepare('DELETE FROM user_locations WHERE user_id=?').run(U.manager);
+ const managerPlan=await build(manager);
+ assert.throws(()=>batch(db,managerPlan),/constraint/i);
+ assert.deepEqual(snapshot(db),before);
+});
+test('bad audit insert rolls back valid movement and preserves original purchase order',async t=>{
+ const db=fixture(t),q=await build(payload()),before=snapshot(db);
+ db.exec("CREATE TRIGGER reject_audit BEFORE INSERT ON audit_logs BEGIN SELECT RAISE(ABORT,'SYNTH_FAIL'); END");
+ assert.throws(()=>batch(db,q),/SYNTH_FAIL/);
+ assert.deepEqual(snapshot(db),before);
+ db.exec('DROP TRIGGER reject_audit');
+ assert.deepEqual(batch(db,q),[1,1]);
+});
+test('bad payload, fake auth, missing v4 marker fail before or during atomic batch',async t=>{
+ const db=fixture(t),bad=payload();
+ bad.request.data.qty=0;
+ await assert.rejects(()=>build(bad),/E_STOCK_V4_D1_PLAN_INVALID/);
+ const invalid=payload();invalid.auth.csrf='short';
+ await assert.rejects(()=>build(invalid),/E_STOCK_V4_D1_PLAN_INVALID/);
+ const q=await build(payload());
+ db.exec('DROP TABLE stock_move_kind_contract');
+ const before=snapshot(db);
+ assert.throws(()=>batch(db,q),/no such table/i);
+ assert.deepEqual(snapshot(db),before);
 });

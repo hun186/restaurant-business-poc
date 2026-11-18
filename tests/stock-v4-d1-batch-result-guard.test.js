@@ -84,3 +84,23 @@ test('guard and synthetic builder are not imported by any live runtime',()=>{
  assert.doesNotMatch(fs.readFileSync(path.join(root,
    'cloudflare/migrations/0001_initial_v3.sql'),'utf8'),/supplier_return|scrap/);
 });
+
+test('sparse, inherited and accessor-backed array slots never pass or run getters',async()=>{
+ const empty=new Array(2);
+ await assert.rejects(()=>verify(empty),/E_STOCK_V4_D1_BATCH_RESULT_INVALID/);
+ const sparse=new Array(2);sparse[1]=valid()[1];
+ await assert.rejects(()=>verify(sparse),/E_STOCK_V4_D1_BATCH_RESULT_INVALID/);
+ const proto=Object.create(Array.prototype);
+ Object.defineProperty(proto,'0',{value:valid()[0],writable:true,configurable:true});
+ Object.setPrototypeOf(sparse,proto);
+ await assert.rejects(()=>verify(sparse),/E_STOCK_V4_D1_BATCH_RESULT_INVALID/);
+ let calls=0;
+ const getterBacked=valid();
+ Object.defineProperty(getterBacked,'0',{get(){calls++;return valid()[0];},configurable:true});
+ await assert.rejects(()=>verify(getterBacked),/E_STOCK_V4_D1_BATCH_RESULT_INVALID/);
+ assert.equal(calls,0);
+ const otherGetter=valid();
+ Object.defineProperty(otherGetter,'1',{get(){calls++;return valid()[1];},configurable:true});
+ await assert.rejects(()=>verify(otherGetter),/E_STOCK_V4_D1_BATCH_RESULT_INVALID/);
+ assert.equal(calls,0);
+});

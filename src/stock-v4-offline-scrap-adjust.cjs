@@ -3,6 +3,15 @@
 // Deliberately NOT imported by any production API/Worker; file-backed DBs fail.
 // Future production implementation needs its own reviewed migrations and Gates.
 const {randomUUID}=require('node:crypto');
+const {DatabaseSync}=require('node:sqlite');
+// Only DBs created by this module may be used for synthetic writes.
+// DatabaseSync('') can report an empty path without being truly :memory:.
+const allowedMemoryDb=new WeakSet();
+function createSyntheticStockV4MemoryDb(){
+ const db=new DatabaseSync(':memory:');
+ allowedMemoryDb.add(db);
+ return db;
+}
 const {normalizeStockV4}=require('./stock-move-v4-contract.mjs');
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const fail=code=>{throw Error('E_STOCK_V4_OFFLINE_'+code);};
@@ -25,6 +34,7 @@ function one(db,sql,...args){return query(db,sql,...args)[0];}
 function ephemeral(db){
  if(!db||typeof db.exec!=='function'||typeof db.prepare!=='function')
    fail('INVALID_DB');
+ if(!allowedMemoryDb.has(db))fail('UNTRUSTED_DB');
  // A deliberate hard wall against any real Local SQLite file or attached DB.
  const files=query(db,'PRAGMA database_list');
  // On Node/SQLite builds an in-memory main file can be '' or null, and
@@ -83,6 +93,8 @@ function executeSyntheticStockV4(db,request){
     typeof request.request_id!=='string'||!UUID.test(request.request_id)||
     !['stock.scrap','stock.adjust'].includes(request.action))
    fail('REQUEST');
+ const requestId=request.request_id.toLowerCase();
+ const actorId=request.actor_id.toLowerCase();
  let move;
  try{move=normalizeStockV4(request.action,request.data);}
  catch{fail('PAYLOAD');}
@@ -90,8 +102,8 @@ function executeSyntheticStockV4(db,request){
  try{db.exec('BEGIN IMMEDIATE');}
  catch{fail('BEGIN_FAILED');}
  try{
-   const actor=actorAndScope(db,request.actor_id,move.location_id,move.ingredient_id);
-   if(one(db,'SELECT 1 AS found FROM stock_moves WHERE id=?',request.request_id))
+   const actor=actorAndScope(db,actorId,move.location_id,move.ingredient_id);
+   if(one(db,'SELECT 1 AS found FROM stock_moves WHERE lower(id)=?',requestId))
      fail('DUPLICATE_REQUEST');
    const previous=balance(db,move.location_id,move.ingredient_id);
    const delta=asMilli(move.qty_delta);
@@ -100,19 +112,19 @@ function executeSyntheticStockV4(db,request){
      fail('INSUFFICIENT_OR_OVERFLOW');
    const row=db.prepare(
     'INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id) VALUES(?,?,?,?,?,?,?,?)'
-   ).run(request.request_id,move.ingredient_id,move.location_id,
+   ).run(requestId,move.ingredient_id,move.location_id,
       move.qty_delta,move.move_type,null,move.note,actor.id);
    if(row.changes!==1)fail('WRITE_COUNT');
    const audit=db.prepare(
     'INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) VALUES(?,?,?,?,?,?,?,?)'
    ).run(randomUUID(),actor.id,actor.username,request.action,'stock_moves',
-      request.request_id,move.location_id,
+      requestId,move.location_id,
       JSON.stringify({ingredient_id:move.ingredient_id,qty_delta:move.qty_delta}));
    if(audit.changes!==1)fail('AUDIT_COUNT');
    if(query(db,'PRAGMA foreign_key_check').length)fail('INTEGRITY');
    db.exec('COMMIT');
    return Object.freeze({status:'SYNTHETIC_V4_TRANSACTION_COMMITTED',
-     id:request.request_id,action:request.action,stock_remaining_milli:after,
+     id:requestId,action:request.action,stock_remaining_milli:after,
      synthetic_only:true,remote_d1_verified:false,production_write_authorized:false});
  }catch(e){
    try{db.exec('ROLLBACK');}catch{}
@@ -121,4 +133,4 @@ function executeSyntheticStockV4(db,request){
    fail('TRANSACTION_FAILED');
  }
 }
-module.exports={executeSyntheticStockV4};
+module.exports={executeSyntheticStockV4,createSyntheticStockV4MemoryDb};

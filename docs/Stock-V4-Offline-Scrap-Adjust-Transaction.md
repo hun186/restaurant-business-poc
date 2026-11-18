@@ -9,7 +9,11 @@ deliberately **not imported** by the Local HTTP API, Cloudflare Worker, or
 Vercel Demo. Both active database schemas remain v3.
 
 The module refuses to operate unless its caller supplies an ephemeral
-SQLite **:memory:** database with an empty in-memory `main` entry
+SQLite **:memory:** database created by this module's
+`createSyntheticStockV4MemoryDb()` factory. Connections constructed elsewhere,
+including `DatabaseSync('')` (SQLite temporary file) and even external
+`:memory:` objects, fail closed. The accepted connection must have an empty
+in-memory `main` entry
 (and at most an unused, empty `temp` schema), database `location()` returning
 null, foreign keys enabled, a synthetic v4 marker and
 a basic v4 ledger check. It rejects any on-disk SQLite file or attached

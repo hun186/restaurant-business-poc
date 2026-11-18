@@ -3,7 +3,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
-const {executeSyntheticStockV4:execute}=require('../src/stock-v4-offline-scrap-adjust.cjs');
+const {executeSyntheticStockV4:execute,createSyntheticStockV4MemoryDb:createMemory}=require('../src/stock-v4-offline-scrap-adjust.cjs');
 const root=path.join(__dirname,'..'),read=x=>fs.readFileSync(path.join(root,x),'utf8');
 const schemas={local:read('db/schema.sql'),d1:read('cloudflare/migrations/0001_initial_v3.sql')};
 const sql=read('db/migration-proposals/0004_stock_move_kinds.sql');
@@ -17,7 +17,7 @@ const IDS={store:'00000000-0000-4000-8000-000000000001',
  key2:'00000000-0000-4000-8000-000000000008',
  key3:'00000000-0000-4000-8000-000000000009'};
 function setup(t,origin){
- const db=new DatabaseSync(':memory:');
+ const db=createMemory();
  t.after(()=>db.close());
  db.exec('PRAGMA foreign_keys=ON');db.exec(schemas[origin]);
  for(const [id,name] of [[IDS.store,'假店A'],[IDS.second,'假店B']])
@@ -116,6 +116,16 @@ for(const origin of ['local','d1']){
   const result=execute(db,payload('stock.scrap',1));
   assert.equal(result.stock_remaining_milli,6000);
  });
+ test(origin+' treats uppercase and lowercase UUID request IDs as the same movement',t=>{
+  const db=setup(t,origin);
+  const key='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const first=execute(db,{...payload('stock.scrap',1),request_id:key.toUpperCase()});
+  assert.equal(first.id,key);
+  const before=snapshot(db);
+  assert.throws(()=>execute(db,{...payload('stock.scrap',1),request_id:key}),
+    /DUPLICATE_REQUEST/);
+  assert.deepEqual(snapshot(db),before);
+ });
  test(origin+' rejects synthetic historical non-grid quantity and unready schema',t=>{
   const db=setup(t,origin);
   db.exec("UPDATE stock_moves SET qty_delta=-0.00000000001 WHERE id='consumed'");
@@ -129,7 +139,13 @@ test('disk-backed and attached databases are rejected before any write',t=>{
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'rbp-v4-offline-'));
  const disk=new DatabaseSync(path.join(tmp,'fixture.sqlite'));
  t.after(()=>{disk.close();fs.rmSync(tmp,{recursive:true,force:true});});
- assert.throws(()=>execute(disk,payload('stock.scrap',1)),/NON_EPHEMERAL_DB/);
+ assert.throws(()=>execute(disk,payload('stock.scrap',1)),/UNTRUSTED_DB/);
+ const unnamed=new DatabaseSync('');
+ t.after(()=>unnamed.close());
+ assert.throws(()=>execute(unnamed,payload('stock.scrap',1)),/UNTRUSTED_DB/);
+ const externalMemory=new DatabaseSync(':memory:');
+ t.after(()=>externalMemory.close());
+ assert.throws(()=>execute(externalMemory,payload('stock.scrap',1)),/UNTRUSTED_DB/);
  const db=setup(t,'local');
  db.exec("ATTACH DATABASE ':memory:' AS extras");
  assert.throws(()=>execute(db,payload('stock.scrap',1)),/NON_EPHEMERAL_DB/);

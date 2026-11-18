@@ -62,7 +62,7 @@ for(const origin of ['local','d1']){
   assert.equal(result.writes_performed,false);
   assert.equal(result.transaction_authorized,false);
   assert.equal(result.remote_d1_verified,false);
-  assert.equal(queries.length,6);
+  assert.equal(queries.length,7);
   assert(Object.isFrozen(result));
   assert.deepEqual(snapshot(db),before);
  });

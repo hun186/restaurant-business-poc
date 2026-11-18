@@ -67,7 +67,7 @@ function checkStockV4OfflinePostflight(beforeDb,afterDb,origin){
    fail('PARTIAL_MIGRATION');
  const ddl=one(afterDb,"SELECT sql FROM main.sqlite_master WHERE type='table' AND name='stock_moves'")?.sql;
  if(normalizedEol(ddl)!==APPROVED_LEDGER_SQL&&
-    normalizedEol(ddl)!==APPROVED_LEDGER_SQL.replace('CREATE TABLE "stock_moves" (','CREATE TABLE stock_moves (')
+    normalizedEol(ddl)!==APPROVED_LEDGER_SQL.replace('CREATE TABLE "stock_moves" (','CREATE TABLE stock_moves ('))
    fail('V4_DDL');
  const markerDdl=one(afterDb,
    "SELECT sql FROM main.sqlite_master WHERE type='table' AND name='stock_move_kind_contract'")?.sql;

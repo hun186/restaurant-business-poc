@@ -87,9 +87,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "src/stock-move-v4-contract.mjs":"b7683dc9802f37b43986df1df7b8483d8f3bc484d19a3ba9807987dc8a5fbc33",
-  "cloudflare/stock-move-v4-contract.mjs":"b7683dc9802f37b43986df1df7b8483d8f3bc484d19a3ba9807987dc8a5fbc33",
-  "vercel-demo/stock-move-v4-contract.mjs":"b7683dc9802f37b43986df1df7b8483d8f3bc484d19a3ba9807987dc8a5fbc33",
+  "src/stock-move-v4-contract.mjs":"8740f7b066972388fe85606fe1e66d8da8a8507bc96e56ea482a04776f42e9bb",
+  "cloudflare/stock-move-v4-contract.mjs":"8740f7b066972388fe85606fe1e66d8da8a8507bc96e56ea482a04776f42e9bb",
+  "vercel-demo/stock-move-v4-contract.mjs":"8740f7b066972388fe85606fe1e66d8da8a8507bc96e56ea482a04776f42e9bb",
   "tests/stock-move-v4-contract.test.js":"d18253cd872605698b4c2c794d8458f4da0d1cb70e6fe101546aa5416c29bd55",
   "tests/stock-move-v3-readonly-preflight.test.js":"0939e841b63e6cc277c7e6ae651f38f3a602ca2be6424ff50bee83406c9f61fa",
   "src/stock-move-v3-readonly-preflight.cjs":"3e2be17f9b795677b9a2ffcec1d9796515bbf909651838ef374b2a982ca66cf0",

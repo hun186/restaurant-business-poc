@@ -17,7 +17,7 @@ function id(value){
 function qty(value,signed=false){
  if(typeof value!=='number'||!Number.isFinite(value)||value===0||
     Math.abs(value)>1000000||(!signed&&value<0)||
-    !/^-?(?:0|[1-9]\\d*)(?:\\.\\d{1,3})?$/.test(String(value)))fail('QUANTITY');
+    !/^-?(?:0|[1-9][0-9]*)(?:[.][0-9]{1,3})?$/.test(String(value)))fail('QUANTITY');
  const units=Math.round(value*1000);
  if(!Number.isSafeInteger(units)||units===0)fail('QUANTITY');
  return units/1000;

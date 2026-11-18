@@ -40,16 +40,21 @@ for(const source of sources){
   const invalid=[
     {...good,role:'owner'}, {...good,reason:''}, {...good,reason:'  '},
     {...good,reason:' 不可留白'}, {...good,reason:'x'.repeat(301)},
-    {...good,reason:'line\nbreak'}, {...good,reference_id:null},
+    {...good,reason:'line\nbreak'},
+    {...good,reason:'ok'+String.fromCharCode(0x85)+'bad'},
+    {...good,reason:'ok'+String.fromCharCode(0x9b)+'bad'},
+    {...good,reference_id:null},
     {...good,qty:0},{...good,qty:-1},{...good,qty:0.0001},
-    {...good,qty:1000000.001},{...good,qty:'1'},{...good,qty:Infinity},
+    {...good,qty:1000000.001},{...good,qty:1.00000000001},
+    {...good,qty:0.00100000001},{...good,qty:'1'},{...good,qty:Infinity},
     {...good,ingredient_id:'not-uuid'}, JSON.parse('{"location_id":"00000000-0000-4000-8000-000000000001","ingredient_id":"00000000-0000-4000-8000-000000000002","reference_id":"00000000-0000-4000-8000-000000000003","qty":1,"reason":"ok","__proto__":{"role":"owner"}}')
   ];
   for(const payload of invalid)assert.throws(
     ()=>n('stock.supplier_return',payload),/E_STOCK_V4_/);
   assert.throws(()=>n('stock.scrap',good),/E_STOCK_V4_FIELDS/);
   assert.throws(()=>n('stock.adjust',{...ids,qty_delta:1,reason:'盤點'}),/E_STOCK_V4_FIELDS/);
-  for(const qty_delta of [0,0.0001,-0.0001,1000000.001,-1000000.001,'1',NaN]){
+  for(const qty_delta of [0,0.0001,-0.0001,1.00000000001,-1.00000000001,
+    0.00100000001,1000000.001,-1000000.001,'1',NaN]){
     assert.throws(()=>n('stock.adjust',{ingredient_id:ids.ingredient_id,
       location_id:ids.location_id,qty_delta,reason:'盤點'}),/E_STOCK_V4_QUANTITY/);
   }

@@ -17,7 +17,7 @@ function id(value){
 function qty(value,signed=false){
  if(typeof value!=='number'||!Number.isFinite(value)||value===0||
     Math.abs(value)>1000000||(!signed&&value<0)||
-    Math.abs(value*1000-Math.round(value*1000))>=0.0000001)fail('QUANTITY');
+    !/^-?(?:0|[1-9]\\d*)(?:\\.\\d{1,3})?$/.test(String(value)))fail('QUANTITY');
  const units=Math.round(value*1000);
  if(!Number.isSafeInteger(units)||units===0)fail('QUANTITY');
  return units/1000;
@@ -25,7 +25,7 @@ function qty(value,signed=false){
 function reason(value){
  if(typeof value!=='string'||value.length<1||value.length>300||
     value!==value.trim()||!value.trim()||
-    /[\u0000-\u001f\u007f]/u.test(value))fail('REASON');
+    /[\u0000-\u001f\u007f-\u009f]/u.test(value))fail('REASON');
  return value;
 }
 // This canonical output is a PROPOSAL, not an authorized ledger operation.

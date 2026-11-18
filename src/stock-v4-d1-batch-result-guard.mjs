@@ -29,7 +29,10 @@ function changes(result){
 }
 export function assertSyntheticD1SupplierReturnBatchResult(result){
  if(!Array.isArray(result)||result.length!==2)fail();
- const movement=changes(result[0]),audit=changes(result[1]);
+ const first=Object.getOwnPropertyDescriptor(result,'0');
+ const second=Object.getOwnPropertyDescriptor(result,'1');
+ if(!first||!own(first,'value')||!second||!own(second,'value'))fail();
+ const movement=changes(first.value),audit=changes(second.value);
  if(movement!==1||audit!==1)fail();
  return Object.freeze({
   status:'SYNTHETIC_D1_BATCH_RESPONSE_SHAPE_PASS',

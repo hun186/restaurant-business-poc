@@ -12,7 +12,8 @@ The validator accepts only an array of **exactly two statement results** and
 requires each entry to report **exactly one changed row**, using D1-style
 meta.changes or the test adapter's flat changes. If both fields are present,
 both must equal 1. Explicit statement failure, error, partial/malformed
-results, getter-based metadata and ambiguous counts are rejected.
+results, inherited or getter-backed array slots, getter-based metadata
+and ambiguous counts are rejected.
 This prevents interpreting an HTTP 200 or completed batch call alone
 as proof that BOTH ledger and audit were appended.
 

@@ -73,8 +73,6 @@ for(const origin of ['local','d1']){
   assert.equal(onHand(db),5);
   assert.equal(after.stock.length,before.stock.length+1);
   assert.equal(after.audit.length,before.audit.length+1);
-  assert.deepEqual(after.stock.find(row=>row.id===U.req),
-   {...after.stock.find(row=>row.id===U.req)});
   const row=after.stock.find(x=>x.id===U.req);
   assert.equal(row.move_type,'supplier_return');
   assert.equal(row.qty_delta,-2);

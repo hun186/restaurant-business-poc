@@ -24,19 +24,19 @@ const validity=[
  "AND s.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')",
  "WHERE po.id=? AND po.location_id=? AND po.ingredient_id=? AND po.status='received'",
  "AND (u.role='owner' OR EXISTS (SELECT 1 FROM user_locations ul WHERE ul.user_id=u.id AND ul.location_id=l.id))",
- "AND po.qty>0 AND po.qty<=1000000 AND "+grid('po.qty'),
- "AND EXISTS(SELECT 1 FROM stock_move_kind_contract k WHERE k.id=1 AND k.kind_version=4)",
+ "AND po.qty>0 AND po.qty<=1000000 AND typeof(po.qty) IN ('integer','real') AND "+grid('po.qty'),
+ "AND EXISTS(SELECT 1 FROM stock_move_kind_contract k WHERE k.id=1 AND k.kind_version=4) AND NOT EXISTS(SELECT 1 FROM stock_moves old WHERE lower(old.id)=?)",
  "AND (SELECT COUNT(*) FROM stock_moves p WHERE p.reference_id=po.id AND p.move_type='purchase')=1",
  "AND EXISTS (SELECT 1 FROM stock_moves p WHERE p.reference_id=po.id",
  "AND p.move_type='purchase' AND p.ingredient_id=po.ingredient_id",
- "AND p.location_id=po.location_id AND p.qty_delta>0 AND abs(p.qty_delta)<=1000000",
+ "AND p.location_id=po.location_id AND p.qty_delta>0 AND abs(p.qty_delta)<=1000000 AND typeof(p.qty_delta) IN ('integer','real')",
  "AND "+grid('p.qty_delta')+" AND round(p.qty_delta*1000)=round(po.qty*1000))",
  "AND NOT EXISTS (SELECT 1 FROM stock_moves m WHERE m.reference_id=po.id",
  "AND m.move_type='supplier_return' AND (m.location_id<>po.location_id",
  "OR m.ingredient_id<>po.ingredient_id OR m.qty_delta>=0",
- "OR abs(m.qty_delta)>1000000 OR NOT ("+grid('m.qty_delta')+")))",
+ "OR abs(m.qty_delta)>1000000 OR typeof(m.qty_delta) NOT IN ('integer','real') OR NOT ("+grid('m.qty_delta')+")))",
  "AND NOT EXISTS (SELECT 1 FROM stock_moves m WHERE m.location_id=po.location_id",
- "AND m.ingredient_id=po.ingredient_id AND (abs(m.qty_delta)>1000000",
+ "AND m.ingredient_id=po.ingredient_id AND (abs(m.qty_delta)>1000000 OR typeof(m.qty_delta) NOT IN ('integer','real')",
  "OR NOT ("+grid('m.qty_delta')+")))",
  "AND (SELECT COUNT(*) FROM stock_moves m WHERE m.location_id=po.location_id",
  "AND m.ingredient_id=po.ingredient_id)<=100000",
@@ -77,7 +77,7 @@ export function buildSyntheticD1SupplierReturnBatch({auth,request,audit_id}={}){
   id,move.ingredient_id,move.location_id,
   actor,auth.token_hash,auth.csrf,
   move.reference_id,move.location_id,move.ingredient_id,
-  requested,requested,move.qty_delta,move.reference_id,move.note,actor
+  id,requested,requested,move.qty_delta,move.reference_id,move.note,actor
  ])});
  const audit=Object.freeze({sql:INSERT_AUDIT,args:Object.freeze([
   audit_id.toLowerCase(),id,move.location_id,JSON.stringify({

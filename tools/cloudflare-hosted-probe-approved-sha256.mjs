@@ -87,7 +87,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "src/stock-v4-offline-scrap-adjust.cjs":"7b7c28a540d8193b6eb408edce03a83682742b6ffaec9ef163daaa7377228b5b",
+  "tests/stock-v4-offline-supplier-return.test.js":"dd3b0ed4f20f84cf2a900165f5ca29441fa12f6509c69e65edb087d32ea8d0c0",
+  "src/stock-v4-offline-scrap-adjust.cjs":"6b2288f3189cfcd765cecdb0cf2c3ad02b4a9a2bcca466a2612f008a2f0946b9",
   "tests/stock-v4-offline-scrap-adjust.test.js":"3deeccd4bc0624ee0b5e5cb1e1eb38b66522b2361535c1c8cfa96ce56c102319",
   "src/stock-return-receipt-facts.cjs":"b9158f6a03e64a800282c3dac19903bed65e74dad7cc44fbd1a8548fa679cf13",
   "tests/stock-return-receipt-readonly.test.js":"74450077a19dd805d0ff625f1ac414fee7150bd1b31e04535e407250172aef60",

@@ -13,8 +13,7 @@ const value=(x,k)=>{
 };
 function changes(result){
  if(!plain(result))fail();
- const success=own(result,'success')?value(result,'success'):undefined;
- if(success!==undefined&&success!==true)fail();
+ if(own(result,'success')&&value(result,'success')!==true)fail();
  if(own(result,'error')&&value(result,'error')!==null)fail();
  const hasMeta=own(result,'meta');
  const meta=hasMeta?value(result,'meta'):null;

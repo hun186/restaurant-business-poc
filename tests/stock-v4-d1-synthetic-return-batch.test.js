@@ -164,3 +164,43 @@ test('bad payload, fake auth, missing v4 marker fail before or during atomic bat
  assert.throws(()=>batch(db,q),/no such table/i);
  assert.deepEqual(snapshot(db),before);
 });
+
+test('case-insensitive historical request ID blocks replay before another debit',async t=>{
+ const db=fixture(t),q=await build(payload());
+ db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,actor_id) VALUES(?,?,?,?,?,?)')
+  .run(U.key.toUpperCase(),U.ingredient,U.store,-1,'usage',U.owner);
+ const before=snapshot(db);
+ assert.throws(()=>batch(db,q),/constraint/i);
+ assert.deepEqual(snapshot(db),before);
+});
+test('text-valued historical quantities and PO amount cannot silently coerce to zero',async t=>{
+ const db=fixture(t),q=await build(payload());
+ db.prepare("UPDATE stock_moves SET qty_delta='malformed' WHERE id='historical-usage'").run();
+ const before=snapshot(db);
+ assert.throws(()=>batch(db,q),/constraint/i);
+ assert.deepEqual(snapshot(db),before);
+ db.prepare("UPDATE stock_moves SET qty_delta=-2 WHERE id='historical-usage'").run();
+ db.prepare("UPDATE purchase_orders SET qty='malformed' WHERE id=?").run(U.po);
+ const after=snapshot(db);
+ assert.throws(()=>batch(db,q),/constraint/i);
+ assert.deepEqual(snapshot(db),after);
+});
+test('receipt return cap rejects 9.001 even when store has ample independent stock',async t=>{
+ const db=fixture(t);
+ db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,note) VALUES(?,?,?,?,?,?)')
+  .run('independent-add',U.ingredient,U.store,10,'adjustment','synthetic top-up');
+ const before=snapshot(db);
+ assert.throws(()=>batch(db,await build(payload(9.001))),/constraint/i);
+ assert.deepEqual(snapshot(db),before);
+ assert.deepEqual(batch(db,await build(payload(9))),[1,1]);
+ const qty=db.prepare('SELECT SUM(qty_delta) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?')
+  .get(U.ingredient,U.store).n;
+ assert.equal(qty,8);
+});
+test('active Manager with granted store and matching session may return stock',async t=>{
+ const db=fixture(t),request=payload();
+ db.prepare('UPDATE sessions SET user_id=?').run(U.manager);
+ request.auth.actor_id=U.manager;
+ assert.deepEqual(batch(db,await build(request)),[1,1]);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM stock_moves WHERE move_type='supplier_return'").get().n,2);
+});

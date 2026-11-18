@@ -88,7 +88,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "src/stock-v4-d1-synthetic-return-batch.mjs":"ffc968607cffe996de55337776be7a6f5b483477d44a26e20e27d8b34da8b92f",
-  "tests/stock-v4-d1-synthetic-return-batch.test.js":"ad57fd19ad809e389f5c93157186b4a0729863611756d09f822a0ccdda714719",
+  "tests/stock-v4-d1-synthetic-return-batch.test.js":"164071b4314548920a0a0d7b3833d094f7e1bc7534c2ff9d983e9b18d0565173",
   "tests/stock-v4-offline-supplier-return.test.js":"dd3b0ed4f20f84cf2a900165f5ca29441fa12f6509c69e65edb087d32ea8d0c0",
   "src/stock-v4-offline-scrap-adjust.cjs":"6b2288f3189cfcd765cecdb0cf2c3ad02b4a9a2bcca466a2612f008a2f0946b9",
   "tests/stock-v4-offline-scrap-adjust.test.js":"3deeccd4bc0624ee0b5e5cb1e1eb38b66522b2361535c1c8cfa96ce56c102319",

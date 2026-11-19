@@ -81,7 +81,7 @@ test('failed return, negative stock and invalid payload never mutate fake ledger
   audits:await d.data('audit_logs')});
  const before=await original();
  const invalid=[
-  ['stock.scrap',{...ids,qty:7,reason:'不足'}],
+  ['stock.scrap',{location_id:'l1',ingredient_id:'i1',qty:7,reason:'不足'}],
   ['stock.scrap',{location_id:'l2',ingredient_id:'i1',qty:1,reason:'不存在的該店庫存'}],
   ['stock.scrap',{location_id:'l1',ingredient_id:'i1',qty:0.0001,reason:'精度'}],
   ['stock.adjust',{location_id:'l1',ingredient_id:'i1',qty_delta:0,reason:'零'}],

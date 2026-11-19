@@ -3,7 +3,7 @@ const $=s=>document.querySelector(s);
 const S={me:null,csrf:'',page:'dashboard',cache:{},filter:'',authEpoch:0,showArchivedDishes:false};
 let logoutInFlight=null;
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消',pending:'待確認',confirmed:'已確認',reported:'待派工',assigned:'已派工',closed:'已結案',rejected:'已駁回',owner:'業主',manager:'主管',staff:'一般員工',purchase:'進貨',usage:'領用',adjustment:'盤點調整'};
+const nice={todo:'待辦',doing:'處理中',done:'已完成',requested:'待核准',approved:'已核准',received:'已入庫',cancelled:'已取消',pending:'待確認',confirmed:'已確認',reported:'待派工',assigned:'已派工',closed:'已結案',rejected:'已駁回',owner:'業主',manager:'主管',staff:'一般員工',purchase:'進貨',usage:'領用',adjustment:'庫存調整',scrap:'報廢',supplier_return:'供應商退貨'};
 const label=v=>nice[v]||String(v??'—');
 const fmt=v=>(v===null||v===undefined||v==='')?'—':E(v);
 const pages={
@@ -92,7 +92,7 @@ function rowActions(page,r){const a=[];
 }
 async function dataPage(page){
  const cfg=pages[page];setActive(page);
- $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button></div>':'')+(page==='purchase_orders'?'<div class="toolbar"><button class="btn primary" data-new-batch="1">＋ 多品項叫貨／依供應商分單</button><span class="muted">虛構展示，勿向真實供應商發送。</span></div>':'')+(page==='menu_dishes'?`<div class="toolbar"><label><input type="checkbox" data-toggle-archived="1" ${S.showArchivedDishes?'checked':''}> 顯示已封存菜品（可恢復）</label></div>`:'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
+ $('#main').innerHTML=head(cfg.title,cfg.desc,cfg.action,cfg.permission)+(page==='stock'&&can('manager')?'<div class="toolbar"><button class="btn ghost" data-create="stock.usage">－ 登錄食材耗用</button><button class="btn ghost" data-create="stock.scrap">－ 報廢食材</button><button class="btn ghost" data-create="stock.adjust">± 庫存調整</button><button class="btn ghost" data-create="stock.supplier_return">－ 退回供應商</button></div>':'')+(page==='purchase_orders'?'<div class="toolbar"><button class="btn primary" data-new-batch="1">＋ 多品項叫貨／依供應商分單</button><span class="muted">虛構展示，勿向真實供應商發送。</span></div>':'')+(page==='menu_dishes'?`<div class="toolbar"><label><input type="checkbox" data-toggle-archived="1" ${S.showArchivedDishes?'checked':''}> 顯示已封存菜品（可恢復）</label></div>`:'')+`<div class="toolbar"><input id="search" aria-label="搜尋資料" placeholder="搜尋目前列表…"><span class="search-count" id="count"></span><button type="button" class="btn ghost" data-export-current="1">匯出此頁 Excel</button><button type="button" class="btn ghost" data-print-current="1">列印此頁</button></div><div class="table-wrap" id="table-wrap"><div class="loading">讀取中…</div></div>`;
  try{const x=await api('/api/data?entity='+encodeURIComponent(page));S.cache[page]=x.rows;drawTable(page);}catch(e){$('#table-wrap').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
 function drawTable(page){const cfg=pages[page],filtered=(S.cache[page]||[]).filter(r=>(page!=='menu_dishes'||S.showArchivedDishes||r.active===1)&&JSON.stringify(r).toLowerCase().includes(S.filter.toLowerCase()));
@@ -106,7 +106,7 @@ async function dashboard(){setActive('dashboard');$('#main').innerHTML=head('今
   $('#main').innerHTML+=`<div class="stat-grid">${stat('待辦工作',z.todo,'待處理與處理中','☑')}${stat('已逾期工作',z.late,'需優先追蹤','◷')}${stat('庫存不足品項',z.low,'低於安全存量','⬡')}${stat('待核准叫貨',z.orders,'待主管處理','▤')}${stat('設備未結案',z.repairs,'維修追蹤中','⚒')}${stat('未完成訓練',z.trainingPending,'已指派但尚未評分','♙')}</div><div class="dashboard-panels"><section class="hero"><div class="hero-title"><span class="brand-mark">♜</span><div><div class="dark-kicker">餐廳好管家</div><h2>今日營運工作台</h2><p>多層級權限 × 營運工作管理</p></div></div><div class="hero-line"></div><div class="quick-grid"><button class="quick" data-page="tasks"><span class="symbol">☑</span><strong>今日工作</strong><small>待辦、逾期、完成紀錄</small></button><button class="quick" data-page="purchase_orders"><span class="symbol">⬡</span><strong>叫貨與庫存</strong><small>缺貨、安全庫存、進貨</small></button><button class="quick" data-page="repairs"><span class="symbol">⚒</span><strong>設備維修</strong><small>報修、派工、保養</small></button><button class="quick" data-page="training_records"><span class="symbol">♙</span><strong>人事與訓練</strong><small>班表、請假、SOP、考核</small></button></div></section><section class="panel"><h2>帳號與資料保護</h2><div class="rowlist"><div class="item"><strong>目前登入</strong><span>${E(S.me.display_name)}</span></div><div class="item"><strong>身分角色</strong><span>${E(label(S.me.role))}</span></div><div class="item"><strong>授權門市</strong><span>${E(S.me.role==='owner'?'全部門市':String(S.me.locations.length)+' 間')}</span></div><div class="item"><strong>操作稽核</strong><span>僅展示虛構稽核紀錄</span></div><div class="item"><strong>正式資料模式</strong><span>僅瀏覽器虛構資料</span></div></div><p class="notice warning" style="margin-top:20px">公開展示版沒有實際身分驗證，也不連線正式營運資料庫。請勿輸入任何真實個資或密碼。</p></section></div>`;
  }catch(e){$('#main').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
-async function getLists(){for(const k of ['locations','ingredients','staff_directory','users','training_courses','menu_dishes']){
+async function getLists(){for(const k of ['locations','ingredients','purchase_orders','staff_directory','users','training_courses','menu_dishes']){
  try{S.cache[k]=(await api('/api/data?entity='+k)).rows;}catch{S.cache[k]=[];}
  }}
 const field=(name,display,type='text',required=true,extra={})=>({name,display,type,required,...extra});
@@ -123,6 +123,9 @@ const def={
  'ingredient.create':{title:'新增食材',fields:[field('sku','料號'),field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'ingredient.update':{title:'編輯食材',fields:[field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'stock.usage':{title:'登錄食材耗用',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','耗用數量','number'),field('note','用途說明','textarea',false)]},
+ 'stock.scrap':{title:'報廢食材（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','報廢數量（最多 3 位小數）','number'),field('reason','報廢原因','textarea')]},
+ 'stock.adjust':{title:'庫存差異調整（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty_delta','差異數量（正數增加、負數減少）','number'),field('reason','調整原因','textarea')]},
+ 'stock.supplier_return':{title:'退回供應商（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('reference_id','原已驗收叫貨單','received_orders'),field('qty','退貨數量（最多 3 位小數）','number'),field('reason','退貨原因','textarea')]},
  'stock.opening':{title:'建立期初庫存（不可重複）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','期初數量','number'),field('note','期初庫存來源','textarea',false)]},
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
  'stocktake.create':{title:'新增盤點記錄',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('counted_qty','實際數量','number')]},
@@ -141,12 +144,13 @@ function options(type){let data=S.cache[type]||[];
  if(type==='users'&&S.me.role!=='owner')data=S.cache.staff_directory||[];
  if(type==='locations'&&S.me.role!=='owner')data=data.filter(x=>S.me.locations.includes(x.id));
  if(type==='role')return [['staff','一般員工'],['manager','主管'],['owner','業主']];
+ if(type==='received_orders')return (S.cache.purchase_orders||[]).filter(x=>x.status==='received').map(x=>[x.id,String(x.number||x.id)+'｜'+String(x.supplier||'供應商')+'｜'+String(x.ingredient_name||'食材')]);
  return data.filter(x=>x.active!==0).map(x=>[x.id,x.display_name||x.name||x.title]);
 }
 function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(f.value??''),label=E(f.display);
- if(['role','locations','ingredients','users','training_courses','menu_dishes'].includes(f.type)){const opts=options(f.type);return `<label>${label}<select name="${name}" ${req}><option value="">請選擇…</option>${opts.map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('')}</select></label>`;}
+ if(['role','locations','ingredients','users','training_courses','menu_dishes','received_orders'].includes(f.type)){const opts=options(f.type);return `<label>${label}<select name="${name}" ${req}><option value="">請選擇…</option>${opts.map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('')}</select></label>`;}
  if(f.type==='textarea')return `<label class="full">${label}<textarea name="${name}" rows="3" ${req}></textarea></label>`;
- const step=f.type==='number'?'step="any" min="0"':'';
+ const step=f.type==='number'?(f.name==='qty_delta'?'step="0.001" min="-1000000" max="1000000"':f.name==='qty'?'step="0.001" min="0.001" max="1000000"':'step="any" min="0"'):'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
 }
 function catalogCreatePayload(action,raw,normalize){
@@ -177,6 +181,10 @@ async function showForm(action,id){
   if(!editing&&(action==='ingredient.create'||action==='location.create')){
    const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
    data=catalogCreatePayload(action,raw,normalizeCatalogCommand);
+  }
+  if(['stock.scrap','stock.adjust','stock.supplier_return'].includes(action)){
+   data=action==='stock.adjust'?{...raw,qty_delta:Number(raw.qty_delta)}:{...raw,qty:Number(raw.qty)};
+   if(!window.confirm('確定操作「'+base.title+'」？本次僅修改虛構瀏覽器資料並新增示範流水。'))return;
   }
   if(editing){
    const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');

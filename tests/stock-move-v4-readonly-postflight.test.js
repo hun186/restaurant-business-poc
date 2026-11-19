@@ -11,6 +11,9 @@ assert.equal(proposal,load('cloudflare/migration-proposals/0004_stock_move_kinds
 function fixture(t,origin){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  db.exec('PRAGMA foreign_keys=ON');db.exec(schema[origin]);
+ // D1 bootstrap marker uses CURRENT_TIMESTAMP. Two independent fixtures can
+ // straddle a one-second boundary on slower Windows CI; pin synthetic time.
+ if(origin==='d1')db.exec("UPDATE cloud_schema_contract SET created_at='2025-01-01 00:00:00' WHERE id=1");
  db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('store-a','測試門市');
  db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
   .run('ingredient-a','FAKE-A','虛構品項','公斤');

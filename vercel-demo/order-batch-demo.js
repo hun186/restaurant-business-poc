@@ -75,7 +75,7 @@ function command(db,action,x,{makeId,changeStock,log,makePrice}){
    const ingredient=db.ingredients.find(i=>i.id===r.ingredient_id&&i.active!==0);
    if(!ingredient||!Number.isFinite(Number(r.qty))||!(Number(r.qty)>0))throw Error('無效品項，不能入庫');
   }
-  for(const r of lines){changeStock(r.location_id,r.ingredient_id,r.qty,'purchase','虛構叫貨單 '+x.number);r.status='received';}
+  for(const r of lines){changeStock(r.location_id,r.ingredient_id,r.qty,'purchase','虛構叫貨單 '+x.number,r.id);r.status='received';}
   db.ingredient_prices.push(...staged);
  }else throw Error('不支援的操作');
  log(action,'purchase_orders',x.number);return {number:x.number,item_count:lines.length};

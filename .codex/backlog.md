@@ -1,5 +1,7 @@
 # Backlog
 
+> **2026-11-19 Current Focus｜Issue #212 supplier-return ambiguous-result read-only snapshot reconciliation（本分支 PR 待 CI／Codex）**：銜接已合併 #224（D1-shaped synthetic batch SQL proposal）及 #225（純批次結果 guard），新增不連接資料庫的 `src/stock-v4-d1-return-reconcile.mjs`：對一個退貨 request ID 同時比對 stock_moves 與 audit_logs 的完整匹配、完全缺席或不一致，全部結果均 `safe_to_retry=false`，不能將快照觀察當成 remote commit。補 malformed/partial/duplicate/actor/qty/receipt/accessor 測試、正式 Worker import 隔離及 SHA256 Pin。**尚未驗證 Hosted CI、正式 Codex Review 或 Merge**；不啟用 v4 migration／Production D1／任何 Gate，也沒有執行遠端 Query/Write。後續須獨立受控 Scratch D1／consistent snapshot、備份／遷移與 Owner 正式放行。
+
 > **2026-11-15 Current Focus｜Local SQLite role no-op Session safety (CI/Review pending)**：隔離修復本機 `user.role` 當角色沒有改變時仍撤銷員工登入工作階段、留下誤導性的 `user.role` 稽核。相同角色現在回 HTTP 409、無資料異動、無 Session 撤銷；有效員工→主管變更仍保留既有交易稽核及 Session 撤銷。以 disposable SQLite regression 驗證，更新 Reviewed SHA256。此工作不修改 Cloudflare Worker、Production D1、Role/Admin Gates 或部署；只在最新 HEAD Hosted CI、正式 Codex Review、Clean Merge Gate 通過後可合併。PR #185 仍為獨立 Draft/Release HOLD，禁止誤認有正式角色寫入授權。
 
 

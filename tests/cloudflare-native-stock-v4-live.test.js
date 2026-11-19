@@ -138,7 +138,8 @@ test('default-off Gate, old v3 D1 and missing login deny all writes',async t=>{
   {...f.env,CLOUD_NATIVE_LOGIN_GATE:'disabled'}]){
   assert.equal((await f.write(owner,f.scrap(),{env})).status,503);
   const status=await (await f.send('/api/native/status',{},env)).json();
-  assert.equal(status.stock_v4_write_enabled,false);
+  assert.equal(status.stock_v4_write_enabled,undefined,
+   'Do not change the previously versioned Native status response contract');
  }
  assert.equal((await f.send('/api/stock/v4',{method:'GET'})).status,405);
  const old=await fixture(t,{v4:false}),oldOwner=await old.login('owner');
@@ -168,8 +169,8 @@ test('stale scope and concurrent stock change are refused inside D1 batch',async
  const manager=await f.login('manager');mode='remove';
  assert.equal((await f.write(manager,f.scrap(1))).status,503);
  assert.equal(f.count(),0);assert.equal(f.audit(),0);
- mode='debit';
  const owner=await f.login('owner');
+ mode='debit';
  assert.equal((await f.write(owner,f.scrap(2))).status,503);
  assert.equal(f.count(),0);assert.equal(f.audit(),0);
  assert.equal(f.balance(),1);

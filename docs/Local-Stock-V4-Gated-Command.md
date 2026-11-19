@@ -38,3 +38,13 @@ real Local/Cloudflare UAT, Production D1 migration and individual write
 Gates remains separate. The Local browser still needs its v4 forms
 and a server-verified capability flag. This PR only adds the gated
 Local backend plus disposable `:memory:` tests.
+
+## Post-merge acceptance gate
+
+A code-only merge is **not** approval to launch. Confirm current Local
+operational backup export and **independent verified copy** before any
+separately approved v4 schema migration. An operator must explicitly
+release the Local write Gate only after migration, restore rehearsal and
+Owner/Manager/Staff real-browser UAT. Until the Local UI/capability is
+implemented, there is no supported new-action button in the Local browser.
+Cloudflare's D1 schema migration and write Gates are independent.

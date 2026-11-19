@@ -123,9 +123,9 @@ const def={
  'ingredient.create':{title:'新增食材',fields:[field('sku','料號'),field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'ingredient.update':{title:'編輯食材',fields:[field('name','食材名稱'),field('unit','計量單位'),field('min_stock','安全庫存','number')]},
  'stock.usage':{title:'登錄食材耗用',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','耗用數量','number'),field('note','用途說明','textarea',false)]},
- 'stock.scrap':{title:'報廢食材（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','報廢數量（最多 3 位小數）','number'),field('reason','報廢原因','textarea')]},
- 'stock.adjust':{title:'庫存差異調整（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty_delta','差異數量（正數增加、負數減少）','number'),field('reason','調整原因','textarea')]},
- 'stock.supplier_return':{title:'退回供應商（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('reference_id','原已驗收叫貨單','received_orders'),field('qty','退貨數量（最多 3 位小數）','number'),field('reason','退貨原因','textarea')]},
+ 'stock.scrap':{title:'報廢食材（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','報廢數量（最多 3 位小數）','number',true,{stockV4:true}),field('reason','報廢原因','textarea')]},
+ 'stock.adjust':{title:'庫存差異調整（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty_delta','差異數量（正數增加、負數減少）','number',true,{stockV4:true}),field('reason','調整原因','textarea')]},
+ 'stock.supplier_return':{title:'退回供應商（僅示範）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('reference_id','原已驗收叫貨單','received_orders'),field('qty','退貨數量（最多 3 位小數）','number',true,{stockV4:true}),field('reason','退貨原因','textarea')]},
  'stock.opening':{title:'建立期初庫存（不可重複）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','期初數量','number'),field('note','期初庫存來源','textarea',false)]},
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
  'stocktake.create':{title:'新增盤點記錄',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('counted_qty','實際數量','number')]},
@@ -150,7 +150,7 @@ function options(type){let data=S.cache[type]||[];
 function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(f.value??''),label=E(f.display);
  if(['role','locations','ingredients','users','training_courses','menu_dishes','received_orders'].includes(f.type)){const opts=options(f.type);return `<label>${label}<select name="${name}" ${req}><option value="">請選擇…</option>${opts.map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('')}</select></label>`;}
  if(f.type==='textarea')return `<label class="full">${label}<textarea name="${name}" rows="3" ${req}></textarea></label>`;
- const step=f.type==='number'?(f.name==='qty_delta'?'step="0.001" min="-1000000" max="1000000"':f.name==='qty'?'step="0.001" min="0.001" max="1000000"':'step="any" min="0"'):'';
+ const step=f.type==='number'?(f.stockV4===true?(f.name==='qty_delta'?'step="0.001" min="-1000000" max="1000000"':'step="0.001" min="0.001" max="1000000"'):'step="any" min="0"'):'';
  return `<label>${label}<input name="${name}" type="${E(f.type)}" ${req} ${step} value="${value}"></label>`;
 }
 function catalogCreatePayload(action,raw,normalize){

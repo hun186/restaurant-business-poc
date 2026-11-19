@@ -5,9 +5,9 @@ const WRITE_VIEWS=new Set(['tasks','locations','ingredients','ingredient_prices'
  'stocktakes','repairs']);
 
 export function nativeOwnerCapability({view,role,task=false,catalog=false,
- order=false,stocktake=false,repair=false,price=false,stockUsage=false,account=false,
+ order=false,stocktake=false,repair=false,price=false,stockUsage=false,stockV4=false,account=false,
  accountStatus=false,accountRole=false,accountGrants=false}){
- const anyWrite=Boolean(task||catalog||order||stocktake||repair||price||stockUsage);
+ const anyWrite=Boolean(task||catalog||order||stocktake||repair||price||stockUsage||stockV4);
  // Keep the three independent Owner account permissions separate. The
  // capability flags are only supplied by the authenticated /api/accounts GET.
  const owner=role==='owner';
@@ -24,7 +24,7 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
   locations:catalog&&owner,
   ingredients:catalog&&owner,
   ingredient_prices:price&&['owner','manager'].includes(role),
-  stock:stockUsage&&['owner','manager'].includes(role),
+  stock:(stockUsage||stockV4)&&['owner','manager'].includes(role),
   purchase_orders:order,
   stocktakes:stocktake,
   repairs:repair

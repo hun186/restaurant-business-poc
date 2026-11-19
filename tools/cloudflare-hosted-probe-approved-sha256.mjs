@@ -87,6 +87,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/stock-v4-demo-parity.test.js":"471061cbe80d4884207652394a0b400f5280cfd2880fa790c9a5818302a18f2f",
+  "vercel-demo/stock-v4-demo.js":"ae15361d663e7bc1189437ae8ab16b1c67fe6b646c095145e919c17287c7c55b",
   "cloudflare/native-stock-operations-capability.mjs":"01914a6617c3b39a27225af5b774d75745ccb3be1d52d913e4f8ce2c25c7ed9b",
   "tests/cloudflare-native-stock-capability-ui.test.js":"f3d31348bf861cbd0a2a76d92d6b8c6fc74e727a083a481782a6c4a7e63304eb",
   "cloudflare/native-stock-return-http.mjs":"29af380441a8dcfab94edb971b090d552ae96b84d358a757195f83beb2a12973",
@@ -235,8 +237,8 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-d1-overview-readonly.test.js":"9d106488b709b63ab86b9493b48774a7eab86b38a1f5dc9e02063c338e49eb4a",
   "部署檢查.bat":"879861ecf25c36aaf9879d5c0970ead4275e227f6bee50ee7cf65ad951a719f4",
   "vercel-demo/README.md":"da31dd538e6f9cb557c95f1daa6ea5153c090e01d6c835cdc70f29302f96dbf8",
-  "vercel-demo/index.html":"0752239d4291ac4bc93d9314a321e55684e532950b8913b97c510094683f9769",
-  "vercel-demo/mock.js":"45997175e27aa43994dd1826a295862bf9b8914c4cbc401512a9646159dc31f2",
+  "vercel-demo/index.html":"b3df63ba3fc2159734b73294973b7a95f8c52fe6cfce08edcec62e80cdbc103b",
+  "vercel-demo/mock.js":"9598edd8195295279d007905bc5d633686d5187d8ffed49d5dcc30db42122203",
   "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",
   "vercel-demo/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
   "vercel-demo/pricing-demo.js":"9e7f7f9126b3156624ea4ca830b0169aa1b98d40ab0d024ff9edd8a567532419",
@@ -273,7 +275,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/recovered-service-smoke.test.js":"55f49ba31f271707d0937ec36e08504ed21a329d6bdf0b024703c167ca25e788",
   "tests/restore-drill.test.js":"13cf3b47ab6e4eda3e6d139973bba2d74754ec4b4a34396d97d4b56c11445efb",
   "tests/report-logout.test.js":"197173c126f53961e3df53e1d4252c46e104028859c1e24006037fc80b34a0cd",
-  "vercel-demo/app.js":"481f1fb71fe58d0d5101a7b575298c252dfe8f41f6210c25737311b28e0980d9",
+  "vercel-demo/app.js":"7787fe44bc2c23ca4cdd1c53ca20f35317928a0de52fd74995adedbb41eaa926",
   "vercel-demo/backup-demo-ui.js":"36c2c1497735892427ee21a8c2406ec6dd66693a789d72dfb8d30327fea82237",
   "vercel-demo/backup-demo.js":"cc032a54a8310ed5e0f78a98e27cc5ead6b5b1e5ff346368403524582dc5bde2",
   "tests/audit-ip.test.js":"9974730145e40f52fdc4217698e2fa799f56e249b62a94b52cf62ad3b00d76f1",

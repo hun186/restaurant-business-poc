@@ -9,6 +9,7 @@ import {nativePriceHttp,nativePriceWriteEnabled} from './native-price-http.mjs';
 import {nativeStockUsageHttp,nativeStockUsageWriteEnabled} from './native-stock-usage-http.mjs';
 import {nativeStockV4Http,nativeStockV4WriteEnabled} from './native-stock-v4-http.mjs';
 import {nativeStockReturnHttp} from './native-stock-return-http.mjs';
+import {nativeStockOperationsCapabilityHttp} from './native-stock-operations-capability.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
@@ -64,6 +65,7 @@ export default {
     if (pathname === '/api/stock/usage') return nativeStockUsageHttp(request,env);
     if (pathname === '/api/stock/v4') return nativeStockV4Http(request,env);
     if (pathname === '/api/stock/return') return nativeStockReturnHttp(request,env);
+    if (pathname === '/api/stock/capability') return nativeStockOperationsCapabilityHttp(request,env);
     if (pathname === '/api/me') return previewIdentity(request, env);
     if (pathname === '/api/access/me') return previewAccessMe(request, env);
     if (pathname === '/api/access/data' || pathname === '/api/access/overview') return previewAccessBusiness(request, env);

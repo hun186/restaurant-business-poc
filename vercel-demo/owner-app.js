@@ -1,6 +1,7 @@
 import {presentNativeRows,pageNativeEntries} from './native-owner-display.mjs';
 import {normalizeCatalogCommand} from './catalog-crud-contract.mjs';
 import {nativeOwnerCapability} from './native-owner-capability.mjs';
+import {normalizeStockV4} from './stock-move-v4-contract.mjs';
 import {renderOwnerAccounts} from './native-account-management-ui.mjs';
 import {renderOwnerAudit} from './native-owner-audit-ui.mjs';
 import {nativeOwnerReportSheet} from './native-owner-report.mjs';
@@ -24,7 +25,7 @@ const mobileNav=window.matchMedia('(max-width: 760px)');
 let authEpoch=0;
 const liveAuth=(epoch,token)=>epoch===authEpoch&&typeof token==='string'&&token!==''&&csrf===token;
 const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日工作與進度追蹤',
-  purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算的現況；受控登錄耗用會新增流水',
+  purchase_orders:'門市請購、核准及收貨紀錄',stock:'由庫存流水帳本計算現況；受控耗用、報廢、退貨或調整均新增不可覆寫流水',
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
   shifts:'班表資訊（目前唯讀）',leave_requests:'請假申請及審核狀態（目前唯讀）',
   training_records:'訓練成績與完成狀態（目前唯讀）',
@@ -41,7 +42,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   audit_logs:'僅業主可檢閱的登入與重要異動紀錄'};
 let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=false,
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
-  repairWriteEnabled=false,priceWriteEnabled=false,stockUsageWriteEnabled=false,accountWriteEnabled=false,
+  repairWriteEnabled=false,priceWriteEnabled=false,stockUsageWriteEnabled=false,stockV4WriteEnabled=false,accountWriteEnabled=false,
   accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,
   accountGrantWriteEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
@@ -70,7 +71,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  costAsOf='';authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
+  costAsOf='';authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;stockV4WriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
@@ -655,6 +656,129 @@ async function writeStocktake(action,data,marker){
       ' 請先重新整理核對真實 D1 狀態，不要直接重複送出。',true);
   }
 }
+// Dedicated Native operations UI. A read-only authenticated endpoint supplies
+// both server capabilities; all real authority is rechecked on POST in D1.
+async function stockV4Actions(marker){
+ if(!['owner','manager'].includes(role)||!csrf||marker!==revision)return;
+ const epoch=authEpoch,token=csrf;
+ let abilities;
+ try{
+  abilities=await api('/api/stock/capability');
+ }catch(err){
+  if(!liveAuth(epoch,token)||marker!==revision)return;
+  if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+  say('無法確認庫存異動功能是否開放；未提供寫入表單。',true);return;
+ }
+ if(marker!==revision||!liveAuth(epoch,token))return;
+ const canAdjust=abilities?.scrap_adjust_enabled===true;
+ const canReturn=abilities?.supplier_return_enabled===true;
+ stockV4WriteEnabled=canAdjust||canReturn;
+ syncView();
+ if(!stockV4WriteEnabled)return;
+ let locations,ingredients,orders;
+ try{
+  [locations,ingredients,orders]=await Promise.all([
+   api('/api/data?entity=locations'),
+   api('/api/data?entity=ingredients'),
+   canReturn?api('/api/data?entity=purchase_orders'):Promise.resolve({mode:'native_d1',rows:[]})
+  ]);
+  if(![locations,ingredients,orders].every(x=>x?.mode==='native_d1'&&Array.isArray(x.rows)))
+   throw Error('授權資料不完整');
+ }catch(err){
+  if(marker!==revision||!liveAuth(epoch,token))return;
+  if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+  say('庫存異動表單所需的門市、食材或叫貨單無法載入。',true);return;
+ }
+ if(marker!==revision||!liveAuth(epoch,token))return;
+ const panel=el('section'),form=el('form'),title=el('h3','庫存報廢／差異調整／供應商退貨'),
+  tip=el('p','所有異動只新增庫存流水及稽核紀錄，不會覆寫舊紀錄；結果不明時禁止直接重送。'),
+  action=el('select'),store=el('select'),ingredient=el('select'),
+  po=el('select'),direction=el('select'),qty=el('input'),
+  reason=el('textarea'),submit=el('button','確認新增庫存異動');
+ panel.className='native-stock-usage-panel';
+ const addOption=(select,value,name)=>{
+  const option=el('option',name);option.value=value;select.append(option);
+ };
+ if(canAdjust){
+  addOption(action,'stock.scrap','食材報廢（扣庫）');
+  addOption(action,'stock.adjust','庫存差異調整（增加或減少）');
+ }
+ if(canReturn)addOption(action,'stock.supplier_return','退回原供應商（扣庫）');
+ addOption(direction,'decrease','減少庫存');addOption(direction,'increase','增加庫存');
+ const populate=(select,rows,kind)=>{
+  addOption(select,'','請選擇'+kind);
+  for(const x of rows){
+   if(x?.active!==1||typeof x.id!=='string'||typeof x.name!=='string')continue;
+   addOption(select,x.id,x.name);
+  }
+ };
+ populate(store,locations.rows,'門市');
+ populate(ingredient,ingredients.rows,'食材');
+ store.required=true;ingredient.required=true;
+ const poLabel=labeledField('原始已驗收叫貨單',po);
+ const directionLabel=labeledField('調整方向',direction);
+ const orderOptions=()=>{
+  po.replaceChildren();addOption(po,'','請選擇符合門市與食材的已驗收叫貨單');
+  for(const x of orders.rows){
+   if(x?.status!=='received'||x.location_id!==store.value||
+      x.ingredient_id!==ingredient.value||typeof x.id!=='string')continue;
+   addOption(po,x.id,String(x.number||'叫貨單')+'（'+String(x.supplier||'供應商')+'）');
+  }
+ };
+ const syncType=()=>{
+  poLabel.hidden=action.value!=='stock.supplier_return';
+  directionLabel.hidden=action.value!=='stock.adjust';
+  po.required=action.value==='stock.supplier_return';
+  if(po.required)orderOptions();
+ };
+ action.addEventListener('change',syncType);
+ store.addEventListener('change',orderOptions);
+ ingredient.addEventListener('change',orderOptions);
+ qty.type='number';qty.min='0.001';qty.max='1000000';qty.step='0.001';qty.required=true;
+ reason.required=true;reason.maxLength=300;reason.placeholder='請記錄退貨、報廢或盤點差異原因';
+ submit.type='submit';
+ form.append(labeledField('異動類型',action),labeledField('門市',store),
+  labeledField('食材',ingredient),poLabel,directionLabel,
+  labeledField('異動數量（最多三位小數）',qty),labeledField('原因（必填）',reason),submit);
+ syncType();
+ form.addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  if(submit.disabled||marker!==revision||!liveAuth(epoch,token)||!stockV4WriteEnabled)return;
+  const kind=action.value,q=Number(qty.value),why=reason.value.trim();
+  const data={ingredient_id:ingredient.value,location_id:store.value,reason:why};
+  if(kind==='stock.adjust')data.qty_delta=direction.value==='increase'?q:-q;
+  else if(kind==='stock.scrap')data.qty=q;
+  else if(kind==='stock.supplier_return'){data.qty=q;data.reference_id=po.value;}
+  else return;
+  try{normalizeStockV4(kind,data);}
+  catch{say('請檢查門市、食材、數量（最多三位小數）、原始叫貨單及必填原因。',true);return;}
+  if(!window.confirm('確定執行 '+action.options[action.selectedIndex].textContent+
+    '？異動成功後不會覆寫原流水。'))return;
+  submit.disabled=true;
+  say('正在提交正式庫存異動；請勿重複送出…');
+  const route=kind==='stock.supplier_return'?'/api/stock/return':'/api/stock/v4';
+  const requestId=crypto.randomUUID();
+  try{
+   const result=await api(route,{method:'POST',referrerPolicy:'same-origin',
+    headers:{Accept:'application/json','Content-Type':'application/json',
+     'X-CSRF-Token':token,'X-Idempotency-Key':requestId},
+    body:JSON.stringify({action:kind,data})});
+   if(!liveAuth(epoch,token))return;
+   if(result.ok!==true||typeof result.result?.id!=='string')
+    throw Error('後端尚未確認異動');
+   if(marker===revision)await refresh();
+  }catch(err){
+   if(!liveAuth(epoch,token))return;
+   if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+   if(marker===revision)say('異動結果未確認，請先查閱庫存流水與相關稽核紀錄；不可直接重送。',true);
+   // Keep disabled after any attempted write. Refresh creates a new form
+   // only after the operator inspects state; no automatic uncertain retry.
+  }
+ });
+ if(marker!==revision||!liveAuth(epoch,token))return;
+ panel.append(title,tip,form);$('content').prepend(panel);
+}
+
 async function stocktakeActions(rows,marker){
   if(!stocktakeWriteEnabled)return;
   const [stores,ingredients]=await Promise.all([
@@ -1029,6 +1153,7 @@ async function refresh(){
     if(view==='purchase_orders')await orderActions(data.rows,marker);
     if(view==='stocktakes')await stocktakeActions(data.rows,marker);
     if(view==='stock')await stockUsageActions(marker);
+    if(view==='stock')await stockV4Actions(marker);
     if(view==='repairs')await repairActions(data.rows,marker);
    if(view==='ingredient_prices')await priceActions(marker);
     if(marker===revision)say('已取得授權範圍內的最新資料。');
@@ -1051,7 +1176,7 @@ function syncView(){
   const capability=nativeOwnerCapability({view,role,task:writeEnabled,
     catalog:catalogWriteEnabled,order:orderWriteEnabled,
     stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,price:priceWriteEnabled,
-    stockUsage:stockUsageWriteEnabled,
+    stockUsage:stockUsageWriteEnabled,stockV4:stockV4WriteEnabled,
     account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled,
     accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled});
   $('operation-mode').textContent=capability.systemLabel;
@@ -1127,7 +1252,7 @@ $('login-form').addEventListener('submit',async ev=>{
 });
 $('logout').addEventListener('click',async()=>{
   if(!csrf)return;const token=csrf;authEpoch++;csrf=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;
-  revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
+  stockV4WriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','X-CSRF-Token':token}});

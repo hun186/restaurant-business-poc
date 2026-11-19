@@ -165,7 +165,7 @@ test('scope revoked or stock depleted before locked batch cannot commit',async t
  let f,mode='';
  const opt={beforeBatch(){
   if(mode==='scope')f.db.prepare('DELETE FROM user_locations WHERE user_id=?').run(f.ids.manager);
-  if(mode==='stock')f.db.prepare("UPDATE stock_moves SET qty_delta=-7 WHERE move_type='usage'").run();
+  if(mode==='stock')f.db.prepare("UPDATE stock_moves SET qty_delta=-9 WHERE move_type='usage'").run();
  }};
  f=await fixture(t,opt);
  const manager=await f.login('manager');mode='scope';

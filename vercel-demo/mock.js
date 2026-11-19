@@ -28,9 +28,10 @@
  {id:'t3',title:'檢查設備保養紀錄',location_id:'l2',location_name:'新北示範店',assigned_to:'u4',assigned_name:'示範員工乙',due_date:day(1),status:'done'}],
  purchase_orders:[
  {id:'o1',number:'PO-DEMO-001',location_id:'l1',location_name:'台北示範店',ingredient_id:'i1',ingredient_name:'牛番茄',supplier:'示範蔬果商',qty:18,status:'requested',created_at:day(-2)+' 09:00'},
- {id:'o2',number:'PO-DEMO-002',location_id:'l1',location_name:'台北示範店',ingredient_id:'i3',ingredient_name:'生菜',supplier:'示範生鮮商',qty:10,status:'approved',created_at:day(-1)+' 11:00'}],
+ {id:'o2',number:'PO-DEMO-002',location_id:'l1',location_name:'台北示範店',ingredient_id:'i3',ingredient_name:'生菜',supplier:'示範生鮮商',qty:10,status:'approved',created_at:day(-1)+' 11:00'},
+ {id:'o3',number:'PO-DEMO-003',location_id:'l1',location_name:'台北示範店',ingredient_id:'i1',ingredient_name:'牛番茄',supplier:'示範蔬果商',qty:6,status:'received',created_at:day(-3)+' 09:00'}],
  stocktakes:[{id:'c1',location_id:'l1',location_name:'台北示範店',ingredient_id:'i2',ingredient_name:'雞胸肉',expected_qty:20,counted_qty:19,status:'pending',created_at:day(-1)+' 15:00'}],
- stock_moves:[{id:'m1',created_at:day(0)+' 08:30',location_name:'台北示範店',ingredient_name:'牛番茄',move_type:'purchase',qty_delta:6,note:'展示資料'}],
+ stock_moves:[{id:'m1',created_at:day(0)+' 08:30',location_id:'l1',ingredient_id:'i1',reference_id:'o3',location_name:'台北示範店',ingredient_name:'牛番茄',move_type:'purchase',qty_delta:6,note:'展示資料'}],
  repairs:[{id:'r1',location_id:'l1',location_name:'台北示範店',equipment:'冷藏展示櫃',description:'溫度顯示異常',assigned_name:'示範主管',status:'reported',created_at:day(-2)+' 12:00'},
  {id:'r2',location_id:'l2',location_name:'新北示範店',equipment:'洗碗機',description:'排水異音',status:'assigned',created_at:day(-1)+' 10:00'}],
  shifts:[{id:'sh1',shift_date:day(0),start_time:'09:00',end_time:'17:00',user_id:'u3',staff_name:'示範員工甲',location_id:'l1',location_name:'台北示範店',note:'早班'},
@@ -53,6 +54,8 @@
     if(!record.created_at)record.created_at=createdAt();
    }
   }
+ const stockV4=window.RestaurantDemoStockV4;
+ if(!stockV4||typeof stockV4.plan!=='function')throw Error('缺少虛構庫存 v4 驗證模組');
  const orders=window.RestaurantDemoOrders;
  if(!orders)throw Error('缺少虛構廠商分單模組');
  const pricing=window.RestaurantDemoPricing;
@@ -69,7 +72,7 @@
  const uName=id=>lookup('users',id)?.display_name||'示範員工';
  const log=(action,entity,id)=>{db.audit_logs.unshift({id:makeId(),at:new Date().toLocaleString('zh-TW'),actor_name:'展示業主',action:'demo.'+action,entity,entity_id:id,ip_address:'192.0.2.20',detail:'{"demo":true,"source_ip":"192.0.2.20"}'});};
  const stockFor=(location_id,ingredient_id)=>db.stock.find(x=>x.location_id===location_id&&x.ingredient_id===ingredient_id);
- function changeStock(location_id,ingredient_id,delta,type,note){
+ function changeStock(location_id,ingredient_id,delta,type,note,reference_id=null){
   const ing=lookup('ingredients',ingredient_id);
   if(!ing)throw Error('請選擇食材');
   if(ing.active===0||lookup('locations',location_id)?.active===0)throw Error('食材或門市已停用');
@@ -81,7 +84,7 @@
   if(type==='usage'&&next<0&&next>-0.000000001)next=0;
   if(!Number.isFinite(next)||next<0)throw Error('展示庫存不足或數量無效');
   item.on_hand=next;
-  db.stock_moves.unshift({id:makeId(),created_at:new Date().toLocaleString('zh-TW'),location_name:lName(location_id),ingredient_name:ing.name,move_type:type,qty_delta:Number(delta),note:note||'瀏覽器示範'});
+  db.stock_moves.unshift({id:makeId(),created_at:new Date().toLocaleString('zh-TW'),location_id,ingredient_id,reference_id,location_name:lName(location_id),ingredient_name:ing.name,move_type:type,qty_delta:Number(delta),note:note||'瀏覽器示範'});
  }
  const overview=()=>({
   todo:db.tasks.filter(x=>x.status!=='done').length,
@@ -100,6 +103,24 @@
   return rows;
  };
  async function command(action,d){
+  if(['stock.scrap','stock.adjust','stock.supplier_return'].includes(action)){
+   // Fake-browser-only command. Validate all constraints before modifying data.
+   // Never turn the public demo into a caller of the real Native D1 API.
+   const move=stockV4.plan(db,action,d),id=makeId();
+   const ing=lookup('ingredients',move.ingredient_id);
+   let stock=stockFor(move.location_id,move.ingredient_id);
+   if(!stock){stock={id:makeId(),location_id:move.location_id,location_name:lName(move.location_id),
+    ingredient_id:move.ingredient_id,name:ing.name,unit:ing.unit,
+    min_stock:Number(ing.min_stock),on_hand:0};db.stock.push(stock);}
+   stock.on_hand=move.after_milli/1000;
+   db.stock_moves.unshift({id,created_at:createdAt(),location_id:move.location_id,
+    ingredient_id:move.ingredient_id,reference_id:move.reference_id,
+    location_name:lName(move.location_id),ingredient_name:ing.name,
+    move_type:move.move_type,qty_delta:move.qty_delta,note:move.note});
+   // In-memory atomic update: audit and ledger are saved to one browser snapshot.
+   log(action,'stock_moves',id);
+   save();return {ok:true,id,qty_delta:move.qty_delta};
+  }
   if(['ingredient.update','ingredient.active','location.update','location.active'].includes(action)){
    const {normalizeCatalogCommand}=await import('/catalog-crud-contract.mjs');
    const cmd=normalizeCatalogCommand(action,d);
@@ -226,7 +247,7 @@
      ...d,ingredient_id:row.ingredient_id,location_id:row.location_id,
      unit:d.unit||ing.unit,supplier:d.supplier||row.supplier
     },makeId(),'purchase');
-    changeStock(row.location_id,row.ingredient_id,Number(row.qty),'purchase','示範叫貨驗收 '+row.number);
+    changeStock(row.location_id,row.ingredient_id,Number(row.qty),'purchase','示範叫貨驗收 '+row.number,row.id);
     if(price)db.ingredient_prices.push(price);
     row.status='received';
    }

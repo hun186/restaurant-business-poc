@@ -28,13 +28,27 @@ function verifyInstalledSchema(db,version){
  const schema=fs.readFileSync(path.join(__dirname,'../db/schema.sql'),'utf8');
  const v2At=schema.indexOf('CREATE TABLE backup_settings (');
  const v3At=schema.indexOf('CREATE TABLE ingredient_prices (');
- if(v2At<0||v3At<=v2At||![1,2,3].includes(version))
+ if(v2At<0||v3At<=v2At||![1,2,3,4].includes(version))
   schemaError('無法辨識版本化 Schema 驗證基準，拒絕升級');
  const expected=new DatabaseSync(':memory:');
  const compact=normalizedDdl;
  try{
   expected.exec(schema);
+  // For v4, build the comparison schema exclusively in disposable memory.
+  // The proposal is NEVER executed on an operator database by openDb().
+  if(version===4)expected.exec(fs.readFileSync(path.join(__dirname,
+   '../db/migration-proposals/0004_stock_move_kinds.sql'),'utf8'));
   const expectedObjects=expected.prepare("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'").all();
+  const v4Marker=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='stock_move_kind_contract'").get();
+  if(version!==4&&v4Marker)schemaError('v4 結構標記與資料庫版本不符，拒絕啟動');
+  if(version===4){
+   if(!v4Marker)schemaError('缺少 v4 結構標記');
+   const kinds=db.prepare('SELECT kind_version FROM stock_move_kind_contract').all();
+   if(kinds.length!==1||kinds[0].kind_version!==4)
+    schemaError('v4 結構標記內容錯誤，拒絕啟動');
+  }
+  if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='stock_moves_v4'").get())
+   schemaError('偵測到部分遷移留下的 stock_moves_v4，拒絕啟動');
   const v1Reference=new DatabaseSync(':memory:');
   const v2Reference=new DatabaseSync(':memory:');
   let v1Names,v2Names;
@@ -48,7 +62,7 @@ function verifyInstalledSchema(db,version){
    schemaError('版本化 Schema 驗證基準不完整，拒絕升級');
   // Reject future-version objects even if the recorded user_version is old.
   for(const item of expectedObjects){
-   const isExpected=version===3||(version===2?v2Names:v1Names).has(item.name);
+   const isExpected=version>=3||(version===2?v2Names:v1Names).has(item.name);
    const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(item.type,item.name);
    if(!isExpected){
     if(actual)schemaError('v'+version+' 資料庫意外包含新版'+(item.type==='index'?'索引 ':'資料表 ')+item.name+'，拒絕升級');
@@ -113,7 +127,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
    db.exec('BEGIN IMMEDIATE');
    try{db.exec(fs.readFileSync(path.join(__dirname,'../db/backup.sql'),'utf8'));db.exec('PRAGMA user_version=2; COMMIT');}
    catch(e){db.exec('ROLLBACK');throw e;}
-  }else if(version!==2&&version!==3)throw new Error('E_DB: 不支援的資料庫版本 '+version);
+  }else if(version!==2&&version!==3&&version!==4)throw new Error('E_DB: 不支援的資料庫版本 '+version);
   if(!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='backup_settings'").get()||!db.prepare('SELECT id FROM backup_settings WHERE id=1').get())throw new Error('E_DB: 備份設定表缺失，拒絕補建');
 
   const cv=db.prepare('PRAGMA user_version').get().user_version;
@@ -138,7 +152,7 @@ function openDb(folder=path.join(__dirname,'..','data')){
    db.exec('BEGIN IMMEDIATE');
    try{db.exec(fs.readFileSync(path.join(__dirname,'../db/pricing.sql'),'utf8'));db.exec('PRAGMA user_version=3; COMMIT');}
    catch(e){db.exec('ROLLBACK');throw e;}
-  }else if(cv===3){
+  }else if(cv===3||cv===4){
    for(const table of ['ingredient_prices','menu_dishes','dish_ingredients'])
     if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))throw new Error('E_DB: 價格表遺失，拒絕自動修復');
   }

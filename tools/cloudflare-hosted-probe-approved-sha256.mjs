@@ -87,6 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/local-v4-verified-startup.test.js":"4e8c775d5f2313b47526db4ccb753b4fa66487b6f6c39011226f1c1ecd657f8c",
   "tests/stock-v4-demo-parity.test.js":"32255e07c02e4a4c675cd39d8ff3beccec0e18ff0221ecdf1422141bfadbdef3",
   "vercel-demo/stock-v4-demo.js":"ae15361d663e7bc1189437ae8ab16b1c67fe6b646c095145e919c17287c7c55b",
   "cloudflare/native-stock-operations-capability.mjs":"01914a6617c3b39a27225af5b774d75745ccb3be1d52d913e4f8ce2c25c7ed9b",
@@ -312,9 +313,9 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "public/styles.css":"64bbe3755a8c85a7d912c4750458e306df912b848df21cd1aa15bae36fae65d1",
   "public/xlsx-lite.js":"03d9bf27044adec97fa1450a48e55e5785c2f1e99143c636376515af7844b268",
   "src/backup-acl.js":"6711f4b2681808bbe583095040e9c5005c3ceb810f6f0a936cb334e7580629f4",
-  "src/backup-manager.js":"8d2a28456621557933c59bc19d239708832c68ae7aab092bb0a52bc45cd0e5b0",
+  "src/backup-manager.js":"fd9e7d11959a5d0ae4f857a384fe99260d2dba00a69ae8c8621803f803bf95ed",
   "src/backup-worker.js":"dccc00adaf3c1dd3a1f25ded9a8dcd4f60fb79c88f10fab20ac7314b306d17bd",
-  "src/db.js":"74b975176bf2c5813b198782baf299e4e64d9ea245baad500af036b78c0bdcb5",
+  "src/db.js":"efb86fda3fb59ca347561e91a6cc05068a5a1152fd181491221a825238dc3621",
   "src/order-batches.js":"8cc1a7ea90528b7407e846d8645dd94ac54f08c2c4f2471ecc936e5d60efa95b",
   "src/pricing.js":"2835d85a02b3aa9d605461ff69b9fba5c7f9543fa205196852bc5ddb2b3a3d16",
   "src/request-ip.js":"5127c470a065e4ceddde47cd0762bc18bd2e110a569a13f427eb02cc15abb800",

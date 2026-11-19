@@ -54,8 +54,11 @@ function prune(db,backupDir){const count=settings(db).retentionCount;const files
 function integrity(db){
  if(db.prepare('PRAGMA quick_check').get().quick_check!=='ok')problem('E_DB','SQLite 完整性檢查失敗');
  if(db.prepare('PRAGMA foreign_key_check').all().length)problem('E_DB','SQLite 外鍵檢查失敗');
- if(db.prepare('PRAGMA user_version').get().user_version!==3)problem('E_DB','未辨識的資料庫版本');
- require('./db').verifyInstalledSchema(db,3);
+ const version=db.prepare('PRAGMA user_version').get().user_version;
+ if(version!==3&&version!==4)problem('E_DB','未辨識的資料庫版本');
+ // Backup source and independently opened snapshot must satisfy the SAME
+ // complete schema/marker verification as the Local server before use.
+ require('./db').verifyInstalledSchema(db,version);
 }
 // Deterministic row digest of persistent operational/security data. Excludes volatile
 // sessions, login_attempts and backup metadata; includes meaningful audit events.

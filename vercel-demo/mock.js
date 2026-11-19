@@ -54,8 +54,6 @@
     if(!record.created_at)record.created_at=createdAt();
    }
   }
- const stockV4=window.RestaurantDemoStockV4;
- if(!stockV4||typeof stockV4.plan!=='function')throw Error('缺少虛構庫存 v4 驗證模組');
  const orders=window.RestaurantDemoOrders;
  if(!orders)throw Error('缺少虛構廠商分單模組');
  const pricing=window.RestaurantDemoPricing;
@@ -104,6 +102,8 @@
  };
  async function command(action,d){
   if(['stock.scrap','stock.adjust','stock.supplier_return'].includes(action)){
+   const stockV4=window.RestaurantDemoStockV4;
+   if(!stockV4||typeof stockV4.plan!=='function')throw Error('缺少虛構庫存 v4 驗證模組');
    // Fake-browser-only command. Validate all constraints before modifying data.
    // Never turn the public demo into a caller of the real Native D1 API.
    const move=stockV4.plan(db,action,d),id=makeId();

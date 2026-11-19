@@ -45,8 +45,7 @@ export default {
         stocktake_write_enabled:nativeStocktakeWriteEnabled(env),
         repair_write_enabled:nativeRepairWriteEnabled(env),
         price_write_enabled:nativePriceWriteEnabled(env),
-        stock_usage_write_enabled:nativeStockUsageWriteEnabled(env),
-        stock_v4_write_enabled:nativeStockV4WriteEnabled(env)});
+        stock_usage_write_enabled:nativeStockUsageWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/password/change') return nativePasswordChangeHttp(request,env);

@@ -71,7 +71,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  costAsOf='';authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;stockV4WriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
+  costAsOf='';stockV4WriteEnabled=false;authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);

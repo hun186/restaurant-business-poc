@@ -109,4 +109,16 @@ test('demo stock v4 UI exposes distinct actions and forces typed quantity conver
  assert.match(app,/step="0\.001" min="-1000000"/);
  assert.match(app,/正數增加、負數減少/);
  assert.match(app,/window\.confirm/);
+ assert.match(app,/f\.stockV4===true/);
+ const start=app.indexOf('function inputHtml(f)'),end=app.indexOf('function catalogCreatePayload',start);
+ assert(start>=0&&end>start);
+ const context=vm.createContext({E:v=>String(v),options:()=>[]});
+ vm.runInContext(app.slice(start,end)+'\nthis.renderInput=inputHtml;',context);
+ const standard=context.renderInput({name:'qty',display:'配方用量',type:'number',required:true});
+ const stock=context.renderInput({name:'qty',display:'報廢數量',type:'number',required:true,stockV4:true});
+ const adjust=context.renderInput({name:'qty_delta',display:'調整',type:'number',required:true,stockV4:true});
+ assert.match(standard,/step="any" min="0"/,'existing recipe quantity must remain unrestricted');
+ assert.doesNotMatch(standard,/step="0\.001"/);
+ assert.match(stock,/step="0\.001" min="0\.001" max="1000000"/);
+ assert.match(adjust,/step="0\.001" min="-1000000" max="1000000"/);
 });

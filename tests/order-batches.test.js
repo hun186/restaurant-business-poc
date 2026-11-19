@@ -116,7 +116,7 @@ test('Vercel demo can split mock batch, approve and receive without any backend 
  const storage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)};
  const win={fetch:async()=>{throw Error('unexpected real network')},confirm:()=>true};
  const ctx=vm.createContext({window:win,sessionStorage:storage,location:{href:'https://restaurant-business-poc.vercel.app/'},URL,Response,Date,console});
- for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','mock.js'])
+ for(const name of ['pricing-demo.js','backup-demo.js','order-batch-demo.js','stock-v4-demo.js','mock.js'])
   vm.runInContext(fs.readFileSync(path.join(demo,name),'utf8'),ctx,{filename:name});
  const send=async(action,data)=>{const res=await win.fetch('/api/command',{method:'POST',body:JSON.stringify({action,data})});return {status:res.status,data:await res.json()};};
  const created=await send('order.batch-create',{location_id:'l1',items:[
@@ -134,6 +134,12 @@ test('Vercel demo can split mock batch, approve and receive without any backend 
  assert.equal((await send('order.batch-approve',{number:supplier.number})).status,200);
  assert.equal((await send('order.batch-receive',{number:supplier.number})).status,200);
  assert.equal((await send('order.batch-receive',{number:supplier.number})).status,400);
+ const receiptMoves=(await (await win.fetch('/api/data?entity=stock_moves')).json()).rows;
+ for(const line of detail.rows)assert.equal(receiptMoves.filter(m=>m.move_type==='purchase'&&m.reference_id===line.id).length,1);
+ const returned=await send('stock.supplier_return',{location_id:'l1',ingredient_id:detail.rows[0].ingredient_id,reference_id:detail.rows[0].id,qty:0.5,reason:'虛構批次驗收後退貨'});
+ assert.equal(returned.status,200,JSON.stringify(returned.data));
+ const newMoves=(await (await win.fetch('/api/data?entity=stock_moves')).json()).rows;
+ assert.equal(newMoves.filter(m=>m.move_type==='supplier_return'&&m.reference_id===detail.rows[0].id).length,1);
  const listing=(await (await win.fetch('/api/data?entity=purchase_orders')).json()).rows;
  assert.equal(listing.filter(x=>x.group_number===supplier.number).length,2);
  const html=fs.readFileSync(path.join(demo,'index.html'),'utf8');

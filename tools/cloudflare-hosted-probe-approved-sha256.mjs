@@ -87,7 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/stock-v4-demo-parity.test.js":"471061cbe80d4884207652394a0b400f5280cfd2880fa790c9a5818302a18f2f",
+  "tests/stock-v4-demo-parity.test.js":"139ca25e5f0e811c864321be7295ed58bba47301f0418b8cf4a04b2603deeab5",
   "vercel-demo/stock-v4-demo.js":"ae15361d663e7bc1189437ae8ab16b1c67fe6b646c095145e919c17287c7c55b",
   "cloudflare/native-stock-operations-capability.mjs":"01914a6617c3b39a27225af5b774d75745ccb3be1d52d913e4f8ce2c25c7ed9b",
   "tests/cloudflare-native-stock-capability-ui.test.js":"f3d31348bf861cbd0a2a76d92d6b8c6fc74e727a083a481782a6c4a7e63304eb",
@@ -238,7 +238,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "部署檢查.bat":"879861ecf25c36aaf9879d5c0970ead4275e227f6bee50ee7cf65ad951a719f4",
   "vercel-demo/README.md":"da31dd538e6f9cb557c95f1daa6ea5153c090e01d6c835cdc70f29302f96dbf8",
   "vercel-demo/index.html":"b3df63ba3fc2159734b73294973b7a95f8c52fe6cfce08edcec62e80cdbc103b",
-  "vercel-demo/mock.js":"9598edd8195295279d007905bc5d633686d5187d8ffed49d5dcc30db42122203",
+  "vercel-demo/mock.js":"2844da804d0e4aeb14f268d0029f495cf07ffb85465f3755c726f17468ee7deb",
   "vercel-demo/order-batch-demo.js":"37b6dde16adae886bc703f2e54e72b51f88b818eb413fe621a8d33533354bfd2",
   "vercel-demo/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",
   "vercel-demo/pricing-demo.js":"9e7f7f9126b3156624ea4ca830b0169aa1b98d40ab0d024ff9edd8a567532419",

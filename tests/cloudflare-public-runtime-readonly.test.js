@@ -119,7 +119,12 @@ test('PowerShell 5.1 runtime self-test uses synthetic responses and no network',
  const script=path.join(__dirname,'..','tools','cloudflare-public-runtime-readonly.ps1');
  const result=spawnSync('powershell.exe',[
   '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script,'-SelfTest'
- ],{encoding:'utf8',timeout:15000});
+ ],{encoding:'utf8',timeout:30000});
+ // This self-test uses only synthetic PowerShell HTTP responses, not the network.
+ // Busy Windows hosted runners can take over 15s to launch PowerShell; retain
+ // a finite bound and make a startup timeout distinguishable from code failure.
+ assert.equal(result.error?.code,undefined,
+  'E_WINDOWS_POWERSHELL_SYNTHETIC_STARTUP_OR_TIMEOUT');
  assert.equal(result.status,0,
   'Windows PowerShell synthetic test failed: '+result.stderr);
  assert.match(result.stdout,/PUBLIC_WORKER_POWERSHELL_SELFTEST_PASS/);

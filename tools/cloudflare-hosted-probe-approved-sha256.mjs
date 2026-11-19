@@ -148,7 +148,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/native-owner-capability.test.js":"eeac992393214b1d88e7a220f7b28aac95203a40546093724990cffc65443f73",
    "tests/cloudflare-native-owner-ui-parity.test.js":"27f9301f86e35ec3690b77dc788eea4c1cd3a8dec0c547668f4a8eba0e7a8329",
   "tests/cloudflare-g0-active-version-readonly.test.js":"8fa5c63ba072c8c3a94d6fd55f972203f8a4bc1187bd2900e545d774497dabf0",
-  "tests/cloudflare-public-runtime-readonly.test.js":"e7009ab6561f7015366cb2483bd47003ec923f0714ad80b28866a938ce704176",
+  "tests/cloudflare-public-runtime-readonly.test.js":"f7c4961c9efb0f79fa396e42b725880dd259fb295ef108b12aa981846106c604",
   "tests/cloudflare-prod-d1-encrypted-backup.test.js":"372f132426df5dee1f968e38a750e9da2af5200ccf5839964280dc09a8c34f94",
   "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",
   "tests/cloudflare-prod-owner-operator.test.js":"41f705454d8bda9a7fb34549a634f85f807b7d7636ad1c5eccce4ffd75591d02",

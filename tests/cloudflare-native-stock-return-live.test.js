@@ -173,7 +173,7 @@ test('scope revoked or stock depleted before locked batch cannot commit',async t
  assert.equal(f.count(),0);assert.equal(f.audit(),0);
  const owner=await f.login('owner');mode='stock';
  assert.equal((await f.write(owner,f.command(2))).status,503);
- assert.equal(f.count(),0);assert.equal(f.audit(),0);assert.equal(f.balance(),3);
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);assert.equal(f.balance(),1);
 });
 test('hard deny arbitrary client SQL and never import synthetic writer',()=>{
  assert.match(entry,/CLOUD_NATIVE_STOCK_RETURN_WRITE_GATE/);

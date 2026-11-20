@@ -91,3 +91,34 @@ test('CLI uses explicit --archive/--sha256, and rejects unverified source types'
  assert.throws(()=>mod.rehearseArchiveFile(dir,pass,digest(bytes)),/REHEARSAL_PATH/);
  assert.throws(()=>mod.rehearseArchiveFile('source.sql.aes',pass,digest(bytes)),/REHEARSAL_PATH/);
 });
+
+test('authenticated disk-writing SQL is blocked before either replay and never creates a plaintext database',async t=>{
+ const [mod,backup]=await Promise.all([modulePromise,archivePromise]);
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fake-d1-injection-regression-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const dest=path.join(dir,'leaked-users.sqlite');
+ const escaped=dest.replaceAll("'","''");
+ const injected=v3+'\nATTACH DATABASE '+"'"+escaped+"'"+' AS leaked;\n'+
+  'CREATE TABLE leaked.users AS SELECT * FROM main.users;\nDETACH DATABASE leaked;';
+ const archive=backup.encryptSql(injected,pass,{operational:true});
+ assert.throws(()=>mod.rehearseArchiveBytes(archive,pass,digest(archive)),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+ assert.equal(fs.existsSync(dest),false,'no plaintext SQLite or users table on disk');
+ assert.equal(mod.assertMemoryOnlyArchiveSql(
+  "SELECT 'ATTACH DATABASE'; -- VACUUM INTO is a harmless comment\n"+
+  "SELECT 'TEMP_STORE_DIRECTORY'; /* DETACH is not executable */"),true);
+ for(const dangerous of [
+  "VACUUM INTO 'leak.sqlite';","PRAGMA temp_store=FILE;",
+  "CREATE TEMP TABLE tmp (id);","SELECT load_extension('file');",
+  "DETACH DATABASE injected;"
+ ])assert.throws(()=>mod.assertMemoryOnlyArchiveSql(dangerous),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+});
+test('hidden input backspace erases an entire UTF-8 code point',async()=>{
+ const mod=await modulePromise;
+ for(const suffix of ['é','測','🍜']){
+  const value=Buffer.from(pass+suffix,'utf8');
+  assert.equal(mod.dropLastUtf8CodePoint(value).toString('utf8'),pass);
+ }
+ assert.equal(mod.dropLastUtf8CodePoint(Buffer.alloc(0)).length,0);
+});

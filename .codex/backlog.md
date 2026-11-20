@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-20 Issue #212 Native D1 historical received PO search (PR pending)**: Native Owner v4 supplier-return UI previously used the recent 500 `/api/data?entity=purchase_orders` rows; older valid receipts were unselectable. New authenticated read-only `GET /api/stock/receipts` looks up all received PO records by store, ingredient and bounded PO-number substring, with Store/Manager scope, D1 v3+v4 marker and independent Return Gate, max 50 results, no write; Owner form uses deliberate search with stale-response and store-change fences, no cache-limited fallback. Synthetic >520 PO regression and security cases. Production D1, Gate and Worker untouched; latest HEAD CI/Codex gate required, then separate operator approval and real UAT.
+
+
 > **2026-11-20 #212 offline Local stock v4 clone migration rehearsal (PR pending)**: New CLI accepts a named verified offline SQLite backup plus independently recorded SHA256, copies source raw bytes into access-protected ephemeral files and executes v3 preflight → BEGIN IMMEDIATE proposed 0004 only on clone → exact all-row postflight while version is 3 → transactional user_version=4 → full v4 schema/fingerprint → independent reopen+verify. Both disposable copies removed, source never opened by SQLite; no automatic migration, no live DB, Cloudflare D1, secret, Gate, or deployment changes. Synthetic negative/failure CI. The next real release step still needs separately approved backup/restore, operator migration and Owner UAT.
 
 

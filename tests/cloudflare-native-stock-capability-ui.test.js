@@ -61,7 +61,7 @@ async function fixture(t,{v4=true}={}){
   db.prepare('UPDATE sessions SET token_hash=? WHERE token_hash=?').run(digest,sessHash);
   return {cookie:(await auth).SESSION_COOKIE+'='+token,csrf};
  };
- return {db,env,send,login,adapter};
+ return {db,env,send,login,adapter,ids};
 }
 test('authorized Owner/Manager see only explicitly gated capabilities on migrated v4',async t=>{
  const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager');
@@ -123,4 +123,78 @@ test('Native owner form gates by server capability, uses shared v4 contract and 
  }
  assert.equal(cap.nativeOwnerCapability({view:'stock',role:'staff',stockV4:true}).pageWritable,false);
  assert.equal(cap.nativeOwnerCapability({view:'stock_moves',role:'owner',stockV4:true}).pageWritable,false);
+});
+
+test('Native stock return receipt search finds older received rows beyond 500, with no D1 writes',async t=>{
+ const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager');
+ const ing=randomUUID(),older=randomUUID();
+ f.db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
+  .run(ing,'SYNTH-PO-ING','Synthetic Item','kg');
+ const insert=f.db.prepare(
+  'INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,status,created_by,received_at) VALUES(?,?,?,?,?,?,?,?,?)');
+ insert.run(older,'PO-OLD-RECEIPT',f.ids.store,ing,'Mock Supplier',10,'received',
+  f.ids.owner,'2020-01-01T00:00:00.000Z');
+ for(let i=0;i<520;i++)
+  insert.run(randomUUID(),'PO-NEW-'+String(i).padStart(5,'0'),f.ids.store,ing,
+   'Mock Supplier',5,'received',f.ids.owner,'2026-11-01T00:00:00.000Z');
+ const other=randomUUID();
+ f.db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(other,'Another Store');
+ insert.run(randomUUID(),'PO-OTHER-STORE',other,ing,'Private Supplier',3,
+  'received',f.ids.owner,'2026-11-02T00:00:00.000Z');
+ const route='/api/stock/receipts?location_id='+f.ids.store+'&ingredient_id='+ing;
+ const get=(who,url=route)=>f.send(url,{headers:{cookie:who.cookie}});
+ for(const who of [owner,manager]){
+  const res=await get(who,route+'&q=OLD');
+  assert.equal(res.status,200);
+  assert.deepEqual((await res.json()).rows.map(x=>x.id),[older]);
+ }
+ const many=await get(owner);
+ assert.equal(many.status,200);
+ const body=await many.json();
+ assert.equal(body.mode,'native_d1');
+ assert.equal(body.rows.length,50);assert.equal(body.truncated,true);
+ assert(body.rows.every(x=>x.location_id===f.ids.store&&x.ingredient_id===ing));
+ assert(f.adapter.getSql().every(q=>/^\s*SELECT\b/.test(q)),
+  'read-only path must not call INSERT, UPDATE, DELETE or batch');
+ const notOwner=await get(manager,
+  '/api/stock/receipts?location_id='+other+'&ingredient_id='+ing+'&q=OTHER');
+ assert.equal(notOwner.status,403);
+ const ownerOther=await get(owner,
+  '/api/stock/receipts?location_id='+other+'&ingredient_id='+ing+'&q=OTHER');
+ assert.equal(ownerOther.status,200);
+ assert.equal((await ownerOther.json()).rows.length,1);
+});
+test('Native receipt lookup refuses absent session, staff, OFF Gate and invalid query',async t=>{
+ const f=await fixture(t),owner=await f.login('owner'),staff=await f.login('staff');
+ const ing=randomUUID();
+ f.db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
+  .run(ing,'SYNTH-PO-ING2','Synthetic Item 2','kg');
+ const route='/api/stock/receipts?location_id='+f.ids.store+'&ingredient_id='+ing;
+ assert.equal((await f.send(route)).status,401);
+ assert.equal((await f.send(route,{headers:{cookie:staff.cookie}})).status,403);
+ assert.equal((await f.send(route,{headers:{cookie:owner.cookie,authorization:'Bearer fake'}})).status,403);
+ for(const suffix of ['&q=PO%25','&q=evil%20where','&q=a&q=b','&unknown=1']){
+  assert.equal((await f.send(route+suffix,{headers:{cookie:owner.cookie}})).status,400);
+ }
+ assert.equal((await f.send('/api/stock/receipts?location_id=not-uuid&ingredient_id='+ing,
+  {headers:{cookie:owner.cookie}})).status,400);
+ const disabled={...f.env,CLOUD_NATIVE_STOCK_RETURN_WRITE_GATE:'disabled'};
+ assert.equal((await f.send(route,{headers:{cookie:owner.cookie}},disabled)).status,503);
+ const v3=await fixture(t,{v4:false}),v3owner=await v3.login('owner');
+ assert.equal((await v3.send('/api/stock/receipts?location_id='+v3.ids.store+
+   '&ingredient_id='+ing,{headers:{cookie:v3owner.cookie}})).status,503);
+});
+test('Native stock v4 Owner UI has explicit scoped receipt lookup and no 500-item listing dependency',()=>{
+ const app=read('vercel-demo/owner-app.js');
+ const start=app.indexOf('async function stockV4Actions('),end=app.indexOf('async function stocktakeActions(');
+ assert(start>=0&&end>start);
+ const ui=app.slice(start,end);
+ assert.match(ui,/api\/stock\/receipts\?location_id=/);
+ assert.match(ui,/poFind\.addEventListener\('click',searchReceipts\)/);
+ assert.match(ui,/poSearchTicket/);
+ assert.match(ui,/res\.truncated/);
+ assert.doesNotMatch(ui,/entity=purchase_orders/);
+ assert.match(ui,/stock\.supplier_return/);
+ assert.match(ui,/normalizeStockV4\(kind,data\)/);
+ assert.match(ui,/submit\.disabled=true/);
 });

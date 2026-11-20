@@ -675,25 +675,26 @@ async function stockV4Actions(marker){
  stockV4WriteEnabled=canAdjust||canReturn;
  syncView();
  if(!stockV4WriteEnabled)return;
- let locations,ingredients,orders;
+ let locations,ingredients;
  try{
-  [locations,ingredients,orders]=await Promise.all([
+  [locations,ingredients]=await Promise.all([
    api('/api/data?entity=locations'),
-   api('/api/data?entity=ingredients'),
-   canReturn?api('/api/data?entity=purchase_orders'):Promise.resolve({mode:'native_d1',rows:[]})
+   api('/api/data?entity=ingredients')
   ]);
-  if(![locations,ingredients,orders].every(x=>x?.mode==='native_d1'&&Array.isArray(x.rows)))
+  if(![locations,ingredients].every(x=>x?.mode==='native_d1'&&Array.isArray(x.rows)))
    throw Error('授權資料不完整');
  }catch(err){
   if(marker!==revision||!liveAuth(epoch,token))return;
   if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
-  say('庫存異動表單所需的門市、食材或叫貨單無法載入。',true);return;
+  say('庫存異動表單所需的門市或食材無法載入。',true);return;
  }
  if(marker!==revision||!liveAuth(epoch,token))return;
  const panel=el('section'),form=el('form'),title=el('h3','庫存報廢／差異調整／供應商退貨'),
   tip=el('p','所有異動只新增庫存流水及稽核紀錄，不會覆寫舊紀錄；結果不明時禁止直接重送。'),
   action=el('select'),store=el('select'),ingredient=el('select'),
-  po=el('select'),direction=el('select'),qty=el('input'),
+  po=el('select'),poSearch=el('input'),poFind=el('button','搜尋已驗收叫貨單'),
+  poHint=el('span','請先選擇門市與食材，再搜尋驗收單'),
+  direction=el('select'),qty=el('input'),
   reason=el('textarea'),submit=el('button','確認新增庫存異動');
  panel.className='native-stock-usage-panel';
  const addOption=(select,value,name)=>{
@@ -715,30 +716,67 @@ async function stockV4Actions(marker){
  populate(store,locations.rows,'門市');
  populate(ingredient,ingredients.rows,'食材');
  store.required=true;ingredient.required=true;
- const poLabel=labeledField('原始已驗收叫貨單',po);
+ const poGroup=el('div'),poLabel=labeledField('原始已驗收叫貨單',po);
+ poSearch.maxLength=64;
+ poSearch.placeholder='輸入叫貨單號片段；留空顯示最近 50 筆';
+ poSearch.pattern='[A-Za-z0-9_.-]*';
+ poFind.type='button';
+ poGroup.append(labeledField('搜尋已驗收叫貨單號',poSearch),poFind,poHint,poLabel);
  const directionLabel=labeledField('調整方向',direction);
- const orderOptions=()=>{
-  po.replaceChildren();addOption(po,'','請選擇符合門市與食材的已驗收叫貨單');
-  for(const x of orders.rows){
-   if(x?.status!=='received'||x.location_id!==store.value||
-      x.ingredient_id!==ingredient.value||typeof x.id!=='string')continue;
-   addOption(po,x.id,String(x.number||'叫貨單')+'（'+String(x.supplier||'供應商')+'）');
+ let poSearchTicket=0;
+ const clearReceipts=()=>{
+  poSearchTicket++;
+  po.replaceChildren();addOption(po,'','請先搜尋原已驗收叫貨單');
+  poHint.textContent='請先選擇門市與食材，再搜尋驗收單';
+ };
+ const searchReceipts=async()=>{
+  if(!canReturn||action.value!=='stock.supplier_return')return;
+  const locationId=store.value,ingredientId=ingredient.value,q=poSearch.value.trim();
+  const ticket=++poSearchTicket;
+  po.replaceChildren();addOption(po,'','請選擇原已驗收叫貨單');
+  if(!taskId.test(locationId)||!taskId.test(ingredientId)){
+   poHint.textContent='請先選擇有效的門市與食材';return;
+  }
+  if(!/^[a-zA-Z0-9_.-]{0,64}$/.test(q)){
+   poHint.textContent='叫貨單搜尋只接受英文、數字、連字號及底線';return;
+  }
+  poHint.textContent='正在搜尋已驗收叫貨單…';
+  try{
+   const res=await api('/api/stock/receipts?location_id='+encodeURIComponent(locationId)+
+     '&ingredient_id='+encodeURIComponent(ingredientId)+'&q='+encodeURIComponent(q));
+   if(ticket!==poSearchTicket||marker!==revision||!liveAuth(epoch,token)||
+      action.value!=='stock.supplier_return'||store.value!==locationId||
+      ingredient.value!==ingredientId)return;
+   if(res?.mode!=='native_d1'||!Array.isArray(res.rows))throw Error('驗收單查詢回應不完整');
+   for(const x of res.rows){
+    if(!taskId.test(x?.id)||x.location_id!==locationId||
+       x.ingredient_id!==ingredientId)continue;
+    addOption(po,x.id,String(x.number||'叫貨單')+'（'+String(x.supplier||'供應商')+'）');
+   }
+   poHint.textContent=res.truncated?'符合項目超過 50 筆，請輸入更完整的叫貨單號':
+     '找到 '+res.rows.length+' 筆已驗收叫貨單';
+  }catch(err){
+   if(ticket!==poSearchTicket||marker!==revision||!liveAuth(epoch,token))return;
+   if(err.status===401){showLogin('工作階段已失效，請重新登入。');return;}
+   poHint.textContent='查詢失敗，請確認門市、食材或重新搜尋';
   }
  };
  const syncType=()=>{
-  poLabel.hidden=action.value!=='stock.supplier_return';
+  poGroup.hidden=action.value!=='stock.supplier_return';
   directionLabel.hidden=action.value!=='stock.adjust';
   po.required=action.value==='stock.supplier_return';
-  if(po.required)orderOptions();
+  clearReceipts();
  };
  action.addEventListener('change',syncType);
- store.addEventListener('change',orderOptions);
- ingredient.addEventListener('change',orderOptions);
+ store.addEventListener('change',clearReceipts);
+ ingredient.addEventListener('change',clearReceipts);
+ poSearch.addEventListener('input',clearReceipts);
+ poFind.addEventListener('click',searchReceipts);
  qty.type='number';qty.min='0.001';qty.max='1000000';qty.step='0.001';qty.required=true;
  reason.required=true;reason.maxLength=300;reason.placeholder='請記錄退貨、報廢或盤點差異原因';
  submit.type='submit';
  form.append(labeledField('異動類型',action),labeledField('門市',store),
-  labeledField('食材',ingredient),poLabel,directionLabel,
+  labeledField('食材',ingredient),poGroup,directionLabel,
   labeledField('異動數量（最多三位小數）',qty),labeledField('原因（必填）',reason),submit);
  syncType();
  form.addEventListener('submit',async ev=>{

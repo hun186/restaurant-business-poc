@@ -53,11 +53,15 @@ const sqlWordChar=c=>c!==undefined&&/^[A-Za-z0-9_]$/.test(c);
 const sqlWhitespace=c=>c!==undefined&&/\s/.test(c);
 export function assertMemoryOnlyArchiveSql(sql){
  if(typeof sql!=='string'||!sql)fail('UNSAFE_SQL');
- let lastToken='',word='',overlong=false;
+ let lastToken='',word='',overlong=false,pragmaStatement=false;
  const finishWord=()=>{
   if(!word&&!overlong)return;
   const token=overlong?'':word.toUpperCase();
   if(FORBIDDEN_SQL_TOKENS.has(token))fail('UNSAFE_SQL');
+  // Preserve PRAGMA context through schema qualifiers (main.'temp_store')
+  // and comments, until the statement terminator. SQLite accepts quoted
+  // identifiers for PRAGMA names even when the preceding token is 'main'.
+  if(token==='PRAGMA')pragmaStatement=true;
   lastToken=token;
   word='';overlong=false;
  };
@@ -80,7 +84,7 @@ export function assertMemoryOnlyArchiveSql(sql){
    // SQLite accepts single-quoted identifiers after PRAGMA/TABLE and
    // before schema-qualified names ('temp'.spill), but VALUES('temp')
    // is ordinary business data. Keep only the token context.
-   const before=IDENTIFIER_CONTEXT_TOKENS.has(lastToken);
+   const before=pragmaStatement||IDENTIFIER_CONTEXT_TOKENS.has(lastToken);
    let identifier='',ended=false;
    for(++i;i<sql.length;i++){
     if(sql[i]===endChar){
@@ -120,6 +124,7 @@ export function assertMemoryOnlyArchiveSql(sql){
    }
   }else{
    finishWord();
+   if(c===';')pragmaStatement=false;
    if(!sqlWhitespace(c))lastToken='';
   }
  }

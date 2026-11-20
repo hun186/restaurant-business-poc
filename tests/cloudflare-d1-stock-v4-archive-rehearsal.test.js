@@ -62,7 +62,8 @@ test('strictly reject wrong digest, passphrase, legacy format, corrupted archive
   /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_/);
  bad(bytes,pass,'0'.repeat(64));
  bad(bytes,'wrong-password',sha);
- bad(backup.encryptSql(v3,pass),pass,digest(backup.encryptSql(v3,pass)));
+ const legacyArchive=backup.encryptSql(v3,pass);
+ bad(legacyArchive,pass,digest(legacyArchive));
  const altered=Buffer.from(bytes);
  altered[altered.length-10]^=1;
  bad(altered,pass,digest(altered));

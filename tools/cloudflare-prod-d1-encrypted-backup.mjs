@@ -38,6 +38,42 @@ const fail=(reason='UNSAFE',detail)=>{
 const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const eqTarget=meta=>meta?.success===true&&meta.result?.name==='restaurant-business-prod'&&
  meta.result?.uuid===localProductionTarget().databaseId&&meta.result?.version==='production';
+
+// A D1 v4 stock ledger is a separately operator-migrated extension.
+// Its cloud_schema_contract and the two original d1_migrations stay at v3.
+// Validate the *actual* SQL DDL using a separately created disposable model;
+// never execute the proposal on the operational export or remote D1.
+function verifyStockLedgerDdl(db,{initial,second,operational,hasV4Marker}){
+ const reference=new DatabaseSync(':memory:');
+ try{
+  reference.exec(initial+'\n'+second);
+  if(hasV4Marker){
+   if(!operational)fail('SQL_SCHEMA');
+   const local=fs.readFileSync(path.join(ROOT,'db/migration-proposals/0004_stock_move_kinds.sql'),'utf8');
+   const cloud=fs.readFileSync(path.join(ROOT,'cloudflare/migration-proposals/0004_stock_move_kinds.sql'),'utf8');
+   if(local.replace(/\r\n/g,'\n')!==cloud.replace(/\r\n/g,'\n'))fail('SQL_SCHEMA');
+   reference.exec(cloud);
+   const markers=db.prepare('SELECT id,kind_version FROM stock_move_kind_contract ORDER BY id').all();
+   if(markers.length!==1||markers[0].id!==1||markers[0].kind_version!==4)
+    fail('SQL_SCHEMA');
+  }
+  const compare=(type,name)=>{
+   const actual=db.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(type,name)?.sql;
+   const expected=reference.prepare('SELECT sql FROM sqlite_master WHERE type=? AND name=?').get(type,name)?.sql;
+   // SQLite may quote the table identifier after ALTER TABLE RENAME or when
+   // restoring an exported CREATE TABLE. Only that one cosmetic form differs.
+   const normalize=sql=>typeof sql==='string'?sql.replace(/\r\n/g,'\n')
+    .replace(/^CREATE TABLE "?stock_moves"? \(/,'CREATE TABLE stock_moves ('):null;
+   if(!actual||!expected||normalize(actual)!==normalize(expected))fail('SQL_SCHEMA');
+  };
+  compare('table','stock_moves');
+  compare('index','stock_moves_stock');
+  if(hasV4Marker)compare('table','stock_move_kind_contract');
+  if(db.prepare('PRAGMA user_version').get()?.user_version!==0)fail('SQL_SCHEMA');
+  return hasV4Marker?4:3;
+ }finally{reference.close();}
+}
+
 export const defaultDir=()=>path.join(os.homedir(),'RestaurantD1PrivateBackups');
 export function privateDir(target=defaultDir()){
  if(typeof target!=='string'||!path.isAbsolute(target))fail('OUTPUT_PATH');
@@ -75,7 +111,10 @@ export function verifyLocalSql(sql,{operational=false}={}) {
   if(db.prepare('PRAGMA foreign_key_check').all().length!==0)fail('SQL_FK');
   const names=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV'").all()
    .map(row=>row.name).sort();
-  if(JSON.stringify(names)!==JSON.stringify(expectedTables.sort()))fail('SQL_SCHEMA');
+  const hasV4Marker=names.includes('stock_move_kind_contract');
+  const wantedTables=hasV4Marker&&operational?[...expectedTables,'stock_move_kind_contract']:expectedTables;
+  if(JSON.stringify(names)!==JSON.stringify(wantedTables.sort()))fail('SQL_SCHEMA');
+  const stockLedgerVersion=verifyStockLedgerDdl(db,{initial,second,operational,hasV4Marker});
   const indexNames=db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND sql IS NOT NULL AND tbl_name <> '_cf_KV'").all()
    .map(row=>row.name).sort();
   if(JSON.stringify(indexNames)!==JSON.stringify(expectedIndexes.sort()))fail('SQL_SCHEMA');
@@ -109,7 +148,8 @@ export function verifyLocalSql(sql,{operational=false}={}) {
    const coreTables=EMPTY_TABLES.filter(x=>!['users','sessions','login_attempts','audit_logs'].includes(x));
    const businessDataPresent=coreTables.some(table=>
      db.prepare('SELECT EXISTS(SELECT 1 FROM '+table+' LIMIT 1) AS present').get()?.present===1);
-   return Object.freeze({schema_version:3,applied_migrations:2,owner_count:1,
+   return Object.freeze({schema_version:3,stock_ledger_version:stockLedgerVersion,
+    applied_migrations:2,owner_count:1,
     owner_enrollment_audits:1,operational_backup:true,
     business_data_present:businessDataPresent,local_sqlite_replay_verified:true,
     production_restore_performed:false,remote_restore_rehearsal_verified:false,
@@ -355,12 +395,14 @@ export function verifyIndependentCopy(originalFile,copyFile,passphrase){
  const copy=verifyArchive(copyFile,passphrase);
  if(original.archive_sha256!==copy.archive_sha256)fail('COPY_MISMATCH');
  if(original.schema_version!==copy.schema_version||
+    original.stock_ledger_version!==copy.stock_ledger_version||
     original.applied_migrations!==copy.applied_migrations||
     original.owner_count!==copy.owner_count)fail('COPY_MISMATCH');
  return Object.freeze({status:'PROD_D1_ENCRYPTED_COPY_VERIFY_PASS',
   archive_sha256:copy.archive_sha256,copy_matches_source:true,
   both_archives_offline_sqlite_replay_verified:true,
-  schema_version:copy.schema_version,applied_migrations:copy.applied_migrations,
+  schema_version:copy.schema_version,stock_ledger_version:copy.stock_ledger_version,
+  applied_migrations:copy.applied_migrations,
   owner_count:copy.owner_count,source_files_unchanged:true,
   production_write_performed:false,production_restore_performed:false,
   remote_restore_rehearsal_verified:false,

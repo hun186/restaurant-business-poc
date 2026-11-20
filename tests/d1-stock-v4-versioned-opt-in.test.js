@@ -33,7 +33,7 @@ test('v4 opt-in candidate matches both inert proposals and is absent from active
  assert.equal(fs.existsSync(path.join(root,'cloudflare/migrations/0004_stock_move_kinds.sql')),false);
  const staging=read('.github/workflows/d1-staging-migration.yml');
  assert.doesNotMatch(staging,/migrations-stock-v4-opt-in/);
- const configs=['wrangler.jsonc','wrangler.preview-migrations.example.jsonc'];
+ const configs=['wrangler.jsonc','cloudflare/wrangler.preview-migrations.example.jsonc'];
  for(const cfg of configs)assert.doesNotMatch(read(cfg),/migrations-stock-v4-opt-in/);
 });
 test('v3 synthetic history survives versioned candidate with explicit migration receipt',t=>{
@@ -51,13 +51,13 @@ test('v3 synthetic history survives versioned candidate with explicit migration 
  assert.deepEqual(db.prepare('SELECT * FROM stock_moves ORDER BY id').all(),before);
  assert.deepEqual(db.prepare('SELECT * FROM audit_logs ORDER BY id').all(),audit);
  assert.deepEqual(db.prepare('SELECT id,username,role FROM users').all(),owner);
- assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all(),
+ assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all().map(x=>({id:x.id,name:x.name})),
   [{id:1,name:'0001_initial_v3.sql'},
    {id:2,name:'0002_login_attempts_window_indexes.sql'},
    {id:3,name:'0004_stock_move_kinds.sql'}]);
  assert.equal(db.prepare('SELECT kind_version FROM stock_move_kind_contract WHERE id=1').get().kind_version,4);
  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
- assert.deepEqual(db.prepare('PRAGMA quick_check').get(),{quick_check:'ok'});
+ assert.equal(db.prepare('PRAGMA quick_check').get().quick_check,'ok');
 });
 test('failed versioned stock candidate transaction leaves v3 ledger and rows unmodified',t=>{
  const db=fakeDb(t);

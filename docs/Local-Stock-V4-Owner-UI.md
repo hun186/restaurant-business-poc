@@ -16,6 +16,15 @@ CSRF, store, original receipt, historical quantities and stock budget
 inside the atomic command transaction. The endpoint does not touch a
 business record or change any Gate.
 
+The Local UI never treats the general purchase-order listing (limited to
+500 recent rows) as a complete receipt source. Instead the authenticated
+`GET /api/stock/v4-receipts` searches **all received orders** for the
+selected active store/ingredient and an optional literal PO-number
+substring. Server-side role/store checks happen before returning at most
+50 rows, with `truncated=true` prompting more specific search. This
+keeps legitimate older receipts available without exposing cross-store
+purchases. No automatic stock movement is made by a lookup.
+
 The Local stock page always retains the existing stock.usage button.
 New controls are absent until a live capability response is true; any
 API failure fails closed. Stale responses after page navigation, logout,

@@ -8,6 +8,7 @@ const initial=fs.readFileSync(path.join(root,'cloudflare/migrations/0001_initial
 const indexes=fs.readFileSync(path.join(root,'cloudflare/migrations/0002_login_attempts_window_indexes.sql'),'utf8');
 const upgrade=fs.readFileSync(path.join(root,'cloudflare/migration-proposals/0004_stock_move_kinds.sql'),'utf8');
 assert.equal(upgrade,fs.readFileSync(path.join(root,'db/migration-proposals/0004_stock_move_kinds.sql'),'utf8'));
+assert.equal(upgrade,fs.readFileSync(path.join(root,'cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql'),'utf8'));
 const legacy=initial+'\n'+indexes+'\n'+[
  'CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL);',
  "INSERT INTO d1_migrations(id,name) VALUES(1,'0001_initial_v3.sql');",
@@ -22,6 +23,7 @@ const legacy=initial+'\n'+indexes+'\n'+[
  "INSERT INTO sessions(token_hash,csrf_token,user_id,expires_at) VALUES('synthetic-token','synthetic-csrf','owner-id','2030-01-01');"
 ].join('\n');
 const migrated=legacy+'\n'+upgrade+'\n'+[
+ "INSERT INTO d1_migrations(id,name) VALUES(3,'0004_stock_move_kinds.sql');",
  "INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,note,actor_id) VALUES('scrap1','item1','store1',-1,'scrap','spoiled stock','owner-id');",
  "INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) VALUES('stock-scrap-audit','owner-id','owner','stock.scrap','stock_moves','scrap1','store1','{}');"
 ].join('\n');
@@ -41,7 +43,7 @@ test('D1 v4 operational backup accepts exact operator-migrated stock ledger and 
  const m=await mod,checked=m.verifyLocalSql(migrated,{operational:true});
  assert.equal(checked.schema_version,3,'underlying cloud_schema_contract stays at 3');
  assert.equal(checked.stock_ledger_version,4);
- assert.equal(checked.applied_migrations,2);
+ assert.equal(checked.applied_migrations,3);
  assert.equal(checked.operational_backup,true);
  assert.equal(checked.owner_count,1);
  assert.equal(checked.business_data_present,true);
@@ -82,6 +84,10 @@ test('D1 v4 partial schema, weakened CHECKs and forged marker are rejected',asyn
   ['marker-schema-drift',legacy+'\n'+alteredMarker],
   ['extra-unrecognized-table',migrated+'\nCREATE TABLE unauthorized_table(id INTEGER);'],
   ['missing-marker-row',migrated+'\nDELETE FROM stock_move_kind_contract;'],
+  ['missing-migration-receipt',migrated+'\nDELETE FROM d1_migrations WHERE id=3;'],
+  ['wrong-migration-receipt',migrated.replace('0004_stock_move_kinds.sql','0004_fake_migration.sql')],
+  ['duplicate-migration-receipt',migrated+'\nINSERT INTO d1_migrations(id,name) VALUES(4,\'0004_stock_move_kinds.sql\');'],
+  ['v3-proposal-without-versioned-apply',legacy+'\n'+upgrade],
   ['wrong-d1-user-version',migrated+'\nPRAGMA user_version=4;']
  ]){
   assert.throws(()=>m.verifyLocalSql(sql,{operational:true}),
@@ -94,6 +100,7 @@ test('reject v4 schema with deleted index and without authentic exact D1 migrati
   migrated+'\nDROP INDEX stock_moves_stock;',
   migrated.replace("VALUES(2,'0002_login_attempts_window_indexes.sql')",
    "VALUES(2,'fake_migration.sql')"),
+  legacy+"\nINSERT INTO d1_migrations(id,name) VALUES(3,'0004_stock_move_kinds.sql');", // v3 schema cannot claim v4
   migrated.replace("CHECK(move_type IN ('purchase','usage','adjustment','supplier_return','scrap'))",
    "CHECK(move_type IN ('purchase','usage','adjustment','supplier_return','scrap','fake'))")
  ]){

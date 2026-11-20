@@ -46,6 +46,49 @@ job or a permit to run it. Issue #212 / operational backup #176.
    records cannot rewrite historical rows; use an independently
    authorized consistent backup restore instead.
 
+**Encrypted operational v3 offline rehearsal:** `tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs`
+checks the authentic encrypted source before replay, then uses an explicit
+`PRAGMA temp_store=MEMORY` on BOTH in-memory SQLite connections (source
+verification and v4 transaction), with read-back checks before and after
+archive replay. This is essential: `:memory:` alone does **not** prohibit
+SQLite's sort/temporary rows from spilling plaintext to the filesystem.
+The scanner also refuses archive SQL that attempts to change temp storage.
+A synthetic authenticated archive with a large sort is included in CI.
+This does **not** replace an authorized actual off-host encrypted-backup
+restore or isolated remote D1 rehearsal.
+
 No CLI, workflow, Wrangler config or Worker invokes this candidate
 in normal startup, PR checks, CI or regular deployment. The review
 does not grant Production D1 migration authorization.
+
+## Offline rehearsal directly from an encrypted operational D1 archive
+
+An additional **read-only operator tool** validates an independently recorded SHA-256
+and locally authenticates the existing `.sql.aes` operational archive before
+performing a **memory-only v3→v4 SQL rehearsal**. No plaintext SQL file, SQLite
+clone file, Cloudflare token, API query or network connection is used.
+
+After completing operational backup **Export → Verify → Copy Verify** on
+independently protected storage, record the SHA-256 from the source verification,
+then run from a trusted, clean, reviewed checkout (Node.js 22.13+):
+
+```powershell
+node tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs --archive "C:\\absolute\\path\\operational.sql.aes" --sha256 <64-character-verified-digest>
+```
+
+The passphrase is entered in an interactive hidden terminal prompt; **never put
+it in shell history, script arguments, CI secrets, chat or a GitHub issue**.
+Only the final non-sensitive JSON status and counts may be shared. The tool
+rejects an initial-only archive, prior v4 archive, wrong digest, invalid
+passphrase, changed candidate SQL, unverifiable ledger or incompatible
+historical records. It verifies all v3 tables except the intentionally
+extended D1 migration ledger remain exactly unchanged in the simulated v4,
+and that the new receipt is precisely the third migration. Simulation lives
+only in memory and vanishes at process exit.
+
+**Evidence limit:** `D1_STOCK_V4_ENCRYPTED_ARCHIVE_OFFLINE_REHEARSAL_PASS`
+is a local model of the candidate migration, not a Cloudflare Scratch D1
+transaction result, not proof that an archive is current, not remote restore,
+and **never a Production migration/Gate authorization**. An independent
+disposable remote D1 exercise, restore plan, source freshness and Owner
+acceptance are still required.

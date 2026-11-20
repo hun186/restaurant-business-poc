@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-20 Issue #212 / #176 D1 operational encrypted backup stock v4 compatibility (PR pending)**: The current Production D1 operational SQL replay only recognizes the original v3 `stock_moves` table. This change accepts a *separately operator-migrated* Stock v4 ledger in the **operational encrypted backup mode only** after strict `stock_move_kind_contract` marker and exact reviewed stock_moves/index DDL validation against independently constructed in-memory schema; existing D1 `cloud_schema_contract=3` and 2 recorded migration names remain mandatory. Reports `stock_ledger_version` 3/4 separately from D1 `schema_version=3`, verifies both encrypted copies. Legacy initial-only backup still rejects v4. Synthetic corrupted-schema and AES-GCM verification tests; no Production D1 migration/export, no Gate/Secrets/Worker/deployment changes. Separate operator copy+restore UAT and approval still required.
+
+
 > **2026-11-20 Issue #212 Native D1 historical received PO search (PR pending)**: Native Owner v4 supplier-return UI previously used the recent 500 `/api/data?entity=purchase_orders` rows; older valid receipts were unselectable. New authenticated read-only `GET /api/stock/receipts` looks up all received PO records by store, ingredient and bounded PO-number substring, with Store/Manager scope, D1 v3+v4 marker and independent Return Gate, max 50 results, no write; Owner form uses deliberate search with stale-response and store-change fences, no cache-limited fallback. Synthetic >520 PO regression and security cases. Production D1, Gate and Worker untouched; latest HEAD CI/Codex gate required, then separate operator approval and real UAT.
 
 

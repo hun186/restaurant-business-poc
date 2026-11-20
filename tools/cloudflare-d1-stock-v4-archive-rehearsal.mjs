@@ -38,28 +38,49 @@ function readArchive(file){
 }
 // Reject disk-capable SQL before *either* SQLite replay. An authenticated
 // archive can still contain unsafe statements. Ignore literals and comments.
+// Linear-time SQL token scan: keep only the preceding significant token, never
+// regex-match a growing SQL prefix or slice the entire remaining suffix.
+// Authentication proves archive provenance, NOT that the SQL is safe to replay.
+const FORBIDDEN_SQL_TOKENS=new Set([
+ 'ATTACH','DETACH','VACUUM','LOAD_EXTENSION','TEMP','TEMPORARY',
+ 'TEMP_STORE','TEMP_STORE_DIRECTORY','VIRTUAL'
+]);
+const IDENTIFIER_CONTEXT_TOKENS=new Set([
+ 'PRAGMA','TABLE','VIEW','INDEX','TRIGGER','ON','FROM','JOIN','INTO',
+ 'UPDATE','DELETE','DATABASE','SCHEMA'
+]);
+const sqlWordChar=c=>c!==undefined&&/^[A-Za-z0-9_]$/.test(c);
+const sqlWhitespace=c=>c!==undefined&&/\s/.test(c);
 export function assertMemoryOnlyArchiveSql(sql){
  if(typeof sql!=='string'||!sql)fail('UNSAFE_SQL');
- let executable='';
+ let lastToken='',word='',overlong=false;
+ const finishWord=()=>{
+  if(!word&&!overlong)return;
+  const token=overlong?'':word.toUpperCase();
+  if(FORBIDDEN_SQL_TOKENS.has(token))fail('UNSAFE_SQL');
+  lastToken=token;
+  word='';overlong=false;
+ };
  for(let i=0;i<sql.length;i++){
   const c=sql[i],next=sql[i+1];
   if(c==='-'&&next==='-'){
-   executable+=' ';i+=2;
+   finishWord();i+=2;
    while(i<sql.length&&sql[i]!=='\n')i++;
-   executable+='\n';continue;
+   continue;
   }
   if(c==='/'&&next==='*'){
+   finishWord();
    const end=sql.indexOf('*/',i+2);
    if(end<0)fail('UNSAFE_SQL');
-   executable+=' ';i=end+1;continue;
+   i=end+1;continue;
   }
   if(c==="'"||c==='"'||c===String.fromCharCode(96)||c==='['){
+   finishWord();
    const endChar=c==='['?']':c;
-   // SQLite also accepts single-quoted identifiers in positions such as
-   // PRAGMA 'temp_store' and CREATE TABLE 'temp'.spill. Distinguish these
-   // structural contexts from ordinary single-quoted business data.
-   const identifierContext=c!=="'"||
-    /\b(?:PRAGMA|TABLE|VIEW|INDEX|TRIGGER|ON|FROM|JOIN|INTO|UPDATE|DELETE|DATABASE|SCHEMA)\s*$/i.test(executable);
+   // SQLite accepts single-quoted identifiers after PRAGMA/TABLE and
+   // before schema-qualified names ('temp'.spill), but VALUES('temp')
+   // is ordinary business data. Keep only the token context.
+   const before=IDENTIFIER_CONTEXT_TOKENS.has(lastToken);
    let identifier='',ended=false;
    for(++i;i<sql.length;i++){
     if(sql[i]===endChar){
@@ -69,15 +90,40 @@ export function assertMemoryOnlyArchiveSql(sql){
     identifier+=sql[i];
    }
    if(!ended)fail('UNSAFE_SQL');
-   // A quoted schema token before '.' is always an identifier, even
-   // when it follows a parenthesis or an otherwise unrecognized keyword.
-   const schemaQualifier=sql.slice(i+1).trimStart().startsWith('.');
-   executable+=(identifierContext||schemaQualifier?' '+identifier+' ':' ');continue;
+   // Ignore whitespace and SQL comments between a quoted schema and dot.
+   // Each lookahead traverses only the gap after this quote, never the
+   // complete suffix or an accumulated prefix.
+   let j=i+1;
+   for(;;){
+    while(sqlWhitespace(sql[j]))j++;
+    if(sql[j]==='/'&&sql[j+1]==='*'){
+     const stop=sql.indexOf('*/',j+2);
+     if(stop<0)fail('UNSAFE_SQL');
+     j=stop+2;continue;
+    }
+    if(sql[j]==='-'&&sql[j+1]==='-'){
+     j+=2;while(j<sql.length&&sql[j]!=='\n')j++;
+     continue;
+    }
+    break;
+   }
+   const isIdentifier=c!=="'"||before||sql[j]==='.';
+   const token=identifier.toUpperCase();
+   if(isIdentifier&&FORBIDDEN_SQL_TOKENS.has(token))fail('UNSAFE_SQL');
+   lastToken=isIdentifier?token:'';
+   continue;
   }
-  executable+=c;
+  if(sqlWordChar(c)){
+   if(!overlong){
+    if(word.length<64)word+=c;
+    else {word='';overlong=true;}
+   }
+  }else{
+   finishWord();
+   if(!sqlWhitespace(c))lastToken='';
+  }
  }
- if(/\b(?:ATTACH|DETACH|VACUUM|LOAD_EXTENSION|TEMP|TEMPORARY|TEMP_STORE|TEMP_STORE_DIRECTORY|VIRTUAL)\b/i.test(executable))
-  fail('UNSAFE_SQL');
+ finishWord();
  return true;
 }
 export function dropLastUtf8CodePoint(bytes){

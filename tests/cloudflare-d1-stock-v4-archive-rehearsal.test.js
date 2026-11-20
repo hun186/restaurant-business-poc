@@ -190,3 +190,33 @@ test('SQL guard preserves quoted business values and blocks qualified temporary 
  ])assert.throws(()=>mod.assertMemoryOnlyArchiveSql(unsafe),
   /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
 });
+
+
+test('large authenticated SQL sort uses memory-backed temporary storage in BOTH replays',async()=>{
+ const [mod,backup]=await Promise.all([modulePromise,archivePromise]);
+ // The old SQLite default temp_store=0 may spill an ~20 MB sorted
+ // intermediate result to /var/tmp/etilqs*, even when DB is :memory:.
+ // The scratch table is removed, so final v3 schema is unchanged.
+ const expensiveSort="\nCREATE TABLE scratch(detail TEXT NOT NULL);"+
+  "\nINSERT INTO scratch(detail) WITH RECURSIVE seq(n) AS ("+
+  "SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<10000) "+
+  "SELECT hex(randomblob(1000)) || printf('%05d',n) FROM seq;"+
+  "\nSELECT detail FROM scratch ORDER BY detail DESC;"+
+  "\nDROP TABLE scratch;";
+ const sql=v3+expensiveSort;
+ // Operational verifier must be explicitly configured for memory temp storage.
+ const checked=backup.verifyLocalSql(sql,{operational:true,memoryOnlyTemp:true});
+ assert.equal(checked.stock_ledger_version,3);
+ const bytes=backup.encryptSql(sql,pass,{operational:true});
+ const output=mod.rehearseArchiveBytes(bytes,pass,digest(bytes));
+ assert.equal(output.status,'D1_STOCK_V4_ENCRYPTED_ARCHIVE_OFFLINE_REHEARSAL_PASS');
+ assert.equal(output.original_stock_move_rows,2);
+ assert.equal(output.plaintext_sql_written_to_disk,false);
+ assert.equal(output.disposable_sqlite_memory_only,true);
+ assert.equal(output.all_historical_rows_preserved,true);
+ // Both flag and SQL guard must fail closed when archive attempts to turn
+ // file-backed temp storage back on.
+ const injected=backup.encryptSql(sql+"\nPRAGMA 'temp_store'=FILE;",pass,{operational:true});
+ assert.throws(()=>mod.rehearseArchiveBytes(injected,pass,digest(injected)),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+});

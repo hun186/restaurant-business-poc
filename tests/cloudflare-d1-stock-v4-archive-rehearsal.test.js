@@ -122,3 +122,16 @@ test('hidden input backspace erases an entire UTF-8 code point',async()=>{
  }
  assert.equal(mod.dropLastUtf8CodePoint(Buffer.alloc(0)).length,0);
 });
+
+test('quoted SQLite identifiers cannot bypass in-memory disk-write guard',async()=>{
+ const mod=await modulePromise;
+ for(const sql of [
+  'PRAGMA "temp_store"=FILE;',
+  'PRAGMA '+String.fromCharCode(96)+'temp_store'+String.fromCharCode(96)+'=FILE;',
+  'PRAGMA [temp_store]=FILE;',
+  'PRAGMA "temp_store_directory"="/tmp";',
+ ])assert.throws(()=>mod.assertMemoryOnlyArchiveSql(sql),
+   /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+ assert.equal(mod.assertMemoryOnlyArchiveSql(
+  "SELECT 'PRAGMA \"temp_store\"=FILE';"),true);
+});

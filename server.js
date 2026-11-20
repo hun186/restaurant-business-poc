@@ -108,6 +108,31 @@ function makeHandler(db,backups=null){
      const eligible=u.role==='owner'||u.role==='manager';
      return safeJson(res,200,{enabled:eligible&&localStockV4WriteEnabled(db)});
     }
+    if(req.method==='GET'&&route==='/api/stock/v4-receipts'){
+     // Search ALL received purchase orders (not the 500-row overview listing).
+     // Fail closed on feature release and per-store authorization.
+     if(!['owner','manager'].includes(u.role)||!localStockV4WriteEnabled(db))
+      return safeJson(res,403,{error:'庫存新版操作尚未開放'});
+     const lid=url.searchParams.get('location_id'),iid=url.searchParams.get('ingredient_id');
+     const uuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+     if(!uuid.test(lid||'')||!uuid.test(iid||''))
+      return safeJson(res,400,{error:'請先選擇有效的門市與食材'});
+     const query=url.searchParams.get('q')||'';
+     if(query.length>64||/[^a-zA-Z0-9_.-]/.test(query))
+      return safeJson(res,400,{error:'叫貨單號搜尋只能輸入英文、數字、連字號或底線'});
+     if(!db.prepare('SELECT 1 FROM locations WHERE id=? AND active=1').get(lid)||
+        !db.prepare('SELECT 1 FROM ingredients WHERE id=? AND active=1').get(iid))
+      return safeJson(res,404,{error:'門市或食材已停用'});
+     if(u.role!=='owner'&&!db.prepare('SELECT 1 FROM user_locations WHERE user_id=? AND location_id=?').get(u.id,lid))
+      return safeJson(res,403,{error:'門市操作權限不足'});
+     const result=db.prepare(
+      "SELECT o.id,o.number,o.qty,o.supplier,o.received_at "+
+      "FROM purchase_orders o WHERE o.location_id=? AND o.ingredient_id=? "+
+      "AND o.status='received' AND instr(upper(o.number),upper(?))>0 "+
+      "ORDER BY o.received_at DESC,o.id DESC LIMIT 51"
+     ).all(lid,iid,query);
+     return safeJson(res,200,{rows:result.slice(0,50),truncated:result.length>50});
+    }
     if(req.method==='GET'&&route==='/api/overview')return safeJson(res,200,{overview:overview(db,u)});
     if(req.method==='GET'&&route==='/api/data')return safeJson(res,200,{rows:rows(db,u,url.searchParams.get('entity'))});
      if(req.method==='GET'&&route==='/api/order-batch')return safeJson(res,200,orderBatches.details(db,u,url.searchParams.get('number'),scope));

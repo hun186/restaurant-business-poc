@@ -46,6 +46,17 @@ job or a permit to run it. Issue #212 / operational backup #176.
    records cannot rewrite historical rows; use an independently
    authorized consistent backup restore instead.
 
+**Encrypted operational v3 offline rehearsal:** `tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs`
+checks the authentic encrypted source before replay, then uses an explicit
+`PRAGMA temp_store=MEMORY` on BOTH in-memory SQLite connections (source
+verification and v4 transaction), with read-back checks before and after
+archive replay. This is essential: `:memory:` alone does **not** prohibit
+SQLite's sort/temporary rows from spilling plaintext to the filesystem.
+The scanner also refuses archive SQL that attempts to change temp storage.
+A synthetic authenticated archive with a large sort is included in CI.
+This does **not** replace an authorized actual off-host encrypted-backup
+restore or isolated remote D1 rehearsal.
+
 No CLI, workflow, Wrangler config or Worker invokes this candidate
 in normal startup, PR checks, CI or regular deployment. The review
 does not grant Production D1 migration authorization.

@@ -92,8 +92,8 @@ export function privateDir(target=defaultDir()){
 // Fail closed unless the encrypted copy can locally replay the *entire*
 // reviewed v3 schema plus the exact versioned migration ledger (v3: two;
 // stock v4: three entries, with a reviewed opt-in 0004 receipt).
-export function verifyLocalSql(sql,{operational=false}={}) {
- if(typeof operational!=='boolean')fail('SQL_OWNER_STATE');
+export function verifyLocalSql(sql,{operational=false,memoryOnlyTemp=false}={}) {
+ if(typeof operational!=='boolean'||typeof memoryOnlyTemp!=='boolean')fail('SQL_OWNER_STATE');
  if(typeof sql!=='string'||!sql.trim()||
    Buffer.byteLength(sql,'utf8')>MAX_SQL_BYTES)fail('SQL_SIZE');
  let db;
@@ -110,7 +110,15 @@ export function verifyLocalSql(sql,{operational=false}={}) {
     expectedIndexes.length<8||new Set(expectedIndexes).size!==expectedIndexes.length)
    fail('SQL_SCHEMA');
   db=new DatabaseSync(':memory:');
+  // Explicit opt-in for the offline encrypted v4 rehearsal: SQLite ':memory:'
+  // does not itself prevent on-disk temp files during large sorts.
+  if(memoryOnlyTemp){
+   db.exec('PRAGMA temp_store=MEMORY');
+   if(db.prepare('PRAGMA temp_store').get()?.temp_store!==2)fail('SQL_INTEGRITY');
+  }
   db.exec(sql);
+  if(memoryOnlyTemp&&db.prepare('PRAGMA temp_store').get()?.temp_store!==2)
+   fail('SQL_INTEGRITY');
   if(db.prepare('PRAGMA quick_check').get()?.quick_check!=='ok')fail('SQL_INTEGRITY');
   if(db.prepare('PRAGMA foreign_key_check').all().length!==0)fail('SQL_FK');
   const names=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV'").all()

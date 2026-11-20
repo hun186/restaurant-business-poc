@@ -123,7 +123,7 @@ async function dashboard(){setActive('dashboard');$('#main').innerHTML=head('今
   $('#main').innerHTML+=`<div class="stat-grid">${stat('待辦工作',z.todo,'待處理與處理中','☑')}${stat('已逾期工作',z.late,'需優先追蹤','◷')}${stat('庫存不足品項',z.low,'低於安全存量','⬡')}${stat('待核准叫貨',z.orders,'待主管處理','▤')}${stat('設備未結案',z.repairs,'維修追蹤中','⚒')}${stat('未完成訓練',z.trainingPending,'已指派但尚未評分','♙')}</div><div class="dashboard-panels"><section class="hero"><div class="hero-title"><span class="brand-mark">♜</span><div><div class="dark-kicker">餐廳好管家</div><h2>今日營運工作台</h2><p>多層級權限 × 營運工作管理</p></div></div><div class="hero-line"></div><div class="quick-grid"><button class="quick" data-page="tasks"><span class="symbol">☑</span><strong>今日工作</strong><small>待辦、逾期、完成紀錄</small></button><button class="quick" data-page="purchase_orders"><span class="symbol">⬡</span><strong>叫貨與庫存</strong><small>缺貨、安全庫存、進貨</small></button><button class="quick" data-page="repairs"><span class="symbol">⚒</span><strong>設備維修</strong><small>報修、派工、保養</small></button><button class="quick" data-page="training_records"><span class="symbol">♙</span><strong>人事與訓練</strong><small>班表、請假、SOP、考核</small></button></div></section><section class="panel"><h2>帳號與資料保護</h2><div class="rowlist"><div class="item"><strong>目前登入</strong><span>${E(S.me.display_name)}</span></div><div class="item"><strong>身分角色</strong><span>${E(label(S.me.role))}</span></div><div class="item"><strong>授權門市</strong><span>${E(S.me.role==='owner'?'全部門市':String(S.me.locations.length)+' 間')}</span></div><div class="item"><strong>操作稽核</strong><span>記錄登入與異動</span></div><div class="item"><strong>正式資料模式</strong><span>本機 SQLite</span></div></div><p class="notice warning" style="margin-top:20px">目前是單機 PoC。正式跨店上線前還需 HTTPS、多機併發、備份與安全驗收。</p></section></div>`;
  }catch(e){$('#main').innerHTML=`<div class="empty">${E(e.message)}</div>`;}
 }
-async function getLists(){for(const k of ['locations','ingredients','purchase_orders','staff_directory','users','training_courses','menu_dishes']){
+async function getLists(){for(const k of ['locations','ingredients','staff_directory','users','training_courses','menu_dishes']){
  try{S.cache[k]=(await api('/api/data?entity='+k)).rows;}catch{S.cache[k]=[];}
  }}
 const field=(name,display,type='text',required=true,extra={})=>({name,display,type,required,...extra});
@@ -142,7 +142,7 @@ const def={
  'stock.usage':{title:'登錄食材耗用',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','耗用數量','number'),field('note','用途說明','textarea',false)]},
  'stock.scrap':{title:'報廢食材',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','報廢數量（最多三位小數）','number',true,{stockV4:true}),field('reason','報廢原因（必填、不可換行）','textarea',true,{stockV4:true})]},
  'stock.adjust':{title:'庫存調整',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty_delta','調整量（正數增加、負數減少）','number',true,{stockV4:true}),field('reason','調整原因（必填、不可換行）','textarea',true,{stockV4:true})]},
- 'stock.supplier_return':{title:'退回供應商',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('reference_id','原已驗收叫貨單（同門市、同食材）','received_orders'),field('qty','退貨數量（最多三位小數）','number',true,{stockV4:true}),field('reason','退貨原因（必填、不可換行）','textarea',true,{stockV4:true})]},
+ 'stock.supplier_return':{title:'退回供應商',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('receipt_search','搜尋叫貨單號（可留空顯示最新 50 筆）','text',false),field('reference_id','原已驗收叫貨單（同門市、同食材）','received_orders'),field('qty','退貨數量（最多三位小數）','number',true,{stockV4:true}),field('reason','退貨原因（必填、不可換行）','textarea',true,{stockV4:true})]},
  'stock.opening':{title:'建立期初庫存（業主、限無庫存紀錄）',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('qty','期初數量','number'),field('note','期初數量依據','textarea')]},
  'order.create':{title:'建立叫貨申請',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('supplier','供應商'),field('qty','叫貨數量','number')]},
  'stocktake.create':{title:'新增盤點記錄',fields:[field('location_id','門市','locations'),field('ingredient_id','食材','ingredients'),field('counted_qty','實際數量','number')]},
@@ -161,7 +161,7 @@ function options(type){let data=S.cache[type]||[];
  if(type==='users'&&S.me.role!=='owner')data=S.cache.staff_directory||[];
  if(type==='locations'&&S.me.role!=='owner')data=data.filter(x=>S.me.locations.includes(x.id));
  if(type==='role')return [['staff','一般員工'],['manager','主管'],['owner','業主']];
- if(type==='received_orders')return (S.cache.purchase_orders||[]).filter(x=>x.status==='received').map(x=>[x.id,`${x.number||x.id}｜${x.location_name||'門市'}｜${x.ingredient_name||'食材'}｜${x.supplier||'供應商'}`]);
+ if(type==='received_orders')return (S.cache.stockV4Receipts||[]).map(x=>[x.id,`${x.number||x.id}｜${x.supplier||'供應商'}｜驗收 ${x.qty}`]);
  return data.filter(x=>x.active!==0).map(x=>[x.id,x.display_name||x.name||x.title]);
 }
 function inputHtml(f){const req=f.required?'required':'',name=E(f.name),value=E(f.value??''),label=E(f.display);
@@ -180,13 +180,45 @@ async function showForm(action,id){
  const snapshot=editing?(S.cache[entity]||[]).find(r=>r.id===id):null;
  if(editing&&!snapshot){toast('資料已變更，請先重新整理');return;}
  const d=editing?{...base,fields:base.fields.map(f=>({...f,value:snapshot[f.name]}))}:base;
+ if(action==='stock.supplier_return')S.cache.stockV4Receipts=[];
  // Invalidate pending batch preview/create GETs *before* await getLists().
  const root=$('#modal-root'),ticket=invalidateModalOpens(root),epoch=S.authEpoch,userId=S.me?.id;
  await getLists();
  if(root.__openTicket!==ticket||S.authEpoch!==epoch||S.me?.id!==userId)return;
  root.hidden=false;
- root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>儲存後立即更新資料，並寫入操作紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div><div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
+ root.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${E(d.title)}"><h2>${E(d.title)}</h2><p>儲存後立即更新資料，並寫入操作紀錄。</p><form id="record-form"><div class="form-grid">${d.fields.map(inputHtml).join('')}</div>${action==='stock.supplier_return'?'<div class="form-actions"><button type="button" class="btn ghost" id="find-stock-receipts">查詢已驗收叫貨單</button><span id="stock-receipt-hint" class="muted">請先選擇門市與食材，再查詢叫貨單</span></div>':''}<div class="form-actions"><button type="button" class="btn" id="cancel-modal">取消</button><button type="submit" class="btn primary">確認儲存</button></div></form></div>`;
  const close=()=>{invalidateModalOpens(root);root.hidden=true;root.innerHTML=''};$('#cancel-modal').addEventListener('click',close);
+ if(action==='stock.supplier_return'){
+  let receiptTicket=0;
+  const lookup=async()=>{
+   const form=$('#record-form'),select=form?.querySelector('[name="reference_id"]');
+   if(!select)return;
+   const loc=form.querySelector('[name="location_id"]')?.value||'';
+   const ing=form.querySelector('[name="ingredient_id"]')?.value||'';
+   const query=(form.querySelector('[name="receipt_search"]')?.value||'').trim();
+   const hint=$('#stock-receipt-hint'),current=++receiptTicket;
+   select.innerHTML='<option value="">請選擇已驗收叫貨單…</option>';
+   S.cache.stockV4Receipts=[];
+   if(!loc||!ing){if(hint)hint.textContent='請先選擇門市與食材';return;}
+   if(hint)hint.textContent='正在查詢原已驗收單…';
+   try{
+    const url='/api/stock/v4-receipts?location_id='+encodeURIComponent(loc)
+     +'&ingredient_id='+encodeURIComponent(ing)+'&q='+encodeURIComponent(query);
+    const result=await api(url);
+    if(current!==receiptTicket||root.__openTicket!==ticket||S.authEpoch!==epoch||
+       S.page!=='stock'||!S.stockV4Enabled)return;
+    S.cache.stockV4Receipts=result.rows||[];
+    select.innerHTML='<option value="">請選擇已驗收叫貨單…</option>'
+     +options('received_orders').map(o=>`<option value="${E(o[0])}">${E(o[1])}</option>`).join('');
+    if(hint)hint.textContent=result.truncated?'結果超過 50 筆，請輸入更精確單號搜尋':
+     '找到 '+S.cache.stockV4Receipts.length+' 筆符合的已驗收單';
+   }catch(e){if(current===receiptTicket&&hint)hint.textContent=e.message;}
+  };
+  $('#find-stock-receipts').addEventListener('click',lookup);
+  $('#record-form').addEventListener('change',event=>{
+   if(['location_id','ingredient_id'].includes(event.target?.name))lookup();
+  });
+ }
  let v4Submitted=false;
  $('#record-form').addEventListener('submit',async e=>{e.preventDefault();const raw=Object.fromEntries(new FormData(e.currentTarget).entries());Object.keys(raw).forEach(k=>{if(raw[k]==='')delete raw[k]});if(id&&!editing)raw[action.startsWith('user.')?'user_id':action==='dish.price'?'dish_id':'id']=id;
  try{
@@ -195,6 +227,7 @@ async function showForm(action,id){
    if(v4Submitted){toast('本次操作已送出，請先核對最新庫存流水');return;}
    if(!S.stockV4Enabled||S.page!=='stock')throw Error('庫存新版操作未啟用');
    data={...raw,reason:String(raw.reason||'').trim()};
+   if(action==='stock.supplier_return')delete data.receipt_search;
    if(action==='stock.adjust')data.qty_delta=Number(raw.qty_delta);
    else data.qty=Number(raw.qty);
    if(!window.confirm(`確認執行「${base.title}」？將直接改變實際庫存並留下不可修改的流水紀錄。`))return;

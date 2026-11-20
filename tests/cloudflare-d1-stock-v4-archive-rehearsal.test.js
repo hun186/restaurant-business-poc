@@ -135,3 +135,22 @@ test('quoted SQLite identifiers cannot bypass in-memory disk-write guard',async(
  assert.equal(mod.assertMemoryOnlyArchiveSql(
   "SELECT 'PRAGMA \"temp_store\"=FILE';"),true);
 });
+
+test('single-quoted SQLite identifiers are rejected before encrypted archive replay',async()=>{
+ const [mod,backup]=await Promise.all([modulePromise,archivePromise]);
+ const injected=v3+"\nPRAGMA 'temp_store'=FILE;"+
+  "\nCREATE TABLE 'temp'.spill AS SELECT u.*, zeroblob(4000000) AS padding FROM main.users u;";
+ const bytes=backup.encryptSql(injected,pass,{operational:true});
+ assert.throws(()=>mod.rehearseArchiveBytes(bytes,pass,digest(bytes)),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+ for(const text of [
+  "PRAGMA 'temp_store'=FILE;",
+  "CREATE TABLE 'temp'.spill AS SELECT 1;",
+  "INSERT INTO 'temp'.spill VALUES (1);",
+  "SELECT * FROM 'temp'.spill;"
+ ])assert.throws(()=>mod.assertMemoryOnlyArchiveSql(text),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+ // Ordinary SQL string data containing those words is permitted.
+ assert.equal(mod.assertMemoryOnlyArchiveSql(
+  "INSERT INTO notes(detail) VALUES('temp'),('temp_store'),('vacuum');"),true);
+});

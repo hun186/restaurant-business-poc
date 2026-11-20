@@ -411,3 +411,60 @@ test('interactive option 3 accepts safely quoted Windows-style pasted paths and 
  assert.match(launcher,/--verify-copy/);
  assert.doesNotMatch(launcher,/--restore|--import/);
 });
+
+
+test('operational Export/Verify/Copy Verify all replay with shared memory-only SQL guard',async t=>{
+ const m=await mod,os=require('node:os');
+ const home=os.homedir();
+ const folder=fs.mkdtempSync(path.join(home,'RestaurantD1SyntheticGuard-'));
+ const copyDir=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-d1-synthetic-copy-'));
+ t.after(()=>{fs.rmSync(folder,{recursive:true,force:true});fs.rmSync(copyDir,{recursive:true,force:true});});
+ const pass='only-synthetic-memory-guard-passphrase-2026';
+ const business=OWNER_SQL+"\nINSERT INTO locations(id,name) VALUES('fake-store','Synthetic Store');"+
+  "\nINSERT INTO ingredients(id,sku,name,unit) VALUES('fake-item','FAKE','Synthetic Ingredient','kg');"+
+  "\nINSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,actor_id) "+
+  "VALUES('fake-move','fake-item','fake-store',3,'purchase','synthetic-owner');";
+ const sort="\nCREATE TABLE scratch_sort(detail TEXT NOT NULL);"+
+  "\nINSERT INTO scratch_sort(detail) WITH RECURSIVE seq(n) AS ("+
+  "SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<3000) "+
+  "SELECT hex(randomblob(1000)) || printf('%05d',n) FROM seq;"+
+  "\nSELECT detail FROM scratch_sort ORDER BY detail DESC;"+
+  "\nDROP TABLE scratch_sort;";
+ const safe=business+sort;
+ assert.equal(m.verifyLocalSql(safe,{operational:true}).stock_ledger_version,3);
+ const created=m.sealedArchive(safe,pass,folder,{operational:true});
+ assert.equal(created.status,'PROD_D1_ENCRYPTED_LOCAL_EXPORT_PASS');
+ assert.equal(created.production_write_performed,false);
+ assert.ok(created.file.endsWith('-operational.sql.aes'));
+ const copy=path.join(copyDir,'copied-operational.sql.aes');
+ fs.copyFileSync(created.file,copy,fs.constants.COPYFILE_EXCL);
+ const before=fs.readFileSync(created.file),copied=fs.readFileSync(copy);
+ const verified=m.verifyArchive(created.file,pass);
+ assert.equal(verified.status,'PROD_D1_ENCRYPTED_LOCAL_VERIFY_PASS');
+ assert.equal(verified.stock_ledger_version,3);
+ const result=m.verifyIndependentCopy(created.file,copy,pass);
+ assert.equal(result.status,'PROD_D1_ENCRYPTED_COPY_VERIFY_PASS');
+ assert.equal(result.copy_matches_source,true);
+ assert.deepEqual(fs.readFileSync(created.file),before);
+ assert.deepEqual(fs.readFileSync(copy),copied);
+ // No plaintext dump or SQLite scratch file in either private fixture dir.
+ assert.deepEqual(fs.readdirSync(folder),[path.basename(created.file)]);
+ assert.deepEqual(fs.readdirSync(copyDir),['copied-operational.sql.aes']);
+ const attack=business+"\nPRAGMA main.'temp_store'=FILE;"+sort+
+  "\nPRAGMA main.'temp_store'=MEMORY;";
+ const unsafe=e=>e?.message==='E_PRODUCTION_D1_BACKUP'&&e?.reason==='SQL_UNSAFE';
+ assert.throws(()=>m.verifyLocalSql(attack,{operational:true}),unsafe);
+ assert.throws(()=>m.verifyLocalSql(safe,{operational:true,memoryOnlyTemp:false}),unsafe);
+ assert.throws(()=>m.sealedArchive(attack,pass,folder,{operational:true}),unsafe);
+ const unsafeArchive=m.encryptSql(attack,pass,{operational:true});
+ const malicious=path.join(copyDir,'authenticated-but-unsafe.sql.aes');
+ fs.writeFileSync(malicious,unsafeArchive,{flag:'wx',mode:0o600});
+ assert.throws(()=>m.verifyArchive(malicious,pass),unsafe);
+ const maliciousCopy=path.join(copyDir,'copied-unsafe.sql.aes');
+ fs.copyFileSync(malicious,maliciousCopy,fs.constants.COPYFILE_EXCL);
+ assert.throws(()=>m.verifyIndependentCopy(malicious,maliciousCopy,pass),unsafe);
+ // Error conditions cannot write non-ciphertext scratch artifacts.
+ assert.deepEqual(fs.readdirSync(folder),[path.basename(created.file)]);
+ assert.deepEqual(fs.readdirSync(copyDir).sort(),
+  ['authenticated-but-unsafe.sql.aes','copied-operational.sql.aes','copied-unsafe.sql.aes'].sort());
+});

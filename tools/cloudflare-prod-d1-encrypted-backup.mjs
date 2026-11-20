@@ -6,6 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomBytes,createCipheriv,createDecipheriv,pbkdf2Sync,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
+import {assertMemoryOnlySql} from './cloudflare-d1-memory-sql-guard.mjs';
 import {createInterface} from 'node:readline/promises';
 import {setTimeout as delay} from 'node:timers/promises';
 import {localProductionTarget,inspectProductionOwner} from './cloudflare-prod-owner-operator.mjs';
@@ -92,10 +93,16 @@ export function privateDir(target=defaultDir()){
 // Fail closed unless the encrypted copy can locally replay the *entire*
 // reviewed v3 schema plus the exact versioned migration ledger (v3: two;
 // stock v4: three entries, with a reviewed opt-in 0004 receipt).
-export function verifyLocalSql(sql,{operational=false,memoryOnlyTemp=false}={}) {
- if(typeof operational!=='boolean'||typeof memoryOnlyTemp!=='boolean')fail('SQL_OWNER_STATE');
+export function verifyLocalSql(sql,{operational=false,memoryOnlyTemp=true}={}) {
+ if(typeof operational!=='boolean')fail('SQL_OWNER_STATE');
+ // Every source/copy verification must be memory-only; disabling it would
+ // allow SQLite to spill unencrypted sort data to local temp files.
+ if(memoryOnlyTemp!==true)fail('SQL_UNSAFE');
  if(typeof sql!=='string'||!sql.trim()||
    Buffer.byteLength(sql,'utf8')>MAX_SQL_BYTES)fail('SQL_SIZE');
+ // Validate even authenticated exports: PRAGMA FILE + sort + MEMORY can
+ // create plaintext etilqs temp files and conceal them from final readback.
+ try{assertMemoryOnlySql(sql);}catch{fail('SQL_UNSAFE');}
  let db;
  try{
   const migrationsDir=path.join(ROOT,'cloudflare','migrations');
@@ -110,15 +117,12 @@ export function verifyLocalSql(sql,{operational=false,memoryOnlyTemp=false}={}) 
     expectedIndexes.length<8||new Set(expectedIndexes).size!==expectedIndexes.length)
    fail('SQL_SCHEMA');
   db=new DatabaseSync(':memory:');
-  // Explicit opt-in for the offline encrypted v4 rehearsal: SQLite ':memory:'
-  // does not itself prevent on-disk temp files during large sorts.
-  if(memoryOnlyTemp){
-   db.exec('PRAGMA temp_store=MEMORY');
-   if(db.prepare('PRAGMA temp_store').get()?.temp_store!==2)fail('SQL_INTEGRITY');
-  }
+  // A :memory: primary database alone does not protect SQLite sort or
+  // temporary storage. Set MEMORY BEFORE SQL and enforce it again afterwards.
+  db.exec('PRAGMA temp_store=MEMORY');
+  if(db.prepare('PRAGMA temp_store').get()?.temp_store!==2)fail('SQL_UNSAFE');
   db.exec(sql);
-  if(memoryOnlyTemp&&db.prepare('PRAGMA temp_store').get()?.temp_store!==2)
-   fail('SQL_INTEGRITY');
+  if(db.prepare('PRAGMA temp_store').get()?.temp_store!==2)fail('SQL_UNSAFE');
   if(db.prepare('PRAGMA quick_check').get()?.quick_check!=='ok')fail('SQL_INTEGRITY');
   if(db.prepare('PRAGMA foreign_key_check').all().length!==0)fail('SQL_FK');
   const names=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV'").all()
@@ -488,7 +492,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   const safe=new Set(['ARGS','CHECKOUT','APPROVAL','PASSPHRASE','TOKEN','TARGET','OWNER_STATE',
    'NETWORK','HTTP','API_SHAPE','EXPORT_API','EXPORT_TIMEOUT','SIGNED_URL','DOWNLOAD',
    'DOWNLOAD_SIZE','DOWNLOAD_ENCODING','SQL_SIZE','SQL_INTEGRITY','SQL_FK','SQL_SCHEMA',
-   'SQL_REPLAY','SQL_OWNER_STATE','ARCHIVE_SIZE','ARCHIVE_FORMAT','ARCHIVE_AUTH','ARCHIVE_VERIFY',
+   'SQL_REPLAY','SQL_OWNER_STATE','SQL_UNSAFE','ARCHIVE_SIZE','ARCHIVE_FORMAT','ARCHIVE_AUTH','ARCHIVE_VERIFY',
    'OUTPUT_PATH','SAVE','VERIFY_PATH','COPY_PATH','COPY_SAME_FILE','COPY_MISMATCH','TTY']);
   const detail=e.reason==='EXPORT_API'&&FAIL_DETAILS.has(e.safeDetail)
    ?' detail='+e.safeDetail:'';

@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-20 Issue #212 Native public stock release Gate observability (PR pending)**: Extend existing read-only `/api/native/status` with `stock_v4_gate_enabled` (scrap/adjust Gate) and `supplier_return_gate_enabled` (independent Return Gate), strictly booleans computed from Native login+explicit Gate values; no D1 read, secrets, runtime mutation, deployment, or operator Gate changes. Fields do NOT mean D1 v4 schema ready; authenticated stock capability and actual POST still validate identity/schema/store. Synthetic default-OFF, independent and disabled-login regressions. Latest HEAD 5/5 CI and formal Codex review required.
+
+
 > **2026-11-20 Issue #212 / #176 D1 operational encrypted backup stock v4 compatibility (PR pending)**: The current Production D1 operational SQL replay only recognizes the original v3 `stock_moves` table. This change accepts a *separately operator-migrated* Stock v4 ledger in the **operational encrypted backup mode only** after strict `stock_move_kind_contract` marker and exact reviewed stock_moves/index DDL validation against independently constructed in-memory schema; existing D1 `cloud_schema_contract=3` and 2 recorded migration names remain mandatory. Reports `stock_ledger_version` 3/4 separately from D1 `schema_version=3`, verifies both encrypted copies. Legacy initial-only backup still rejects v4. Synthetic corrupted-schema and AES-GCM verification tests; no Production D1 migration/export, no Gate/Secrets/Worker/deployment changes. Separate operator copy+restore UAT and approval still required.
 
 

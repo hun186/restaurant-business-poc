@@ -8,7 +8,7 @@ import { nativeBusinessReadHttp } from './native-business-http.mjs';
 import {nativePriceHttp,nativePriceWriteEnabled} from './native-price-http.mjs';
 import {nativeStockUsageHttp,nativeStockUsageWriteEnabled} from './native-stock-usage-http.mjs';
 import {nativeStockV4Http,nativeStockV4WriteEnabled} from './native-stock-v4-http.mjs';
-import {nativeStockReturnHttp} from './native-stock-return-http.mjs';
+import {nativeStockReturnHttp,nativeStockReturnWriteEnabled} from './native-stock-return-http.mjs';
 import {nativeStockOperationsCapabilityHttp} from './native-stock-operations-capability.mjs';
 import {nativeStockReceiptsHttp} from './native-stock-receipts-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
@@ -48,7 +48,9 @@ export default {
         stocktake_write_enabled:nativeStocktakeWriteEnabled(env),
         repair_write_enabled:nativeRepairWriteEnabled(env),
         price_write_enabled:nativePriceWriteEnabled(env),
-        stock_usage_write_enabled:nativeStockUsageWriteEnabled(env)});
+        stock_usage_write_enabled:nativeStockUsageWriteEnabled(env),
+        stock_v4_gate_enabled:nativeStockV4WriteEnabled(env),
+        supplier_return_gate_enabled:nativeStockReturnWriteEnabled(env)});
     }
     if (pathname === '/api/login' || pathname === '/api/logout') return nativeLoginHttp(request, env);
     if (pathname === '/api/password/change') return nativePasswordChangeHttp(request,env);

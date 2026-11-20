@@ -36,6 +36,47 @@ function readArchive(file){
  }catch(e){if(e?.code?.startsWith(PREFIX))throw e;fail('PATH');}
  finally{if(fd!==undefined)fs.closeSync(fd);}
 }
+// Reject disk-capable SQL before *either* SQLite replay. An authenticated
+// archive can still contain unsafe statements. Ignore literals and comments.
+export function assertMemoryOnlyArchiveSql(sql){
+ if(typeof sql!=='string'||!sql)fail('UNSAFE_SQL');
+ let executable='';
+ for(let i=0;i<sql.length;i++){
+  const c=sql[i],next=sql[i+1];
+  if(c==='-'&&next==='-'){
+   executable+=' ';i+=2;
+   while(i<sql.length&&sql[i]!=='\n')i++;
+   executable+='\n';continue;
+  }
+  if(c==='/'&&next==='*'){
+   const end=sql.indexOf('*/',i+2);
+   if(end<0)fail('UNSAFE_SQL');
+   executable+=' ';i=end+1;continue;
+  }
+  if(c==="'"||c==='"'||c===String.fromCharCode(96)||c==='['){
+   const endChar=c==='['?']':c;
+   let ended=false;
+   for(++i;i<sql.length;i++){
+    if(sql[i]===endChar){
+     if(sql[i+1]===endChar){i++;continue;}
+     ended=true;break;
+    }
+   }
+   if(!ended)fail('UNSAFE_SQL');
+   executable+=' ';continue;
+  }
+  executable+=c;
+ }
+ if(/\b(?:ATTACH|DETACH|VACUUM|LOAD_EXTENSION|TEMP|TEMPORARY|TEMP_STORE|TEMP_STORE_DIRECTORY|VIRTUAL)\b/i.test(executable))
+  fail('UNSAFE_SQL');
+ return true;
+}
+export function dropLastUtf8CodePoint(bytes){
+ if(!Buffer.isBuffer(bytes))fail('INPUT');
+ let i=bytes.length-1;
+ while(i>0&&(bytes[i]&0xc0)===0x80)i--;
+ return Buffer.from(bytes.subarray(0,Math.max(0,i)));
+}
 function snapshot(db,tables){
  const output=new Map();
  for(const name of tables){
@@ -87,10 +128,9 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
  try{format=JSON.parse(bytes.toString('utf8')).format;}catch{fail('ARCHIVE_FORMAT');}
  if(format!==FORMAT)fail('NOT_OPERATIONAL');
  let sql,v3;
- try{
-  sql=decryptSql(bytes,passphrase);
-  v3=verifyLocalSql(sql,{operational:true});
- }catch{fail('SOURCE_VERIFY');}
+ try{sql=decryptSql(bytes,passphrase);}catch{fail('SOURCE_VERIFY');}
+ assertMemoryOnlyArchiveSql(sql);
+ try{v3=verifyLocalSql(sql,{operational:true});}catch{fail('SOURCE_VERIFY');}
  if(v3.stock_ledger_version!==3||v3.applied_migrations!==2||
     v3.schema_version!==3||v3.owner_count!==1)fail('NOT_V3');
  const candidate=fs.readFileSync(
@@ -164,12 +204,14 @@ async function hiddenPassword(){
   function done(err){
    if(finished)return;finished=true;process.stdin.off('data',consume);
    process.stdin.setRawMode(!!previous);process.stdin.pause();process.stdout.write('\n');
-   const s=bytes.toString('utf8');bytes.fill(0);
+   let s;
+   try{s=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}
+   catch{err=true;}finally{bytes.fill(0);}
    if(err)reject(new Error(PREFIX+'TTY'));else resolve(s);
   }
   function consume(chunk){for(const b of chunk){
    if(b===10||b===13){done(false);return;}
-   if(b===127||b===8){bytes=Buffer.from(bytes.subarray(0,Math.max(0,bytes.length-1)));continue;}
+   if(b===127||b===8){bytes=dropLastUtf8CodePoint(bytes);continue;}
    if(b===3||b===27||b<32||bytes.length>=4096){done(true);return;}
    bytes=Buffer.concat([bytes,Buffer.from([b])]);
   }}

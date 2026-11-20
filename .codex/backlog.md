@@ -1,5 +1,8 @@
 # Backlog
 
+> **2026-11-20 #212/#176 D1 Stock-v4 versioned migration ledger fix (PR pending)**: Existing v4 encrypted operational backup verifier from #239 expected 2 D1 migration records, but a correctly versioned 0004 migration adds a third record. This fixes offline v4 acceptance to require **exact** id=3/name=0004_stock_move_kinds.sql (while retaining cloud_schema_contract=3 and unchanged v3 2-record legacy), checks byte-identical v4 SQL in isolated non-active opt-in candidate folder against Local/D1 proposals, and rejects v4 markers without migration receipt / v3 claiming v4 / forged ledger. Synthetic full-history conservation, rollback and AES archive tests. Does NOT place SQL in active cloudflare/migrations, run migrations, touch Production D1, Gate/Secret, or deploy. Operator D1 restore/remote transaction verification and release authorization still separate.
+
+
 > **2026-11-20 Issue #212 Native public stock release Gate observability (PR pending)**: Extend existing read-only `/api/native/status` with `stock_v4_gate_enabled` (scrap/adjust Gate) and `supplier_return_gate_enabled` (independent Return Gate), strictly booleans computed from Native login+explicit Gate values; no D1 read, secrets, runtime mutation, deployment, or operator Gate changes. Fields do NOT mean D1 v4 schema ready; authenticated stock capability and actual POST still validate identity/schema/store. Synthetic default-OFF, independent and disabled-login regressions. Latest HEAD 5/5 CI and formal Codex review required.
 
 

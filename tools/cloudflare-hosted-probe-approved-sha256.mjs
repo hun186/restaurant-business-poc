@@ -45,7 +45,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "run-cloudflare-public-readonly.bat":"ca19dde7f55d9d4cec7a773fbd2583c47b2e57975b4216985dac466551df38e7",
   "tools/cloudflare-public-runtime-readonly.mjs":"3dc8ab6f861ef55fed4cf344265acfca16c65b68ce976430232142eef41a5371",
   "run-production-d1-backup.bat":"b5832a9756d590c579f03fd06403c8ef0e7d670028b2a84a641359abf7831852",
-  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"574a3eb32cbc56f8fa13063b879b98d03c0ece402fd233cdef5d3dda0b05947c",
+  "tools/cloudflare-prod-d1-encrypted-backup.mjs":"0f8dcbd3f8173291fc65a8abb45517d1759d604c8d7c23041f889e07a9e7c5fa",
   "run-disposable-d1-batch-lab.sh":"6fb818548beb4f8816ef513c02282705276ea74c9f1feaeae9e00576b377840e",
   "run-disposable-d1-batch-lab.bat":"9dd023fe4731ace777828c5064b1c6aa8adb8a3755a97f068cea41418a45f396",
   "tools/cloudflare-d1-rest-batch-lab.mjs":"78b730304723a7331d05b26fc5ea0feeac936f96be05b1456a212a857f4629cc",
@@ -88,8 +88,10 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql":"b1a7d59c6c488ffb3451500ba3833721456ee50d3099a64754bf66c32a2535df",
+  "tests/d1-stock-v4-versioned-opt-in.test.js":"42c0a48a00ceff3f122d9626a4298dd57d3ed03da9499dc0ea81b7f24b19b663",
   "tests/native-stock-v4-release-gates-status.test.js":"5801a0fc0bf961e414f154b8fe89e69ba48ccc9875d8a239761c14ca46f8b610",
-  "tests/cloudflare-prod-d1-v4-operational-backup.test.js":"876119d6c1811e6cd72f4d16941584656b451d6ea3077d6b57b82a0f4f75e7e3",
+  "tests/cloudflare-prod-d1-v4-operational-backup.test.js":"cd33c300b8950ad43d6dd5ffaad8916da9a6fc024caf256c9a7b1f963246d839",
   "cloudflare/native-stock-receipts-http.mjs":"1542496628f29ba947b001f77d63d4227352d81f78c02a285e71a1d054abd2dc",
   "tests/local-stock-v4-clone-rehearsal.test.js":"eac5f92f30025728da2940ab1602fb8ef9f934a2f43a357818d3a441a9430884",
   "tests/local-stock-v4-owner-ui.test.js":"5df03bb95390afa98109a2eca7dc635974a747d2b1469a33cb017568f762022a",

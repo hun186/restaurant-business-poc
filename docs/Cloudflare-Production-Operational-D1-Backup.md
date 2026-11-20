@@ -22,7 +22,7 @@
 ## 2026-11-20｜Stock v4 營運備份相容性（程式階段，非放行）
 
 - 既有 **v3** 正式 D1 營運加密匯出／離線解密驗證、原本 2 筆 `d1_migrations` 及 `cloud_schema_contract=3` 均保留原契約。
-- 未來若資料庫另經核准完成 **Stock v4** 轉換，營運期的備份驗證器才會接受額外的 `stock_move_kind_contract` 表，必須只有一筆合法 v4 標記；同時依兩份內容一致的 v4 SQL 提案在**獨立記憶體資料庫**建立預期結構，逐字核對新的 `stock_moves` DDL、標記表 DDL 和庫存索引。這不執行正式資料庫遷移。
+- 未來若資料庫另經核准完成 **Stock v4** 正式版本化轉換，營運期的備份驗證器才會接受額外的 `stock_move_kind_contract` 表，必須只有一筆合法 v4 標記，並要求 `d1_migrations` **由原 2 筆增為 3 筆**，第 3 筆必須是 `id=3`、名稱 `0004_stock_move_kinds.sql`；三份受審 SQL（Local／D1 提案與未啟用候選）需內容相同，於**獨立記憶體資料庫**重建預期結構，核對新的 `stock_moves` DDL、標記表 DDL 和庫存索引。若僅有 v4 標記但沒有正式遷移紀錄，應拒絕備份以避免將手動 SQL 當成完整發版。這不執行正式資料庫遷移。
 - 驗證輸出新增 `stock_ledger_version=3/4`；`schema_version=3` **指原有 D1 cloud_schema_contract**，不能誤當成 v4 的正式 D1 migration ledger 已升版。任何多餘表、缺少標記、放寬 CHECK、修改索引或不符的遷移紀錄皆拒絕。
 - 加密封存仍使用經認證的 `RBPOC_D1_AES256_GCM_OPERATIONAL_SQL_V1`，備份來源與獨立副本都會解密重播並核對庫存流水版本。原有「初始空庫／首次 Owner」備份格式維持嚴格，不接受 v4。
 - 目前僅使用**合成 SQL、記憶體 SQLite 和本機加密檔**測試；未接觸正式 Cloudflare D1，未使用管理員 Token、未部署、未執行 Restore、未啟用 Return／Scrap／Adjust Gate。現場仍須先完成 v3 及 v4 可能復原的加密來源／外接副本驗證，並在隔離 D1 上演練回復與受控 v4 遷移後才可另外授權正式變更。

@@ -154,6 +154,7 @@ const uniqueRows=db=>db.prepare(
 ).all().map(x=>JSON.stringify(x));
 function same(a,b){if(JSON.stringify(a)!==JSON.stringify(b))fail('HISTORY');}
 function checked(db){
+ if(db.prepare('PRAGMA temp_store').get()?.temp_store!==2)fail('UNSAFE_TEMP_STORE');
  if(db.prepare('PRAGMA quick_check').get()?.quick_check!=='ok'||
     db.prepare('PRAGMA foreign_key_check').all().length!==0||
     db.prepare('PRAGMA user_version').get()?.user_version!==0)
@@ -162,6 +163,9 @@ function checked(db){
 function verifyNewDdl(db,candidate){
  const reference=new DatabaseSync(':memory:');
  try{
+  reference.exec('PRAGMA temp_store=MEMORY');
+  if(reference.prepare('PRAGMA temp_store').get()?.temp_store!==2)
+   fail('UNSAFE_TEMP_STORE');
   const initial=fs.readFileSync(path.join(ROOT,'cloudflare/migrations/0001_initial_v3.sql'),'utf8');
   const indexes=fs.readFileSync(path.join(ROOT,'cloudflare/migrations/0002_login_attempts_window_indexes.sql'),'utf8');
   reference.exec(initial+'\n'+indexes+'\n'+candidate);
@@ -185,7 +189,7 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
  let sql,v3;
  try{sql=decryptSql(bytes,passphrase);}catch{fail('SOURCE_VERIFY');}
  assertMemoryOnlyArchiveSql(sql);
- try{v3=verifyLocalSql(sql,{operational:true});}catch{fail('SOURCE_VERIFY');}
+ try{v3=verifyLocalSql(sql,{operational:true,memoryOnlyTemp:true});}catch{fail('SOURCE_VERIFY');}
  if(v3.stock_ledger_version!==3||v3.applied_migrations!==2||
     v3.schema_version!==3||v3.owner_count!==1)fail('NOT_V3');
  const candidate=fs.readFileSync(
@@ -195,6 +199,9 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
  if(candidate!==local||candidate!==proposal)fail('CANDIDATE_MISMATCH');
  const db=new DatabaseSync(':memory:');
  try{
+  db.exec('PRAGMA temp_store=MEMORY');
+  if(db.prepare('PRAGMA temp_store').get()?.temp_store!==2)
+   fail('UNSAFE_TEMP_STORE');
   db.exec(sql);
   db.exec('PRAGMA foreign_keys=ON');
   checked(db);

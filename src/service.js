@@ -4,6 +4,7 @@ const {inTransaction}=require('./db');
 const pricing=require('./pricing');
 const batches=require('./order-batches');
 const {normalizeCatalogCommand}=require('./catalog-crud-contract.mjs');
+const {appendLocalStockV4}=require('./local-stock-v4-command.cjs');
 const {canOwnerManageAccountStatus,isAccountStatusTransition}=require('../cloudflare/account-status-contract.mjs');
 const {requestIp}=require('./request-ip');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
@@ -255,6 +256,12 @@ function command(db,u,action,x={}){
   const note=cleanText(x.note||'',300,true);
   db.prepare('INSERT INTO stock_moves(id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id) VALUES(?,?,?,?,?,?,?,?)').run(id,ing.id,l,qty,'adjustment',null,'期初庫存建檔：'+note,u.id);
   audit(db,u,action,'stock_moves',id,l,{ingredient_id:ing.id,qty,reason:note});return {id,on_hand:qty};
+ }
+ case 'stock.scrap':case 'stock.adjust':case 'stock.supplier_return':{
+  // Existing command() inTransaction is the sole transaction owner.
+  // The stock v4 adapter checks explicit operator Gate, live Session,
+  // current role/store, exact v4 schema, receipt budget and immutable audit.
+  return appendLocalStockV4(db,u,action,x);
  }
  case 'stock.usage':{
   return move(db,u,{...x,qty:x.qty},'usage',null);

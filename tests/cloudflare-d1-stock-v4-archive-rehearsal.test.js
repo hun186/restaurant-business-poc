@@ -154,3 +154,39 @@ test('single-quoted SQLite identifiers are rejected before encrypted archive rep
  assert.equal(mod.assertMemoryOnlyArchiveSql(
   "INSERT INTO notes(detail) VALUES('temp'),('temp_store'),('vacuum');"),true);
 });
+
+test('large multi-INSERT dump SQL guard stays linear without rescanning accumulated text',async()=>{
+ const mod=await modulePromise;
+ const line="INSERT INTO notes(detail) VALUES('synthetic normal stock detail "+
+  "x".repeat(75)+"');\n";
+ const dump=line.repeat(5000);
+ assert.ok(dump.length>=500000&&dump.length<2000000);
+ const started=performance.now();
+ assert.equal(mod.assertMemoryOnlyArchiveSql(dump),true);
+ const elapsed=performance.now()-started;
+ // Old full-prefix regex took ~34 seconds on 575 KiB. The linear scanner
+ // must stay comfortably below that on Node 22/24, Windows and Ubuntu.
+ assert.ok(elapsed<7000,'scanning 5k synthetic rows should be bounded');
+ const injected=dump+"\nPRAGMA /* comment */ 'temp_store'=FILE;\n";
+ assert.throws(()=>mod.assertMemoryOnlyArchiveSql(injected),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+});
+test('SQL guard preserves quoted business values and blocks qualified temporary schemas',async()=>{
+ const mod=await modulePromise;
+ for(const allowed of [
+  "INSERT INTO notes(detail) VALUES('temp'),('temp_store'),('vacuum');",
+  "INSERT INTO notes(detail) VALUES('O''Malley reported vacuum status');",
+  "SELECT 'ATTACH', 'load_extension', 'temp_store';",
+  "-- PRAGMA 'temp_store'=FILE\nSELECT 1;",
+  "PRAGMA foreign_keys=OFF;"
+ ])assert.equal(mod.assertMemoryOnlyArchiveSql(allowed),true);
+ for(const unsafe of [
+  "PRAGMA /* comment */ 'temp_store'=FILE;",
+  "CREATE TABLE IF NOT EXISTS 'temp' /* comment */ .spill(id);",
+  "SELECT * FROM 'temp' -- comment\n .spill;",
+  "CREATE TABLE [temp] /* comment */ .spill AS SELECT 1;",
+  "VACUUM INTO 'leak.sqlite';",
+  "ATTACH DATABASE 'leak.sqlite' AS injected;"
+ ])assert.throws(()=>mod.assertMemoryOnlyArchiveSql(unsafe),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+});

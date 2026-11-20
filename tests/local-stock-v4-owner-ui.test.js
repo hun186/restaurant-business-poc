@@ -62,13 +62,20 @@ test('Local v4 capability authenticates and hides Gate from staff and anonymous 
   'capability reads must never write audit');
 });
 function fakeUi(enabled,role='owner'){
- const handlers=new Map(),elements=new Map(),sent=[];
+ const handlers=new Map(),elements=new Map(),fields=new Map(),sent=[],lookups=[];
+ let currentData={};
  const el=selector=>{
   if(!elements.has(selector))elements.set(selector,{
    hidden:false,style:{},textContent:'',innerHTML:'',dataset:{},disabled:false,
    classList:{add(){},remove(){},toggle(){}},
    addEventListener(type,fn){handlers.set(selector+':'+type,fn)},
-   querySelector(){return {disabled:false}},reset(){}
+   querySelector(selector){
+    const match=/^\[name="([^"]+)"\]$/.exec(selector);
+    if(!match)return {disabled:false};
+    const name=match[1];
+    if(!fields.has(name))fields.set(name,{value:currentData[name]||'',innerHTML:''});
+    return fields.get(name);
+   },reset(){}
   });
   return elements.get(selector);
  };
@@ -82,6 +89,10 @@ function fakeUi(enabled,role='owner'){
   if(url==='/api/me')return {ok:true,json:async()=>({user,csrf:'synthetic-csrf'})};
   if(url==='/api/overview')return {ok:true,json:async()=>({overview:{todo:0,late:0,low:0,orders:0,repairs:0,trainingPending:0}})};
   if(url==='/api/stock/v4-capability')return {ok:true,json:async()=>({enabled})};
+  if(url.startsWith('/api/stock/v4-receipts?')){
+   lookups.push(url);
+   return {ok:true,json:async()=>({rows:orders,truncated:false})};
+  }
   if(url.startsWith('/api/data?entity=')){
    const name=new URL('https://local.invalid'+url).searchParams.get('entity');
    return {ok:true,json:async()=>({rows:name==='stock'?stock:name==='purchase_orders'?orders:
@@ -94,7 +105,6 @@ function fakeUi(enabled,role='owner'){
   }
   throw Error('Unexpected route '+url);
  };
- let currentData={};
  class FakeFormData{
   constructor(){}
   *[Symbol.iterator](){for(const x of Object.entries(currentData))yield x;}
@@ -105,7 +115,7 @@ function fakeUi(enabled,role='owner'){
   URL,Date,console,setTimeout:()=>1,clearTimeout(){}});
  vm.runInContext(read('public/app.js'),ctx,{filename:'app.js'});
  const settle=async()=>{for(let i=0;i<25;i++)await Promise.resolve()};
- return {ctx,el,handlers,sent,settle,setData(d){currentData=d},stock,orders};
+ return {ctx,el,fields,handlers,sent,lookups,settle,setData(d){currentData=d;for(const [k,v] of Object.entries(d))if(fields.has(k))fields.get(k).value=v;},stock,orders};
 }
 test('Local stock toolbar cannot show v4 operations without server capability',async()=>{
  for(const [enabled,role,expected] of [[false,'owner',false],[true,'staff',false],[true,'manager',true],[true,'owner',true]]){
@@ -128,7 +138,11 @@ test('Local v4 form uses signed quantity, received order, UUID, confirmation and
  h.setData(p);
  await vm.runInContext("showForm('stock.supplier_return')",h.ctx);
  assert.match(h.el('#modal-root').innerHTML,/原已驗收叫貨單/);
- assert.match(h.el('#modal-root').innerHTML,/PO-MOCK/);
+ assert.equal(typeof h.handlers.get('#find-stock-receipts:click'),'function');
+ await h.handlers.get('#find-stock-receipts:click')();
+ assert.equal(h.lookups.length,1);
+ assert.match(h.lookups[0],/api\/stock\/v4-receipts/);
+ assert.match(h.fields.get('reference_id').innerHTML,/PO-MOCK/);
  const send=h.handlers.get('#record-form:submit');assert.equal(typeof send,'function');
  await send({currentTarget:h.el('#record-form'),preventDefault(){}});
  assert.equal(h.sent.length,1);
@@ -147,4 +161,44 @@ test('Local v4 form uses signed quantity, received order, UUID, confirmation and
  const s=h.ctx;
  assert.match(vm.runInContext("inputHtml({name:'qty',display:'配方用量',type:'number',required:true})",s),/step="any" min="0"/);
  assert.match(vm.runInContext("inputHtml({name:'qty_delta',display:'調整量',type:'number',required:true,stockV4:true})",s),/step="0\.001" min="-1000000"/);
+});
+
+test('receipt search reaches older valid orders beyond the 500-row general history cap',async t=>{
+ const f=setup(t);f.migrate();
+ process.env.LOCAL_STOCK_V4_WRITE_GATE='operator-released';
+ const store=randomUUID(),other=randomUUID(),ingredient=randomUUID();
+ for(const [id,name] of [[store,'Approved store'],[other,'Other store']])
+  f.db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(id,name);
+ f.db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
+  .run(ingredient,'MOCK-RECEIPTS','Synthetic', 'kg');
+ f.db.prepare('INSERT INTO user_locations(user_id,location_id) VALUES(?,?)')
+  .run(f.actors.manager.id,store);
+ const write=f.db.prepare(
+  'INSERT INTO purchase_orders(id,number,location_id,ingredient_id,supplier,qty,status,created_by) '+
+  'VALUES(?,?,?,?,?,?,?,?)'
+ );
+ const oldest=randomUUID(),stale='PO-OLDER-RECEIPT';
+ write.run(oldest,stale,store,ingredient,'Synthetic Supplier',1,'received',f.actors.owner.id);
+ for(let i=0;i<520;i++)
+  write.run(randomUUID(),'PO-RECENT-'+String(i).padStart(5,'0'),store,ingredient,
+   'Synthetic Supplier',1,'received',f.actors.owner.id);
+ write.run(randomUUID(),'PO-OTHER-STORE',other,ingredient,'Out of Scope',1,'received',f.actors.owner.id);
+ const server=http.createServer(makeHandler(f.db));
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const port=server.address().port,base='/api/stock/v4-receipts?location_id='+store+'&ingredient_id='+ingredient;
+ const mgr=f.actors.manager.cookie,own=f.actors.owner.cookie;
+ const exact=await request(port,base+'&q='+stale,mgr);
+ assert.equal(exact.status,200);assert.equal(exact.json.rows.length,1);
+ assert.equal(exact.json.rows[0].id,oldest);
+ const many=await request(port,base,own);
+ assert.equal(many.status,200);assert.equal(many.json.rows.length,50);
+ assert.equal(many.json.truncated,true,'browser must ask for exact PO number when results are truncated');
+ assert.equal((await request(port,base,f.actors.staff.cookie)).status,403);
+ assert.equal((await request(port,base)).status,401);
+ assert.equal((await request(port,base.replace('location_id='+store,'location_id='+other),mgr)).status,403);
+ assert.equal((await request(port,base+'&q='+encodeURIComponent('PO%'),own)).status,400);
+ process.env.LOCAL_STOCK_V4_WRITE_GATE='disabled';
+ assert.equal((await request(port,base,own)).status,403);
+ assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM stock_moves").get().n,0);
 });

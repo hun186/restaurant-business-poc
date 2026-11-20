@@ -55,18 +55,24 @@ export function assertMemoryOnlyArchiveSql(sql){
   }
   if(c==="'"||c==='"'||c===String.fromCharCode(96)||c==='['){
    const endChar=c==='['?']':c;
-   // Single quotes are literal VALUES. Double/backtick/bracket quotes are
-   // SQLite identifiers, which can name PRAGMAs and must not hide tokens.
+   // SQLite also accepts single-quoted identifiers in positions such as
+   // PRAGMA 'temp_store' and CREATE TABLE 'temp'.spill. Distinguish these
+   // structural contexts from ordinary single-quoted business data.
+   const identifierContext=c!=="'"||
+    /\b(?:PRAGMA|TABLE|VIEW|INDEX|TRIGGER|ON|FROM|JOIN|INTO|UPDATE|DELETE|DATABASE|SCHEMA)\s*$/i.test(executable);
    let identifier='',ended=false;
    for(++i;i<sql.length;i++){
     if(sql[i]===endChar){
-     if(sql[i+1]===endChar){if(c!=="'")identifier+=endChar;i++;continue;}
+     if(sql[i+1]===endChar){identifier+=endChar;i++;continue;}
      ended=true;break;
     }
-    if(c!=="'")identifier+=sql[i];
+    identifier+=sql[i];
    }
    if(!ended)fail('UNSAFE_SQL');
-   executable+=' '+identifier+' ';continue;
+   // A quoted schema token before '.' is always an identifier, even
+   // when it follows a parenthesis or an otherwise unrecognized keyword.
+   const schemaQualifier=sql.slice(i+1).trimStart().startsWith('.');
+   executable+=(identifierContext||schemaQualifier?' '+identifier+' ':' ');continue;
   }
   executable+=c;
  }

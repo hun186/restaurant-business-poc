@@ -40,7 +40,8 @@ const eqTarget=meta=>meta?.success===true&&meta.result?.name==='restaurant-busin
  meta.result?.uuid===localProductionTarget().databaseId&&meta.result?.version==='production';
 
 // A D1 v4 stock ledger is a separately operator-migrated extension.
-// Its cloud_schema_contract and the two original d1_migrations stay at v3.
+// Its cloud_schema_contract stays at v3; the reviewed versioned D1
+// migration ledger gains one explicit 0004 receipt (two older entries remain).
 // Validate the *actual* SQL DDL using a separately created disposable model;
 // never execute the proposal on the operational export or remote D1.
 function verifyStockLedgerDdl(db,{initial,second,operational,hasV4Marker}){
@@ -51,8 +52,10 @@ function verifyStockLedgerDdl(db,{initial,second,operational,hasV4Marker}){
    if(!operational)fail('SQL_SCHEMA');
    const local=fs.readFileSync(path.join(ROOT,'db/migration-proposals/0004_stock_move_kinds.sql'),'utf8');
    const cloud=fs.readFileSync(path.join(ROOT,'cloudflare/migration-proposals/0004_stock_move_kinds.sql'),'utf8');
-   if(local.replace(/\r\n/g,'\n')!==cloud.replace(/\r\n/g,'\n'))fail('SQL_SCHEMA');
-   reference.exec(cloud);
+   const optIn=fs.readFileSync(path.join(ROOT,'cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql'),'utf8');
+   if(local.replace(/\r\n/g,'\n')!==cloud.replace(/\r\n/g,'\n')||
+      optIn.replace(/\r\n/g,'\n')!==cloud.replace(/\r\n/g,'\n'))fail('SQL_SCHEMA');
+   reference.exec(optIn);
    const markers=db.prepare('SELECT id,kind_version FROM stock_move_kind_contract ORDER BY id').all();
    if(markers.length!==1||markers[0].id!==1||markers[0].kind_version!==4)
     fail('SQL_SCHEMA');
@@ -87,7 +90,8 @@ export function privateDir(target=defaultDir()){
  return p;
 }
 // Fail closed unless the encrypted copy can locally replay the *entire*
-// reviewed v3 migration schema plus the two exact migration ledger entries.
+// reviewed v3 schema plus the exact versioned migration ledger (v3: two;
+// stock v4: three entries, with a reviewed opt-in 0004 receipt).
 export function verifyLocalSql(sql,{operational=false}={}) {
  if(typeof operational!=='boolean')fail('SQL_OWNER_STATE');
  if(typeof sql!=='string'||!sql.trim()||
@@ -119,9 +123,12 @@ export function verifyLocalSql(sql,{operational=false}={}) {
    .map(row=>row.name).sort();
   if(JSON.stringify(indexNames)!==JSON.stringify(expectedIndexes.sort()))fail('SQL_SCHEMA');
   const contract=db.prepare('SELECT id,contract_version FROM cloud_schema_contract').all();
-  const ledger=db.prepare('SELECT name FROM d1_migrations ORDER BY id').all().map(x=>x.name);
+  const ledger=db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all();
+  const expectedLedger=[{id:1,name:'0001_initial_v3.sql'},
+   {id:2,name:'0002_login_attempts_window_indexes.sql'},
+   ...(hasV4Marker?[{id:3,name:'0004_stock_move_kinds.sql'}]:[])];
   if(contract.length!==1||contract[0].id!==1||contract[0].contract_version!==3||
-     JSON.stringify(ledger)!==JSON.stringify(['0001_initial_v3.sql','0002_login_attempts_window_indexes.sql']))
+     JSON.stringify(ledger)!==JSON.stringify(expectedLedger))
     fail('SQL_SCHEMA');
   if(operational){
    // Real operating databases contain valid business rows and auth history.
@@ -149,7 +156,7 @@ export function verifyLocalSql(sql,{operational=false}={}) {
    const businessDataPresent=coreTables.some(table=>
      db.prepare('SELECT EXISTS(SELECT 1 FROM '+table+' LIMIT 1) AS present').get()?.present===1);
    return Object.freeze({schema_version:3,stock_ledger_version:stockLedgerVersion,
-    applied_migrations:2,owner_count:1,
+    applied_migrations:ledger.length,owner_count:1,
     owner_enrollment_audits:1,operational_backup:true,
     business_data_present:businessDataPresent,local_sqlite_replay_verified:true,
     production_restore_performed:false,remote_restore_rehearsal_verified:false,

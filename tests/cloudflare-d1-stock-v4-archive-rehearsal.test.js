@@ -220,3 +220,34 @@ test('large authenticated SQL sort uses memory-backed temporary storage in BOTH 
  assert.throws(()=>mod.rehearseArchiveBytes(injected,pass,digest(injected)),
   /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
 });
+
+
+test('qualified quoted PRAGMA override cannot spill a large authenticated archive then reset mode',async()=>{
+ const [mod,backup]=await Promise.all([modulePromise,archivePromise]);
+ // Reproduce Codex P2: previous scanner ignored quoted PRAGMA after main.
+ // Final MEMORY reset fooled a post-replay temp_store readback.
+ const sort="\nCREATE TABLE scratch(detail TEXT NOT NULL);"+
+  "\nINSERT INTO scratch(detail) WITH RECURSIVE seq(n) AS ("+
+  "SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<10000) "+
+  "SELECT hex(randomblob(1000)) || printf('%05d',n) FROM seq;"+
+  "\nSELECT detail FROM scratch ORDER BY detail DESC;"+
+  "\nDROP TABLE scratch;";
+ const malicious=v3+"\nPRAGMA main.'temp_store'=FILE;"+sort+
+  "\nPRAGMA main.'temp_store'=MEMORY;";
+ const archive=backup.encryptSql(malicious,pass,{operational:true});
+ assert.throws(()=>mod.rehearseArchiveBytes(archive,pass,digest(archive)),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+ for(const quoted of [
+  "PRAGMA main.'temp_store'=FILE;",
+  "PRAGMA main. 'temp_store' = FILE;",
+  "PRAGMA main./* schema comment */'temp_store'=FILE;",
+  "PRAGMA 'main'.'temp_store'=FILE;",
+  'PRAGMA main."temp_store"=FILE;',
+  "PRAGMA main.[temp_store]=FILE;",
+  "PRAGMA main."+String.fromCharCode(96)+"temp_store"+
+   String.fromCharCode(96)+"=FILE;"
+ ])assert.throws(()=>mod.assertMemoryOnlyArchiveSql(quoted),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_UNSAFE_SQL/);
+ assert.equal(mod.assertMemoryOnlyArchiveSql(
+  "PRAGMA foreign_keys=OFF; INSERT INTO notes(detail) VALUES('temp_store');"),true);
+});

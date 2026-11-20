@@ -169,8 +169,8 @@ async function hiddenPassword(){
   }
   function consume(chunk){for(const b of chunk){
    if(b===10||b===13){done(false);return;}
-   if(b===3||b===27||b<32||bytes.length>=4096){done(true);return;}
    if(b===127||b===8){bytes=Buffer.from(bytes.subarray(0,Math.max(0,bytes.length-1)));continue;}
+   if(b===3||b===27||b<32||bytes.length>=4096){done(true);return;}
    bytes=Buffer.concat([bytes,Buffer.from([b])]);
   }}
   process.stdin.setRawMode(true);process.stdin.resume();process.stdin.on('data',consume);

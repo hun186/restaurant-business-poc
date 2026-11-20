@@ -87,6 +87,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/local-stock-v4-owner-ui.test.js":"70b55005d53ad843321ecec6743e6b57aab82a855216f0b356b1c12c7a20f2f1",
   "tests/local-stock-v4-live-command.test.js":"351602bb2029681d501eff027261329250919e2be943725268624bdd608af066",
   "src/local-stock-v4-command.cjs":"773ceb51210cff4471b9979f5e12025c3bf2f2208767f4215e6635ddf0219526",
   "tests/local-v4-verified-startup.test.js":"4e8c775d5f2313b47526db4ccb753b4fa66487b6f6c39011226f1c1ecd657f8c",
@@ -252,7 +253,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "wrangler.pbkdf2-hosted-disabled.jsonc":"2858fe4ae52bccbd60c8c5f0ba52dcc524787b95864c95aec190e0bac252a239",
   "wrangler.pbkdf2-local.jsonc":"c069f464c266ab286d685ffddf54df3fb067db8ae599b0e7e028c3a011baa69b",
   "wrangler.preview-migrations.jsonc":"fc67f950f58e4ab83299c4ddb10b14e4f61f72a8abed223a0fe24f69b95bee7b",
-  "server.js":"3bbccc2aa3581a7f14e9a448fcc0b88835796e7fb1ce5660c1dcf34660a73a68",
+  "server.js":"939957fd29f9dfbad095174dcf2f2d5a216057b064169295f8cf254149a4d9bf",
   "異機備份驗證.bat":"f7163b7d6de2d994dc7311608eac81c741a1b5143cc8e9c7fe5bbf0a586ceef8",
   "備份還原演練.bat":"8821a4b34ecd227b64a6157c474c4f0312243133c45e652dde9c049da9c1778a",
   "重設業主密碼.bat":"413c3f560749aa27c4d62c087d114dfac9fa9b652159044b6fc83ae3ec12b7f6",
@@ -307,7 +308,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-staging-owner-bootstrap.test.js":"2d13d5dbcea05710128abd0646a10b07295883d1c0562c09e7ab0c1caf849254",
   "tests/core.test.js":"fbb7075f0f442da90d76961d770d4bd8cb5d18f8e554bdc004247f0f00d32c24",
   "tests/demo-backup.test.js":"69c3dd2b94d76858960d3869972ea0637ba4ecf10ab40217b5f6cff68dbb1258",
-  "public/app.js":"83f6e2f5f6b2406de56aa0043353b842d869d469561c5704416d616c39417298",
+  "public/app.js":"0cc0694ce908f211ab529f7550dd99744639cab77c908813f2827536108011ca",
   "public/backup-ui.js":"4b9f3bc7c86c6ae24e92568172c62a024b9fee868bb57b6aef872c60c4ec46d7",
   "public/index.html":"24e7ca3a1fe36801dcd958aaa460c274172c6c9d69ffca2afc5902174dc5c82f",
   "public/order-batch-ui.js":"f9b8e1e91daa88eefba0ce33b24209d45a4b7ce1753d4f0193f0192d683f9c22",

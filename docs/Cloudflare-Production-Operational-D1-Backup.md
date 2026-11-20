@@ -18,3 +18,11 @@
 - 匯出包含正式員工和營運資訊以及可能尚未過期的 Session 雜湊。**務必保護密文備份與密碼，還原時應先撤銷舊 Session**，不能因備份內容完整就直接重新啟用舊 Session。還原涉及正式資料庫寫入，仍由獨立程序與核准處理。
 - 本次僅加入程式及離線合成測試；GitHub CI、Cloudflare Workers Build、Code Review 即使 PASS，也**不能視為真正營運 D1 匯出、離線副本檢驗或異機復原已完成**。#31 的異機還原、#46 的 Remote Restore、安全部署 Vars/Secrets、最新 G0 Active Worker 版本與正式登入 UAT 仍是獨立關卡。
 - 只允許固定 Production D1 UUID 的匯出，沒有 `wrangler deploy`、`import`、`restore`、`migrate`、新增 Owner、密碼重設、GitHub Secrets 或業務 Write Gate 變更。
+
+## 2026-11-20｜Stock v4 營運備份相容性（程式階段，非放行）
+
+- 既有 **v3** 正式 D1 營運加密匯出／離線解密驗證、原本 2 筆 `d1_migrations` 及 `cloud_schema_contract=3` 均保留原契約。
+- 未來若資料庫另經核准完成 **Stock v4** 轉換，營運期的備份驗證器才會接受額外的 `stock_move_kind_contract` 表，必須只有一筆合法 v4 標記；同時依兩份內容一致的 v4 SQL 提案在**獨立記憶體資料庫**建立預期結構，逐字核對新的 `stock_moves` DDL、標記表 DDL 和庫存索引。這不執行正式資料庫遷移。
+- 驗證輸出新增 `stock_ledger_version=3/4`；`schema_version=3` **指原有 D1 cloud_schema_contract**，不能誤當成 v4 的正式 D1 migration ledger 已升版。任何多餘表、缺少標記、放寬 CHECK、修改索引或不符的遷移紀錄皆拒絕。
+- 加密封存仍使用經認證的 `RBPOC_D1_AES256_GCM_OPERATIONAL_SQL_V1`，備份來源與獨立副本都會解密重播並核對庫存流水版本。原有「初始空庫／首次 Owner」備份格式維持嚴格，不接受 v4。
+- 目前僅使用**合成 SQL、記憶體 SQLite 和本機加密檔**測試；未接觸正式 Cloudflare D1，未使用管理員 Token、未部署、未執行 Restore、未啟用 Return／Scrap／Adjust Gate。現場仍須先完成 v3 及 v4 可能復原的加密來源／外接副本驗證，並在隔離 D1 上演練回復與受控 v4 遷移後才可另外授權正式變更。

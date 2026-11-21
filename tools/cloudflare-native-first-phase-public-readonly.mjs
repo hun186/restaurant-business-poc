@@ -93,9 +93,15 @@ function ownerAppMarkupValid(html){
  const policies=[...head.matchAll(
   /<meta\b[^>]*\bhttp-equiv\s*=\s*(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/gi
  )].map(x=>x[0]);
- if(policies.length!==1||policies[0]!==
-  '<meta http-equiv="Content-Security-Policy" content="'+APPROVED_META_CSP+'">')
-  return false;
+ const expectedCsp='<meta http-equiv="Content-Security-Policy" content="'+
+  APPROVED_META_CSP+'">';
+ if(policies.length!==1||policies[0]!==expectedCsp)return false;
+ // Meta CSP only takes effect in the live HTML head. A literal matching
+ // <meta> within <template>, <noscript>, script text etc. is inert. Keep
+ // the approved pre-CSP head structure explicit and fail closed on drift.
+ const expectedPrelude=/^\s*<meta charset="utf-8">\s*<meta name="viewport" content="width=device-width,initial-scale=1">\s*<meta name="theme-color" content="#102f43">\s*$/;
+ const position=head.indexOf(expectedCsp);
+ if(position<0||!expectedPrelude.test(head.slice(0,position)))return false;
  return head.includes('<meta name="robots" content="noindex,nofollow">')&&
   clean.includes('正式業主工作台')&&
   clean.includes('<script type="module" src="/owner-app.js"></script>')&&

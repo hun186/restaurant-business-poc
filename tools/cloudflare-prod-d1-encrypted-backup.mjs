@@ -446,7 +446,9 @@ export function decodeHiddenUtf8(buffer,length){
  try{return new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(buffer.subarray(0,length));}
  catch{fail('TTY');}
 }
-async function hidden(prompt){
+// Shared console prompt for both operational backup and offline v4 rehearsal.
+// Preserve leading U+FEFF and wipe raw UTF-8 bytes after every exit path.
+export async function readHiddenBackupPassphrase(prompt){
  if(!process.stdin.isTTY||!process.stdout.isTTY||!process.stdin.setRawMode)fail('TTY');
  process.stdout.write(prompt);
  return new Promise((resolve,reject)=>{
@@ -486,7 +488,7 @@ async function main(args){
    copyFile=await rl.question('Copied .sql.aes full path: ');
   }finally{rl.close();}
   if(!originalFile?.trim()||!copyFile?.trim())fail('COPY_PATH');
-  const pass=await hidden('Backup passphrase (hidden): ');
+  const pass=await readHiddenBackupPassphrase('Backup passphrase (hidden): ');
   console.log(JSON.stringify(verifyIndependentCopy(
    normalizeCopyPromptPath(originalFile),normalizeCopyPromptPath(copyFile),pass)));
   return;
@@ -507,9 +509,9 @@ async function main(args){
  let approval;try{approval=await rl.question('Export can temporarily block Production D1 queries. Type '+APPROVAL+': ');}
  finally{rl.close();}
  if(approval!==APPROVAL)fail('APPROVAL');
- const token=await hidden('Production D1 Read/Export API Token (hidden): ');
- const pass=await hidden('New encryption passphrase (min 16 chars, hidden): ');
- const confirm=await hidden('Repeat encryption passphrase (hidden): ');
+ const token=await readHiddenBackupPassphrase('Production D1 Read/Export API Token (hidden): ');
+ const pass=await readHiddenBackupPassphrase('New encryption passphrase (min 16 chars, hidden): ');
+ const confirm=await readHiddenBackupPassphrase('Repeat encryption passphrase (hidden): ');
  if(pass!==confirm)fail('PASSPHRASE');
  // Only local encrypted archive is stored. No plaintext SQL file is created.
  const sql=await remoteExport({token,operational});

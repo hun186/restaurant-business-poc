@@ -274,7 +274,43 @@ test('offline v4 CLI shares BOM-preserving hidden passphrase with operational Ex
  const toolSrc=fs.readFileSync(path.join(root,'tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs'),'utf8');
  assert.match(backupSrc,/export async function readHiddenBackupPassphrase\(prompt\)/);
  assert.match(backupSrc,/new TextDecoder\('utf-8',\{fatal:true,ignoreBOM:true\}\)/);
- assert.match(toolSrc,/import \{decryptSql,verifyLocalSql,readHiddenBackupPassphrase\}/);
+ assert.match(toolSrc,/import \{[^}]*readHiddenBackupPassphrase[^}]*\} from '\.\/cloudflare-prod-d1-encrypted-backup\.mjs'/);
  assert.match(toolSrc,/const passphrase=await readHiddenBackupPassphrase\(/);
  assert.doesNotMatch(toolSrc,/async function hiddenPassword\(|Buffer\.concat\(\[bytes,Buffer\.from\(\[b\]\)\]\)/);
+});
+
+
+test('Windows option 5 prompts for independent digest, never interpolates pasted inputs in cmd.exe',async()=>{
+ const [mod,backup]=await Promise.all([modulePromise,archivePromise]);
+ const file=path.resolve(os.tmpdir(),'synthetic archive for rehearsal.sql.aes');
+ const sha='Ab'.repeat(32);
+ const options=mod.parseInteractiveArchiveInput('"'+file+'"',sha);
+ assert.deepEqual(options,{file,expectedSha256:sha.toLowerCase()});
+ assert.deepEqual(mod.parseInteractiveArchiveInput(file,'  '+sha.toLowerCase()+'  '),options);
+ for(const [badFile,badSha] of [
+  ['',sha],['relative.sql.aes',sha],['"'+file,sha],
+  [file+'" & echo injection',sha],[file+'"',sha],
+  [file,sha.slice(1)],[file,sha+'; echo injection'],[file,'0'.repeat(64)+'&'],
+  [file,''],[null,sha],[file,null]
+ ])assert.throws(()=>mod.parseInteractiveArchiveInput(badFile,badSha),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_/);
+ assert.deepEqual(mod.parseArgs(['--archive',file,'--sha256',sha]),
+  {file,expectedSha256:sha});
+ assert.throws(()=>mod.parseArgs(['--interactive']),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_ARGS/);
+ const bat=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8');
+ assert.match(bat,/choice \/C 12345/);
+ assert.match(bat,/if "%MENU_CHOICE%"=="5" goto rehearse-v4/);
+ assert.match(bat,/node tools\\cloudflare-d1-stock-v4-archive-rehearsal\.mjs --interactive/);
+ assert.doesNotMatch(bat,/(?:--archive|--sha256) "%(?:ARCHIVE|HASH|DIGEST)/i);
+ assert.match(bat,/No? ?Cloudflare|no Cloudflare/i);
+ const source=fs.readFileSync(path.join(root,'tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs'),'utf8');
+ assert.match(source,/await rl\.question\('Verified operational \.sql\.aes full path: '\)/);
+ assert.match(source,/await rl\.question\('Independent verification SHA-256 \(64 hex\): '\)/);
+ assert.match(source,/readHiddenBackupPassphrase\('Operational backup passphrase/);
+ assert.doesNotMatch(source,/execFileSync|spawnSync|child_process|fetch\(/);
+ // An arbitrary unverified hash can never produce a PASS on a valid archive.
+ const archive=backup.encryptSql(v3,pass,{operational:true});
+ assert.throws(()=>mod.rehearseArchiveBytes(archive,pass,'0'.repeat(64)),
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_SHA256_MISMATCH/);
 });

@@ -9,16 +9,18 @@ if errorlevel 1 (
 )
 echo.
 echo ===== Cloudflare Production D1 ENCRYPTED LOCAL BACKUP =====
-echo This is an export only; NO Owner creation, migration or restore.
+echo Backup export, offline verification and memory-only v4 rehearsal. NO migration or restore.
 echo Cloudflare export may temporarily block Production D1 queries.
 echo Encrypted archives stay under your Windows user profile.
 echo [1] Export Production D1 to encrypted local backup ^(requires operator confirmation^)
 echo [2] Verify an existing encrypted local backup ^(offline^)
 echo [3] Verify a separately copied encrypted archive ^(offline, no Cloudflare access^)
 echo [4] Export normal operational D1 with shops/stock/auth history to encrypted archive
+echo [5] Rehearse v3 to v4 from verified encrypted archive ^(offline; no D1 write^)
 echo.
-choice /C 1234 /N /M "Select 1, 2, 3 or 4: "
+choice /C 12345 /N /M "Select 1, 2, 3, 4 or 5: "
 set "MENU_CHOICE=%ERRORLEVEL%"
+if "%MENU_CHOICE%"=="5" goto rehearse-v4
 if "%MENU_CHOICE%"=="4" goto export-operational
 if "%MENU_CHOICE%"=="3" goto verify-copy
 if "%MENU_CHOICE%"=="2" goto verify
@@ -54,8 +56,16 @@ echo This checks ciphertext equality and SQLite replay. It does NOT certify an o
 node tools\cloudflare-prod-d1-encrypted-backup.mjs --verify-copy
 set "RESULT=%ERRORLEVEL%"
 goto finish
+:rehearse-v4
+echo.
+echo OFFLINE ONLY: no Cloudflare requests, production changes, remote restore or migration.
+echo First complete operational Export, Verify and independent Copy Verify.
+echo Enter the SHA-256 from the independently verified source; not a new local guess.
+node tools\cloudflare-d1-stock-v4-archive-rehearsal.mjs --interactive
+set "RESULT=%ERRORLEVEL%"
+goto finish
 :finish
 echo.
-if not "%RESULT%"=="0" echo ABORTED: backup NOT accepted; no production SQL writes were attempted.
+if not "%RESULT%"=="0" echo FAILED: requested operation NOT accepted; no production SQL writes were attempted.
 pause
 exit /b %RESULT%

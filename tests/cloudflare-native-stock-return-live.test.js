@@ -211,15 +211,15 @@ test('direct supplier return cannot bypass a missing, misnamed, or extra v4 migr
 });
 
 test('supplier return batch rejects migration receipt revoked after preflight, with zero movement/audit',async t=>{
- let f,changed=false;
+ let f,changed=false,armed=false;
  const opts={beforeBatch(){
-  if(!changed){
+  if(armed&&!changed){
    changed=true;
    f.db.prepare('UPDATE d1_migrations SET name=? WHERE id=3').run('unapproved.sql');
   }
  }};
  f=await fixture(t,opts);
- const owner=await f.login('owner');
+ const owner=await f.login('owner');armed=true;
  const response=await f.write(owner,f.command(1.5));
  assert.equal(changed,true);
  assert.equal(response.status,503);

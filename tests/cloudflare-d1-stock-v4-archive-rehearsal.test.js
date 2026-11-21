@@ -312,5 +312,5 @@ test('Windows option 5 prompts for independent digest, never interpolates pasted
  // An arbitrary unverified hash can never produce a PASS on a valid archive.
  const archive=backup.encryptSql(v3,pass,{operational:true});
  assert.throws(()=>mod.rehearseArchiveBytes(archive,pass,'0'.repeat(64)),
-  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_DIGEST/);
+  /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_SHA256_MISMATCH/);
 });

@@ -116,11 +116,13 @@ test('operational export verifies production target, skips initial-only empty da
  assert.equal(meta,1);assert.equal(exportCalls,2);assert.equal(download,1);assert.equal(query,0);
  assert.equal(m.verifyLocalSql(out,{operational:true}).operational_backup,true);
 });
-test('Windows launcher requires exact 4 and does not confuse choice errors with export',()=>{
+test('Windows launcher requires exact 5 and does not confuse choice errors with export',()=>{
  const bat=fs.readFileSync(path.join(root,'run-production-d1-backup.bat'),'utf8').replace(/\r\n/g,'\n');
- assert.match(bat,/choice \/C 1234 \/N/);
+ assert.match(bat,/choice \/C 12345 \/N/);
+ assert.match(bat,/if "%MENU_CHOICE%"=="5" goto rehearse-v4/);
+ assert.match(bat,/node tools\\cloudflare-d1-stock-v4-archive-rehearsal\.mjs --interactive/);
  assert.match(bat,/if "%MENU_CHOICE%"=="4" goto export-operational/);
  assert.match(bat,/--export-operational/);
  assert.match(bat,/if "%MENU_CHOICE%"=="3" goto verify-copy/);
- assert.doesNotMatch(bat,/if errorlevel [34] goto/);
+ assert.doesNotMatch(bat,/if errorlevel [345] goto/);
 });

@@ -443,7 +443,7 @@ export function eraseTrailingUtf8CodePointInPlace(buffer,length){
 export function decodeHiddenUtf8(buffer,length){
  if(!Buffer.isBuffer(buffer)||!Number.isSafeInteger(length)||
     length<0||length>buffer.length)fail('TTY');
- try{return new TextDecoder('utf-8',{fatal:true}).decode(buffer.subarray(0,length));}
+ try{return new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(buffer.subarray(0,length));}
  catch{fail('TTY');}
 }
 async function hidden(prompt){

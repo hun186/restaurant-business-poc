@@ -71,7 +71,7 @@ test('Strict status shape, core gates and v4 defaults fail closed',async()=>{
    /E_NATIVE_FIRST_PHASE_READONLY/);
  }
  const changed=base();changed.mode='demo';
- await assert.rejects(m.attestNativeFirstPhaseStatus(changed));
+ assert.throws(()=>m.attestNativeFirstPhaseStatus(changed),/E_NATIVE_FIRST_PHASE_READONLY/);
 });
 test('Leaked anonymous identity, unknown HTML and login GET bypass are rejected',async()=>{
  const m=await loaded;

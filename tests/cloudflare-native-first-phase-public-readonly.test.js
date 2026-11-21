@@ -109,6 +109,27 @@ test('CSP must be one exact enforcing meta in <head>, never text/comment/permiss
  }
 });
 
+test('CSP fails when the entire head is wrapped in inert outer HTML containers',async()=>{
+ const m=await loaded;
+ const wraps=[
+  canonicalOwner.replace('<head>','<template><head>')
+   .replace('</head>','</head></template>'),
+  canonicalOwner.replace('<head>','<script type="text/plain"><head>')
+   .replace('</head>','</head></script>'),
+  canonicalOwner.replace('<head>','<noscript><head>')
+   .replace('</head>','</head></noscript>'),
+  canonicalOwner.replace('<!doctype html>','<template><!doctype html>')
+   .replace('</html>','</html></template>'),
+  canonicalOwner.replace('<head>','<div><head>')
+   .replace('</head>','</head></div>')
+ ];
+ for(const modified of wraps){
+  await assert.rejects(m.inspectNativeFirstPhasePublic({
+   fetchImpl:fixture({'/owner-app':html(modified)}).fetchImpl
+  }),/E_NATIVE_FIRST_PHASE_READONLY/);
+ }
+});
+
 test('No network exception or malformed response may masquerade as public PASS',async()=>{
  const m=await loaded;
  await assert.rejects(m.inspectNativeFirstPhasePublic({

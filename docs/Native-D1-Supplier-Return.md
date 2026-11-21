@@ -6,7 +6,10 @@ Issue #212 — staged code, **not a production release**.
   data={ingredient_id,location_id,reference_id,qty,reason}.
 - Requires a unique request UUID in X-Idempotency-Key, same-origin Session and
   CSRF, active Owner/Manager with authorized location, correct received PO, an
-  active ingredient and location, and v4 stock move schema marker.
+  active ingredient and location, v4 stock move schema marker, and exactly
+  the three reviewed D1 migration receipts (0001 / 0002 / 0004) in order.
+  Direct API calls with missing/forged/extra receipts fail closed even when the
+  public Gate and marker are ON; receipt validity is rechecked inside D1 batch.
 - \`CLOUD_NATIVE_STOCK_RETURN_WRITE_GATE=operator-released\` is a distinct
   default-OFF switch. No config or remote secret is changed by the PR.
 - Within ONE D1 db.batch transaction, the reviewed SQL rechecks active

@@ -494,7 +494,7 @@ async function main(args){
   return;
  }
  if(args.length===2&&args[0]==='--verify'){
-  const pass=await hidden('Backup passphrase (hidden): ');
+  const pass=await readHiddenBackupPassphrase('Backup passphrase (hidden): ');
   console.log(JSON.stringify(verifyArchive(path.resolve(args[1]),pass)));return;
  }
  if(args.length!==1||!['--export','--export-operational'].includes(args[0]))fail('ARGS');

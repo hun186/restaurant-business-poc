@@ -64,7 +64,9 @@ export function runMemoryOnlyStockV4Probe(db){
   for(const [kind,delta,reference,note] of invalid){
    let rejected=false;
    try{insert.run(randomUUID(),ingredient,store,delta,kind,reference,note,actor);}
-   catch(e){if(typeof e?.code==='string'&&e.code.startsWith('SQLITE_CONSTRAINT'))rejected=true;else throw e;}
+   catch(e){// Node's DatabaseSync uses ERR_SQLITE_ERROR + extended SQLite errcode.
+    if(e?.code==='ERR_SQLITE_ERROR'&&Number.isInteger(e.errcode)&&
+       (e.errcode&255)===19)rejected=true;else throw e;}
    must(rejected);
   }
   must(db.prepare('SELECT COUNT(*) AS n FROM stock_moves WHERE ingredient_id=? AND location_id=?')

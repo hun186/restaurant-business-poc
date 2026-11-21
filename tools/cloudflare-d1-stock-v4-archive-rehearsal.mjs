@@ -6,7 +6,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
-import {decryptSql,verifyLocalSql,readHiddenBackupPassphrase} from './cloudflare-prod-d1-encrypted-backup.mjs';
+import {createInterface} from 'node:readline/promises';
+import {decryptSql,verifyLocalSql,readHiddenBackupPassphrase,normalizeCopyPromptPath} from './cloudflare-prod-d1-encrypted-backup.mjs';
 import {assertMemoryOnlySql} from './cloudflare-d1-memory-sql-guard.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -173,9 +174,30 @@ export function parseArgs(args){
     args[2]!=='--sha256')fail('ARGS');
  return {file:args[1],expectedSha256:args[3]};
 }
+export function parseInteractiveArchiveInput(archiveText,shaText){
+ if(typeof archiveText!=='string'||typeof shaText!=='string'||
+    !/^[a-f0-9]{64}$/i.test(shaText.trim()))fail('ARGS');
+ let file;
+ try{file=normalizeCopyPromptPath(archiveText);}catch{fail('PATH');}
+ return Object.freeze({file,expectedSha256:shaText.trim().toLowerCase()});
+}
+async function interactiveArchiveArgs(){
+ // No operator-provided strings are interpolated into cmd.exe or shell.
+ // The SHA must come from an independently verified source backup, not
+ // from silently recalculating and trusting the current file.
+ if(!process.stdin.isTTY||!process.stdout.isTTY)fail('TTY');
+ const rl=createInterface({input:process.stdin,output:process.stdout});
+ try{
+  const archive=await rl.question('Verified operational .sql.aes full path: ');
+  const sha=await rl.question('Independent verification SHA-256 (64 hex): ');
+  return parseInteractiveArchiveInput(archive,sha);
+ }finally{rl.close();}
+}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{
-  const {file,expectedSha256}=parseArgs(process.argv.slice(2));
+  const argv=process.argv.slice(2);
+  const {file,expectedSha256}=argv.length===1&&argv[0]==='--interactive'
+   ?await interactiveArchiveArgs():parseArgs(argv);
   const passphrase=await readHiddenBackupPassphrase('Operational backup passphrase (hidden): ');
   console.log(JSON.stringify(rehearseArchiveFile(file,passphrase,expectedSha256)));
  }catch(e){

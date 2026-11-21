@@ -92,6 +92,9 @@ test('CSP must be one exact enforcing meta in <head>, never text/comment/permiss
  assert(canonicalOwner.includes(approved),'expected source CSP tag');
  for(const replacement of [
   '<!-- '+approved+' -->',
+  '<template>'+approved+'</template>',
+  '<noscript>'+approved+'</noscript>',
+  '<script type="text/plain">'+approved+'</script>',
   approved.replace('http-equiv="Content-Security-Policy" ',''),
   approved.replace("script-src 'self'","script-src *"),
   approved.replace("form-action 'self'","form-action *"),

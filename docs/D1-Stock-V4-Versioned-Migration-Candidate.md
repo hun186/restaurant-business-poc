@@ -69,8 +69,17 @@ performing a **memory-only v3→v4 SQL rehearsal**. No plaintext SQL file, SQLit
 clone file, Cloudflare token, API query or network connection is used.
 
 After completing operational backup **Export → Verify → Copy Verify** on
-independently protected storage, record the SHA-256 from the source verification,
-then run from a trusted, clean, reviewed checkout (Node.js 22.13+):
+independently protected storage, record the SHA-256 from the source verification.
+On Windows, launch `run-production-d1-backup.bat` and choose **[5] Offline v4
+rehearsal**, then enter the verified source archive's absolute path and that
+independently recorded 64-character SHA-256. The password is entered separately
+in a hidden terminal prompt. No user-provided path/digest/password is ever
+interpolated into cmd.exe commands; no Cloudflare token or network access is
+used by this option. The selected file must remain an authenticated operational
+**v3** archive.
+
+Alternatively, run the equivalent command from a trusted, clean, reviewed
+checkout (Node.js 22.13+):
 
 ```powershell
 node tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs --archive "C:\\absolute\\path\\operational.sql.aes" --sha256 <64-character-verified-digest>

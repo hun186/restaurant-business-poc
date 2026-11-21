@@ -355,10 +355,11 @@ test('v4 operation probe refuses file-backed or non-memory temporary storage',as
  const {DatabaseSync}=require('node:sqlite');
  const {runMemoryOnlyStockV4Probe}=await import('../tools/cloudflare-d1-stock-v4-archive-transaction-probe.mjs');
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'synthetic-v4-probe-refusal-'));
- t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const dbFile=path.join(dir,'not-a-private-archive.sqlite');
  const fileDb=new DatabaseSync(dbFile);
- t.after(()=>fileDb.close());
+ // Node test after-hooks do not guarantee LIFO. Windows will keep SQLite
+ // file handles locked until close, so close before removing the directory.
+ t.after(()=>{fileDb.close();fs.rmSync(dir,{recursive:true,force:true});});
  assert.throws(()=>runMemoryOnlyStockV4Probe(fileDb),/E_STOCK_V4_ARCHIVE_PROBE/);
  const inMemory=new DatabaseSync(':memory:');t.after(()=>inMemory.close());
  inMemory.exec('PRAGMA temp_store=FILE');

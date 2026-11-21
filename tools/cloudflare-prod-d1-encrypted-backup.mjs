@@ -458,7 +458,7 @@ async function hidden(prompt){
    if(done)return;done=true;process.stdin.off('data',onData);
    try{
     process.stdin.setRawMode(!!prior);process.stdin.pause();
-    process.stdout.write('\\n');
+    process.stdout.write('\n');
     if(error)throw Error(FAIL);
     const result=decodeHiddenUtf8(bytes,length);
     resolve(result);

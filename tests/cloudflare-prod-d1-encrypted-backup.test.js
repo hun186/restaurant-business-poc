@@ -509,3 +509,22 @@ test('hidden operational backup passphrase backspace deletes whole UTF-8 code po
  assert.match(text,/finally\{bytes\.fill\(0\);length=0;\}/);
  assert.doesNotMatch(text,/bytes=bytes\.subarray\(0,Math\.max\(0,bytes\.length-1\)\)/);
 });
+
+
+test('leading U+FEFF stays part of hidden passphrase for legacy encrypted archive authentication',async()=>{
+ const m=await mod;
+ const original='\uFEFF'+'Synthetic-業主🔑-secret-passphrase-2026';
+ const utf8=Buffer.from(original,'utf8');
+ assert.equal(m.decodeHiddenUtf8(utf8,utf8.length),original);
+ assert.equal(m.decodeHiddenUtf8(utf8,utf8.length).codePointAt(0),0xfeff,
+  'BOM-like first codepoint is intentional password data, never stripped');
+ const archive=m.encryptSql(SQL,original);
+ assert.equal(m.decryptSql(archive,m.decodeHiddenUtf8(utf8,utf8.length)),SQL);
+ assert.throws(()=>m.decryptSql(archive,original.slice(1)),
+  e=>e?.reason==='ARCHIVE_AUTH','dropping U+FEFF changes authentication');
+ const corrected=Buffer.from(original+'🍜','utf8');
+ const remaining=m.eraseTrailingUtf8CodePointInPlace(corrected,corrected.length);
+ assert.equal(m.decodeHiddenUtf8(corrected,remaining),original);
+ assert.deepEqual(corrected.subarray(remaining),Buffer.alloc(4));
+ corrected.fill(0);
+});

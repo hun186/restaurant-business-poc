@@ -428,24 +428,52 @@ export function verifyIndependentCopy(originalFile,copyFile,passphrase){
   offsite_encrypted_backup_verified:false,
   external_storage_attestation_required:true,recovery_signoff_granted:false});
 }
+// The operator console can emit UTF-8 in multiple 1-byte chunks. Backspace
+// must remove a complete code point and zero EVERY removed byte in-place;
+// taking a shorter Buffer.subarray would leave sensitive bytes in memory.
+export function eraseTrailingUtf8CodePointInPlace(buffer,length){
+ if(!Buffer.isBuffer(buffer)||!Number.isSafeInteger(length)||
+    length<0||length>buffer.length)fail('TTY');
+ if(length===0)return 0;
+ let start=length-1;
+ while(start>0&&(buffer[start]&0xc0)===0x80)start--;
+ buffer.fill(0,start,length);
+ return start;
+}
+export function decodeHiddenUtf8(buffer,length){
+ if(!Buffer.isBuffer(buffer)||!Number.isSafeInteger(length)||
+    length<0||length>buffer.length)fail('TTY');
+ try{return new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(buffer.subarray(0,length));}
+ catch{fail('TTY');}
+}
 async function hidden(prompt){
  if(!process.stdin.isTTY||!process.stdout.isTTY||!process.stdin.setRawMode)fail('TTY');
  process.stdout.write(prompt);
  return new Promise((resolve,reject)=>{
-  let bytes=Buffer.alloc(0),done=false;const prior=process.stdin.isRaw;
+  // Fixed-capacity bytes avoid per-keystroke copies; the entire allocation
+  // is wiped on Enter, abort, invalid UTF-8, or any terminal reset error.
+  const bytes=Buffer.alloc(4096);let length=0,done=false;
+  const prior=process.stdin.isRaw;
   function finish(error){
    if(done)return;done=true;process.stdin.off('data',onData);
-   process.stdin.setRawMode(!!prior);process.stdin.pause();process.stdout.write('\n');
-   if(error){bytes.fill(0);reject(Error(FAIL));return;}
-   const result=bytes.toString('utf8');bytes.fill(0);resolve(result);
+   try{
+    process.stdin.setRawMode(!!prior);process.stdin.pause();
+    process.stdout.write('\n');
+    if(error)throw Error(FAIL);
+    const result=decodeHiddenUtf8(bytes,length);
+    resolve(result);
+   }catch{reject(Error(FAIL));}
+   finally{bytes.fill(0);length=0;}
   }
-  function onData(c){for(const b of c){
-   if(b===10||b===13){finish(false);return;}
-   if(b===3||b===27){finish(true);return;}
-   if(b===127||b===8){bytes=bytes.subarray(0,Math.max(0,bytes.length-1));continue;}
-   if(b<32||bytes.length>=4096){finish(true);return;}
-   bytes=Buffer.concat([bytes,Buffer.from([b])]);
-  }}
+  function onData(chunk){
+   for(const b of chunk){
+    if(b===10||b===13){finish(false);return;}
+    if(b===3||b===27){finish(true);return;}
+    if(b===127||b===8){length=eraseTrailingUtf8CodePointInPlace(bytes,length);continue;}
+    if(b<32||length>=bytes.length){finish(true);return;}
+    bytes[length++]=b;
+   }
+  }
   process.stdin.setRawMode(true);process.stdin.resume();process.stdin.on('data',onData);
  });
 }

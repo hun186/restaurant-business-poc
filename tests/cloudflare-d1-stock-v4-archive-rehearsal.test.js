@@ -44,6 +44,10 @@ test('offline encrypted v3 rehearsal proves 0004 migration and every historical 
  assert.equal(actual.simulated_stock_ledger_version,4);
  assert.equal(actual.simulated_migration_receipts,3);
  assert.equal(actual.original_stock_move_rows,2);
+ assert.equal(actual.synthetic_movement_kinds_checked,4);
+ assert.equal(actual.synthetic_v4_positive_and_negative_schema_checks,true);
+ assert.equal(actual.synthetic_transaction_rolled_back,true);
+ assert.equal(actual.actual_business_rows_modified,false);
  assert.ok(actual.preserved_tables>=20);
  assert.equal(actual.all_historical_rows_preserved,true);
  assert.equal(actual.plaintext_sql_written_to_disk,false);
@@ -313,4 +317,51 @@ test('Windows option 5 prompts for independent digest, never interpolates pasted
  const archive=backup.encryptSql(v3,pass,{operational:true});
  assert.throws(()=>mod.rehearseArchiveBytes(archive,pass,'0'.repeat(64)),
   /E_D1_STOCK_V4_ARCHIVE_REHEARSAL_SHA256_MISMATCH/);
+});
+
+
+test('synthetic movement probe keeps all pre-existing in-memory business rows byte-identical',async t=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const {runMemoryOnlyStockV4Probe}=await import('../tools/cloudflare-d1-stock-v4-archive-transaction-probe.mjs');
+ const db=new DatabaseSync(':memory:');t.after(()=>db.close());
+ db.exec('PRAGMA temp_store=MEMORY');
+ db.exec('PRAGMA foreign_keys=ON');
+ db.exec(initial+'\n'+indexes);
+ db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL)');
+ for(const [id,name] of [[1,'0001_initial_v3.sql'],[2,'0002_login_attempts_window_indexes.sql']])
+  db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(id,name);
+ db.exec(migration);
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(3,'0004_stock_move_kinds.sql');
+ db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run('synthetic-existing-store','Pre-existing synthetic');
+ db.prepare('INSERT INTO ingredients(id,sku,name,unit) VALUES(?,?,?,?)')
+  .run('synthetic-existing-item','PRE-EXISTING','Original synthetic item','kg');
+ const before=db.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type,name").all();
+ const prior=db.prepare('SELECT * FROM locations ORDER BY id').all();
+ const count=()=>db.prepare('SELECT COUNT(*) AS n FROM stock_moves').get().n;
+ assert.equal(count(),0);
+ const result=runMemoryOnlyStockV4Probe(db);
+ assert.equal(result.synthetic_transaction_rolled_back,true);
+ assert.equal(result.synthetic_movement_kinds_checked,4);
+ assert.equal(result.actual_business_rows_modified,false);
+ assert.equal(count(),0);
+ assert.deepEqual(db.prepare('SELECT * FROM locations ORDER BY id').all(),prior);
+ assert.deepEqual(db.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type,name").all(),before);
+ for(const table of ['users','purchase_orders','audit_logs'])
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,0,table);
+ assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+});
+
+test('v4 operation probe refuses file-backed or non-memory temporary storage',async t=>{
+ const {DatabaseSync}=require('node:sqlite');
+ const {runMemoryOnlyStockV4Probe}=await import('../tools/cloudflare-d1-stock-v4-archive-transaction-probe.mjs');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'synthetic-v4-probe-refusal-'));
+ t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const dbFile=path.join(dir,'not-a-private-archive.sqlite');
+ const fileDb=new DatabaseSync(dbFile);
+ t.after(()=>fileDb.close());
+ assert.throws(()=>runMemoryOnlyStockV4Probe(fileDb),/E_STOCK_V4_ARCHIVE_PROBE/);
+ const inMemory=new DatabaseSync(':memory:');t.after(()=>inMemory.close());
+ inMemory.exec('PRAGMA temp_store=FILE');
+ assert.throws(()=>runMemoryOnlyStockV4Probe(inMemory),/E_STOCK_V4_ARCHIVE_PROBE/);
+ assert.deepEqual(fs.readdirSync(dir),['not-a-private-archive.sqlite']);
 });

@@ -11,7 +11,7 @@ GitHub Actions → **First-phase Native public Owner readiness (anonymous GET, i
   1. `/api/native/status`：嚴格要求 `mode=native`、`login_enabled=true`、task/catalog/order/stocktake/repair 這五個核心 Write Gate 均為 `true`。
   2. 同一份狀態中，第二階段 `stock_v4_gate_enabled` 與 `supplier_return_gate_enabled` 必須均為 `false`；額外的 price/stock_usage Gate 只回報目前布林值，不自動認定已實機驗收。
   3. `/api/login`：匿名 GET 必須是 405；`/api/me`：匿名 GET 必須是 401，且絕不回傳 user/CSRF。
-  4. `/owner-app.html`：真實 Owner 入口 HTML 應回傳 200、noindex 及同源 CSP，不能是 Demo 假登入頁。
+  4. `/owner-app`：Cloudflare 靜態資產的**正式 canonical path**（`/owner-app.html` 可能重新導向）。要求直接回傳 200、有效的 `<head>` 中**唯一且完整符合核准政策的 enforcing CSP meta**、noindex、正式 Owner module script；拒絕重新導向、註解中的 CSP、缺少 `http-equiv` 或放寬 CSP 的頁面，不能是 Demo 假登入頁。
 - HTTP 狀態、Content-Type、no-store、無非預期 Cookie／Redirect、回應大小與 UTF-8 全數嚴格核對；網路故障、資料形狀不符或 Gate 關閉以安全分類失敗，不印出伺服器原始回應或敏感內容。
 - 完全**不使用 Cloudflare Token、Owner 密碼、Cookie、CSRF、POST、SQL、資料庫連線或部署權限**。
 

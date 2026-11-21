@@ -9,6 +9,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {createInterface} from 'node:readline/promises';
 import {decryptSql,verifyLocalSql,readHiddenBackupPassphrase,normalizeCopyPromptPath} from './cloudflare-prod-d1-encrypted-backup.mjs';
 import {assertMemoryOnlySql} from './cloudflare-d1-memory-sql-guard.mjs';
+import {runMemoryOnlyStockV4Probe} from './cloudflare-d1-stock-v4-archive-transaction-probe.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const PREFIX='E_D1_STOCK_V4_ARCHIVE_REHEARSAL_';
@@ -152,12 +153,24 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
   checked(db);
   const committed=snapshot(db,preserve);
   for(const name of preserve)same(committed.get(name),before.get(name));
+  // Rehearse the new ledger kinds only on the disposable in-memory v4 copy.
+  // Synthetic rows are rolled back; prove every real history fingerprint again.
+  const probe=runMemoryOnlyStockV4Probe(db);
+  checked(db);
+  const afterProbe=snapshot(db,preserve);
+  for(const name of preserve)same(afterProbe.get(name),before.get(name));
+  same(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all()
+   .map(x=>({id:x.id,name:x.name})),ledger);
+  same(db.prepare('SELECT id,kind_version FROM stock_move_kind_contract').all()
+   .map(x=>({id:x.id,kind_version:x.kind_version})),
+   [{id:1,kind_version:4}]);
   return Object.freeze({
    status:'D1_STOCK_V4_ENCRYPTED_ARCHIVE_OFFLINE_REHEARSAL_PASS',
    source_archive_sha256:archiveSha,source_stock_ledger_version:3,
    simulated_stock_ledger_version:4,simulated_migration_receipts:3,
    original_stock_move_rows:moves,preserved_tables:preserve.length,
    all_historical_rows_preserved:true,encrypted_source_read_only:true,
+   ...probe,
    plaintext_sql_written_to_disk:false,disposable_sqlite_memory_only:true,
    cloudflare_api_called:false,production_d1_modified:false,
    remote_d1_rehearsal_verified:false,production_restore_performed:false,

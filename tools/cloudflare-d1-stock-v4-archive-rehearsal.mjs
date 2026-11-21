@@ -129,6 +129,9 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
   const before=snapshot(db,preserve);
   const moves=before.get('stock_moves')?.rows;
   if(!Number.isSafeInteger(moves))fail('SCHEMA');
+  const expectedReceipts=[{id:1,name:'0001_initial_v3.sql'},
+   {id:2,name:'0002_login_attempts_window_indexes.sql'},
+   {id:3,name:'0004_stock_move_kinds.sql'}];
   db.exec('BEGIN IMMEDIATE');
   try{
    db.exec(candidate);
@@ -140,9 +143,7 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
    same(uniqueRows(db),beforeViews);
    const ledger=db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all()
     .map(x=>({id:x.id,name:x.name}));
-   same(ledger,[{id:1,name:'0001_initial_v3.sql'},
-    {id:2,name:'0002_login_attempts_window_indexes.sql'},
-    {id:3,name:'0004_stock_move_kinds.sql'}]);
+   same(ledger,expectedReceipts);
    const marker=db.prepare('SELECT id,kind_version FROM stock_move_kind_contract').all();
    same(marker.map(x=>({id:x.id,kind_version:x.kind_version})),[{id:1,kind_version:4}]);
    verifyNewDdl(db,candidate);
@@ -161,7 +162,7 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
   const afterProbe=snapshot(db,preserve);
   for(const name of preserve)same(afterProbe.get(name),before.get(name));
   same(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all()
-   .map(x=>({id:x.id,name:x.name})),ledger);
+   .map(x=>({id:x.id,name:x.name})),expectedReceipts);
   same(db.prepare('SELECT id,kind_version FROM stock_move_kind_contract').all()
    .map(x=>({id:x.id,kind_version:x.kind_version})),
    [{id:1,kind_version:4}]);

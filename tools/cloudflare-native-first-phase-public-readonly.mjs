@@ -81,6 +81,27 @@ async function json(fetchImpl,route,status){
  if(!isObj(result))fail('JSON','INVALID_SHAPE');
  return result;
 }
+// Only a real, reviewed CSP <meta> inside <head> can pass: never accept
+// directive strings in comments, body text, or an unenforcing element.
+const APPROVED_META_CSP="default-src 'none'; script-src 'self'; "+
+ "style-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'";
+function ownerAppMarkupValid(html){
+ if(typeof html!=='string')return false;
+ const clean=html.replace(/<!--[\s\S]*?-->/g,'');
+ const head=clean.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i)?.[1];
+ if(!head)return false;
+ const policies=[...head.matchAll(
+  /<meta\b[^>]*\bhttp-equiv\s*=\s*(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/gi
+ )].map(x=>x[0]);
+ if(policies.length!==1||policies[0]!==
+  '<meta http-equiv="Content-Security-Policy" content="'+APPROVED_META_CSP+'">')
+  return false;
+ return head.includes('<meta name="robots" content="noindex,nofollow">')&&
+  clean.includes('正式業主工作台')&&
+  clean.includes('<script type="module" src="/owner-app.js"></script>')&&
+  !clean.includes('/mock.js');
+}
+
 export async function inspectNativeFirstPhasePublic({fetchImpl=globalThis.fetch}={}){
  if(typeof fetchImpl!=='function')fail('CONFIG','FETCH_UNAVAILABLE');
  const status=attestNativeFirstPhaseStatus(await json(fetchImpl,'/api/native/status',200));
@@ -90,14 +111,9 @@ export async function inspectNativeFirstPhasePublic({fetchImpl=globalThis.fetch}
  const me=await json(fetchImpl,'/api/me',401);
  if(Object.hasOwn(me,'user')||Object.hasOwn(me,'csrf'))
   fail('ANONYMOUS','IDENTITY_LEAK');
- const html=await get(fetchImpl,'/owner-app.html',200,'text/html');
- if(!html.includes('正式業主工作台')||
-    !html.includes('src="/owner-app.js"')||
-    !html.includes('content="noindex,nofollow"')||
-    !html.includes("script-src 'self'")||
-    !html.includes("form-action 'self'")||
-    html.includes('/mock.js'))
-  fail('ASSETS','OWNER_APP_CONTRACT');
+ // Cloudflare redirects the .html suffix: request the canonical URL.
+ const html=await get(fetchImpl,'/owner-app',200,'text/html');
+ if(!ownerAppMarkupValid(html))fail('ASSETS','OWNER_APP_CONTRACT');
  return Object.freeze({
   status:'NATIVE_FIRST_PHASE_PUBLIC_READONLY_PASS',
   ...status,
@@ -121,7 +137,7 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   console.log(JSON.stringify(await inspectNativeFirstPhasePublic()));
  }catch(e){
   const stages=new Set(['CONFIG','CLI','_API_NATIVE_STATUS','_API_LOGIN','_API_ME',
-   '_OWNER-APP_HTML','STATUS','JSON','ANONYMOUS','ASSETS']);
+   '_OWNER-APP','STATUS','JSON','ANONYMOUS','ASSETS']);
   const reasons=new Set(['ARGS','FETCH_UNAVAILABLE','NETWORK_UNAVAILABLE',
    'HTTP_INVALID','HTTP_STATUS','UNEXPECTED_HEADER','CACHE_CONTROL','MIME',
    'BODY_INVALID','BODY_LIMIT','RESPONSE_EMPTY','INVALID_SHAPE','PARSE_ERROR',

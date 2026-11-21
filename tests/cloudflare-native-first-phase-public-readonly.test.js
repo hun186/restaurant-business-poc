@@ -14,11 +14,9 @@ const base=()=>({
 const json=(value,status=200)=>new Response(JSON.stringify(value),{
  status,headers:{'content-type':'application/json','cache-control':'no-store'}
 });
-const html=()=>new Response(
- '<title>正式業主工作台</title>'+
- '<meta name="robots" content="noindex,nofollow">'+
- "<meta content=\"script-src 'self'; form-action 'self'\">"+
- '<script src="/owner-app.js"></script>',{
+const canonicalOwner=fs.readFileSync(path.join(__dirname,'..',
+ 'vercel-demo/owner-app.html'),'utf8');
+const html=(body=canonicalOwner)=>new Response(body,{
  status:200,headers:{'content-type':'text/html'}
 });
 function fixture(overrides={}){
@@ -26,7 +24,7 @@ function fixture(overrides={}){
   '/api/native/status':json(base()),
   '/api/login':json({code:'METHOD_NOT_ALLOWED'},405),
   '/api/me':json({error:'請先登入'},401),
-  '/owner-app.html':html(),
+  '/owner-app':html(),
   ...overrides
  };
  const fetchImpl=async(url,options)=>{
@@ -46,7 +44,7 @@ test('Native public first-phase check uses four credential-free GET requests',as
  assert.equal(result.backup_freshness_verified,false);
  assert.equal(result.release_authorized,false);
  assert.deepEqual(f.calls.map(c=>new URL(c.url).pathname),
-  ['/api/native/status','/api/login','/api/me','/owner-app.html']);
+  ['/api/native/status','/api/login','/api/me','/owner-app']);
  for(const c of f.calls){
   assert.equal(new URL(c.url).origin,m.HOST);
   assert.equal(c.options.method,'GET');
@@ -78,13 +76,36 @@ test('Leaked anonymous identity, unknown HTML and login GET bypass are rejected'
  const broken=[
   {'/api/login':json({code:'OK'},200)},
   {'/api/me':json({user:{role:'owner'},csrf:'secret'},401)},
-  {'/owner-app.html':new Response('wrong markup',{
+  {'/owner-app':new Response('wrong markup',{
    status:200,headers:{'content-type':'text/html'}})}
  ];
  for(const override of broken)
   await assert.rejects(m.inspectNativeFirstPhasePublic({
    fetchImpl:fixture(override).fetchImpl}),/E_NATIVE_FIRST_PHASE_READONLY/);
 });
+
+test('CSP must be one exact enforcing meta in <head>, never text/comment/permissive policy',async()=>{
+ const m=await loaded;
+ const approved="<meta http-equiv=\"Content-Security-Policy\" content=\""+
+  "default-src 'none'; script-src 'self'; style-src 'self'; "+
+  "connect-src 'self'; form-action 'self'; base-uri 'none'\">";
+ assert(canonicalOwner.includes(approved),'expected source CSP tag');
+ for(const replacement of [
+  '<!-- '+approved+' -->',
+  approved.replace('http-equiv="Content-Security-Policy" ',''),
+  approved.replace("script-src 'self'","script-src *"),
+  approved.replace("form-action 'self'","form-action *"),
+  approved.replace("default-src 'none'","default-src *"),
+  '',
+  approved+' '+approved
+ ]){
+  const altered=canonicalOwner.replace(approved,replacement);
+  await assert.rejects(m.inspectNativeFirstPhasePublic({
+   fetchImpl:fixture({'/owner-app':html(altered)}).fetchImpl
+  }),/E_NATIVE_FIRST_PHASE_READONLY/);
+ }
+});
+
 test('No network exception or malformed response may masquerade as public PASS',async()=>{
  const m=await loaded;
  await assert.rejects(m.inspectNativeFirstPhasePublic({

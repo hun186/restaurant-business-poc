@@ -487,7 +487,7 @@ test('hidden operational backup passphrase backspace deletes whole UTF-8 code po
   const archive=m.encryptSql(SQL,m.decodeHiddenUtf8(buffer,remaining));
   assert.equal(m.decryptSql(archive,pass),SQL);
   buffer.fill(0);
- });
+ }
  const incomplete=Buffer.from([0xe6,0xb8]); // two bytes of a 3-byte UTF-8 code point
  assert.throws(()=>m.decodeHiddenUtf8(incomplete,incomplete.length),
   e=>e?.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='TTY');

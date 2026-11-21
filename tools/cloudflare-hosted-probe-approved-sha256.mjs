@@ -31,7 +31,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-d1-memory-sql-guard.mjs":"fd1ec202f46a28c42c15718e3ae2ed930ef229309877204c4888d3751e9a9d63",
   "tools/cloudflare-d1-stock-v4-archive-transaction-probe.mjs":"e8f58cfbefbc6c4b11e6118b239c83c17fe8dba03ec50350fff03b67f1b88d4b",
-  "tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs":"c5f61e0c0f4758b321876010caea8c740bac844de1fcf7ce38bdb9983cdf81de",
+  "tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs":"a19f8276d916b0abfc2371751996df05115e59481db941c651eb1310658422ea",
   "tools/local-stock-v4-clone-rehearsal.js":"5493d4cef8459004d38b0b663d0d0e9aa7c8fa940ebb6ff480249db385707b68",
   "run-native-owner-grant-uat-readonly.bat":"8c74d13a1552841edaf4058659f1e487861636861e617d0db992b17f81d2253e",
   "tools/native-owner-grant-uat-readonly.mjs":"2a0630b4eefc596259c964aaf1e57e2c10cf6e89470dbd00dd3f88eb8fc5d303",

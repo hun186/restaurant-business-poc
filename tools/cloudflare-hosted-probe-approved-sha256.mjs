@@ -90,7 +90,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/cloudflare-d1-stock-v4-archive-rehearsal.test.js":"a5edadfb82685642a84bfa1c4e5c4fd0858aa56a2358a81f4d8a4ef70f79b0d0",
+  "tests/cloudflare-d1-stock-v4-archive-rehearsal.test.js":"d9186a7bc950780bf62cba4c0af3d5a209caf2f1706ef438a2bcad9adecaae2d",
   "cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql":"b1a7d59c6c488ffb3451500ba3833721456ee50d3099a64754bf66c32a2535df",
   "tests/d1-stock-v4-versioned-opt-in.test.js":"42c0a48a00ceff3f122d9626a4298dd57d3ed03da9499dc0ea81b7f24b19b663",
   "tests/native-stock-v4-release-gates-status.test.js":"5801a0fc0bf961e414f154b8fe89e69ba48ccc9875d8a239761c14ca46f8b610",
@@ -152,7 +152,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/native-account-grant-http.mjs":"09cb6349590a0996e023fd3644cebf288d595074653fb626452eaf7ad905aaf1",
   "tests/cloudflare-native-account-management-http.test.js":"62473397e91d526d618edc20b486bb0e61d1021b2bee95442ad39a966e883009",
   "tests/cloudflare-prod-dashboard-gates-retention.test.js":"ff1be1a39bc3720a0f4c10972baa8026493c284c116b8cc7e6f5c45de1217083",
-  "tests/cloudflare-prod-d1-operational-backup.test.js":"7ab8d8c46ea185eba9d1bcb6f57370d0508c288785c9f805487bddf8413f7c1f",
+  "tests/cloudflare-prod-d1-operational-backup.test.js":"ffdce6b09c641537dca383bcb078137583846d31dec6336e6b7b84e5160185b6",
   "tests/cloudflare-prod-owner-recovery-launcher.test.js":"7065e7bc2563855f428bfe9be305acff47a5e8d42deaaa1cccdaa6ee2fcfbdca",
   "tests/cloudflare-prod-owner-recovery-runner.test.js":"fec45ca5ed6b6dcbcee98acfe1bbc119eb1a62e2a52bee841eaf7b48f0925132",
   "tests/cloudflare-prod-owner-worker-shutdown.test.js":"bcc9691b821bbaa3324744632607430fc413eed07905d0bacea4cd056e19ea49",

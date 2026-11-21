@@ -31,6 +31,9 @@ function adapter(db,opt={}){
 async function fixture(t,opts={}){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  db.exec('PRAGMA foreign_keys=ON');db.exec(schema);
+ db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL)');
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(1,'0001_initial_v3.sql');
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(2,'0002_login_attempts_window_indexes.sql');
  const ids={owner:randomUUID(),manager:randomUUID(),staff:randomUUID(),
   store:randomUUID(),other:randomUUID(),ing:randomUUID()};
  const hash=await (await auth).hashWorkerPassword('synthetic-test-password-123');
@@ -46,7 +49,12 @@ async function fixture(t,opts={}){
  }
  if(opts.v4!==false){
   db.exec('BEGIN IMMEDIATE');
-  try{db.exec(v4);db.exec('COMMIT');}
+  try{
+   db.exec(v4);
+   db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)')
+    .run(3,'0004_stock_move_kinds.sql');
+   db.exec('COMMIT');
+  }
   catch(e){db.exec('ROLLBACK');throw e;}
  }
  const env={DB:adapter(db,opts),CLOUD_AUTH_PHASE:'native-production',

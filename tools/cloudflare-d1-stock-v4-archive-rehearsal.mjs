@@ -9,6 +9,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {createInterface} from 'node:readline/promises';
 import {decryptSql,verifyLocalSql,readHiddenBackupPassphrase,normalizeCopyPromptPath} from './cloudflare-prod-d1-encrypted-backup.mjs';
 import {assertMemoryOnlySql} from './cloudflare-d1-memory-sql-guard.mjs';
+import {runMemoryOnlyStockV4Probe} from './cloudflare-d1-stock-v4-archive-transaction-probe.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const PREFIX='E_D1_STOCK_V4_ARCHIVE_REHEARSAL_';
@@ -128,6 +129,9 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
   const before=snapshot(db,preserve);
   const moves=before.get('stock_moves')?.rows;
   if(!Number.isSafeInteger(moves))fail('SCHEMA');
+  const expectedReceipts=[{id:1,name:'0001_initial_v3.sql'},
+   {id:2,name:'0002_login_attempts_window_indexes.sql'},
+   {id:3,name:'0004_stock_move_kinds.sql'}];
   db.exec('BEGIN IMMEDIATE');
   try{
    db.exec(candidate);
@@ -139,9 +143,7 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
    same(uniqueRows(db),beforeViews);
    const ledger=db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all()
     .map(x=>({id:x.id,name:x.name}));
-   same(ledger,[{id:1,name:'0001_initial_v3.sql'},
-    {id:2,name:'0002_login_attempts_window_indexes.sql'},
-    {id:3,name:'0004_stock_move_kinds.sql'}]);
+   same(ledger,expectedReceipts);
    const marker=db.prepare('SELECT id,kind_version FROM stock_move_kind_contract').all();
    same(marker.map(x=>({id:x.id,kind_version:x.kind_version})),[{id:1,kind_version:4}]);
    verifyNewDdl(db,candidate);
@@ -152,12 +154,25 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
   checked(db);
   const committed=snapshot(db,preserve);
   for(const name of preserve)same(committed.get(name),before.get(name));
+  // Rehearse the new ledger kinds only on the disposable in-memory v4 copy.
+  // Synthetic rows are rolled back; prove every real history fingerprint again.
+  let probe;
+  try{probe=runMemoryOnlyStockV4Probe(db);}catch{fail('PROBE');}
+  checked(db);
+  const afterProbe=snapshot(db,preserve);
+  for(const name of preserve)same(afterProbe.get(name),before.get(name));
+  same(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all()
+   .map(x=>({id:x.id,name:x.name})),expectedReceipts);
+  same(db.prepare('SELECT id,kind_version FROM stock_move_kind_contract').all()
+   .map(x=>({id:x.id,kind_version:x.kind_version})),
+   [{id:1,kind_version:4}]);
   return Object.freeze({
    status:'D1_STOCK_V4_ENCRYPTED_ARCHIVE_OFFLINE_REHEARSAL_PASS',
    source_archive_sha256:archiveSha,source_stock_ledger_version:3,
    simulated_stock_ledger_version:4,simulated_migration_receipts:3,
    original_stock_move_rows:moves,preserved_tables:preserve.length,
    all_historical_rows_preserved:true,encrypted_source_read_only:true,
+   ...probe,
    plaintext_sql_written_to_disk:false,disposable_sqlite_memory_only:true,
    cloudflare_api_called:false,production_d1_modified:false,
    remote_d1_rehearsal_verified:false,production_restore_performed:false,

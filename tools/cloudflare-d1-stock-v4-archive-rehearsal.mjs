@@ -6,7 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
-import {decryptSql,verifyLocalSql} from './cloudflare-prod-d1-encrypted-backup.mjs';
+import {decryptSql,verifyLocalSql,readHiddenBackupPassphrase} from './cloudflare-prod-d1-encrypted-backup.mjs';
 import {assertMemoryOnlySql} from './cloudflare-d1-memory-sql-guard.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -173,33 +173,10 @@ export function parseArgs(args){
     args[2]!=='--sha256')fail('ARGS');
  return {file:args[1],expectedSha256:args[3]};
 }
-async function hiddenPassword(){
- if(!process.stdin.isTTY||!process.stdout.isTTY||
-    typeof process.stdin.setRawMode!=='function')fail('TTY');
- process.stdout.write('Operational backup passphrase (hidden): ');
- return new Promise((resolve,reject)=>{
-  let bytes=Buffer.alloc(0),finished=false;const previous=process.stdin.isRaw;
-  function done(err){
-   if(finished)return;finished=true;process.stdin.off('data',consume);
-   process.stdin.setRawMode(!!previous);process.stdin.pause();process.stdout.write('\n');
-   let s;
-   try{s=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}
-   catch{err=true;}finally{bytes.fill(0);}
-   if(err)reject(new Error(PREFIX+'TTY'));else resolve(s);
-  }
-  function consume(chunk){for(const b of chunk){
-   if(b===10||b===13){done(false);return;}
-   if(b===127||b===8){bytes=dropLastUtf8CodePoint(bytes);continue;}
-   if(b===3||b===27||b<32||bytes.length>=4096){done(true);return;}
-   bytes=Buffer.concat([bytes,Buffer.from([b])]);
-  }}
-  process.stdin.setRawMode(true);process.stdin.resume();process.stdin.on('data',consume);
- });
-}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{
   const {file,expectedSha256}=parseArgs(process.argv.slice(2));
-  const passphrase=await hiddenPassword();
+  const passphrase=await readHiddenBackupPassphrase('Operational backup passphrase (hidden): ');
   console.log(JSON.stringify(rehearseArchiveFile(file,passphrase,expectedSha256)));
  }catch(e){
   const code=e?.code?.startsWith(PREFIX)?e.code:'E_D1_STOCK_V4_ARCHIVE_REHEARSAL_FAILED';

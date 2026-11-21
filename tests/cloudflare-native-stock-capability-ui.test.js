@@ -227,7 +227,7 @@ test('versioned receipt mismatch cannot expose live v4 UI even when both gates a
    const response=await f.send('/api/stock/capability',{headers:{cookie:owner.cookie}});
    assert.equal(response.status,200);
    assert.deepEqual(await response.json(),{scrap_adjust_enabled:false,supplier_return_enabled:false});
-   assert(f.adapter.getSql().every(sql=>/^\\s*SELECT\\b/.test(sql)),
+   assert(f.adapter.getSql().every(sql=>/^\s*SELECT\b/.test(sql)),
     'capability must never modify D1');
   });
  }

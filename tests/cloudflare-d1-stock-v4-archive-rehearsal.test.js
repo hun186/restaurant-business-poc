@@ -251,3 +251,30 @@ test('qualified quoted PRAGMA override cannot spill a large authenticated archiv
  assert.equal(mod.assertMemoryOnlyArchiveSql(
   "PRAGMA foreign_keys=OFF; INSERT INTO notes(detail) VALUES('temp_store');"),true);
 });
+
+
+test('offline v4 CLI shares BOM-preserving hidden passphrase with operational Export and Verify',async()=>{
+ const [v4tool,backup]=await Promise.all([modulePromise,archivePromise]);
+ const value='\uFEFF'+'合成密碼🔐-operational-2026';
+ const mistyped=Buffer.from(value+'測','utf8');
+ const end=backup.eraseTrailingUtf8CodePointInPlace(mistyped,mistyped.length);
+ assert.deepEqual(mistyped.subarray(end),Buffer.alloc(3));
+ const corrected=backup.decodeHiddenUtf8(mistyped,end);
+ assert.equal(corrected,value);
+ assert.equal(corrected.codePointAt(0),0xfeff);
+ const archive=backup.encryptSql(v3,value,{operational:true});
+ assert.equal(backup.decryptSql(archive,corrected),v3);
+ const v4=v4tool.rehearseArchiveBytes(archive,corrected,digest(archive));
+ assert.equal(v4.status,'D1_STOCK_V4_ENCRYPTED_ARCHIVE_OFFLINE_REHEARSAL_PASS');
+ assert.equal(v4.original_stock_move_rows,2);
+ assert.equal(v4.production_d1_modified,false);
+ assert.equal(v4.release_authorized,false);
+ mistyped.fill(0);
+ const backupSrc=fs.readFileSync(path.join(root,'tools/cloudflare-prod-d1-encrypted-backup.mjs'),'utf8');
+ const toolSrc=fs.readFileSync(path.join(root,'tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs'),'utf8');
+ assert.match(backupSrc,/export async function readHiddenBackupPassphrase\(prompt\)/);
+ assert.match(backupSrc,/new TextDecoder\('utf-8',\{fatal:true,ignoreBOM:true\}\)/);
+ assert.match(toolSrc,/import \{decryptSql,verifyLocalSql,readHiddenBackupPassphrase\}/);
+ assert.match(toolSrc,/const passphrase=await readHiddenBackupPassphrase\(/);
+ assert.doesNotMatch(toolSrc,/async function hiddenPassword\(|Buffer\.concat\(\[bytes,Buffer\.from\(\[b\]\)\]\)/);
+});

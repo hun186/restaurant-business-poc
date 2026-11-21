@@ -76,8 +76,11 @@ then run from a trusted, clean, reviewed checkout (Node.js 22.13+):
 node tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs --archive "C:\\absolute\\path\\operational.sql.aes" --sha256 <64-character-verified-digest>
 ```
 
-The passphrase is entered in an interactive hidden terminal prompt; **never put
-it in shell history, script arguments, CI secrets, chat or a GitHub issue**.
+The passphrase is entered in an interactive hidden terminal prompt shared
+with the operational Export / Verify / Copy Verify CLI. Backspace removes a
+whole UTF-8 character, and even a leading U+FEFF is preserved for compatibility
+with existing AES-GCM archives. **Never put a passphrase in shell history,
+script arguments, CI secrets, chat or a GitHub issue**.
 Only the final non-sensitive JSON status and counts may be shared. The tool
 rejects an initial-only archive, prior v4 archive, wrong digest, invalid
 passphrase, changed candidate SQL, unverifiable ledger or incompatible

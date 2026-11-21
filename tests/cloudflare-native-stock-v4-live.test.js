@@ -191,3 +191,45 @@ test('real worker is default denied and no migration or setting is enabled',()=>
  const migrations=fs.readdirSync(path.join(root,'cloudflare/migrations')).filter(x=>x.endsWith('.sql'));
  assert.equal(migrations.some(x=>x.startsWith('0004')),false);
 });
+
+
+test('direct v4 POST refuses partial/manual v4 even when marker and write Gate are enabled',async t=>{
+ const f=await fixture(t);f.stock(8);
+ const owner=await f.login('owner');
+ const corrupt=[
+  ['missing receipt',db=>db.exec('DELETE FROM d1_migrations WHERE id=3')],
+  ['renamed receipt',db=>db.prepare('UPDATE d1_migrations SET name=? WHERE id=3').run('manual_v4.sql')],
+  ['extra receipt',db=>db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(4,'unreviewed.sql')],
+  ['missing ledger',db=>db.exec('DROP TABLE d1_migrations')]
+ ];
+ for(const [name,change] of corrupt){
+  await t.test(name,async sub=>{
+   const g=await fixture(sub);g.stock(8);
+   const principal=await g.login('owner');change(g.db);
+   const res=await g.write(principal,g.scrap(1));
+   assert.equal(res.status,503);
+   assert.equal(g.count(),0);
+   assert.equal(g.audit(),0);
+   assert.equal(g.balance(),8);
+  });
+ }
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);
+});
+
+test('v4 ledger is rechecked inside atomic D1 batch when receipt changes after preflight',async t=>{
+ let f,changed=false;
+ const options={beforeBatch(){
+  if(!changed){
+   changed=true;
+   f.db.exec('DELETE FROM d1_migrations WHERE id=3');
+  }
+ }};
+ f=await fixture(t,options);f.stock(8);
+ const owner=await f.login('owner');
+ const res=await f.write(owner,f.scrap(2));
+ assert.equal(changed,true);
+ assert.equal(res.status,503);
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);assert.equal(f.balance(),8);
+ const restored=f.db.prepare('SELECT COUNT(*) AS n FROM stock_moves').get().n;
+ assert.equal(restored,1,'original purchase row remains untouched');
+});

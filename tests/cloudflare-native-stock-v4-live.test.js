@@ -217,15 +217,15 @@ test('direct v4 POST refuses partial/manual v4 even when marker and write Gate a
 });
 
 test('v4 ledger is rechecked inside atomic D1 batch when receipt changes after preflight',async t=>{
- let f,changed=false;
+ let f,changed=false,armed=false;
  const options={beforeBatch(){
-  if(!changed){
+  if(armed&&!changed){
    changed=true;
    f.db.exec('DELETE FROM d1_migrations WHERE id=3');
   }
  }};
  f=await fixture(t,options);f.stock(8);
- const owner=await f.login('owner');
+ const owner=await f.login('owner');armed=true;
  const res=await f.write(owner,f.scrap(2));
  assert.equal(changed,true);
  assert.equal(res.status,503);

@@ -274,7 +274,7 @@ test('offline v4 CLI shares BOM-preserving hidden passphrase with operational Ex
  const toolSrc=fs.readFileSync(path.join(root,'tools/cloudflare-d1-stock-v4-archive-rehearsal.mjs'),'utf8');
  assert.match(backupSrc,/export async function readHiddenBackupPassphrase\(prompt\)/);
  assert.match(backupSrc,/new TextDecoder\('utf-8',\{fatal:true,ignoreBOM:true\}\)/);
- assert.match(toolSrc,/import \{decryptSql,verifyLocalSql,readHiddenBackupPassphrase\}/);
+ assert.match(toolSrc,/import \{[^}]*readHiddenBackupPassphrase[^}]*\} from '\.\/cloudflare-prod-d1-encrypted-backup\.mjs'/);
  assert.match(toolSrc,/const passphrase=await readHiddenBackupPassphrase\(/);
  assert.doesNotMatch(toolSrc,/async function hiddenPassword\(|Buffer\.concat\(\[bytes,Buffer\.from\(\[b\]\)\]\)/);
 });

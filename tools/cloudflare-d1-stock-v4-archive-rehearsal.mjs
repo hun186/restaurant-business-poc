@@ -155,7 +155,8 @@ export function rehearseArchiveBytes(bytes,passphrase,expectedSha256){
   for(const name of preserve)same(committed.get(name),before.get(name));
   // Rehearse the new ledger kinds only on the disposable in-memory v4 copy.
   // Synthetic rows are rolled back; prove every real history fingerprint again.
-  const probe=runMemoryOnlyStockV4Probe(db);
+  let probe;
+  try{probe=runMemoryOnlyStockV4Probe(db);}catch{fail('PROBE');}
   checked(db);
   const afterProbe=snapshot(db,preserve);
   for(const name of preserve)same(afterProbe.get(name),before.get(name));

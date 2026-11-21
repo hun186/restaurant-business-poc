@@ -24,6 +24,10 @@ function d1(db){
 async function fixture(t,{v4=true}={}){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  db.exec('PRAGMA foreign_keys=ON');db.exec(v3);
+ // Wrangler-managed versioning is separate from the v3 application schema.
+ db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL)');
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(1,'0001_initial_v3.sql');
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(2,'0002_login_attempts_window_indexes.sql');
  const hash=await (await auth).hashWorkerPassword('synthetic-capability-pass-123');
  const ids={owner:randomUUID(),manager:randomUUID(),staff:randomUUID(),store:randomUUID()};
  db.prepare('INSERT INTO locations(id,name) VALUES(?,?)').run(ids.store,'Mock Store');
@@ -35,7 +39,12 @@ async function fixture(t,{v4=true}={}){
  }
  if(v4){
   db.exec('BEGIN IMMEDIATE');
-  try{db.exec(proposal);db.exec('COMMIT');}
+  try{
+   db.exec(proposal);
+   db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)')
+    .run(3,'0004_stock_move_kinds.sql');
+   db.exec('COMMIT');
+  }
   catch(e){db.exec('ROLLBACK');throw e;}
  }
  const adapter=d1(db);
@@ -197,4 +206,29 @@ test('Native stock v4 Owner UI has explicit scoped receipt lookup and no 500-ite
  assert.match(ui,/stock\.supplier_return/);
  assert.match(ui,/normalizeStockV4\(kind,data\)/);
  assert.match(ui,/submit\.disabled=true/);
+});
+
+
+test('versioned receipt mismatch cannot expose live v4 UI even when both gates and kind marker are ON',async t=>{
+ const cases=[
+  ['missing v4 receipt',db=>db.exec('DELETE FROM d1_migrations WHERE id=3')],
+  ['wrong v4 migration name',db=>db.prepare('UPDATE d1_migrations SET name=? WHERE id=3').run('0003_unreviewed.sql')],
+  ['wrong v3 migration name',db=>db.prepare('UPDATE d1_migrations SET name=? WHERE id=2').run('0002_changed.sql')],
+  ['missing initial receipt',db=>db.exec('DELETE FROM d1_migrations WHERE id=1')],
+  ['extra migration receipt',db=>db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(4,'unreviewed.sql')],
+  ['non-contiguous IDs',db=>db.exec('UPDATE d1_migrations SET id=5 WHERE id=3')],
+  ['missing ledger table',db=>db.exec('DROP TABLE d1_migrations')],
+  ['incomplete kind marker',db=>db.exec('DELETE FROM stock_move_kind_contract WHERE id=1')]
+ ];
+ for(const [name,mutate] of cases){
+  await t.test(name,async sub=>{
+   const f=await fixture(sub),owner=await f.login('owner');
+   mutate(f.db);
+   const response=await f.send('/api/stock/capability',{headers:{cookie:owner.cookie}});
+   assert.equal(response.status,200);
+   assert.deepEqual(await response.json(),{scrap_adjust_enabled:false,supplier_return_enabled:false});
+   assert(f.adapter.getSql().every(sql=>/^\s*SELECT\b/.test(sql)),
+    'capability must never modify D1');
+  });
+ }
 });

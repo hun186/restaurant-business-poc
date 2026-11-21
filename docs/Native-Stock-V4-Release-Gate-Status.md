@@ -18,8 +18,15 @@ query or mutation is made by this status endpoint.
 relevant **environment Gate** is released; it **does not verify**
 the live D1 database has a valid v4 stock-kind marker or that a specific
 Owner/Manager can mutate a specific assigned store. The authenticated
-`GET /api/stock/capability` and actual POST command perform the necessary
-schema, Session/CSRF, stock and store-specific checks. Never infer
+`GET /api/stock/capability` now requires **both** the marker and exactly
+three versioned `d1_migrations` receipts, in order:
+`(1,0001_initial_v3.sql)`, `(2,0002_login_attempts_window_indexes.sql)`,
+`(3,0004_stock_move_kinds.sql)`. Missing, extra, renamed or unversioned
+migration receipts fail closed: all new stock-v4 UI actions stay hidden even
+when both public Gates are ON. This query is authenticated and SELECT-only;
+no migration is applied. It does not replace exact D1 schema/preflight or
+rollback attestation. Actual POST commands independently re-check Session,
+CSRF, stock, the v4 marker and store-specific authorization. Never infer
 full live readiness or successful UAT from the public Gate status alone.
 
 The default remains OFF. This code-only change never enables any Gate,

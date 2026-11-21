@@ -190,3 +190,38 @@ test('hard deny arbitrary client SQL and never import synthetic writer',()=>{
  assert.match(workerCode,/nativeStockReturnHttp/);
  assert.doesNotMatch(fs.readFileSync(path.join(root,'cloudflare/migrations/0001_initial_v3.sql'),'utf8'),/supplier_return|scrap/);
 });
+
+
+test('direct supplier return cannot bypass a missing, misnamed, or extra v4 migration receipt',async t=>{
+ const changes=[
+  ['marker-only',db=>db.exec('DELETE FROM d1_migrations WHERE id=3')],
+  ['renamed receipt',db=>db.prepare('UPDATE d1_migrations SET name=? WHERE id=3').run('manual-v4.sql')],
+  ['extra receipt',db=>db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(4,'unreviewed.sql')],
+  ['missing ledger',db=>db.exec('DROP TABLE d1_migrations')]
+ ];
+ for(const [name,mutate] of changes){
+  await t.test(name,async sub=>{
+   const f=await fixture(sub),owner=await f.login('owner');
+   mutate(f.db);
+   const res=await f.write(owner,f.command(2));
+   assert.equal(res.status,503);
+   assert.equal(f.count(),0);assert.equal(f.audit(),0);assert.equal(f.balance(),8);
+  });
+ }
+});
+
+test('supplier return batch rejects migration receipt revoked after preflight, with zero movement/audit',async t=>{
+ let f,changed=false;
+ const opts={beforeBatch(){
+  if(!changed){
+   changed=true;
+   f.db.prepare('UPDATE d1_migrations SET name=? WHERE id=3').run('unapproved.sql');
+  }
+ }};
+ f=await fixture(t,opts);
+ const owner=await f.login('owner');
+ const response=await f.write(owner,f.command(1.5));
+ assert.equal(changed,true);
+ assert.equal(response.status,503);
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);assert.equal(f.balance(),8);
+});

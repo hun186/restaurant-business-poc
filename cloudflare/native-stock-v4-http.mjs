@@ -3,6 +3,7 @@
 import {nativeLoginEnabled,bodyWithinLimit} from './native-login-http.mjs';
 import {loadPrincipal,authorizedMutation,hasAccess} from './auth-core.mjs';
 import {normalizeStockV4} from './stock-move-v4-contract.mjs';
+import {stockV4MigrationReady,STOCK_V4_MIGRATION_BATCH_PREDICATE} from './native-stock-v4-migration-guard.mjs';
 
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const HEADERS=Object.freeze({'Content-Type':'application/json; charset=utf-8',
@@ -23,6 +24,7 @@ const valid=[
  "AND (?='owner' OR EXISTS(SELECT 1 FROM user_locations ul",
  "WHERE ul.user_id=? AND ul.location_id=l.id))",
  "AND EXISTS(SELECT 1 FROM stock_move_kind_contract k WHERE k.id=1 AND k.kind_version=4)",
+ "AND ("+STOCK_V4_MIGRATION_BATCH_PREDICATE+")",
  "AND NOT EXISTS(SELECT 1 FROM stock_moves old WHERE lower(old.id)=?)",
  "AND (SELECT COUNT(*) FROM stock_moves m WHERE m.location_id=l.id",
  "AND m.ingredient_id=i.id)<=100000",
@@ -108,6 +110,8 @@ export async function nativeStockV4Http(request,env){
   const kind=await env.DB.prepare(
    'SELECT kind_version FROM stock_move_kind_contract WHERE id=1').first();
   if(kind?.kind_version!==4)return reply(503,{code:'E_STOCK_V4_SCHEMA_NOT_READY'});
+  if(!await stockV4MigrationReady(env.DB))
+   return reply(503,{code:'E_STOCK_V4_SCHEMA_NOT_READY'});
   let raw;
   try{raw=JSON.parse(await bodyWithinLimit(request));}
   catch{return reply(400,{code:'E_INVALID_JSON'});}

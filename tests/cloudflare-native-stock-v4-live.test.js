@@ -31,6 +31,9 @@ function adapter(db,opt={}){
 async function fixture(t,opts={}){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());
  db.exec('PRAGMA foreign_keys=ON');db.exec(schema);
+ db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL)');
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(1,'0001_initial_v3.sql');
+ db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(2,'0002_login_attempts_window_indexes.sql');
  const ids={owner:randomUUID(),manager:randomUUID(),staff:randomUUID(),
   store:randomUUID(),other:randomUUID(),ing:randomUUID()};
  const hash=await (await auth).hashWorkerPassword('synthetic-test-password-123');
@@ -46,7 +49,12 @@ async function fixture(t,opts={}){
  }
  if(opts.v4!==false){
   db.exec('BEGIN IMMEDIATE');
-  try{db.exec(v4);db.exec('COMMIT');}
+  try{
+   db.exec(v4);
+   db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)')
+    .run(3,'0004_stock_move_kinds.sql');
+   db.exec('COMMIT');
+  }
   catch(e){db.exec('ROLLBACK');throw e;}
  }
  const env={DB:adapter(db,opts),CLOUD_AUTH_PHASE:'native-production',
@@ -182,4 +190,46 @@ test('real worker is default denied and no migration or setting is enabled',()=>
  assert.equal(JSON.stringify(config).includes('CLOUD_NATIVE_STOCK_V4_WRITE_GATE'),false);
  const migrations=fs.readdirSync(path.join(root,'cloudflare/migrations')).filter(x=>x.endsWith('.sql'));
  assert.equal(migrations.some(x=>x.startsWith('0004')),false);
+});
+
+
+test('direct v4 POST refuses partial/manual v4 even when marker and write Gate are enabled',async t=>{
+ const f=await fixture(t);f.stock(8);
+ const owner=await f.login('owner');
+ const corrupt=[
+  ['missing receipt',db=>db.exec('DELETE FROM d1_migrations WHERE id=3')],
+  ['renamed receipt',db=>db.prepare('UPDATE d1_migrations SET name=? WHERE id=3').run('manual_v4.sql')],
+  ['extra receipt',db=>db.prepare('INSERT INTO d1_migrations(id,name) VALUES(?,?)').run(4,'unreviewed.sql')],
+  ['missing ledger',db=>db.exec('DROP TABLE d1_migrations')]
+ ];
+ for(const [name,change] of corrupt){
+  await t.test(name,async sub=>{
+   const g=await fixture(sub);g.stock(8);
+   const principal=await g.login('owner');change(g.db);
+   const res=await g.write(principal,g.scrap(1));
+   assert.equal(res.status,503);
+   assert.equal(g.count(),0);
+   assert.equal(g.audit(),0);
+   assert.equal(g.balance(),8);
+  });
+ }
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);
+});
+
+test('v4 ledger is rechecked inside atomic D1 batch when receipt changes after preflight',async t=>{
+ let f,changed=false,armed=false;
+ const options={beforeBatch(){
+  if(armed&&!changed){
+   changed=true;
+   f.db.exec('DELETE FROM d1_migrations WHERE id=3');
+  }
+ }};
+ f=await fixture(t,options);f.stock(8);
+ const owner=await f.login('owner');armed=true;
+ const res=await f.write(owner,f.scrap(2));
+ assert.equal(changed,true);
+ assert.equal(res.status,503);
+ assert.equal(f.count(),0);assert.equal(f.audit(),0);assert.equal(f.balance(),8);
+ const restored=f.db.prepare('SELECT COUNT(*) AS n FROM stock_moves').get().n;
+ assert.equal(restored,1,'original purchase row remains untouched');
 });

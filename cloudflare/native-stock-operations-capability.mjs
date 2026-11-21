@@ -4,6 +4,7 @@ import {nativeLoginEnabled} from './native-login-http.mjs';
 import {loadPrincipal,hasAccess} from './auth-core.mjs';
 import {nativeStockV4WriteEnabled} from './native-stock-v4-http.mjs';
 import {nativeStockReturnWriteEnabled} from './native-stock-return-http.mjs';
+import {stockV4MigrationReady} from './native-stock-v4-migration-guard.mjs';
 
 const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{
  'Content-Type':'application/json; charset=utf-8',
@@ -36,20 +37,7 @@ export async function nativeStockOperationsCapabilityHttp(request,env){
     'SELECT kind_version FROM stock_move_kind_contract WHERE id=1').first();
   }catch{return reply(200,disabled());}
   if(version?.kind_version!==4)return reply(200,disabled());
-  // A v4 kind marker alone is insufficient: a partially/manual migrated
-  // database must not advertise live inventory actions in the Owner UI.
-  // The official D1 migration receipt must be complete and in exact order.
-  let receipts;
-  try{
-   const ledger=await env.DB.prepare(
-    'SELECT id,name FROM d1_migrations ORDER BY id LIMIT 4').all();
-   receipts=ledger?.results;
-  }catch{return reply(200,disabled());}
-  const expected=['0001_initial_v3.sql','0002_login_attempts_window_indexes.sql',
-   '0004_stock_move_kinds.sql'];
-  if(!Array.isArray(receipts)||receipts.length!==expected.length||
-     !receipts.every((row,i)=>row?.id===i+1&&row?.name===expected[i]))
-   return reply(200,disabled());
+  if(!await stockV4MigrationReady(env.DB))return reply(200,disabled());
   return reply(200,{
    scrap_adjust_enabled:nativeStockV4WriteEnabled(env),
    supplier_return_enabled:nativeStockReturnWriteEnabled(env)

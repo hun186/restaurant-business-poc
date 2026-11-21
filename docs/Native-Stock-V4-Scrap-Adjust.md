@@ -7,8 +7,15 @@ Routes and capability:
 - Requires Native login, Owner/Manager, same Origin + CSRF + store scope, a unique
   X-Idempotency-Key UUID, and CLOUD_NATIVE_STOCK_V4_WRITE_GATE=operator-released.
 - Gate defaults OFF. No wrangler.jsonc/Secrets/Vars are changed in this PR.
-- Also requires cloud_schema_contract v3 plus stock_move_kind_contract v4.
-  This second contract has NOT been migrated to the live D1 database.
+- Requires cloud_schema_contract v3, stock_move_kind_contract v4 **and** exact
+  D1 migration receipts 1/2/3 (0001_initial_v3.sql,
+  0002_login_attempts_window_indexes.sql, 0004_stock_move_kinds.sql).
+  No missing, renamed or additional receipt is accepted. This D1 v4 upgrade
+  has NOT been applied to Production; the original Gates remain OFF.
+- The receipt check runs once before accepting an authenticated POST and again
+  **inside the same atomic D1 ledger/audit batch**; direct API calls cannot
+  bypass the UI's versioned migration guard. An intervening receipt change
+  fails the write and rolls back the entire transaction.
 - Every batch rechecks live actor/session/scope, active store and ingredient,
   idempotency, ledger precision and bounded nonnegative stock; only append
   stock_moves and audit_logs in one transaction with a rollback sentinel.

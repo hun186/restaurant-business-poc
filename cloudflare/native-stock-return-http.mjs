@@ -5,6 +5,7 @@
 import {nativeLoginEnabled,bodyWithinLimit} from './native-login-http.mjs';
 import {loadPrincipal,authorizedMutation,hasAccess} from './auth-core.mjs';
 import {normalizeStockV4} from './stock-move-v4-contract.mjs';
+import {stockV4MigrationReady,STOCK_V4_MIGRATION_BATCH_PREDICATE} from './native-stock-v4-migration-guard.mjs';
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store, max-age=0',
@@ -31,7 +32,8 @@ const validity=[
  "WHERE po.id=? AND po.location_id=? AND po.ingredient_id=? AND po.status='received'",
  "AND (u.role='owner' OR EXISTS (SELECT 1 FROM user_locations ul WHERE ul.user_id=u.id AND ul.location_id=l.id))",
  "AND po.qty>0 AND po.qty<=1000000 AND typeof(po.qty) IN ('integer','real') AND "+grid('po.qty'),
- "AND EXISTS(SELECT 1 FROM stock_move_kind_contract k WHERE k.id=1 AND k.kind_version=4) AND NOT EXISTS(SELECT 1 FROM stock_moves old WHERE lower(old.id)=?)",
+ "AND EXISTS(SELECT 1 FROM stock_move_kind_contract k WHERE k.id=1 AND k.kind_version=4)",
+ "AND ("+STOCK_V4_MIGRATION_BATCH_PREDICATE+") AND NOT EXISTS(SELECT 1 FROM stock_moves old WHERE lower(old.id)=?)",
  "AND (SELECT COUNT(*) FROM stock_moves p WHERE p.reference_id=po.id AND p.move_type='purchase')=1",
  "AND EXISTS (SELECT 1 FROM stock_moves p WHERE p.reference_id=po.id",
  "AND p.move_type='purchase' AND p.ingredient_id=po.ingredient_id",
@@ -120,6 +122,8 @@ export async function nativeStockReturnHttp(request,env){
   const kind=await env.DB.prepare(
    'SELECT kind_version FROM stock_move_kind_contract WHERE id=1').first();
   if(kind?.kind_version!==4)return reply(503,{code:'E_STOCK_RETURN_SCHEMA_NOT_READY'});
+  if(!await stockV4MigrationReady(env.DB))
+   return reply(503,{code:'E_STOCK_RETURN_SCHEMA_NOT_READY'});
   let raw;
   try{raw=JSON.parse(await bodyWithinLimit(request));}
   catch{return reply(400,{code:'E_INVALID_JSON'});}

@@ -26,8 +26,12 @@ migration receipts fail closed: all new stock-v4 UI actions stay hidden even
 when both public Gates are ON. This query is authenticated and SELECT-only;
 no migration is applied. It does not replace exact D1 schema/preflight or
 rollback attestation. Actual POST commands independently re-check Session,
-CSRF, stock, the v4 marker and store-specific authorization. Never infer
-full live readiness or successful UAT from the public Gate status alone.
+CSRF, stock, the v4 marker, the exact 1/2/3 versioned receipts, and
+store-specific authorization. The same receipt condition is also repeated
+**inside the atomic D1 stock_moves/audit batch**, closing the direct-POST and
+TOCTOU bypass of the UI hint. A failed check rolls back the entire batch;
+no old stock or original PO is overwritten. Never infer full live readiness
+or successful UAT from the public Gate status alone.
 
 The default remains OFF. This code-only change never enables any Gate,
 changes Cloudflare Vars/Secrets, deploys the Worker, or migrates D1.

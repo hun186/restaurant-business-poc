@@ -468,3 +468,44 @@ test('operational Export/Verify/Copy Verify all replay with shared memory-only S
  assert.deepEqual(fs.readdirSync(copyDir).sort(),
   ['authenticated-but-unsafe.sql.aes','copied-operational.sql.aes','copied-unsafe.sql.aes'].sort());
 });
+
+
+test('hidden operational backup passphrase backspace deletes whole UTF-8 code point and zeroes discarded bytes',async()=>{
+ const m=await mod;
+ const pass='OnlySynthetic-臺灣🔐é-2026';
+ for(const unwanted of ['é','測','🍜']){
+  const typed=Buffer.from(pass+unwanted,'utf8');
+  const buffer=Buffer.alloc(typed.length+16,0x2a);
+  typed.copy(buffer,0);
+  const remaining=m.eraseTrailingUtf8CodePointInPlace(buffer,typed.length);
+  assert.equal(m.decodeHiddenUtf8(buffer,remaining),pass);
+  assert.deepEqual(buffer.subarray(remaining,typed.length),
+   Buffer.alloc(typed.length-remaining),
+   'deleted secret bytes must be wiped, not just hidden by slicing');
+  // The unchanged, decoded Unicode passphrase can still authenticate an
+  // encrypted synthetic archive after correcting the accidental suffix.
+  const archive=m.encryptSql(SQL,m.decodeHiddenUtf8(buffer,remaining));
+  assert.equal(m.decryptSql(archive,pass),SQL);
+  buffer.fill(0);
+ });
+ const incomplete=Buffer.from([0xe6,0xb8]); // two bytes of a 3-byte UTF-8 code point
+ assert.throws(()=>m.decodeHiddenUtf8(incomplete,incomplete.length),
+  e=>e?.message==='E_PRODUCTION_D1_BACKUP'&&e.reason==='TTY');
+ const clean=m.eraseTrailingUtf8CodePointInPlace(incomplete,incomplete.length);
+ assert.equal(clean,0);
+ assert.deepEqual(incomplete,Buffer.alloc(2));
+ assert.equal(m.decodeHiddenUtf8(incomplete,0),'');
+ for(const [buffer,length] of [
+  [null,0],[new Uint8Array(8),2],[Buffer.alloc(4),-1],
+  [Buffer.alloc(4),5],[Buffer.alloc(4),1.5]
+ ]){
+  assert.throws(()=>m.eraseTrailingUtf8CodePointInPlace(buffer,length),
+   e=>e?.reason==='TTY');
+  assert.throws(()=>m.decodeHiddenUtf8(buffer,length),
+   e=>e?.reason==='TTY');
+ }
+ const text=fs.readFileSync(path.join(root,'tools/cloudflare-prod-d1-encrypted-backup.mjs'),'utf8');
+ assert.match(text,/length=eraseTrailingUtf8CodePointInPlace\(bytes,length\)/);
+ assert.match(text,/finally\{bytes\.fill\(0\);length=0;\}/);
+ assert.doesNotMatch(text,/bytes=bytes\.subarray\(0,Math\.max\(0,bytes\.length-1\)\)/);
+});

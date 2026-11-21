@@ -98,6 +98,26 @@ extended D1 migration ledger remain exactly unchanged in the simulated v4,
 and that the new receipt is precisely the third migration. Simulation lives
 only in memory and vanishes at process exit.
 
+**Post-migration synthetic transaction probe (offline, same encrypted v3 archive):**
+After confirming all original tables and receipts, the tool opens a separate
+`BEGIN IMMEDIATE` on the already migrated in-memory copy. It inserts uniquely
+identified **fake** store, ingredient, Staff account, received purchase order,
+then exercises purchase, supplier return, scrap, and signed adjustment ledger
+constraints with matched synthetic audits. Four deliberately invalid ledger
+requests (missing reason/reference, zero delta, unknown kind) must fail with a
+SQLite constraint error. The entire synthetic transaction is **ROLLBACK**ed,
+and all original table fingerprints, migration receipts, marker, FK integrity,
+and temporary-storage safety are checked again. The tool first refuses a
+file-backed SQLite connection or any temp storage other than MEMORY. No fake
+rows are kept, no original records are updated, and no Cloudflare API is used.
+
+A PASS now additionally reports `synthetic_transaction_rolled_back=true`,
+`synthetic_v4_positive_and_negative_schema_checks=true`, and
+`actual_business_rows_modified=false`. These flags certify only the
+reviewed SQLite v4 ledger schema behavior on a read-only imported snapshot;
+**they do not simulate the Cloudflare D1 batch transport, verify Session/CSRF
+or PO return-budget enforcement, or authorize actual v4 deployment**.
+
 **Evidence limit:** `D1_STOCK_V4_ENCRYPTED_ARCHIVE_OFFLINE_REHEARSAL_PASS`
 is a local model of the candidate migration, not a Cloudflare Scratch D1
 transaction result, not proof that an archive is current, not remote restore,

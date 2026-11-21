@@ -88,8 +88,17 @@ const APPROVED_META_CSP="default-src 'none'; script-src 'self'; "+
 function ownerAppMarkupValid(html){
  if(typeof html!=='string')return false;
  const clean=html.replace(/<!--[\s\S]*?-->/g,'');
- const head=clean.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i)?.[1];
- if(!head)return false;
+ // A text/plain <script> or inert <template> may wrap an apparently
+ // well-formed <head>; the policy then does not belong to the real document.
+ // Constrain the whole document prefix before accepting any CSP element.
+ const headStart=clean.search(/<head\b[^>]*>/i);
+ if(headStart<0||!/^\s*<!doctype html>\s*<html lang="zh-Hant">\s*$/i
+  .test(clean.slice(0,headStart)))return false;
+ const headMatch=clean.slice(headStart).match(/^<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
+ if(!headMatch)return false;
+ const head=headMatch[1];
+ const remaining=clean.slice(headStart+headMatch[0].length);
+ if(!/^\s*<body class="native-owner">/i.test(remaining))return false;
  const policies=[...head.matchAll(
   /<meta\b[^>]*\bhttp-equiv\s*=\s*(?:"Content-Security-Policy"|'Content-Security-Policy')[^>]*>/gi
  )].map(x=>x[0]);

@@ -528,3 +528,21 @@ test('leading U+FEFF stays part of hidden passphrase for legacy encrypted archiv
  assert.deepEqual(corrected.subarray(remaining),Buffer.alloc(4));
  corrected.fill(0);
 });
+
+
+test('standalone --verify CLI reaches hidden reader instead of calling deleted hidden()',()=>{
+ const src=fs.readFileSync(path.join(root,'tools/cloudflare-prod-d1-encrypted-backup.mjs'),'utf8');
+ assert.match(src,/if\(args\.length===2&&args\[0\]==='--verify'\)\{\s*const pass=await readHiddenBackupPassphrase\(/);
+ assert.doesNotMatch(src,/\bhidden\s*\(/);
+ // A pipe is intentionally not a TTY. This proves the actual --verify CLI
+ // dispatch reaches the shared hidden reader and returns its *sanitized* TTY
+ // error before any file, passphrase, or Cloudflare operation.
+ const run=spawnSync(process.execPath,[
+  'tools/cloudflare-prod-d1-encrypted-backup.mjs','--verify',
+  path.join(root,'never-created-synthetic-only.sql.aes')
+ ],{cwd:root,encoding:'utf8',input:'',timeout:15000});
+ assert.equal(run.status,1,run.stderr);
+ assert.match(run.stderr,/E_PRODUCTION_D1_BACKUP phase=TTY/);
+ assert.doesNotMatch(run.stderr,/phase=UNKNOWN|ReferenceError|never-created-synthetic-only/);
+ assert.equal(run.stdout,'');
+});

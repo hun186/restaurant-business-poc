@@ -8,6 +8,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/cloudflare-g0-active-version-readonly.yml":"e927199741499c49a3074da5a26f1c2affbb8ddf7ec8b00a539fc284b6737d98",
+  ".github/workflows/cloudflare-native-first-phase-public-readonly.yml":"3858ed366c04e7229e05da417dd00f51563360cd5c099a70da6010e892f84a7d",
   ".github/workflows/cloudflare-public-runtime-readonly.yml":"0c8a5a330780bc1371b76e1252e3ee733dbd6bea6180a5ab2802bb623cab71b4",
   ".github/workflows/d1-production-auth-activity-readonly.yml":"dc411df3dcacec01a53b250117a85ebc2e747751aba7ad903dde013646373a2d",
   ".github/workflows/d1-production-enrolled-owner-readonly.yml":"1902fe8b3f010fba6c636ab098a4ad6496e6b9450900bc549ddd13ba703d91b2",
@@ -46,6 +47,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-g0-active-version-readonly.mjs":"e678ec5d46541cd6c027acb15fa3c5dd12247c0d215416354eed524b81f34cef",
   "tools/cloudflare-public-runtime-readonly.ps1":"d654f202f4604c969ab9a514241ca211e11123a4670a76509fb0c50fc451bd06",
   "run-cloudflare-public-readonly.bat":"ca19dde7f55d9d4cec7a773fbd2583c47b2e57975b4216985dac466551df38e7",
+  "tools/cloudflare-native-first-phase-public-readonly.mjs":"5166f811ad90b3fe1de7a70b179092f5ba01d6e3615eefd6d55874fedbb05a22",
   "tools/cloudflare-public-runtime-readonly.mjs":"3dc8ab6f861ef55fed4cf344265acfca16c65b68ce976430232142eef41a5371",
   "run-production-d1-backup.bat":"5c33cf783b7f60824fd8cae4387ef238384bf1ca4877d725c9cd50ca727f1b4f",
   "tools/cloudflare-prod-d1-encrypted-backup.mjs":"e36684be0aace8383321975c2aef87109d1adb1c4ea82fd6c5b0e7d77515d373",
@@ -178,6 +180,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/native-owner-capability.test.js":"eeac992393214b1d88e7a220f7b28aac95203a40546093724990cffc65443f73",
    "tests/cloudflare-native-owner-ui-parity.test.js":"27f9301f86e35ec3690b77dc788eea4c1cd3a8dec0c547668f4a8eba0e7a8329",
   "tests/cloudflare-g0-active-version-readonly.test.js":"8fa5c63ba072c8c3a94d6fd55f972203f8a4bc1187bd2900e545d774497dabf0",
+  "tests/cloudflare-native-first-phase-public-readonly.test.js":"d80b160cf1a3f8f08adb2944cb485c0d1f10d8cd0d0efdbadb8db8027283c63e",
   "tests/cloudflare-public-runtime-readonly.test.js":"f7c4961c9efb0f79fa396e42b725880dd259fb295ef108b12aa981846106c604",
   "tests/cloudflare-prod-d1-encrypted-backup.test.js":"7738def5b4d9c56f12b4462e06204d9a1057c5a603748d2dd08de3869af66050",
   "tests/cloudflare-d1-rest-batch-lab.test.js":"dae71d2898f349a2a85f40c8b1f1f2bb31767e4f12d9e7f67211eeb5565c986c",

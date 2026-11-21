@@ -1,0 +1,42 @@
+name: First-phase Native public Owner readiness (anonymous GET, informational)
+on:
+  workflow_run:
+    workflows: ['Verify']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_NATIVE_FIRST_PHASE_READONLY (anonymous GET only)'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: restaurant-native-first-phase-public-readonly
+  cancel-in-progress: false
+jobs:
+  native-readiness:
+    # Workflow-run can also fire for PRs. Only finished successful main pushes
+    # may check the public Worker; never check preview or untrusted PR context.
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event == 'push') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main' &&
+       inputs.confirm == 'CHECK_NATIVE_FIRST_PHASE_READONLY')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify closed reviewed CI executable graph (no tokens)
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Anonymous public Native status, Owner assets and fail-closed v4 Gate check
+        run: node tools/cloudflare-native-first-phase-public-readonly.mjs

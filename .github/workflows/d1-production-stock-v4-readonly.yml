@@ -1,0 +1,39 @@
+name: Production stock v4 source v3 read-only preflight (manual gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type CHECK_PROD_STOCK_V3_READONLY (no writes, no migration)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-production-d1-initialization
+  cancel-in-progress: false
+
+jobs:
+  inspect-v3:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_PROD_STOCK_V3_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: d1-production-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check closed SHA256 inventory before any Cloudflare credentials
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Inspect pinned Production D1 with fixed SELECT and PRAGMA only
+        env:
+          STOCK_V4_READONLY_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PROD_D1_READ_TOKEN }}
+        run: node tools/cloudflare-prod-stock-v4-readonly-preflight.mjs inspect

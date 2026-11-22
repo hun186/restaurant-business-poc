@@ -1,3 +1,13 @@
+## 2026-11-22｜G5 隔離 D1 重新建立，固定目標變更（待遠端唯讀驗證）
+
+操作員回報 Cloudflare D1 已新建專用空白庫 `restaurant-business-g5-disposable-recovery-drill`，新 UUID 為 `04566a27-cd95-4415-9bd7-c3e19d60ab6c`。此前 2026-10-29/30 PASS 的 **舊 UUID `cc3fe86d-1c46-4c2f-a399-0ec3c46d5198` 僅代表歷史快照**，不能視為新庫已完成同等驗證。2026-11-22 GitHub Actions G5 inspect #45032284411 在舊固定 UUID 下 FAIL，操作員 Dashboard 當時只看到 Production 與 Staging，推定舊隔離庫不可用，原因未獨立確證。
+
+此次 PR 僅更新固定 JSON、測試及 SHA-256 允許清單；**不增加任何 Cloudflare 權限、不建立／寫入／還原遠端 D1、不開放 Production Gate**。新 UUID 由操作員提供，尚未經 GitHub Actions／Cloudflare API 獨立驗證。PR 正式審查／CI／合併及 Main postmerge 驗證後，方可使用新 fixed pin 執行 **`mode=inspect` / `CHECK_DISPOSABLE_D1_READONLY`**。不能直接重試舊 Main 的 G5，因它仍指向舊 UUID。
+
+此 G5 工具驗證的是隔離庫基礎狀態及 Time Travel 功能；**它不是 Stock v4 真實遠端 migration 的替代品**。破壞性的 `mode=drill` 仍須各項獨立人工簽核、受保護 Environment 與明確授權；此次只核准更新固定目標與唯讀檢查流程。
+
+---
+
 # P0 G5｜獨立 Cloudflare D1 真實 Time Travel Restore 演練
 
 ## 2026-10-30｜G5 唯讀盤點 PASS 後的獨立人工隔離簽核（目前仍 BLOCKED）

@@ -69,8 +69,8 @@ test('exact reviewed target must be distinct from production, staging and unrevi
  assert.throws(()=>m.approvedTarget({...pin(),database_name:'restaurant-business-prod'}),/E_G5_DISPOSABLE_D1_RESTORE_GUARD/);
  assert.throws(()=>m.approvedTarget(pin(),'f'.repeat(32)),/E_G5_DISPOSABLE_D1_RESTORE_GUARD/);
  const realPin=JSON.parse(fs.readFileSync(path.join(root,'cloudflare/recovery-drill-target.json'),'utf8'));
- assert.deepEqual(realPin,{database_name:name,database_id:'cc3fe86d-1c46-4c2f-a399-0ec3c46d5198'});
- assert.equal(m.approvedTarget(realPin).id,'cc3fe86d-1c46-4c2f-a399-0ec3c46d5198');
+ assert.deepEqual(realPin,{database_name:name,database_id:'04566a27-cd95-4415-9bd7-c3e19d60ab6c'});
+ assert.equal(m.approvedTarget(realPin).id,'04566a27-cd95-4415-9bd7-c3e19d60ab6c');
  assert.notEqual(realPin.database_id,prod);
  assert.notEqual(realPin.database_id,stage);
 });

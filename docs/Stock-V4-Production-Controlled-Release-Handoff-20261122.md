@@ -3,6 +3,13 @@
 > 適用：Issue #212、#176、#34。**本文件是執行與驗收清單，不是已完成的 Production 發版證據，也不是自動執行遷移的程序。**
 > 建立時 Main = `9c9ed317eeb6611a060c08dacacfe14b55a7b027`（PR #250）。任何變更後先重新驗證 HEAD、Worker Build、備份新鮮度與目標資料庫，勿沿用固定 SHA 當作永久放行條件。
 
+## 2026-11-23 實機進展追加（不回寫 11/22 的歷史快照）
+
+- **正式營運備份**：操作者提供新來源（檔名 UTC 2026-11-21 23:15）之 Export [4]、Verify [2]、Copy Verify [3] **三項 PASS**，source/copy SHA256 一致；用同一份新來源執行 [5] memory-only v3→v4 **PASS**，22 個原有表及歷史資料保留、第三筆 receipt 為模擬、四種合成 movement 測試後 ROLLBACK；未寫入 Production。依 Issue #176/#212 的非機密紀錄為準。副本驗證不等於已證實異地儲存或實體遠端恢復。
+- **G5 新隔離庫**：重新釘選 `04566a27-cd95-4415-9bd7-c3e19d60ab6c`，PR #252 已 merge，Main Verify #45044021776 5/5 PASS；[G5 readonly inspect #45045820720](https://github.com/hun186/restaurant-business-poc/actions/runs/45045820720) `G5_DISPOSABLE_D1_PRISTINE_READONLY_PASS`；[binding inventory #45046728884](https://github.com/hun186/restaurant-business-poc/actions/runs/45046728884) 與 [#45046757404](https://github.com/hun186/restaurant-business-poc/actions/runs/45046757404) 均 `G5_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`，實測 2 scripts、246 versions、0 direct matches。**間接路徑、獨立人工核准、獨占使用、遠端 Time Travel Restore 仍未 PASS**。
+- **正式 Release Handoff**：PR #251 已 merge，Main Verify #45044346723 5/5 PASS。這不等於 v4 遷移或新 Gate 已啟用。
+- **新受保護 v3 遠端唯讀預檢（本 PR 新增，尚未實機執行）**：`.github/workflows/d1-production-stock-v4-readonly.yml` 僅允許 Main 手動 `confirm=CHECK_PROD_STOCK_V3_READONLY`，重用 `d1-production-readonly` Environment 的唯讀 Token。先經靜態 SHA256 inventory，再核對 Production 固定 UUID、原兩筆 `d1_migrations`、v3 contract、`stock_moves` DDL/index/種類、FK/quick_check、有效 Owner 1 筆；固定 SELECT/PRAGMA 專用 SQL，不讀出私人原始流水。**這是遠端 v3 遷移來源檢查，不是 v4 遠端遷移或恢復授權**。
+
 ## 0. 已驗證與未驗證的界線
 
 | 檢查 | 證據 | 現況 |

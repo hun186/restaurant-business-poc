@@ -7,7 +7,7 @@ const source=path.join(root,'tools/cloudflare-g5-binding-inventory.mjs');
 const workflow=path.join(root,'.github/workflows/d1-disposable-binding-inventory-g5.yml');
 const mod=import('../tools/cloudflare-g5-binding-inventory.mjs');
 const acc='31b409b04896d260ba0fadf6cc2bb305';
-const db='cc3fe86d-1c46-4c2f-a399-0ec3c46d5198';
+const db='04566a27-cd95-4415-9bd7-c3e19d60ab6c';
 const other='b882a6e8-0e56-49a6-bd41-1a6cadd726c9';
 const version='a0000000-1111-2222-3333-444444444444';
 const base='/accounts/'+acc,script=base+'/workers/scripts/restaurant-business-poc';

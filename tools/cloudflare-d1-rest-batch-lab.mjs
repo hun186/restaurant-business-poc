@@ -12,6 +12,9 @@ const APPROVAL='RUN_DISPOSABLE_D1_ROLLBACK_EXPERIMENT';
 const NAME_PREFIX='restaurant-business-owner-batch-lab-';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const repoRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+// A retired G5 target remains protected even after pin rotation: never treat
+// a previously enrolled recovery database as an arbitrary scratch database.
+const RETIRED_G5_TARGET_IDS=Object.freeze(['cc3fe86d-1c46-4c2f-a399-0ec3c46d5198']);
 function fail(phase='INVALID_INPUT'){const e=Error(FAIL);e.phase=phase;throw e;}
 const readConfig=p=>JSON.parse(fs.readFileSync(path.join(repoRoot,p),'utf8'));
 const tableName=x=>/^owner_batch_lab_[0-9a-f]{16}$/.test(x);
@@ -22,7 +25,8 @@ export function assertScratchUuid(uuid){
     ...readConfig('wrangler.jsonc').d1_databases.map(v=>v.database_id),
     ...readConfig('wrangler.preview-migrations.jsonc').d1_databases.map(v=>v.database_id),
     ...readConfig('wrangler.production-initialize.jsonc').d1_databases.map(v=>v.database_id),
-    readConfig('cloudflare/recovery-drill-target.json').database_id
+    readConfig('cloudflare/recovery-drill-target.json').database_id,
+    ...RETIRED_G5_TARGET_IDS
   ];
   if(refs.includes(uuid))fail('PROTECTED_TARGET');
   return uuid;

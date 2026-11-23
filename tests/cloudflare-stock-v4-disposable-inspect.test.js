@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
+const {pathToFileURL}=require('node:url');
 const {DatabaseSync}=require('node:sqlite');
 const {spawnSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
@@ -156,7 +157,7 @@ test('G6 CLI isolated placeholder fixture refuses before ANY Cloudflare fetch',t
   "process.on('exit',()=>fs.writeFileSync(process.env.G6_CALL_COUNTER_FILE,String(calls)));"
  ].join('\n')+'\n','utf8');
  const child=path.join(toolDir,'cloudflare-stock-v4-disposable-inspect.mjs');
- const r=spawnSync(process.execPath,['--import',preload,child,'inspect'],{
+ const r=spawnSync(process.execPath,['--import',pathToFileURL(preload).href,child,'inspect'],{
   cwd:temp,encoding:'utf8',env:{...process.env,GITHUB_ACTIONS:'true',
    GITHUB_REF:'refs/heads/main',
    STOCK_V4_DISPOSABLE_CONFIRM:'CHECK_STOCK_V4_DISPOSABLE_READONLY',

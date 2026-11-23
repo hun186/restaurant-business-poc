@@ -143,7 +143,7 @@ test('G6 CLI isolated placeholder fixture refuses before ANY Cloudflare fetch',t
   fs.copyFileSync(path.join(root,'tools',name),path.join(toolDir,name));
  const placeholder={database_name:NAME,database_id:'PENDING_SEPARATE_REVIEWED_TARGET_PR'};
  fs.writeFileSync(path.join(cfDir,'stock-v4-disposable-target.json'),
-  JSON.stringify(placeholder)+'\\n','utf8');
+  JSON.stringify(placeholder)+'\n','utf8');
  fs.copyFileSync(path.join(root,'cloudflare/recovery-drill-target.json'),
   path.join(cfDir,'recovery-drill-target.json'));
  // An ESM preloader stubs *all* fetch calls and writes an exit counter.
@@ -154,7 +154,7 @@ test('G6 CLI isolated placeholder fixture refuses before ANY Cloudflare fetch',t
   'let calls=0;',
   "globalThis.fetch=async()=>{calls++;throw Error('NETWORK_BLOCKED_IN_TEST');};",
   "process.on('exit',()=>fs.writeFileSync(process.env.G6_CALL_COUNTER_FILE,String(calls)));"
- ].join('\\n')+'\\n','utf8');
+ ].join('\n')+'\n','utf8');
  const child=path.join(toolDir,'cloudflare-stock-v4-disposable-inspect.mjs');
  const r=spawnSync(process.execPath,['--import',preload,child,'inspect'],{
   cwd:temp,encoding:'utf8',env:{...process.env,GITHUB_ACTIONS:'true',
@@ -167,7 +167,8 @@ test('G6 CLI isolated placeholder fixture refuses before ANY Cloudflare fetch',t
  assert.equal(r.status,1,r.stderr);
  assert.equal(r.stdout,'');
  assert.match(r.stderr,/E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
- assert.doesNotMatch(r.stderr,/synthetic_not_a_real_token|d1\\/database\\//);
+ assert.ok(!r.stderr.includes('synthetic_not_a_real_token') &&
+  !r.stderr.includes('/d1/database/'));
  assert.equal(fs.readFileSync(counter,'utf8'),'0',
   'even a failed authentication request is an unexpected network call');
 });

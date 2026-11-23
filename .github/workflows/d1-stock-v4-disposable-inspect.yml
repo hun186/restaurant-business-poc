@@ -1,0 +1,39 @@
+name: G6 stock v4 isolated disposable D1 inspection (manual read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        required: true
+        type: string
+        description: 'CHECK_STOCK_V4_DISPOSABLE_READONLY (will fail until target enrollment is reviewed)'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-stock-v4-disposable-inspection
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_STOCK_V4_DISPOSABLE_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: d1-recovery-drill-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Fail closed on unreviewed workflow and dependency changes
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Read pinned new G6 D1 metadata, pristine schema and Time Travel bookmark
+        env:
+          STOCK_V4_DISPOSABLE_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_DRILL_READ_TOKEN }}
+        run: node tools/cloudflare-stock-v4-disposable-inspect.mjs inspect

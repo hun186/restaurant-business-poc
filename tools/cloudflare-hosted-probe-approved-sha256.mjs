@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"25aab44e89a2eb8c6ade645a8912cbdabd34197d40caea7f5c1838c8fd67fd4e"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-stock-v4-disposable-inspect.yml":"79ea9b1becd65e2730132c14cfffe05f538e17bbe47ade6c0910717a3bfd5e2f",
   ".github/workflows/d1-production-stock-v4-readonly.yml":"58c05fbffe804f2beb0a354c5fd984c192bc913425e59617703439eb0bcf1ad7",
   ".github/workflows/cloudflare-g0-active-version-readonly.yml":"e927199741499c49a3074da5a26f1c2affbb8ddf7ec8b00a539fc284b6737d98",
   ".github/workflows/cloudflare-native-first-phase-public-readonly.yml":"3858ed366c04e7229e05da417dd00f51563360cd5c099a70da6010e892f84a7d",
@@ -31,6 +32,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-stock-v4-disposable-inspect.mjs":"f309b9db10a5971e06c3f9d686f9d9a6c2a3600a67b494efdcb09f2125c791e5",
   "tools/cloudflare-prod-stock-v4-readonly-preflight.mjs":"fe0079ac5a4b9cb6c72a14c6989cd5f3149cd72b125461c8e15d5604515de770",
   "tools/cloudflare-d1-memory-sql-guard.mjs":"fd1ec202f46a28c42c15718e3ae2ed930ef229309877204c4888d3751e9a9d63",
   "tools/cloudflare-d1-stock-v4-archive-transaction-probe.mjs":"e8f58cfbefbc6c4b11e6118b239c83c17fe8dba03ec50350fff03b67f1b88d4b",
@@ -95,6 +97,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-stock-v4-disposable-inspect.test.js":"1739661ab18fde47f765dcd25fa7e2edd95302d727c5dfb444956d9d9002db39",
+  "cloudflare/stock-v4-disposable-target.json":"c5b15ccf83fe041fdd462530934de5a203bb1167dd0b35deec64850afc0b6703",
   "tests/cloudflare-prod-stock-v4-readonly-preflight.test.js":"a8f639244b3c6daed396ac863c68bb523a9b523102f7e6c9c78b09050b80c185",
   "tests/cloudflare-d1-stock-v4-archive-rehearsal.test.js":"8a68b5b6e3f3bbbabce8acbb561fe8f1fee32330929c022e30de49a3cfee2ba3",
   "cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql":"b1a7d59c6c488ffb3451500ba3833721456ee50d3099a64754bf66c32a2535df",

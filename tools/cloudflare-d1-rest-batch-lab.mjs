@@ -26,6 +26,7 @@ export function assertScratchUuid(uuid){
     ...readConfig('wrangler.preview-migrations.jsonc').d1_databases.map(v=>v.database_id),
     ...readConfig('wrangler.production-initialize.jsonc').d1_databases.map(v=>v.database_id),
     readConfig('cloudflare/recovery-drill-target.json').database_id,
+    readConfig('cloudflare/stock-v4-disposable-target.json').database_id,
     ...RETIRED_G5_TARGET_IDS
   ];
   if(refs.includes(uuid))fail('PROTECTED_TARGET');

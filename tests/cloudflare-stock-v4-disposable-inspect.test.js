@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
+const {pathToFileURL}=require('node:url');
 const {DatabaseSync}=require('node:sqlite');
 const {spawnSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
@@ -47,7 +48,12 @@ test('disabled G6 placeholder and all protected D1 identifiers fail closed',asyn
   /E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
  const file=JSON.parse(fs.readFileSync(
   path.join(root,'cloudflare/stock-v4-disposable-target.json'),'utf8'));
- assert.deepEqual(file,pin('PENDING_SEPARATE_REVIEWED_TARGET_PR'));
+ assert.deepEqual(file,pin('909037ca-bb9d-45d3-b090-bc2af0e5951f'));
+ assert.equal(m.reviewedTarget(file,old).id,'909037ca-bb9d-45d3-b090-bc2af0e5951f');
+ assert.notEqual(file.database_id,PROD);
+ assert.notEqual(file.database_id,STAGE);
+ assert.notEqual(file.database_id,G5);
+ assert.notEqual(file.database_id,OLD_G5);
 });
 test('G6 readonly inspect checks exact identity/empty schema and never sends write SQL',async()=>{
  const m=await mod,{calls,io}=simulator();
@@ -127,18 +133,45 @@ test('API transport only allows approved G6 metadata/bookmark and fixed readonly
   /E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
  assert.equal(seen.length,2);
 });
-test('G6 CLI disabled placeholder exits without requesting Cloudflare API',()=>{
- const script=path.join(root,'tools/cloudflare-stock-v4-disposable-inspect.mjs');
- const r=spawnSync(process.execPath,[script,'inspect'],{
-  cwd:root,encoding:'utf8',env:{...process.env,GITHUB_ACTIONS:'true',
+test('G6 CLI isolated placeholder fixture refuses before ANY Cloudflare fetch',t=>{
+ const temp=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'g6-placeholder-'));
+ t.after(()=>fs.rmSync(temp,{recursive:true,force:true}));
+ const toolDir=path.join(temp,'tools'),cfDir=path.join(temp,'cloudflare');
+ fs.mkdirSync(toolDir,{recursive:true});
+ fs.mkdirSync(cfDir,{recursive:true});
+ for(const name of ['cloudflare-stock-v4-disposable-inspect.mjs',
+   'check-cloudflare-staging.mjs'])
+  fs.copyFileSync(path.join(root,'tools',name),path.join(toolDir,name));
+ const placeholder={database_name:NAME,database_id:'PENDING_SEPARATE_REVIEWED_TARGET_PR'};
+ fs.writeFileSync(path.join(cfDir,'stock-v4-disposable-target.json'),
+  JSON.stringify(placeholder)+'\n','utf8');
+ fs.copyFileSync(path.join(root,'cloudflare/recovery-drill-target.json'),
+  path.join(cfDir,'recovery-drill-target.json'));
+ // An ESM preloader stubs *all* fetch calls and writes an exit counter.
+ // This test must fail if the CLI ever reaches a network operation.
+ const counter=path.join(temp,'fetch-count.txt'),preload=path.join(temp,'deny-fetch.mjs');
+ fs.writeFileSync(preload,[
+  "import fs from 'node:fs';",
+  'let calls=0;',
+  "globalThis.fetch=async()=>{calls++;throw Error('NETWORK_BLOCKED_IN_TEST');};",
+  "process.on('exit',()=>fs.writeFileSync(process.env.G6_CALL_COUNTER_FILE,String(calls)));"
+ ].join('\n')+'\n','utf8');
+ const child=path.join(toolDir,'cloudflare-stock-v4-disposable-inspect.mjs');
+ const r=spawnSync(process.execPath,['--import',pathToFileURL(preload).href,child,'inspect'],{
+  cwd:temp,encoding:'utf8',env:{...process.env,GITHUB_ACTIONS:'true',
    GITHUB_REF:'refs/heads/main',
    STOCK_V4_DISPOSABLE_CONFIRM:'CHECK_STOCK_V4_DISPOSABLE_READONLY',
    CLOUDFLARE_ACCOUNT_ID:ACCOUNT,
-   CLOUDFLARE_API_TOKEN:'synthetic_not_a_real_token_123456789'}
+   CLOUDFLARE_API_TOKEN:'synthetic_not_a_real_token_123456789',
+   G6_CALL_COUNTER_FILE:counter}
  });
- assert.equal(r.status,1);assert.equal(r.stdout,'');
+ assert.equal(r.status,1,r.stderr);
+ assert.equal(r.stdout,'');
  assert.match(r.stderr,/E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
- assert.doesNotMatch(r.stderr,/synthetic_not_a_real_token|d1\/database\//);
+ assert.ok(!r.stderr.includes('synthetic_not_a_real_token') &&
+  !r.stderr.includes('/d1/database/'));
+ assert.equal(fs.readFileSync(counter,'utf8'),'0',
+  'even a failed authentication request is an unexpected network call');
 });
 test('workflow can run only main / approved readonly input and never reads write token',()=>{
  const wf=fs.readFileSync(

@@ -1,0 +1,39 @@
+name: G6 stock v4 isolated D1 postflight (after remote migration, GET/SELECT only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'AFTER separate G6 v3/v4 migration: type CHECK_G6_V4_POSTFLIGHT_READONLY; never executes migration'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restaurant-business-g6-v4-postflight-readonly
+  cancel-in-progress: false
+
+jobs:
+  postflight:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm == 'CHECK_G6_V4_POSTFLIGHT_READONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: d1-recovery-drill-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Validate all reviewed source, workflow and dependency SHA256 without secrets
+        run: node tools/cloudflare-hosted-probe-preflight.mjs
+      - name: Verify G6-only versioned v3/v4 receipts, synthetic ledger and schema (read-only)
+        env:
+          G6_V4_POSTFLIGHT_CONFIRM: ${{ inputs.confirm }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_DRILL_READ_TOKEN }}
+        run: node tools/cloudflare-stock-v4-g6-postflight.mjs inspect

@@ -83,6 +83,8 @@ test('real v3->v4 migration and synthetic positive data pass strict remote postf
  assert.equal(result.status,'G6_STOCK_V4_REMOTE_READONLY_POSTFLIGHT_PASS');
  assert.equal(result.versioned_migration_receipts_verified,3);
  assert.equal(result.synthetic_ledger_rows_verified,5);
+ assert.equal(result.exact_business_table_inventory_verified,true);
+ assert.equal(result.other_business_tables_verified_empty,true);
  assert.equal(result.remote_write_performed,false);
  assert.equal(result.release_authorized,false);
  assert.equal(result.production_gate_modified,false);
@@ -107,6 +109,9 @@ test('incomplete migration, missing receipt, schema/index drift and historical a
  await bad(db=>db.exec("UPDATE audit_logs SET detail='{\"broken\":true}' WHERE id='g6-audit-01'"));
  await bad(db=>db.exec("UPDATE ingredient_prices SET price_cents=3100 WHERE id='g6-price-01'"));
  await bad(db=>db.exec("INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES('extraneous','extraneous','EXTRA','staff','x','x')"));
+ await bad(db=>db.exec("INSERT INTO user_locations(user_id,location_id) VALUES('g6-fixture-owner','g6-fixture-location')"));
+ await bad(db=>db.exec('CREATE TABLE extra_customer_data (payload TEXT)'));
+ await bad(db=>db.exec('UPDATE backup_settings SET retention_count=51 WHERE id=1'));
 });
 test('v3-only DB cannot falsely be certified as v4',async t=>{
  const m=await importPostflight,db=synthetic(t,{migration:false,postMoves:false});

@@ -15,7 +15,7 @@ const BOOKMARK=/^[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{32}$/i;
 const RETIRED_G5='cc3fe86d-1c46-4c2f-a399-0ec3c46d5198';
 const FAIL='E_STOCK_V4_DISPOSABLE_TARGET_INSPECT';
 const SQL=Object.freeze({
- objects:"SELECT type,name,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name;",
+ objects:"SELECT type,name,tbl_name FROM sqlite_master WHERE substr(lower(name),1,7) <> 'sqlite_' ORDER BY type,name;",
  quick:'PRAGMA quick_check;'
 });
 const fail=()=>{throw Error(FAIL);};

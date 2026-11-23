@@ -24,7 +24,24 @@ const expectedMoves=Object.freeze([
  ['g6-m04',-0.5,'scrap',null,'synthetic scrap','13:00:00'],
  ['g6-m05',0.25,'adjustment',null,'synthetic recount','14:00:00']
 ]);
+const expectedTables=Object.freeze([
+ 'audit_logs','backup_settings','cloud_schema_contract','d1_migrations',
+ 'dish_ingredients','evaluations','ingredient_prices','ingredients',
+ 'leave_requests','locations','login_attempts','menu_dishes',
+ 'purchase_orders','repairs','sessions','shifts',
+ 'stock_move_kind_contract','stock_moves','stocktakes','tasks',
+ 'training_courses','training_records','user_locations','users'
+]);
+const unusedTables=Object.freeze([
+ 'user_locations','sessions','login_attempts','tasks','purchase_orders',
+ 'stocktakes','repairs','shifts','leave_requests','training_courses',
+ 'training_records','evaluations','menu_dishes','dish_ingredients'
+]);
 export const SQL=Object.freeze({
+ tableNames:"SELECT name FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7) <> 'sqlite_' AND name <> '_cf_KV' ORDER BY name;",
+ unusedCounts:'SELECT '+unusedTables.map(name=>
+  '(SELECT COUNT(*) FROM '+name+') AS '+name).join(', ')+';',
+ backup:'SELECT id,interval_days,retention_count FROM backup_settings ORDER BY id;',
  receipts:'SELECT name FROM d1_migrations ORDER BY id;',
  schema:'SELECT contract_version FROM cloud_schema_contract WHERE id=1;',
  version:'SELECT kind_version FROM stock_move_kind_contract WHERE id=1;',
@@ -63,6 +80,12 @@ export async function verifyG6V4Postflight(pin,io){
   need(Object.hasOwn(SQL,name));
   try{return rows(await io('POST',base+'/query',{sql:SQL[name]}));}catch{fail();}
  };
+ const tables=await query('tableNames');
+ need(eq(tables.map(row=>row.name),expectedTables.map(x=>x).sort()));
+ const unused=await query('unusedCounts');
+ need(unused.length===1&&exact(unused[0],unusedTables)&&
+  unusedTables.every(table=>unused[0][table]===0));
+ need(eq(await query('backup'),[{id:1,interval_days:1,retention_count:50}]));
  const receipts=await query('receipts');
  need(eq(receipts,[
   {name:'0001_initial_v3.sql'},
@@ -125,7 +148,9 @@ export async function verifyG6V4Postflight(pin,io){
   synthetic_ledger_rows_verified:movements.length,
   synthetic_audit_rows_verified:1,synthetic_price_rows_verified:1,
   fk_check_pass:true,quick_check_pass:true,v4_constraints_inspected:true,
-  real_business_data_seen:false,remote_write_performed:false,
+  other_business_tables_verified_empty:true,
+  exact_business_table_inventory_verified:true,
+  remote_write_performed:false,
   remote_migration_performed_by_this_tool:false,remote_restore_performed:false,
   production_gate_modified:false,release_authorized:false
  });

@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
+const {DatabaseSync}=require('node:sqlite');
 const {spawnSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const mod=import('../tools/cloudflare-stock-v4-disposable-inspect.mjs');
@@ -78,6 +79,30 @@ test('existing business table, unexpected index or broken identity denies',async
    /E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
   assert.equal(t.calls.filter(c=>c.body?.sql?.startsWith('CREATE')).length,0);
  }
+});
+test('real SQLite sqlite_master rejects sqliteXbusiness but ignores exact sqlite_ internals',async t=>{
+ const m=await mod,db=new DatabaseSync(':memory:');
+ t.after(()=>db.close());
+ // AUTOINCREMENT creates sqlite_sequence, a legitimate SQLite-internal table.
+ db.exec('CREATE TABLE _cf_KV (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT)');
+ const base='/accounts/'+ACCOUNT+'/d1/database/'+G6;
+ const io=async(method,url,body)=>{
+  if(method==='GET'&&url===base)
+   return good({uuid:G6,name:NAME,version:'production'});
+  if(method==='GET'&&url===base+'/time_travel/bookmark')return good({bookmark});
+  assert.equal(url,base+'/query');
+  assert.equal(method,'POST');
+  assert.ok([m.SQL.objects,m.SQL.quick].includes(body.sql));
+  return q(db.prepare(body.sql).all());
+ };
+ assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name='sqlite_sequence'").all().length===1);
+ assert.deepEqual(db.prepare(m.SQL.objects).all().map(row=>row.name),['_cf_KV']);
+ assert.equal((await m.inspectIsolated(pin(G6),io,old)).empty_schema_verified,true);
+ // Underscore is a SQL LIKE wildcard: 'sqliteXbusiness' was previously hidden.
+ db.exec('CREATE TABLE sqliteXbusiness (id INTEGER PRIMARY KEY)');
+ assert.ok(db.prepare(m.SQL.objects).all().some(row=>row.name==='sqliteXbusiness'));
+ await assert.rejects(()=>m.inspectIsolated(pin(G6),io,old),
+  /E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
 });
 test('API transport only allows approved G6 metadata/bookmark and fixed readonly SQL',async()=>{
  const m=await mod,base='/accounts/'+ACCOUNT+'/d1/database/'+G6;

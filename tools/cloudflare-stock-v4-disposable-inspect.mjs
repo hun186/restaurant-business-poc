@@ -1,5 +1,5 @@
 // G6 stock-v4 synthetic migration target: READ-ONLY identity/emptiness check.
-// This intentionally rejects the not-yet-enrolled target. No D1 migration,
+// Only a separately pinned and reviewed target can pass. No D1 migration,
 // restore, schema writes, Worker binding, production/staging or G5 mutation.
 import fs from 'node:fs';
 import path from 'node:path';

@@ -47,7 +47,12 @@ test('disabled G6 placeholder and all protected D1 identifiers fail closed',asyn
   /E_STOCK_V4_DISPOSABLE_TARGET_INSPECT/);
  const file=JSON.parse(fs.readFileSync(
   path.join(root,'cloudflare/stock-v4-disposable-target.json'),'utf8'));
- assert.deepEqual(file,pin('PENDING_SEPARATE_REVIEWED_TARGET_PR'));
+ assert.deepEqual(file,pin('909037ca-bb9d-45d3-b090-bc2af0e5951f'));
+ assert.equal(m.reviewedTarget(file,old).id,'909037ca-bb9d-45d3-b090-bc2af0e5951f');
+ assert.notEqual(file.database_id,PROD);
+ assert.notEqual(file.database_id,STAGE);
+ assert.notEqual(file.database_id,G5);
+ assert.notEqual(file.database_id,OLD_G5);
 });
 test('G6 readonly inspect checks exact identity/empty schema and never sends write SQL',async()=>{
  const m=await mod,{calls,io}=simulator();

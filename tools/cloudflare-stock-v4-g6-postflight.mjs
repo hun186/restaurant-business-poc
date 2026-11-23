@@ -55,10 +55,14 @@ const single=(list,key,value)=>need(list.length===1&&
 export async function verifyG6V4Postflight(pin,io){
  const base=approvedPath(pin);
  need(typeof io==='function');
- const metadata=await io('GET',base,null);
+ let metadata;
+ try{metadata=await io('GET',base,null);}catch{fail();}
  need(metadata?.success===true&&metadata.result?.uuid===pin.database_id&&
   metadata.result?.name===NAME&&metadata.result?.version==='production');
- const query=async name=>rows(await io('POST',base+'/query',{sql:SQL[name]}));
+ const query=async name=>{
+  need(Object.hasOwn(SQL,name));
+  try{return rows(await io('POST',base+'/query',{sql:SQL[name]}));}catch{fail();}
+ };
  const receipts=await query('receipts');
  need(eq(receipts,[
   {name:'0001_initial_v3.sql'},
@@ -72,7 +76,7 @@ export async function verifyG6V4Postflight(pin,io){
   ['table','stock_move_kind_contract','stock_move_kind_contract'],
   ['table','stock_moves','stock_moves'],
   ['index','stock_moves_stock','stock_moves']
- ].sort((a,b)=>a[1].localeCompare(b[1])).sort((a,b)=>a[1]<b[1]?-1:a[1]>b[1]?1:0)));
+ ]));
  // Check exact names separately; SQLite order is lexical under ORDER BY name.
  const names=objects.map(x=>x.name).sort();
  need(eq(names,['stock_move_kind_contract','stock_moves','stock_moves_stock']));

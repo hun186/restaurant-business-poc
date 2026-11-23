@@ -232,8 +232,7 @@ export function approvedBindingTarget(pin,account=ACCOUNT_ID){
   pin.database_id!==PROD_ID&&pin.database_id!==STAGING_ID);
  return pin.database_id;
 }
-export async function collectBindingInventory(pin,get){
- const id=approvedBindingTarget(pin);
+async function collectBindingInventoryByReviewedId(id,get){
  need(typeof get==='function');
  const prefix='/accounts/'+ACCOUNT_ID;
  const scripts=result(await get(prefix+'/workers/scripts'));
@@ -295,6 +294,39 @@ export async function collectBindingInventory(pin,get){
   production_restore_performed:false,
   production_ready:false
  });
+}
+// Share the exact pagination, Worker-version and Pages checks between G5 and
+// G6. The public G5 contract is unchanged; G6 still has a separate fixed pin
+// and refuses every Production/Staging/G5 target identity.
+export async function collectBindingInventory(pin,get){
+ return collectBindingInventoryByReviewedId(approvedBindingTarget(pin),get);
+}
+export function approvedG6BindingTarget(pin){
+ const relative='cloudflare/stock-v4-disposable-target.json';
+ const file=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..',relative);
+ const stat=fs.lstatSync(file);
+ need(stat.isFile()&&!stat.isSymbolicLink()&&stat.size>0&&stat.size<2048);
+ const fixed=JSON.parse(fs.readFileSync(file,'utf8'));
+ need(obj(pin)&&Object.keys(pin).sort().join(',')==='database_id,database_name'&&
+  obj(fixed)&&Object.keys(fixed).sort().join(',')==='database_id,database_name'&&
+  pin.database_name==='restaurant-business-stock-v4-disposable'&&
+  pin.database_id===fixed.database_id&&UUID.test(pin.database_id)&&
+  pin.database_id!==PROD_ID&&pin.database_id!==STAGING_ID&&
+  pin.database_id!=='cc3fe86d-1c46-4c2f-a399-0ec3c46d5198');
+ const g5Path=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..',
+   'cloudflare/recovery-drill-target.json');
+ const g5=JSON.parse(fs.readFileSync(g5Path,'utf8'));
+ need(pin.database_id!==approvedBindingTarget(g5));
+ return pin.database_id;
+}
+export async function collectG6BindingInventory(pin,get){
+ const data=await collectBindingInventoryByReviewedId(
+  approvedG6BindingTarget(pin),get);
+ const status=data.status.replace(/^G5_DISPOSABLE_D1_/,'G6_STOCK_V4_DISPOSABLE_D1_');
+ need(status!==data.status);
+ return Object.freeze({...data,status,
+  remote_v4_migration_performed:false,production_write_performed:false,
+  g6_remote_restore_performed:false,release_authorized:false});
 }
 export async function cloudflareReadOnlyGET(p,token,fetchImpl=fetch){
  need(typeof token==='string'&&token.length>12&&typeof fetchImpl==='function'&&

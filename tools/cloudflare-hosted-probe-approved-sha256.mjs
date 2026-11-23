@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"25aab44e89a2eb8c6ade645a8912cbdabd34197d40caea7f5c1838c8fd67fd4e"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-stock-v4-disposable-binding-readonly.yml":"a5902e9d0b8abc31ab4892a5770f20897e072c62a2ca976a9e859badfb65b68c",
   ".github/workflows/d1-stock-v4-disposable-inspect.yml":"79ea9b1becd65e2730132c14cfffe05f538e17bbe47ade6c0910717a3bfd5e2f",
   ".github/workflows/d1-production-stock-v4-readonly.yml":"58c05fbffe804f2beb0a354c5fd984c192bc913425e59617703439eb0bcf1ad7",
   ".github/workflows/cloudflare-g0-active-version-readonly.yml":"e927199741499c49a3074da5a26f1c2affbb8ddf7ec8b00a539fc284b6737d98",
@@ -32,6 +33,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-g6-binding-inventory.mjs":"b508a4d39cde5a5b7340cbbf70eadabebc0cbd8ca9e20de17c8007d40b2242bc",
   "tools/cloudflare-stock-v4-disposable-inspect.mjs":"a03bc4ebb8f3dd4a59be28d64c6f3f2c10632feb7894b92dba53e02e7403e51f",
   "tools/cloudflare-prod-stock-v4-readonly-preflight.mjs":"fe0079ac5a4b9cb6c72a14c6989cd5f3149cd72b125461c8e15d5604515de770",
   "tools/cloudflare-d1-memory-sql-guard.mjs":"fd1ec202f46a28c42c15718e3ae2ed930ef229309877204c4888d3751e9a9d63",
@@ -71,7 +73,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-staging-0003-transition-evidence.mjs":"0f411cfb7f788919e534ec7e21bc663df23fcdbd5d4c0cdd389d9b3edda07fce",
   "tools/cloudflare-staging-access-0003-readonly.mjs":"66993a792b510b072ea8daffaee1739d922ae163be1a3b97e219296daa5019c0",
   "tools/cloudflare-staging-http-readonly.mjs":"f16537ec95a1e6a052d2ac6e0ff5809cad3283b0e34c68af54d6bf0f89bb1d98",
-  "tools/cloudflare-g5-binding-inventory.mjs":"b0c2a26e636806b3c53c6318c2ea67bd82729ee32646996d8fb82d43e2085f80",
+  "tools/cloudflare-g5-binding-inventory.mjs":"a37fd62b7ff65e5a92b29e583e52963c0e82c41d51d0ccf96f80b1af1bd171f6",
   "tools/cloudflare-g0-remote-inventory.mjs":"563fc97fecf5bb3ef58230e2e24529179a726b525e8bc270bedcf59936a6164f",
   "tools/cloudflare-d1-disposable-drill.mjs":"30e31cc736603807075f75bb587665e7f15fb6e15106596ec0ce595cbcac4f12",
   "tools/cloudflare-d1-recovery-readiness.mjs":"93805be3ea8b1c5b588362300984fb60e6b2ceff9d993c98893f63b7a8ce5954",
@@ -97,6 +99,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
+  "tests/cloudflare-g6-binding-inventory.test.js":"a6d30eddc09d9db3c6015d64fed4083cb85014572071f84010027a77bbc3a53a",
   "tests/cloudflare-stock-v4-disposable-inspect.test.js":"940b9e5d9daa9f2532c78fa6f4ccf73e37721ac88dcdadbc411ef5a1c45ef12e",
   "cloudflare/stock-v4-disposable-target.json":"bb6fe791c8da5caaba818b8522c1e2b535771419dd43d0982ee41a1e09abae55",
   "tests/cloudflare-prod-stock-v4-readonly-preflight.test.js":"a8f639244b3c6daed396ac863c68bb523a9b523102f7e6c9c78b09050b80c185",

@@ -3,6 +3,13 @@
 > **2026-11-23：只完成隔離 G6 目標的預先註冊安全框架，不是已執行遠端遷移。**
 > 關聯：Issue #212／#176；Production、Staging 與 G5 Recovery 演練目標不得拿來替代。
 
+## 2026-11-23｜G6 實機唯讀驗收與下一階段狀態
+
+- **新 G6 遠端空庫唯讀驗證已 PASS**：[Actions #45099304913](https://github.com/hun186/restaurant-business-poc/actions/runs/45099304913) 在 Main `3ee1e1200efbf831524c925f575388ffef063bac`，`STOCK_V4_DISPOSABLE_PRISTINE_READONLY_PASS`，Identity／pristine schema／quick_check／Time Travel bookmark 可讀均真實通過；不得重做此項以充數。
+- **Production v3 遠端唯讀來源 Gate 已 PASS**：[Actions #45095751400](https://github.com/hun186/restaurant-business-poc/actions/runs/45095751400)；v3 contract、兩筆既有 migration、歷史流水及 FK/quick_check 合格；無生產寫入。
+- **本 PR 新增 G6 Worker／Pages 直接綁定唯讀盤點**：`d1-stock-v4-disposable-binding-readonly.yml`，Branch `main`、confirm `CHECK_G6_BINDINGS_READONLY`。繼承既有 G5 經實機驗證的 Worker Scripts／versions 與 Pages 分頁枚舉機制，但只檢查新的 G6 固定 UUID。尚未實機執行、不得先標記 PASS；即使無直接綁定，也不代表間接存取、獨占、人工作業核准已完成。
+- **寫入階段仍未開始**：本 PR 不建立遠端 v3/v4 schema、不執行任何 D1 SQL write、不使用 Write Token、不執行 Restore，也不開 Production Gate。真正的 G6 synthetic 版本化 v3→v4 migration + Postflight 必須另有受審 PR 與獨立寫入許可。
+
 ## 已確認的前置證據
 
 - 正式營運加密 Export、Verify、Copy Verify 與同一來源 [5] memory-only v3→v4 rehearsal 均有使用者實機 PASS（Issue #212／#176），未進行正式升級。

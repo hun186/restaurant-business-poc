@@ -39,6 +39,16 @@ G6 pin 必須與以下所有保護目標不同：
 
 `STOCK_V4_DISPOSABLE_PRISTINE_READONLY_PASS` **僅證明**目標身分、空白結構與 Bookmark 可讀；不證明沒有間接存取、沒有人正在使用、更不授權 Migration/Restore/Production。若 Cloudflare 的既有 G5 專用 readonly token 未包含 G6 權限，應更新獨立最小權限配置，不可借用正式寫入 Token 來繞過。
 
+## 2026-11-23 G6 實機唯讀證據與獨立 Binding Gate（新）
+
+- [G6 inspect #45099304913](https://github.com/hun186/restaurant-business-poc/actions/runs/45099304913) 已真實 **PASS**：`STOCK_V4_DISPOSABLE_PRISTINE_READONLY_PASS`、`isolated_target_identity_verified=true`、`empty_schema_verified=true`、`time_travel_bookmark_available=true`；輸出亦明確 `no_direct_worker_binding_certified=false`、`exclusive_use_verified=false`、`remote_v4_migration_performed=false`。無須重跑 G6 空庫 Inspect。
+
+- 本次 PR 新增 **獨立 G6 Worker／Pages 直接綁定盤點**：重用原 G5 經實機驗證的完整 Worker Versions 分頁、Pages Project 分頁及安全錯誤處理，僅將目標鎖定為受控 G6 Pin，名稱和 UUID 不允許任意輸入。Main CI／正式 Codex 審查合格後，手動執行 `.github/workflows/d1-stock-v4-disposable-binding-readonly.yml`，Branch=`main`，confirm=`CHECK_G6_BINDINGS_READONLY`。使用現有 **GET-only** `d1-recovery-drill-binding-readonly` Environment 和 `CLOUDFLARE_G5_BINDINGS_READ_TOKEN`（此名稱為既有唯讀資源，**不得**換用 Write Token）。
+
+- 若盤點發現任何 G6 Worker/Pages D1 直接綁定、結果不完整，或存在不能核實歷史部署綁定的 Pages Project，該工作流程會 fail-closed。只有日誌實際輸出 `G6_STOCK_V4_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED` 才能標記**機器盤點未發現直接綁定**；即使這個狀態出現，也**不代表**已完成間接 Service Binding/外部存取、人員獨占、人工獨立簽核或 Migration 授權。
+
+- 這是 G6 空庫 Inspect 之後、真正遠端合成資料 v3→v4 版控 Migration 之前的一個唯讀關卡。正式 Production 與 G5 Recovery 不會被修改。
+
 ## 第二階段：需要**另開受審 PR** 的遠端 Migration 實驗（尚未開發完成）
 
 1. 使用獨立受保護的 Write Environment、經審查的精確 G6 UUID 和 SHA、固定工單及人工獨占確認。先進行遠端 metadata／空庫預檢，Write token 必須在全部 Gate 後才提供。

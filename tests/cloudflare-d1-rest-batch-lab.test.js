@@ -61,13 +61,14 @@ function sim({name=META.result.name,uuid=UUID,existing=[],atomic=true,
 function expectPhase(action,phase){
  return assert.rejects(action,e=>e.message==='E_DISPOSABLE_D1_BATCH_LAB'&&e.phase===phase);
 }
-test('hard-stop on Production, Staging, current and retired G5 Recovery Drill UUIDs',async()=>{
+test('hard-stop on Production, Staging, current and retired G5 plus enrolled G6 UUIDs',async()=>{
  const m=await mod;
  for(const id of [
   'b882a6e8-0e56-49a6-bd41-1a6cadd726c9',
   '2c355bed-d9c3-449c-aa9b-1018f3bc1177',
   'cc3fe86d-1c46-4c2f-a399-0ec3c46d5198',
-  '04566a27-cd95-4415-9bd7-c3e19d60ab6c'
+  '04566a27-cd95-4415-9bd7-c3e19d60ab6c',
+  '909037ca-bb9d-45d3-b090-bc2af0e5951f'
  ])assert.throws(()=>m.assertScratchUuid(id),e=>e.phase==='PROTECTED_TARGET');
  for(const id of ['','non-uuid','AAAAAAAA-1111-1111-1111-123456789abc'])
   assert.throws(()=>m.assertScratchUuid(id),e=>e.phase==='TARGET');

@@ -82,9 +82,14 @@ const eq=(a,b)=>{
 // when ALTER TABLE RENAME runs. Ignore only formatting whitespace outside
 // quoted SQL tokens. Whitespace within a literal (DEFAULT '' vs DEFAULT ' ')
 // or a quoted identifier must remain semantically significant.
+const SQLITE_FORMAT_WS=/[ \t\n\v\f\r]/;
 const canonicalDDL=ddl=>{
  need(typeof ddl==='string');
- const sql=ddl.replace(/CREATE\s+TABLE\s+"stock_moves"/i,'CREATE TABLE stock_moves');
+ // SQLite accepts only ASCII SPACE and 0x09..0x0D as formatting whitespace.
+ // JavaScript \s additionally matches NBSP and other Unicode identifier
+ // characters, and must not be used when comparing actual SQLite DDL.
+ const sql=ddl.replace(/^CREATE[ \t\n\v\f\r]+TABLE[ \t\n\v\f\r]+"stock_moves"/i,
+  'CREATE TABLE stock_moves');
  let result='',quote=null;
  for(let i=0;i<sql.length;i++){
   const char=sql[i];
@@ -98,7 +103,7 @@ const canonicalDDL=ddl=>{
   }else if(char==="'"||char==='"'||char===String.fromCharCode(96)||char==='['){
    quote=char;
    result+=char;
-  }else if(!/\s/.test(char)){
+  }else if(!SQLITE_FORMAT_WS.test(char)){
    result+=char;
   }
  }

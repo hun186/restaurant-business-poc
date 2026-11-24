@@ -114,14 +114,14 @@ test('real mutated v4 DDL missing quantity CHECK or all FK constraints is reject
  const m=await importPostflight;
  for(const mutate of [
   ddl=>ddl.replace('CHECK(qty_delta != 0)',''),
-  ddl=>ddl.replace(/\\s+REFERENCES\\s+(?:ingredients|locations|users)\\(id\\)/g,''),
+  ddl=>ddl.replace(/\s+REFERENCES\s+(?:ingredients|locations|users)\(id\)/g,''),
   ddl=>ddl.replace("DEFAULT CURRENT_TIMESTAMP",'')
  ]){
   const db=synthetic(t);
   const ddl=db.prepare("SELECT sql FROM sqlite_master WHERE name='stock_moves'").get().sql;
   const invalid=mutate(ddl);
   assert.notEqual(invalid,ddl,'mutation must remove an actual constraint or default');
-  const create=invalid.replace(/^CREATE TABLE\\s+"?stock_moves"?/i,'CREATE TABLE stock_moves_broken');
+  const create=invalid.replace(/^CREATE TABLE\s+"?stock_moves"?/i,'CREATE TABLE stock_moves_broken');
   db.exec('PRAGMA foreign_keys=OFF;');
   db.exec(create);
   db.exec('INSERT INTO stock_moves_broken SELECT * FROM stock_moves;');

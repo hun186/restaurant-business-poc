@@ -48,6 +48,34 @@ const v4History=Object.freeze([
  move('g6-m04',-0.5,'scrap',null,'synthetic scrap','13:00:00'),
  move('g6-m05',0.25,'adjustment',null,'synthetic recount','14:00:00')
 ]);
+// Phase 3 must prove that the full reviewed v3 history exists *before*
+// rebuilding stock_moves. Merely having two receipts is not sufficient:
+// migrating an empty ledger and inserting the old rows afterwards falsely
+// claims to have tested historical preservation. Use a transactional SQLite
+// CHECK sentinel, not a bare SELECT (which never aborts when a count is wrong).
+const v3Evidence=Object.freeze([
+ "(SELECT COUNT(*) FROM d1_migrations)=2",
+ "(SELECT COUNT(*) FROM d1_migrations WHERE (id=1 AND name='0001_initial_v3.sql') OR (id=2 AND name='0002_login_attempts_window_indexes.sql'))=2",
+ "(SELECT contract_version FROM cloud_schema_contract WHERE id=1)=3",
+ "(SELECT COUNT(*) FROM users)=1",
+ "(SELECT COUNT(*) FROM users WHERE id='g6-fixture-owner' AND username='g6-synthetic-owner' AND display_name='G6 Synthetic' AND role='owner' AND password_salt='nonsecret_salt' AND password_hash='nonsecret_hash' AND active=1)=1",
+ "(SELECT COUNT(*) FROM locations)=1",
+ "(SELECT COUNT(*) FROM locations WHERE id='g6-fixture-location' AND name='G6 Synthetic Store' AND active=1)=1",
+ "(SELECT COUNT(*) FROM ingredients)=1",
+ "(SELECT COUNT(*) FROM ingredients WHERE id='g6-fixture-ingredient' AND sku='G6-SYNTH-001' AND name='G6 Synthetic Ingredient' AND unit='kg' AND min_stock=0 AND active=1)=1",
+ "(SELECT COUNT(*) FROM stock_moves)=2",
+ "(SELECT COUNT(*) FROM stock_moves WHERE (id='g6-m01' AND ingredient_id='g6-fixture-ingredient' AND location_id='g6-fixture-location' AND qty_delta=10 AND move_type='purchase' AND reference_id='g6-po-01' AND note='synthetic inbound' AND actor_id='g6-fixture-owner' AND created_at='2026-11-01 10:00:00') OR (id='g6-m02' AND ingredient_id='g6-fixture-ingredient' AND location_id='g6-fixture-location' AND qty_delta=-2 AND move_type='usage' AND reference_id IS NULL AND note='synthetic usage' AND actor_id='g6-fixture-owner' AND created_at='2026-11-01 11:00:00'))=2",
+ "(SELECT COUNT(*) FROM audit_logs)=1",
+ "(SELECT COUNT(*) FROM audit_logs WHERE id='g6-audit-01' AND at='2026-11-01 11:30:00' AND actor_id='g6-fixture-owner' AND actor_name='G6 Synthetic' AND action='stock.usage' AND entity='stock_moves' AND entity_id='g6-m02' AND location_id='g6-fixture-location' AND detail='{}')=1",
+ "(SELECT COUNT(*) FROM ingredient_prices)=1",
+ "(SELECT COUNT(*) FROM ingredient_prices WHERE id='g6-price-01' AND ingredient_id='g6-fixture-ingredient' AND location_id='g6-fixture-location' AND price_date='2026-11-01' AND price_cents=2300 AND unit='kg' AND supplier='G6 Synthetic Supplier' AND source='manual' AND created_by='g6-fixture-owner')=1",
+ "(SELECT COUNT(*) FROM sqlite_master WHERE name='stock_move_kind_contract' OR name='stock_moves_v4')=0"
+]);
+const assertV3BeforeUpgrade=Object.freeze([
+ "CREATE TEMP TABLE g6_v3_before_upgrade_guard (verified INTEGER NOT NULL CHECK(verified=1));",
+ "INSERT INTO temp.g6_v3_before_upgrade_guard(verified) SELECT CASE WHEN "+v3Evidence.join(' AND ')+" THEN 1 ELSE 0 END;",
+ "DROP TABLE temp.g6_v3_before_upgrade_guard;"
+]);
 function batch(lines){
  need(Array.isArray(lines)&&lines.length>0&&lines.every(s=>
   typeof s==='string'&&s.trim().length>0));
@@ -81,6 +109,7 @@ export function buildG6SyntheticPlan(pin=getTarget()){
   ])},
   {name:'v3-synthetic-history',receiptCount:2,sql:batch(v3History)},
   {name:'v4-schema',receiptCount:3,sql:batch([
+   ...assertV3BeforeUpgrade,
    upgrade,
    "INSERT INTO d1_migrations(id,name) VALUES(3,'0004_stock_move_kinds.sql');"
   ])},

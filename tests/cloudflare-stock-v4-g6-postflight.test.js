@@ -128,7 +128,9 @@ test('real mutated v4 DDL missing constraints or altered literal defaults is rej
   ddl=>ddl.replace("DEFAULT CURRENT_TIMESTAMP",''),
   // SQL string literal whitespace is semantic: '' differs from ' '.
   ddl=>ddl.replace("DEFAULT ''","DEFAULT ' '"),
-  ddl=>ddl.replace("DEFAULT ''","DEFAULT '   '")
+  ddl=>ddl.replace("DEFAULT ''","DEFAULT '   '"),
+  // NBSP outside quotes is part of a SQLite identifier, not formatting whitespace.
+  ddl=>ddl.replace('DEFAULT CURRENT_TIMESTAMP','DEFAULT CURRENT_TIMESTAMP\u00a0')
  ]){
   const db=synthetic(t);
   const ddl=db.prepare("SELECT sql FROM sqlite_master WHERE name='stock_moves'").get().sql;

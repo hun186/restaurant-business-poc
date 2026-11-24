@@ -74,19 +74,19 @@ test('execute exactly proposed phases in isolated SQLite and pass previously mer
  const {buildG6SyntheticPlan}=await imported;
  const db=synthetic(t),steps=buildG6SyntheticPlan();
  db.exec(steps[0].sql);
- assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all(),[
+ assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all().map(row=>({...row})),[
   {id:1,name:'0001_initial_v3.sql'},
   {id:2,name:'0002_login_attempts_window_indexes.sql'}
  ]);
- assert.deepEqual(db.prepare('SELECT contract_version FROM cloud_schema_contract').all(),
+ assert.deepEqual(db.prepare('SELECT contract_version FROM cloud_schema_contract').all().map(row=>({...row})),
   [{contract_version:3}]);
  db.exec(steps[1].sql);
- assert.deepEqual(db.prepare('SELECT id,move_type,qty_delta FROM stock_moves ORDER BY id').all(),[
+ assert.deepEqual(db.prepare('SELECT id,move_type,qty_delta FROM stock_moves ORDER BY id').all().map(row=>({...row})),[
   {id:'g6-m01',move_type:'purchase',qty_delta:10},
   {id:'g6-m02',move_type:'usage',qty_delta:-2}
  ]);
  db.exec(steps[2].sql);
- assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all(),[
+ assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all().map(row=>({...row})),[
   {id:1,name:'0001_initial_v3.sql'},
   {id:2,name:'0002_login_attempts_window_indexes.sql'},
   {id:3,name:'0004_stock_move_kinds.sql'}

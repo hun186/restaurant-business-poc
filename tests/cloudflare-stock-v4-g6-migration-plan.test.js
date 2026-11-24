@@ -104,18 +104,24 @@ test('partial/out-of-order plans and any implicit replay fail locally instead of
  const {buildG6SyntheticPlan}=await imported;
  const steps=buildG6SyntheticPlan();
  const db=synthetic(t);
- assert.throws(()=>db.exec(steps[2].sql));
- assert.throws(()=>db.exec(steps[1].sql));
+ const rejected=sql=>{
+  assert.throws(()=>db.exec(sql));
+  // SQLite leaves an explicit transaction active after an invalid statement;
+  // the future executor must never replay it without an independent check.
+  db.exec('ROLLBACK;');
+ };
+ rejected(steps[2].sql);
+ rejected(steps[1].sql);
  assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all(),[]);
  db.exec(steps[0].sql);
- assert.throws(()=>db.exec(steps[0].sql));
- assert.throws(()=>db.exec(steps[3].sql));
+ rejected(steps[0].sql);
+ rejected(steps[3].sql);
  db.exec(steps[1].sql);
- assert.throws(()=>db.exec(steps[1].sql));
+ rejected(steps[1].sql);
  db.exec(steps[2].sql);
- assert.throws(()=>db.exec(steps[2].sql));
+ rejected(steps[2].sql);
  db.exec(steps[3].sql);
- assert.throws(()=>db.exec(steps[3].sql));
+ rejected(steps[3].sql);
  assert.equal((await verify(db)).status,'G6_STOCK_V4_REMOTE_READONLY_POSTFLIGHT_PASS');
 });
 test('wrong target, missing reviewed fields and altered stage digest are rejected',async()=>{

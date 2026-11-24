@@ -117,6 +117,11 @@ test('incomplete migration, missing receipt, schema/index drift and historical a
  await bad(db=>db.exec('CREATE VIEW extra_view AS SELECT id FROM stock_moves'));
  await bad(db=>db.exec('CREATE TRIGGER extra_trigger AFTER INSERT ON stock_moves BEGIN SELECT 1; END'));
  await bad(db=>db.exec('UPDATE backup_settings SET retention_count=51 WHERE id=1'));
+ await bad(db=>db.exec("UPDATE backup_settings SET last_fingerprint='unexpected-live' WHERE id=1"));
+ await bad(db=>db.exec("UPDATE users SET password_hash='unexpected-real-password-hash' WHERE id='g6-fixture-owner'"));
+ await bad(db=>db.exec("UPDATE users SET display_name='OTHER USER' WHERE id='g6-fixture-owner'"));
+ await bad(db=>db.exec("UPDATE locations SET active=0 WHERE id='g6-fixture-location'"));
+ await bad(db=>db.exec("UPDATE ingredients SET min_stock=12 WHERE id='g6-fixture-ingredient'"));
 });
 test('forged movement column type/flags cannot satisfy v4 shape contract',async t=>{
  const m=await importPostflight,db=synthetic(t);

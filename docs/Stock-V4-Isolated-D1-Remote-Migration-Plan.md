@@ -7,8 +7,8 @@
 
 - [Run #45435392558 / job #138591682892](https://github.com/hun186/restaurant-business-poc/actions/runs/45435392558/job/138591682892)，Main `80891d4dd6dd301dfa2fdab4a2a7c1ecb3216993`，2026-11-25 00:18 台灣時間。全部 steps success、SHA256 static preflight PASS。實際輸出 `G6_STOCK_V4_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`；2 Worker scripts、253 versions、0 Pages projects、0 direct binding matches，`pages_deployment_bindings_verified=true`。
 - 此為該時點的**直接綁定盤點 PASS**，不是永久授權。日誌明示 `no_indirect_service_access_certified=false`、`independent_human_attestation_completed=false`、`exclusive_use_verified=false`、`release_authorized=false`。下方 11/23、11/24 的未執行文字是歷史狀態，以此段為最新證據；若配置或使用權變動，須重新核實。
-- #258、#259 已合併，Main Verify #45364215702／#45367992929 均 5/5 PASS。遠端 Stage classifier 尚未實機執行；舊 G6 空庫 Inspect #45099304913 已 PASS，不必重複跑舊工具。
-- **下一項唯讀 baseline**：Main 手動執行 [G6 stage readonly](https://github.com/hun186/restaurant-business-poc/actions/workflows/d1-stock-v4-disposable-stage-readonly.yml)，confirm=`CHECK_G6_STAGE_READONLY`。預期為 Stage 0；只有實際分類日誌能證明此結果，非 0 或錯誤均 STOP，不執行遷移或重試。這不是再次執行舊空庫 Inspect，而是驗證新的階段診斷器在真實 D1 的相容性。
+- #258、#259 已合併，Main Verify #45364215702／#45367992929 均 5/5 PASS。遠端 Stage classifier 的本次 Stage 0 已實機通過（見下一項）；舊 G6 空庫 Inspect #45099304913 已 PASS，不必重複跑舊工具。
+- **G6 Stage 0 唯讀 baseline 實機 PASS**：[Run #45510707371 / job #138857389740](https://github.com/hun186/restaurant-business-poc/actions/runs/45510707371/job/138857389740)，Main `80891d4dd6dd301dfa2fdab4a2a7c1ecb3216993`，2026-11-25 07:31:55 台灣時間。`G6_STAGE_READONLY_CLASSIFIED`、stage=0、migration_receipts_verified=0、synthetic_ledger_rows_verified=0、pinned_g6_identity_verified=true、negative_sql_guard=true；全部 steps success。indirect_access_verified、exclusive_use_verified、operator_attestation_verified、next_stage_execution_authorized、retry_authorized 均 false。兩項唯讀實機關卡已有證據，若環境改變須重新核實；非 0 或未知狀態一律 STOP，不得自動遷移或重試。
 
 ### 獨立操作者確認清單（目前全部未確認）
 

@@ -42,7 +42,7 @@ export const SQL=Object.freeze({
  unexpectedObjects:"SELECT type,name FROM sqlite_master WHERE type IN ('view','trigger') AND substr(lower(name),1,7) <> 'sqlite_' ORDER BY type,name;",
  unusedCounts:'SELECT '+unusedTables.map(name=>
   '(SELECT COUNT(*) FROM '+name+') AS '+name).join(', ')+';',
- backup:'SELECT id,interval_days,retention_count FROM backup_settings ORDER BY id;',
+ backup:'SELECT id,interval_days,retention_count,last_auto_at,last_auto_name,last_fingerprint,last_result,last_error FROM backup_settings ORDER BY id;',
  receipts:'SELECT id,name FROM d1_migrations ORDER BY id;',
  schema:'SELECT contract_version FROM cloud_schema_contract WHERE id=1;',
  version:'SELECT kind_version FROM stock_move_kind_contract WHERE id=1;',
@@ -51,9 +51,9 @@ export const SQL=Object.freeze({
  index:'PRAGMA index_info(stock_moves_stock);',
  foreign:'PRAGMA foreign_key_check;',
  quick:'PRAGMA quick_check;',
- users:'SELECT id,username,role FROM users ORDER BY id;',
- locations:'SELECT id,name FROM locations ORDER BY id;',
- ingredients:'SELECT id,sku,name,unit FROM ingredients ORDER BY id;',
+ users:'SELECT id,username,display_name,role,password_salt,password_hash,active FROM users ORDER BY id;',
+ locations:'SELECT id,name,active FROM locations ORDER BY id;',
+ ingredients:'SELECT id,sku,name,unit,min_stock,active FROM ingredients ORDER BY id;',
  moves:'SELECT id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id,created_at FROM stock_moves ORDER BY id;',
  audit:'SELECT id,actor_id,actor_name,action,entity,entity_id,location_id,detail FROM audit_logs ORDER BY id;',
  prices:'SELECT id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source,created_by FROM ingredient_prices ORDER BY id;'
@@ -87,7 +87,10 @@ export async function verifyG6V4Postflight(pin,io){
  const unused=await query('unusedCounts');
  need(unused.length===1&&exact(unused[0],unusedTables)&&
   unusedTables.every(table=>unused[0][table]===0));
- need(eq(await query('backup'),[{id:1,interval_days:1,retention_count:50}]));
+ need(eq(await query('backup'),[{
+  id:1,interval_days:1,retention_count:50,last_auto_at:null,
+  last_auto_name:null,last_fingerprint:null,last_result:null,last_error:null
+ }]));
  const receipts=await query('receipts');
  need(eq(receipts,[
   {id:1,name:'0001_initial_v3.sql'},
@@ -127,10 +130,16 @@ export async function verifyG6V4Postflight(pin,io){
  need(eq((await query('index')).map(x=>x.name),['ingredient_id','location_id']));
  need((await query('foreign')).length===0);
  single(await query('quick'),'quick_check','ok');
- need(eq(await query('users'),[{id:fixture.owner,username:'g6-synthetic-owner',role:'owner'}]));
- need(eq(await query('locations'),[{id:fixture.location,name:'G6 Synthetic Store'}]));
+ need(eq(await query('users'),[{
+  id:fixture.owner,username:'g6-synthetic-owner',display_name:'G6 Synthetic',
+  role:'owner',password_salt:'nonsecret_salt',password_hash:'nonsecret_hash',active:1
+ }]));
+ need(eq(await query('locations'),[{
+  id:fixture.location,name:'G6 Synthetic Store',active:1
+ }]));
  need(eq(await query('ingredients'),[{
-  id:fixture.ingredient,sku:'G6-SYNTH-001',name:'G6 Synthetic Ingredient',unit:'kg'
+  id:fixture.ingredient,sku:'G6-SYNTH-001',name:'G6 Synthetic Ingredient',
+  unit:'kg',min_stock:0,active:1
  }]));
  const movements=await query('moves');
  need(movements.length===expectedMoves.length);

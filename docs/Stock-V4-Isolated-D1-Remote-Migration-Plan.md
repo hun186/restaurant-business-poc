@@ -78,6 +78,16 @@ G6 pin 必須與以下所有保護目標不同：
 
 - **後續仍須獨立 PR／獨立人工批准**：驗證 G6 Worker／Pages direct binding 經實機 PASS，補完間接存取與獨占確認；再審查 D1 REST 原子性、不可重跑的階段進度契約、人工 Gate 與獨立受保護 Write Environment。直到這些完成之前，不准建立有權限呼叫遠端 SQL write 的 Runner，也不得把離線 Plan／測試標示為遠端 Migration 成功。
 
+## 2026-11-24｜G6 階段辨識唯讀診斷器（新 PR，尚未實機執行）
+
+- 新增 `tools/cloudflare-stock-v4-g6-stage-readonly.mjs` 與 Main-only 手動 `d1-stock-v4-disposable-stage-readonly.yml`。使用現有 `d1-recovery-drill-readonly` Environment、先執行完整 SHA-256 preflight，確認值 `CHECK_G6_STAGE_READONLY`。此工具**只允許**固定 G6 UUID 的 GET metadata 和沿用 #257 已受審白名單中的 SELECT／PRAGMA，無 DDL／DML、Restore、Worker Deployment、正式 Gate 或寫入權限。
+
+- 只辨識五個**固定合成資料**階段：Stage 0 專用 G6 空庫；Stage 1 v3 Schema＋兩筆 Migration receipt、無歷史資料；Stage 2 v3 兩筆合成流水與 Owner／門市／食材、稽核與價格；Stage 3 v4 Schema＋第三筆 receipt，但仍只有舊的兩筆歷史流水；Stage 4 五筆合成庫存流水、通過原 #257 的**完整** v4 Postflight。其他所有未知、部分套用、表結構／憑證／記錄數量異常，均拒絕分類、需人工唯讀診斷。
+
+- 安全語意：本工具的輸出只是 `G6_STAGE_READONLY_CLASSIFIED` 與 stage 編號、receipt／ledger 的數量；**不輸出查到的原始欄位、不宣稱間接存取或 G6 獨占已完成、不授權執行下一步或重試**。尤其不可因 Stage 1～3 被辨識，就認定 D1 遠端各階段已經具備原子性或回滾保證。
+
+- [Cloudflare D1 REST Query 官方文件](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/) 說明 REST `/query` 支援多語句和 batch，但並非對本案個別 DDL/DML 失敗的跨多語句回滾保證；[Cloudflare D1 匯入文件](https://developers.cloudflare.com/d1/best-practices/import-export-data/) 明確要求從 SQL dump 移除 `BEGIN TRANSACTION`／`COMMIT`。所以 #258 離線計畫的 `BEGIN IMMEDIATE`、`TEMP` CHECK 哨兵不可直接拿去 REST 遠端套用。未來要實做 D1 write Runner 仍需要獨立證據、重審與人工 Gate；目前不准直接執行。
+
 ## 第二階段：需要**另開受審 PR** 的遠端 Migration 實驗（尚未開發完成）
 
 1. 使用獨立受保護的 Write Environment、經審查的精確 G6 UUID 和 SHA、固定工單及人工獨占確認。先進行遠端 metadata／空庫預檢，Write token 必須在全部 Gate 後才提供。

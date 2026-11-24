@@ -3,7 +3,23 @@
 > **2026-11-23：只完成隔離 G6 目標的預先註冊安全框架，不是已執行遠端遷移。**
 > 關聯：Issue #212／#176；Production、Staging 與 G5 Recovery 演練目標不得拿來替代。
 
-## 2026-11-23｜G6 實機唯讀驗收與下一階段狀態
+## 2026-11-25｜G6 直接綁定實機證據（目前最新狀態）
+
+- [Run #45435392558 / job #138591682892](https://github.com/hun186/restaurant-business-poc/actions/runs/45435392558/job/138591682892)，Main `80891d4dd6dd301dfa2fdab4a2a7c1ecb3216993`，2026-11-25 00:18 台灣時間。全部 steps success、SHA256 static preflight PASS。實際輸出 `G6_STOCK_V4_DISPOSABLE_D1_NO_DIRECT_BINDING_DETECTED_MANUAL_REVIEW_REQUIRED`；2 Worker scripts、253 versions、0 Pages projects、0 direct binding matches，`pages_deployment_bindings_verified=true`。
+- 此為該時點的**直接綁定盤點 PASS**，不是永久授權。日誌明示 `no_indirect_service_access_certified=false`、`independent_human_attestation_completed=false`、`exclusive_use_verified=false`、`release_authorized=false`。下方 11/23、11/24 的未執行文字是歷史狀態，以此段為最新證據；若配置或使用權變動，須重新核實。
+- #258、#259 已合併，Main Verify #45364215702／#45367992929 均 5/5 PASS。遠端 Stage classifier 尚未實機執行；舊 G6 空庫 Inspect #45099304913 已 PASS，不必重複跑舊工具。
+- **下一項唯讀 baseline**：Main 手動執行 [G6 stage readonly](https://github.com/hun186/restaurant-business-poc/actions/workflows/d1-stock-v4-disposable-stage-readonly.yml)，confirm=`CHECK_G6_STAGE_READONLY`。預期為 Stage 0；只有實際分類日誌能證明此結果，非 0 或錯誤均 STOP，不執行遷移或重試。這不是再次執行舊空庫 Inspect，而是驗證新的階段診斷器在真實 D1 的相容性。
+
+### 獨立操作者確認清單（目前全部未確認）
+
+- [ ] 確認 G6 是專用合成演練資料庫，無真實營運資料，不與 Production/Staging/G5 共用，沒有其他操作者正在使用或計畫同時使用。
+- [ ] 檢視可透過 Cloudflare API、CI、外部服務、排程、Service Binding 或代理服務間接到達 G6 的路徑及可用憑證；若無法確認、存在未知路徑或未受控寫入者，STOP。直接綁定為零不足以勾選此項。
+- [ ] 在真正寫入前取得獨立審核人員的確認、限定演練時段及唯一寫入者；記錄時間、角色、非機密證據及例外狀態於 Issue #212。不公開 Token、帳密、原始資料或機密設定。操作者與審核人員不得以機器盤點替代各自確認。
+- [ ] 在任何獨立受審的遠端寫入工具啟用前，確認 D1 交易機制、故意失敗的測試契約、未知結果唯讀診斷與受保護 Write Environment；須另行授權，且 G6 以外一律禁止寫入。
+
+本紀錄不新增任何執行器、憑證或寫入權限，不執行 Restore、Migration、Deploy 或 Production Gate change。
+
+## 2026-11-23｜G6 實機唯讀驗收與下一階段狀態（歷史快照）
 
 - **新 G6 遠端空庫唯讀驗證已 PASS**：[Actions #45099304913](https://github.com/hun186/restaurant-business-poc/actions/runs/45099304913) 在 Main `3ee1e1200efbf831524c925f575388ffef063bac`，`STOCK_V4_DISPOSABLE_PRISTINE_READONLY_PASS`，Identity／pristine schema／quick_check／Time Travel bookmark 可讀均真實通過；不得重做此項以充數。
 - **Production v3 遠端唯讀來源 Gate 已 PASS**：[Actions #45095751400](https://github.com/hun186/restaurant-business-poc/actions/runs/45095751400)；v3 contract、兩筆既有 migration、歷史流水及 FK/quick_check 合格；無生產寫入。

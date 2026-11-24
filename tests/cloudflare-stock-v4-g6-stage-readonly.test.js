@@ -88,7 +88,14 @@ test('unexpected schema, missing migration receipts and partial history fail clo
  await bad(2,db=>db.exec("UPDATE stock_moves SET qty_delta=-3 WHERE id='g6-m02';"));
  await bad(2,db=>db.exec("UPDATE ingredient_prices SET price_cents=2000 WHERE id='g6-price-01';"));
  await bad(3,db=>db.exec("DELETE FROM stock_moves WHERE id='g6-m01';"));
- await bad(3,db=>db.exec("UPDATE stock_move_kind_contract SET kind_version=5 WHERE id=1;"));
+ await bad(3,db=>db.exec("DELETE FROM stock_move_kind_contract WHERE id=1;"));
+ {
+  const db=fixture(t);
+  for(let i=0;i<3;i++)db.exec(buildG6SyntheticPlan()[i].sql);
+  await assert.rejects(()=>m.diagnoseG6ReadOnlyStage(pin,
+   adapter(db,{[SQL.version]:reply([{kind_version:5}])}).io),
+   /G6_STAGE_READONLY_DIAGNOSTIC_FAILED/);
+ }
  await bad(4,db=>db.exec("UPDATE stock_moves SET note='changed' WHERE id='g6-m04';"));
 });
 test('wrong target, forged metadata, query failures and alien SQL payload never classify',async t=>{

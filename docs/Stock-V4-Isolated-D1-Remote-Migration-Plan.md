@@ -68,6 +68,16 @@ G6 pin 必須與以下所有保護目標不同：
 
 - **限制**：這是合成資料的遷移後驗收器，不是遷移執行器，不是直接／間接綁定隔離保證，不是 Production 遷移授權。實機 Postflight 目前尚未執行，應保留 Pending。
 
+## 2026-11-24｜四階段 G6 Synthetic 版本化 SQL Plan（新 PR，尚未部署）
+
+- 新增 `tools/cloudflare-stock-v4-g6-migration-plan.mjs`，從受閉合 SHA-256 清單保護的 `0001_initial_v3.sql`、`0002_login_attempts_window_indexes.sql` 和隔離 `0004_stock_move_kinds.sql` 建立**固定四階段離線 SQL 執行提案**：`v3-schema` → `v3-synthetic-history` → `v4-schema` → `v4-synthetic-history`。其中歷史與 v4 補充行為完全使用虛構 Owner、門市、食材、流水、稽核、進貨價格資料，與既有 G6 Postflight 的五筆合成流水一致。
+
+- 每階段只產出預期 migration receipt 數（2、2、3、3）、SQL 位元組數和 SHA-256。CLI `node tools/cloudflare-stock-v4-g6-migration-plan.mjs plan` **不回傳 SQL 內容、不連網、不要求／使用 Cloudflare Token，且明確禁止帶 Token 執行**；沒有 `execute`／`apply` 路徑。即使生成的 SQL 含 DML／DDL，也**只能**在本機合成 SQLite 由測試實際執行，不能透過 CLI 遠端套用。
+
+- 增量測試在獨立的 `:memory:` SQLite 中逐階段真實執行完全相同的 plan SQL，驗證兩筆與三筆正式 migration receipt 的階段差異，並以 **已合併 PR #257 的完整 G6 Postflight 驗收器** 確認最終 Schema、約束、虛構資料與稽核一致。v4 Schema 階段新增**受交易保護的 v3 歷史前置斷言**：精確查核兩筆 migration receipt、虛構 Owner／門市／食材、既有兩筆 v3 流水、稽核紀錄及價格資訊的數量與內容；若缺少歷史資料、錯序或任一欄位被更動，暫時性 SQLite CHECK 哨兵會在任何 v4 DDL／第三筆 receipt 寫入前拒絕。新增真正的 `v3-schema → v4-schema → v3-history` 錯序負向測試，以及移除歷史流水、竄改稽核／價格／Owner／receipt 時的 rollback 回歸。**這是僅於記憶體 SQLite 執行的離線準備，尚未驗證 Cloudflare D1 REST 對 TEMP／BEGIN 的相容性或交易原子性；遠端 Runner 必須另行重新設計並審核。**
+
+- **後續仍須獨立 PR／獨立人工批准**：驗證 G6 Worker／Pages direct binding 經實機 PASS，補完間接存取與獨占確認；再審查 D1 REST 原子性、不可重跑的階段進度契約、人工 Gate 與獨立受保護 Write Environment。直到這些完成之前，不准建立有權限呼叫遠端 SQL write 的 Runner，也不得把離線 Plan／測試標示為遠端 Migration 成功。
+
 ## 第二階段：需要**另開受審 PR** 的遠端 Migration 實驗（尚未開發完成）
 
 1. 使用獨立受保護的 Write Environment、經審查的精確 G6 UUID 和 SHA、固定工單及人工獨占確認。先進行遠端 metadata／空庫預檢，Write token 必須在全部 Gate 後才提供。

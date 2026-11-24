@@ -78,6 +78,33 @@ const eq=(a,b)=>{
  const ak=Object.keys(a).sort(),bk=Object.keys(b).sort();
  return eq(ak,bk)&&ak.every(key=>eq(a[key],b[key]));
 };
+// SQLite may reflow CREATE TABLE formatting and quote a table identifier
+// when ALTER TABLE RENAME runs. Ignore only formatting whitespace outside
+// quoted SQL tokens. Whitespace within a literal (DEFAULT '' vs DEFAULT ' ')
+// or a quoted identifier must remain semantically significant.
+const canonicalDDL=ddl=>{
+ need(typeof ddl==='string');
+ const sql=ddl.replace(/CREATE\s+TABLE\s+"stock_moves"/i,'CREATE TABLE stock_moves');
+ let result='',quote=null;
+ for(let i=0;i<sql.length;i++){
+  const char=sql[i];
+  if(quote!==null){
+   result+=char;
+   const closing=quote==='['?']':quote;
+   if(char===closing){
+    if(sql[i+1]===closing){result+=sql[++i];}
+    else quote=null;
+   }
+  }else if(char==="'"||char==='"'||char===String.fromCharCode(96)||char==='['){
+   quote=char;
+   result+=char;
+  }else if(!/\s/.test(char)){
+   result+=char;
+  }
+ }
+ need(quote===null);
+ return result.replace(/;$/,'');
+};
 const expectedV4DDL=()=>{
  // This migration source is in the reviewed SHA-256 preflight inventory.
  // Parse the single proposed CREATE TABLE and account for SQLite RENAME output.
@@ -85,12 +112,9 @@ const expectedV4DDL=()=>{
   'cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql'),'utf8');
  const match=proposal.match(/CREATE TABLE stock_moves_v4\s*\([\s\S]*?\n\);/);
  need(match!==null);
- return match[0].replace('CREATE TABLE stock_moves_v4','CREATE TABLE stock_moves')
-  .replace(/\s+/g,'').replace(/"stock_moves"/g,'stock_moves').replace(/;$/,'');
+ return canonicalDDL(match[0].replace('CREATE TABLE stock_moves_v4',
+  'CREATE TABLE stock_moves'));
 };
-const canonicalDDL=ddl=>String(ddl)
- .replace(/CREATE\s+TABLE\s+"stock_moves"/i,'CREATE TABLE stock_moves')
- .replace(/\s+/g,'');
 const single=(list,key,value)=>need(list.length===1&&
  exact(list[0],[key])&&list[0][key]===value);
 export async function verifyG6V4Postflight(pin,io){

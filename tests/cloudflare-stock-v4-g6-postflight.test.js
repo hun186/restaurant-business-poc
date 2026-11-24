@@ -61,7 +61,7 @@ function synthetic(t,{migration=true,postMoves=true}={}){
  }
  return db;
 }
-function simulator(db,overrides={}){
+function simulator(db,overrides={},options={}){
  const calls=[];
  const io=async(method,url,body)=>{
   calls.push({method,url,body});
@@ -73,7 +73,11 @@ function simulator(db,overrides={}){
   const sql=body?.sql;
   assert.equal(typeof sql,'string');
   assert.match(sql,/^(?:SELECT|PRAGMA)\b/);
-  return Object.hasOwn(overrides,sql)?overrides[sql]:reply(db.prepare(sql).all());
+  const rows=db.prepare(sql).all();
+  // Simulate a legal REST serializer that changes object property ordering.
+  const results=options.reverseKeys?rows.map(row=>Object.fromEntries(
+   Object.entries(row).reverse())):rows;
+  return Object.hasOwn(overrides,sql)?overrides[sql]:reply(results);
  };
  return {calls,io};
 }
@@ -86,6 +90,8 @@ test('real v3->v4 migration and synthetic positive data pass strict remote postf
  assert.equal(result.exact_business_table_inventory_verified,true);
  assert.equal(result.other_business_tables_verified_empty,true);
  assert.equal(result.unexpected_views_and_triggers_absent,true);
+ assert.equal(result.exact_reviewed_v4_ddl_verified,true);
+ assert.equal(result.foreign_key_definitions_verified,3);
  assert.equal(result.exact_migration_id_sequence_verified,true);
  assert.equal(result.remote_write_performed,false);
  assert.equal(result.release_authorized,false);
@@ -95,6 +101,40 @@ test('real v3->v4 migration and synthetic positive data pass strict remote postf
  assert.ok(s.calls.every(c=>c.method==='GET'&&c.body===null||
   c.method==='POST'&&Object.values(m.SQL).includes(c.body?.sql)));
  assert.doesNotMatch(JSON.stringify(result),/g6-m0|909037ca|g6-fixture/);
+});
+test('reordered D1 REST JSON properties retain all field-value invariants',async t=>{
+ const db=synthetic(t),m=await importPostflight;
+ const shuffled=simulator(db,{}, {reverseKeys:true});
+ const result=await m.verifyG6V4Postflight(pin,shuffled.io);
+ assert.equal(result.status,'G6_STOCK_V4_REMOTE_READONLY_POSTFLIGHT_PASS');
+ assert.equal(result.exact_reviewed_v4_ddl_verified,true);
+ assert.equal(result.foreign_key_definitions_verified,3);
+});
+test('real mutated v4 DDL missing quantity CHECK or all FK constraints is rejected',async t=>{
+ const m=await importPostflight;
+ for(const mutate of [
+  ddl=>ddl.replace('CHECK(qty_delta != 0)',''),
+  ddl=>ddl.replace(/\\s+REFERENCES\\s+(?:ingredients|locations|users)\\(id\\)/g,''),
+  ddl=>ddl.replace("DEFAULT CURRENT_TIMESTAMP",'')
+ ]){
+  const db=synthetic(t);
+  const ddl=db.prepare("SELECT sql FROM sqlite_master WHERE name='stock_moves'").get().sql;
+  const invalid=mutate(ddl);
+  assert.notEqual(invalid,ddl,'mutation must remove an actual constraint or default');
+  const create=invalid.replace(/^CREATE TABLE\\s+"?stock_moves"?/i,'CREATE TABLE stock_moves_broken');
+  db.exec('PRAGMA foreign_keys=OFF;');
+  db.exec(create);
+  db.exec('INSERT INTO stock_moves_broken SELECT * FROM stock_moves;');
+  db.exec('DROP TABLE stock_moves;');
+  db.exec('ALTER TABLE stock_moves_broken RENAME TO stock_moves;');
+  db.exec('CREATE INDEX stock_moves_stock ON stock_moves(ingredient_id,location_id);');
+  db.exec('PRAGMA foreign_keys=ON;');
+  if(!invalid.includes('REFERENCES'))assert.deepEqual(
+   db.prepare('PRAGMA foreign_key_list(stock_moves)').all(),[]);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+  await assert.rejects(()=>m.verifyG6V4Postflight(pin,simulator(db).io),
+   /E_G6_STOCK_V4_READONLY_POSTFLIGHT/);
+ }
 });
 test('incomplete migration, missing receipt, schema/index drift and historical alteration all reject',async t=>{
  const m=await importPostflight;

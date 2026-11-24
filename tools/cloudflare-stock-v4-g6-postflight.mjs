@@ -47,6 +47,7 @@ export const SQL=Object.freeze({
  schema:'SELECT contract_version FROM cloud_schema_contract WHERE id=1;',
  version:'SELECT kind_version FROM stock_move_kind_contract WHERE id=1;',
  objects:"SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name IN ('stock_moves','stock_moves_stock','stock_moves_v4','stock_move_kind_contract') ORDER BY name,type;",
+ schemaInventory:"SELECT type,name,tbl_name,sql FROM sqlite_master WHERE substr(lower(name),1,7) <> 'sqlite_' AND name <> '_cf_KV' ORDER BY type,name;",
  columns:'PRAGMA table_info(stock_moves);',
  index:'PRAGMA index_info(stock_moves_stock);',
  foreignKeys:'PRAGMA foreign_key_list(stock_moves);',
@@ -57,6 +58,7 @@ export const SQL=Object.freeze({
  ingredients:'SELECT id,sku,name,unit,min_stock,active FROM ingredients ORDER BY id;',
  moves:'SELECT id,ingredient_id,location_id,qty_delta,move_type,reference_id,note,actor_id,created_at FROM stock_moves ORDER BY id;',
  audit:'SELECT id,actor_id,actor_name,action,entity,entity_id,location_id,detail FROM audit_logs ORDER BY id;',
+ auditTimeline:'SELECT id,at FROM audit_logs ORDER BY id;',
  prices:'SELECT id,ingredient_id,location_id,price_date,price_cents,unit,supplier,source,created_by FROM ingredient_prices ORDER BY id;'
 });
 const rows=reply=>{
@@ -218,6 +220,9 @@ export async function verifyG6V4Postflight(pin,io){
   id:'g6-audit-01',actor_id:fixture.owner,actor_name:'G6 Synthetic',
   action:'stock.usage',entity:'stock_moves',entity_id:'g6-m02',
   location_id:fixture.location,detail:'{}'
+ }]));
+ need(eq(await query('auditTimeline'),[{
+  id:'g6-audit-01',at:'2026-11-01 11:30:00'
  }]));
  need(eq(await query('prices'),[{
   id:'g6-price-01',ingredient_id:fixture.ingredient,location_id:fixture.location,

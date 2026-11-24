@@ -7,6 +7,7 @@ export const APPROVED_PROBE_SHA256=Object.freeze({
   "cloudflare/pbkdf2-hosted-synthetic.mjs":"25aab44e89a2eb8c6ade645a8912cbdabd34197d40caea7f5c1838c8fd67fd4e"
 });
 export const APPROVED_WORKFLOW_SHA256=Object.freeze({
+  ".github/workflows/d1-stock-v4-disposable-stage-readonly.yml":"c1609687ac6907d3a0f4e3080b35fd1b935599b39d7f4e69952ccbef7898c090",
   ".github/workflows/d1-stock-v4-disposable-postflight-readonly.yml":"00a3fdadf91b9835f29a7f958c69cdc804f8fcff8227932b33f08a37d4b6a0d8",
   ".github/workflows/d1-stock-v4-disposable-binding-readonly.yml":"a5902e9d0b8abc31ab4892a5770f20897e072c62a2ca976a9e859badfb65b68c",
   ".github/workflows/d1-stock-v4-disposable-inspect.yml":"79ea9b1becd65e2730132c14cfffe05f538e17bbe47ade6c0910717a3bfd5e2f",
@@ -34,8 +35,9 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/cloudflare-stock-v4-g6-stage-readonly.mjs":"2fa598b1531a7d9685258d5b9c5a450677c226a5fabd1d3e25ae79e35ca5f511",
   "tools/cloudflare-stock-v4-g6-migration-plan.mjs":"60a0e492fdba60f286a1b4e9ec1a33ed0c0778f4727c12b1faeaf2c3db0f5374",
-  "tools/cloudflare-stock-v4-g6-postflight.mjs":"1b0c71f9098539538c6dde6c5ab02d17505045efddd1a1628bddcd8023c79308",
+  "tools/cloudflare-stock-v4-g6-postflight.mjs":"fe2b0bf10ccbc4f3809f63cff96c99512c9b30561764238db288c3d98573b438",
   "tools/cloudflare-g6-binding-inventory.mjs":"b508a4d39cde5a5b7340cbbf70eadabebc0cbd8ca9e20de17c8007d40b2242bc",
   "tools/cloudflare-stock-v4-disposable-inspect.mjs":"a03bc4ebb8f3dd4a59be28d64c6f3f2c10632feb7894b92dba53e02e7403e51f",
   "tools/cloudflare-prod-stock-v4-readonly-preflight.mjs":"fe0079ac5a4b9cb6c72a14c6989cd5f3149cd72b125461c8e15d5604515de770",
@@ -102,8 +104,9 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // graph; the preflight enforces closed inventories for every listed directory.
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
-  "tests/cloudflare-stock-v4-g6-migration-plan.test.js":"b6d56d16c7e05c801e4903f2a4f270f40aae5cd2bc26e400032c80041c1e3efb",
-  "tests/cloudflare-stock-v4-g6-postflight.test.js":"2961792b4e2e36db9ff112b2de1c897a90fd80134c64e12dfec138c3d26a3200",
+  "tests/cloudflare-stock-v4-g6-stage-readonly.test.js":"99eb5c3878dfab7a0bda0f0afd29352aa23999c30ba6dd81b8fc46371864183f",
+  "tests/cloudflare-stock-v4-g6-migration-plan.test.js":"a6cd85cbb294d06384fb019594ea3a23a9b836ec2323ddd2622624f8e99bda21",
+  "tests/cloudflare-stock-v4-g6-postflight.test.js":"45eb260cace3597af310c122ad1f124e15f39d6c1ffdfa8cb118183754a21f7d",
   "tests/cloudflare-g6-binding-inventory.test.js":"a6d30eddc09d9db3c6015d64fed4083cb85014572071f84010027a77bbc3a53a",
   "tests/cloudflare-stock-v4-disposable-inspect.test.js":"940b9e5d9daa9f2532c78fa6f4ccf73e37721ac88dcdadbc411ef5a1c45ef12e",
   "cloudflare/stock-v4-disposable-target.json":"bb6fe791c8da5caaba818b8522c1e2b535771419dd43d0982ee41a1e09abae55",

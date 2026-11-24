@@ -97,7 +97,8 @@ test('real v3->v4 migration and synthetic positive data pass strict remote postf
  assert.equal(result.release_authorized,false);
  assert.equal(result.production_gate_modified,false);
  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
- assert.equal(s.calls.length,Object.keys(m.SQL).length+1);
+ // schemaInventory is used by the separate stage diagnostic, not full postflight.
+ assert.equal(s.calls.length,Object.keys(m.SQL).length);
  assert.ok(s.calls.every(c=>c.method==='GET'&&c.body===null||
   c.method==='POST'&&Object.values(m.SQL).includes(c.body?.sql)));
  assert.doesNotMatch(JSON.stringify(result),/g6-m0|909037ca|g6-fixture/);
@@ -165,6 +166,7 @@ test('incomplete migration, missing receipt, schema/index drift and historical a
  await bad(db=>db.exec("DROP INDEX stock_moves_stock"));
  await bad(db=>db.exec("UPDATE stock_moves SET note='tampered' WHERE id='g6-m02'"));
  await bad(db=>db.exec("UPDATE audit_logs SET detail='{\"broken\":true}' WHERE id='g6-audit-01'"));
+ await bad(db=>db.exec("UPDATE audit_logs SET at='1999-01-01 00:00:00' WHERE id='g6-audit-01'"));
  await bad(db=>db.exec("UPDATE ingredient_prices SET price_cents=3100 WHERE id='g6-price-01'"));
  await bad(db=>db.exec("INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES('extraneous','extraneous','EXTRA','staff','x','x')"));
  await bad(db=>db.exec("INSERT INTO user_locations(user_id,location_id) VALUES('g6-fixture-owner','g6-fixture-location')"));

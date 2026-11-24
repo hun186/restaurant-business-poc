@@ -110,12 +110,25 @@ test('reordered D1 REST JSON properties retain all field-value invariants',async
  assert.equal(result.exact_reviewed_v4_ddl_verified,true);
  assert.equal(result.foreign_key_definitions_verified,3);
 });
-test('real mutated v4 DDL missing quantity CHECK or all FK constraints is rejected',async t=>{
+test('DDL formatting whitespace outside literals is permitted with exact schema values',async t=>{
+ const m=await importPostflight,db=synthetic(t);
+ const objects=db.prepare(m.SQL.objects).all().map(x=>
+  x.name==='stock_moves'?{...x,sql:x.sql.replace('CHECK(qty_delta != 0)',
+   'CHECK ( qty_delta  !=  0 )')}:x);
+ const result=await m.verifyG6V4Postflight(pin,simulator(db,{
+  [m.SQL.objects]:reply(objects)
+ }).io);
+ assert.equal(result.status,'G6_STOCK_V4_REMOTE_READONLY_POSTFLIGHT_PASS');
+});
+test('real mutated v4 DDL missing constraints or altered literal defaults is rejected',async t=>{
  const m=await importPostflight;
  for(const mutate of [
   ddl=>ddl.replace('CHECK(qty_delta != 0)',''),
   ddl=>ddl.replace(/\s+REFERENCES\s+(?:ingredients|locations|users)\(id\)/g,''),
-  ddl=>ddl.replace("DEFAULT CURRENT_TIMESTAMP",'')
+  ddl=>ddl.replace("DEFAULT CURRENT_TIMESTAMP",''),
+  // SQL string literal whitespace is semantic: '' differs from ' '.
+  ddl=>ddl.replace("DEFAULT ''","DEFAULT ' '"),
+  ddl=>ddl.replace("DEFAULT ''","DEFAULT '   '")
  ]){
   const db=synthetic(t);
   const ddl=db.prepare("SELECT sql FROM sqlite_master WHERE name='stock_moves'").get().sql;

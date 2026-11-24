@@ -39,10 +39,11 @@ const unusedTables=Object.freeze([
 ]);
 export const SQL=Object.freeze({
  tableNames:"SELECT name FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7) <> 'sqlite_' AND name <> '_cf_KV' ORDER BY name;",
+ unexpectedObjects:"SELECT type,name FROM sqlite_master WHERE type IN ('view','trigger') AND substr(lower(name),1,7) <> 'sqlite_' ORDER BY type,name;",
  unusedCounts:'SELECT '+unusedTables.map(name=>
   '(SELECT COUNT(*) FROM '+name+') AS '+name).join(', ')+';',
  backup:'SELECT id,interval_days,retention_count FROM backup_settings ORDER BY id;',
- receipts:'SELECT name FROM d1_migrations ORDER BY id;',
+ receipts:'SELECT id,name FROM d1_migrations ORDER BY id;',
  schema:'SELECT contract_version FROM cloud_schema_contract WHERE id=1;',
  version:'SELECT kind_version FROM stock_move_kind_contract WHERE id=1;',
  objects:"SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name IN ('stock_moves','stock_moves_stock','stock_moves_v4','stock_move_kind_contract') ORDER BY name,type;",
@@ -82,15 +83,16 @@ export async function verifyG6V4Postflight(pin,io){
  };
  const tables=await query('tableNames');
  need(eq(tables.map(row=>row.name),expectedTables.map(x=>x).sort()));
+ need((await query('unexpectedObjects')).length===0);
  const unused=await query('unusedCounts');
  need(unused.length===1&&exact(unused[0],unusedTables)&&
   unusedTables.every(table=>unused[0][table]===0));
  need(eq(await query('backup'),[{id:1,interval_days:1,retention_count:50}]));
  const receipts=await query('receipts');
  need(eq(receipts,[
-  {name:'0001_initial_v3.sql'},
-  {name:'0002_login_attempts_window_indexes.sql'},
-  {name:'0004_stock_move_kinds.sql'}
+  {id:1,name:'0001_initial_v3.sql'},
+  {id:2,name:'0002_login_attempts_window_indexes.sql'},
+  {id:3,name:'0004_stock_move_kinds.sql'}
  ]));
  single(await query('schema'),'contract_version',3);
  single(await query('version'),'kind_version',4);
@@ -110,10 +112,18 @@ export async function verifyG6V4Postflight(pin,io){
   /length\s*\(\s*trim\s*\(\s*note\s*\)\s*\)\s+BETWEEN\s+1\s+AND\s+300/i.test(ddl)&&
   /length\s*\(\s*trim\s*\(\s*reference_id\s*\)\s*\)\s+BETWEEN\s+1\s+AND\s+100/i.test(ddl));
  const cols=await query('columns');
- need(eq(cols.map(x=>x.name),[
-  'id','ingredient_id','location_id','qty_delta','move_type',
-  'reference_id','note','actor_id','created_at'
- ])&&cols[0]?.pk===1);
+ const expectedColumns=[
+  ['id','TEXT',0,1],
+  ['ingredient_id','TEXT',1,0],
+  ['location_id','TEXT',1,0],
+  ['qty_delta','REAL',1,0],
+  ['move_type','TEXT',1,0],
+  ['reference_id','TEXT',0,0],
+  ['note','TEXT',1,0],
+  ['actor_id','TEXT',0,0],
+  ['created_at','TEXT',1,0]
+ ];
+ need(eq(cols.map(x=>[x.name,x.type,x.notnull,x.pk]),expectedColumns));
  need(eq((await query('index')).map(x=>x.name),['ingredient_id','location_id']));
  need((await query('foreign')).length===0);
  single(await query('quick'),'quick_check','ok');
@@ -150,6 +160,8 @@ export async function verifyG6V4Postflight(pin,io){
   fk_check_pass:true,quick_check_pass:true,v4_constraints_inspected:true,
   other_business_tables_verified_empty:true,
   exact_business_table_inventory_verified:true,
+  unexpected_views_and_triggers_absent:true,
+  exact_migration_id_sequence_verified:true,
   remote_write_performed:false,
   remote_migration_performed_by_this_tool:false,remote_restore_performed:false,
   production_gate_modified:false,release_authorized:false

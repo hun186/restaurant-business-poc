@@ -4,6 +4,8 @@
 // retries, writes, migration, recovery, production changes or operator approval.
 import fs from 'node:fs';
 import path from 'node:path';
+import {DatabaseSync} from 'node:sqlite';
+import {buildG6SyntheticPlan} from './cloudflare-stock-v4-g6-migration-plan.mjs';
 import {fileURLToPath} from 'node:url';
 import {ACCOUNT_ID} from './check-cloudflare-staging.mjs';
 import {approvedG6BindingTarget} from './cloudflare-g5-binding-inventory.mjs';
@@ -62,6 +64,26 @@ function parseRows(data){
   data.result[0]?.success===true&&Array.isArray(data.result[0]?.results));
  return data.result[0].results;
 }
+// Compare the COMPLETE user schema (tables AND all explicit indexes) to
+// snapshots derived from the reviewed, SHA-pinned #258 migration SQL, not a
+// partial name allowlist. Rebuilding is strictly local in-memory; nothing here
+// executes a remote SQL write or assumes remote transaction atomicity.
+function localSchemaSnapshots(pin){
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec('PRAGMA foreign_keys=ON;');
+  const snapshot=()=>db.prepare(SQL.schemaInventory).all().map(row=>({...row}));
+  const stages=buildG6SyntheticPlan(pin);
+  const snapshots=[snapshot()];
+  for(const phase of stages){
+   db.exec(phase.sql);
+   snapshots.push(snapshot());
+  }
+  need(snapshots.length===5);
+  return snapshots;
+ }catch{throw Error(ERROR);}
+ finally{db.close();}
+}
 function certificate(stage,migrationCount,moveCount){
  return Object.freeze({
   status:'G6_STAGE_READONLY_CLASSIFIED',
@@ -95,6 +117,7 @@ export async function diagnoseG6ReadOnlyStage(pin,io){
  try{meta=await io('GET',base,null);}catch{throw Error(ERROR);}
  need(meta?.success===true&&meta.result?.uuid===id&&
   meta.result?.name===pin.database_name&&meta.result?.version==='production');
+ const expectedSchemas=localSchemaSnapshots(pin);
  const tables=await read('tableNames');
  need(tables.every(row=>equal(Object.keys(row),['name'])&&typeof row.name==='string'));
  need(equal(await read('unexpectedObjects'),[]));
@@ -102,6 +125,7 @@ export async function diagnoseG6ReadOnlyStage(pin,io){
  need(equal(await read('quick'),[{quick_check:'ok'}]));
  const names=tables.map(x=>x.name);
  if(names.length===0){
+  need(equal(await read('schemaInventory'),expectedSchemas[0]));
   need(equal(await read('objects'),[]));
   return certificate(0,0,0);
  }
@@ -109,6 +133,7 @@ export async function diagnoseG6ReadOnlyStage(pin,io){
  const expected=(hasV4?allTables:allTables.filter(x=>x!=='stock_move_kind_contract'))
   .slice().sort();
  need(equal(names,expected));
+ need(equal(await read('schemaInventory'),expectedSchemas[hasV4?3:1]));
  need(equal(await read('receipts'),hasV4?v4Receipts:v3Receipts));
  need(equal(await read('schema'),[{contract_version:3}]));
  need(equal(await read('backup'),emptyBackup));
@@ -132,10 +157,11 @@ export async function diagnoseG6ReadOnlyStage(pin,io){
  }
  const users=await read('users'),locations=await read('locations'),
   ingredients=await read('ingredients'),moves=await read('moves'),
-  audit=await read('audit'),prices=await read('prices');
+  audit=await read('audit'),prices=await read('prices'),
+  auditTimeline=await read('auditTimeline');
  if(!hasV4&&moves.length===0){
   need(users.length===0&&locations.length===0&&ingredients.length===0&&
-   audit.length===0&&prices.length===0);
+   audit.length===0&&auditTimeline.length===0&&prices.length===0);
   return certificate(1,2,0);
  }
  need(equal(users,[{
@@ -153,6 +179,9 @@ export async function diagnoseG6ReadOnlyStage(pin,io){
   id:'g6-audit-01',actor_id:'g6-fixture-owner',actor_name:'G6 Synthetic',
   action:'stock.usage',entity:'stock_moves',entity_id:'g6-m02',
   location_id:'g6-fixture-location',detail:'{}'
+ }]));
+ need(equal(auditTimeline,[{
+  id:'g6-audit-01',at:'2026-11-01 11:30:00'
  }]));
  need(equal(prices,[{
   id:'g6-price-01',ingredient_id:'g6-fixture-ingredient',

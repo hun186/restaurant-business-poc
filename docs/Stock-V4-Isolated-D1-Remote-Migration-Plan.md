@@ -56,6 +56,18 @@ G6 pin 必須與以下所有保護目標不同：
 
 - 這是 G6 空庫 Inspect 之後、真正遠端合成資料 v3→v4 版控 Migration 之前的一個唯讀關卡。正式 Production 與 G5 Recovery 不會被修改。
 
+## 2026-11-23｜G6 v4 Postflight 唯讀驗收器（待遠端 Migration 後才可實機執行）
+
+- [PR #256](https://github.com/hun186/restaurant-business-poc/pull/256) 已在 HEAD `09988d0a2c76c44ffdb2cc3670b1f5f7590ba7bc` 取得 5/5 CI 及正式 Codex Review 0/0 後合併。這只使 **G6 綁定盤點程式**可用，尚未實機執行該 Workflow。必須等 Main CI 完成後再手動做 G6 binding inventory，否則不得推進遠端寫入階段。
+
+- 新增 `tools/cloudflare-stock-v4-g6-postflight.mjs` 與 **after-migration only** 工作流程 `d1-stock-v4-disposable-postflight-readonly.yml`。這項 Gate 要在 **另行審查、明確授權、真正執行 G6 synthetic v3→v4** 後，才可能通過；空白 G6 現在執行會預期 **FAIL**，不得把這種失敗誤判為實機驗證已完成。
+
+- 驗證固定 G6 身分、完整三筆 `d1_migrations` 的精確 ID（1、2、3）與名稱、`cloud_schema_contract=3`、`stock_move_kind_contract=4`、v4 CHECK 約束語句、九欄 ledger、複合索引、`foreign_key_check`、`quick_check`；嚴格比對五筆**固定虛構** movement（兩筆 v3 purchase/usage＋三筆 v4 supplier_return/scrap/adjustment），及一筆虛構 audit 和 price；同時逐表驗證完整資料表清單、不得新增非預期 View／Trigger、14 個其他業務表均為空、backup_settings 維持預設值，並核對庫存欄位型別、NOT NULL 與主鍵設定；並核對**完整已審核 0004 Migration 建表 DDL**及 `foreign_key_list(stock_moves)` 三個實際外鍵定義（避免遺漏任何 CHECK／REFERENCES 而誤判 PASS）。此 DDL 正規化**僅忽略 SQLite 真正認可的 ASCII 空白（SPACE、TAB、LF、VT、FF、CR），且不忽略字串常值或引號識別字內的任何空白**；不得把 `DEFAULT ''`（空字串）與 `DEFAULT ' '`（一個空白）視為相同，也不得刪除未加引號 token 裡的 NBSP（U+00A0），否則 SQLite 會把不同的預設值誤判為相同；上述情況均有實際破壞 DDL 的負向驗證。REST JSON 欄位比較採精確 key set 與值比對，允許物件屬性順序不同，但不允許少欄、多欄或資料列次序錯置。另須逐欄核對虛構 Owner 的顯示名稱／非真實憑證欄位、門市與食材狀態，以及 backup_settings 的歷史備份欄位均為 NULL，不能只比對 IDs 而放過混入的真實營運資訊。出現未知／多出紀錄、帳號、綁定 UUID 錯誤、任何 SQL／DDL 不符即 fail-closed；**只輸出計數和固定 PASS/FAIL，不輸出任何查到的資料列**。
+
+- 執行方式：完成 G6 實機 migration 後，從 Main 手動執行該 Workflow，confirm=`CHECK_G6_V4_POSTFLIGHT_READONLY`，使用既有 `d1-recovery-drill-readonly` Environment 與最小權限 `CLOUDFLARE_D1_DRILL_READ_TOKEN`。Token 只在 SHA-256 preflight 之後交給工具；實際網路限於 pinned G6 的 GET metadata、POST **固定字面** SELECT/PRAGMA。無 Wrangler、SQL 寫入、Migration、Restore 或 Production Gate 權限。
+
+- **限制**：這是合成資料的遷移後驗收器，不是遷移執行器，不是直接／間接綁定隔離保證，不是 Production 遷移授權。實機 Postflight 目前尚未執行，應保留 Pending。
+
 ## 第二階段：需要**另開受審 PR** 的遠端 Migration 實驗（尚未開發完成）
 
 1. 使用獨立受保護的 Write Environment、經審查的精確 G6 UUID 和 SHA、固定工單及人工獨占確認。先進行遠端 metadata／空庫預檢，Write token 必須在全部 Gate 後才提供。

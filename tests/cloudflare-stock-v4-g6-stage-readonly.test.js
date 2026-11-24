@@ -83,10 +83,14 @@ test('unexpected schema, missing migration receipts and partial history fail clo
  };
  await bad(0,db=>db.exec('CREATE TABLE accidental(id TEXT);'));
  await bad(1,db=>db.exec('CREATE VIEW unexpected_view AS SELECT 1;'));
+ await bad(1,db=>db.exec('DROP INDEX idx_login_attempts_username_nocase_at;'));
+ await bad(1,db=>db.exec('ALTER TABLE stock_moves ADD COLUMN unexpected TEXT;'));
+ await bad(2,db=>db.exec('CREATE INDEX unauthorized_index ON stock_moves(location_id);'));
  await bad(1,db=>db.exec("DELETE FROM d1_migrations WHERE id=2"));
  await bad(1,db=>db.exec("INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES('extra','extra','Extra','staff','x','x')"));
  await bad(2,db=>db.exec("UPDATE stock_moves SET qty_delta=-3 WHERE id='g6-m02';"));
  await bad(2,db=>db.exec("UPDATE ingredient_prices SET price_cents=2000 WHERE id='g6-price-01';"));
+ await bad(2,db=>db.exec("UPDATE audit_logs SET at='1999-01-01 00:00:00' WHERE id='g6-audit-01';"));
  await bad(3,db=>db.exec("DELETE FROM stock_moves WHERE id='g6-m01';"));
  await bad(3,db=>db.exec("DELETE FROM stock_move_kind_contract WHERE id=1;"));
  {
@@ -97,6 +101,26 @@ test('unexpected schema, missing migration receipts and partial history fail clo
    /G6_STAGE_READONLY_DIAGNOSTIC_FAILED/);
  }
  await bad(4,db=>db.exec("UPDATE stock_moves SET note='changed' WHERE id='g6-m04';"));
+});
+test('stage 3 refuses rebuilt v4 table missing an originally reviewed CHECK',async t=>{
+ await deps;
+ const db=fixture(t),plan=buildG6SyntheticPlan(),m=await diagnostics;
+ for(let i=0;i<3;i++)db.exec(plan[i].sql);
+ const old=db.prepare("SELECT sql FROM sqlite_master WHERE name='stock_moves'").get().sql;
+ const broken=old.replace('CHECK(qty_delta != 0)','CHECK(1)');
+ assert.notEqual(old,broken,'the fixture must contain the reviewed quantity constraint');
+ const changed=broken.replace(/^CREATE TABLE\s+"?stock_moves"?/i,
+  'CREATE TABLE stock_moves_bad');
+ db.exec('PRAGMA foreign_keys=OFF;');
+ db.exec(changed);
+ db.exec('INSERT INTO stock_moves_bad SELECT * FROM stock_moves;');
+ db.exec('DROP TABLE stock_moves;');
+ db.exec('ALTER TABLE stock_moves_bad RENAME TO stock_moves;');
+ db.exec('CREATE INDEX stock_moves_stock ON stock_moves(ingredient_id,location_id);');
+ db.exec('PRAGMA foreign_keys=ON;');
+ assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+ await assert.rejects(()=>m.diagnoseG6ReadOnlyStage(pin,adapter(db).io),
+  /G6_STAGE_READONLY_DIAGNOSTIC_FAILED/);
 });
 test('wrong target, forged metadata, query failures and alien SQL payload never classify',async t=>{
  await deps;

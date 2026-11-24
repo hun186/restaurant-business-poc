@@ -49,6 +49,7 @@ export const SQL=Object.freeze({
  objects:"SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name IN ('stock_moves','stock_moves_stock','stock_moves_v4','stock_move_kind_contract') ORDER BY name,type;",
  columns:'PRAGMA table_info(stock_moves);',
  index:'PRAGMA index_info(stock_moves_stock);',
+ foreignKeys:'PRAGMA foreign_key_list(stock_moves);',
  foreign:'PRAGMA foreign_key_check;',
  quick:'PRAGMA quick_check;',
  users:'SELECT id,username,display_name,role,password_salt,password_hash,active FROM users ORDER BY id;',
@@ -67,7 +68,29 @@ function approvedPath(pin){
  const id=approvedG6BindingTarget(pin);
  return '/accounts/'+ACCOUNT_ID+'/d1/database/'+id;
 }
-const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+// D1 REST JSON object key order is not contractual. Preserve array order and
+// reject missing or extra keys, comparing leaf values strictly.
+const eq=(a,b)=>{
+ if(Object.is(a,b))return true;
+ if(a===null||b===null||typeof a!==typeof b||typeof a!=='object')return false;
+ if(Array.isArray(a)!==Array.isArray(b))return false;
+ if(Array.isArray(a))return a.length===b.length&&a.every((v,i)=>eq(v,b[i]));
+ const ak=Object.keys(a).sort(),bk=Object.keys(b).sort();
+ return eq(ak,bk)&&ak.every(key=>eq(a[key],b[key]));
+};
+const expectedV4DDL=()=>{
+ // This migration source is in the reviewed SHA-256 preflight inventory.
+ // Parse the single proposed CREATE TABLE and account for SQLite RENAME output.
+ const proposal=fs.readFileSync(path.join(ROOT,
+  'cloudflare/migrations-stock-v4-opt-in/0004_stock_move_kinds.sql'),'utf8');
+ const match=proposal.match(/CREATE TABLE stock_moves_v4\s*\([\s\S]*?\n\);/);
+ need(match!==null);
+ return match[0].replace('CREATE TABLE stock_moves_v4','CREATE TABLE stock_moves')
+  .replace(/\s+/g,'').replace(/"stock_moves"/g,'stock_moves');
+};
+const canonicalDDL=ddl=>String(ddl)
+ .replace(/CREATE\s+TABLE\s+"stock_moves"/i,'CREATE TABLE stock_moves')
+ .replace(/\s+/g,'');
 const single=(list,key,value)=>need(list.length===1&&
  exact(list[0],[key])&&list[0][key]===value);
 export async function verifyG6V4Postflight(pin,io){
@@ -109,6 +132,18 @@ export async function verifyG6V4Postflight(pin,io){
  const names=objects.map(x=>x.name).sort();
  need(eq(names,['stock_move_kind_contract','stock_moves','stock_moves_stock']));
  const ddl=objects.find(x=>x.name==='stock_moves')?.sql;
+ // Exact reviewed DDL, including all three REFERENCES, zero-quantity
+ // prohibition, defaults and CHECK clauses; renamed-table quotes normalized.
+ need(typeof ddl==='string'&&canonicalDDL(ddl)===expectedV4DDL());
+ const foreignKeys=await query('foreignKeys');
+ need(eq(foreignKeys,[
+  {id:0,seq:0,table:'users',from:'actor_id',to:'id',
+   on_update:'NO ACTION',on_delete:'NO ACTION',match:'NONE'},
+  {id:1,seq:0,table:'locations',from:'location_id',to:'id',
+   on_update:'NO ACTION',on_delete:'NO ACTION',match:'NONE'},
+  {id:2,seq:0,table:'ingredients',from:'ingredient_id',to:'id',
+   on_update:'NO ACTION',on_delete:'NO ACTION',match:'NONE'}
+ ]));
  need(typeof ddl==='string'&&
   /move_type\s+IN\s*\(\s*'purchase'\s*,\s*'usage'\s*,\s*'adjustment'\s*,\s*'supplier_return'\s*,\s*'scrap'\s*\)/i.test(ddl)&&
   /qty_delta\s*<\s*0/i.test(ddl)&&
@@ -167,6 +202,7 @@ export async function verifyG6V4Postflight(pin,io){
   synthetic_ledger_rows_verified:movements.length,
   synthetic_audit_rows_verified:1,synthetic_price_rows_verified:1,
   fk_check_pass:true,quick_check_pass:true,v4_constraints_inspected:true,
+  exact_reviewed_v4_ddl_verified:true,foreign_key_definitions_verified:3,
   other_business_tables_verified_empty:true,
   exact_business_table_inventory_verified:true,
   unexpected_views_and_triggers_absent:true,

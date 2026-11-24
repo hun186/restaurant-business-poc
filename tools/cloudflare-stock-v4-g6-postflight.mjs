@@ -86,7 +86,7 @@ const expectedV4DDL=()=>{
  const match=proposal.match(/CREATE TABLE stock_moves_v4\s*\([\s\S]*?\n\);/);
  need(match!==null);
  return match[0].replace('CREATE TABLE stock_moves_v4','CREATE TABLE stock_moves')
-  .replace(/\s+/g,'').replace(/"stock_moves"/g,'stock_moves');
+  .replace(/\s+/g,'').replace(/"stock_moves"/g,'stock_moves').replace(/;$/,'');
 };
 const canonicalDDL=ddl=>String(ddl)
  .replace(/CREATE\s+TABLE\s+"stock_moves"/i,'CREATE TABLE stock_moves')

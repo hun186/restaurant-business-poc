@@ -82,7 +82,7 @@ G6 pin 必須與以下所有保護目標不同：
 
 - 新增 `tools/cloudflare-stock-v4-g6-stage-readonly.mjs` 與 Main-only 手動 `d1-stock-v4-disposable-stage-readonly.yml`。使用現有 `d1-recovery-drill-readonly` Environment、先執行完整 SHA-256 preflight，確認值 `CHECK_G6_STAGE_READONLY`。此工具**只允許**固定 G6 UUID 的 GET metadata 和沿用 #257 已受審白名單中的 SELECT／PRAGMA，無 DDL／DML、Restore、Worker Deployment、正式 Gate 或寫入權限。
 
-- 只辨識五個**固定合成資料**階段：Stage 0 專用 G6 空庫；Stage 1 v3 Schema＋兩筆 Migration receipt、無歷史資料；Stage 2 v3 兩筆合成流水與 Owner／門市／食材、稽核與價格；Stage 3 v4 Schema＋第三筆 receipt，但仍只有舊的兩筆歷史流水；Stage 4 五筆合成庫存流水、通過原 #257 的**完整** v4 Postflight。其他所有未知、部分套用、表結構／憑證／記錄數量異常，均拒絕分類、需人工唯讀診斷。
+- 只辨識五個**固定合成資料**階段：Stage 0 專用 G6 空庫；Stage 1 v3 Schema＋兩筆 Migration receipt、無歷史資料；Stage 2 v3 兩筆合成流水與 Owner／門市／食材、稽核與價格；Stage 3 v4 Schema＋第三筆 receipt，但仍只有舊的兩筆歷史流水；Stage 4 五筆合成庫存流水、通過原 #257 的**完整** v4 Postflight。Stage 0～4 都比對完整 `sqlite_master` 使用者 Schema 物件：用 #258 已釘選 SHA-256 的四階段 SQL 在本機 `:memory:` SQLite 產出完整 tables／explicit indexes 及 DDL 快照，再與固定唯讀 SELECT 查詢返回資料逐物件比對。Stage 2～4 還須核對 `audit_logs.at` 精確合成時間；Stage 1～3 不再只靠名稱或 FK 數量。其他所有未知、部分套用、表結構／額外索引／憑證／記錄數量異常，均拒絕分類、需人工唯讀診斷。
 
 - 安全語意：本工具的輸出只是 `G6_STAGE_READONLY_CLASSIFIED` 與 stage 編號、receipt／ledger 的數量；**不輸出查到的原始欄位、不宣稱間接存取或 G6 獨占已完成、不授權執行下一步或重試**。尤其不可因 Stage 1～3 被辨識，就認定 D1 遠端各階段已經具備原子性或回滾保證。
 

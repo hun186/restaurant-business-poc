@@ -116,6 +116,11 @@ test('partial/out-of-order plans and any implicit replay fail locally instead of
  db.exec(steps[0].sql);
  rejected(steps[0].sql);
  rejected(steps[3].sql);
+ // Critical regression: v3 schema exists, but v3 history was not seeded.
+ // The v4 stage must fail BEFORE rebuilding stock_moves or recording 0004.
+ rejected(steps[2].sql);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='stock_move_kind_contract'").get().n,0);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').get().n,2);
  db.exec(steps[1].sql);
  rejected(steps[1].sql);
  db.exec(steps[2].sql);
@@ -123,6 +128,30 @@ test('partial/out-of-order plans and any implicit replay fail locally instead of
  db.exec(steps[3].sql);
  rejected(steps[3].sql);
  assert.equal((await verify(db)).status,'G6_STOCK_V4_REMOTE_READONLY_POSTFLIGHT_PASS');
+});
+test('v4-before-v3-history and tampered historical rows reject and roll back the phase',async t=>{
+ const {buildG6SyntheticPlan}=await imported;
+ const steps=buildG6SyntheticPlan();
+ const corruptions=[
+  db=>db.exec("DELETE FROM stock_moves WHERE id='g6-m01';"),
+  db=>db.exec("UPDATE stock_moves SET note='incorrect v3 history' WHERE id='g6-m02';"),
+  db=>db.exec("DELETE FROM audit_logs WHERE id='g6-audit-01';"),
+  db=>db.exec("UPDATE ingredient_prices SET price_cents=2301 WHERE id='g6-price-01';"),
+  db=>db.exec("DELETE FROM d1_migrations WHERE id=2;"),
+  db=>db.exec("UPDATE users SET password_hash='not-synthetic' WHERE id='g6-fixture-owner';")
+ ];
+ for(const change of corruptions){
+  const db=synthetic(t);
+  db.exec(steps[0].sql);
+  db.exec(steps[1].sql);
+  change(db);
+  const oldMoves=db.prepare('SELECT COUNT(*) AS n FROM stock_moves').get().n;
+  assert.throws(()=>db.exec(steps[2].sql));
+  db.exec('ROLLBACK;');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM stock_moves').get().n,oldMoves);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='stock_move_kind_contract' OR name='stock_moves_v4'").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM d1_migrations WHERE name='0004_stock_move_kinds.sql'").get().n,0);
+ }
 });
 test('wrong target, missing reviewed fields and altered stage digest are rejected',async()=>{
  const m=await imported,p=m.buildG6SyntheticPlan();

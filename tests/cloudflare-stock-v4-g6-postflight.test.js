@@ -85,6 +85,8 @@ test('real v3->v4 migration and synthetic positive data pass strict remote postf
  assert.equal(result.synthetic_ledger_rows_verified,5);
  assert.equal(result.exact_business_table_inventory_verified,true);
  assert.equal(result.other_business_tables_verified_empty,true);
+ assert.equal(result.unexpected_views_and_triggers_absent,true);
+ assert.equal(result.exact_migration_id_sequence_verified,true);
  assert.equal(result.remote_write_performed,false);
  assert.equal(result.release_authorized,false);
  assert.equal(result.production_gate_modified,false);
@@ -103,6 +105,7 @@ test('incomplete migration, missing receipt, schema/index drift and historical a
    /E_G6_STOCK_V4_READONLY_POSTFLIGHT/);
  };
  await bad(db=>db.exec("DELETE FROM d1_migrations WHERE id=3"));
+ await bad(db=>db.exec("UPDATE d1_migrations SET id=4 WHERE id=3"));
  await bad(db=>db.exec("UPDATE cloud_schema_contract SET contract_version=3 WHERE id=1; DELETE FROM stock_move_kind_contract"));
  await bad(db=>db.exec("DROP INDEX stock_moves_stock"));
  await bad(db=>db.exec("UPDATE stock_moves SET note='tampered' WHERE id='g6-m02'"));
@@ -111,7 +114,20 @@ test('incomplete migration, missing receipt, schema/index drift and historical a
  await bad(db=>db.exec("INSERT INTO users(id,username,display_name,role,password_salt,password_hash) VALUES('extraneous','extraneous','EXTRA','staff','x','x')"));
  await bad(db=>db.exec("INSERT INTO user_locations(user_id,location_id) VALUES('g6-fixture-owner','g6-fixture-location')"));
  await bad(db=>db.exec('CREATE TABLE extra_customer_data (payload TEXT)'));
+ await bad(db=>db.exec('CREATE VIEW extra_view AS SELECT id FROM stock_moves'));
+ await bad(db=>db.exec('CREATE TRIGGER extra_trigger AFTER INSERT ON stock_moves BEGIN SELECT 1; END'));
  await bad(db=>db.exec('UPDATE backup_settings SET retention_count=51 WHERE id=1'));
+});
+test('forged movement column type/flags cannot satisfy v4 shape contract',async t=>{
+ const m=await importPostflight,db=synthetic(t);
+ const columns=db.prepare(m.SQL.columns).all();
+ for(const forged of [
+  columns.map(x=>x.name==='qty_delta'?{...x,type:'TEXT'}:x),
+  columns.map(x=>x.name==='note'?{...x,notnull:0}:x),
+  columns.map(x=>x.name==='id'?{...x,pk:0}:x)
+ ])await assert.rejects(()=>m.verifyG6V4Postflight(pin,
+  simulator(db,{[m.SQL.columns]:reply(forged)}).io),
+  /E_G6_STOCK_V4_READONLY_POSTFLIGHT/);
 });
 test('v3-only DB cannot falsely be certified as v4',async t=>{
  const m=await importPostflight,db=synthetic(t,{migration:false,postMoves:false});

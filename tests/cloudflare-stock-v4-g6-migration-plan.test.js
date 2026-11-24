@@ -39,7 +39,9 @@ const verify=async(db)=>{
   assert.match(body.sql,/^(SELECT|PRAGMA)\b/);
   return reply(db.prepare(body.sql).all());
  });
- assert.equal(calls,Object.keys(SQL).length+1);
+ // schemaInventory is stage-diagnostic only; full postflight performs all
+ // remaining fixed SQL queries plus one G6 metadata GET.
+ assert.equal(calls,Object.keys(SQL).length);
  return result;
 };
 test('plan is exactly four pinned ordered phases and never exposes raw SQL or UUID in receipt',async()=>{

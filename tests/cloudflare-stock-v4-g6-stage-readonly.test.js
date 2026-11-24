@@ -10,8 +10,14 @@ const pin=JSON.parse(fs.readFileSync(path.join(root,
  'cloudflare/stock-v4-disposable-target.json'),'utf8'));
 const base='/accounts/31b409b04896d260ba0fadf6cc2bb305/d1/database/'+pin.database_id;
 const diagnostics=import('../tools/cloudflare-stock-v4-g6-stage-readonly.mjs');
-const {buildG6SyntheticPlan}=await import('../tools/cloudflare-stock-v4-g6-migration-plan.mjs');
-const {SQL}=await import('../tools/cloudflare-stock-v4-g6-postflight.mjs');
+let buildG6SyntheticPlan,SQL;
+const deps=Promise.all([
+ import('../tools/cloudflare-stock-v4-g6-migration-plan.mjs'),
+ import('../tools/cloudflare-stock-v4-g6-postflight.mjs')
+]).then(([plan,postflight])=>{
+ buildG6SyntheticPlan=plan.buildG6SyntheticPlan;
+ SQL=postflight.SQL;
+});
 const reply=rows=>({success:true,result:[{success:true,results:rows}]});
 function fixture(t){
  const db=new DatabaseSync(':memory:');
@@ -42,6 +48,7 @@ function adapter(db,overrides={}){
  return {io,seen,get calls(){return calls;}};
 }
 test('all five exact stages classify without authorizing future execution or leaking rows',async t=>{
+ await deps;
  const db=fixture(t),plans=buildG6SyntheticPlan(),m=await diagnostics;
  for(let stage=0;stage<=4;stage++){
   if(stage>0)db.exec(plans[stage-1].sql);
@@ -65,6 +72,7 @@ test('all five exact stages classify without authorizing future execution or lea
  }
 });
 test('unexpected schema, missing migration receipts and partial history fail closed',async t=>{
+ await deps;
  const m=await diagnostics,plan=buildG6SyntheticPlan();
  const bad=async(setup,mutate)=>{
   const db=fixture(t);
@@ -84,6 +92,7 @@ test('unexpected schema, missing migration receipts and partial history fail clo
  await bad(4,db=>db.exec("UPDATE stock_moves SET note='changed' WHERE id='g6-m04';"));
 });
 test('wrong target, forged metadata, query failures and alien SQL payload never classify',async t=>{
+ await deps;
  const m=await diagnostics,db=fixture(t),unused=adapter(db);
  let touched=0;
  for(const id of [

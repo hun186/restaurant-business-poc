@@ -44,7 +44,7 @@ let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false,priceWriteEnabled=false,stockUsageWriteEnabled=false,stockV4WriteEnabled=false,accountWriteEnabled=false,
   accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,
-  accountGrantWriteEnabled=false,costAsOf='';
+  accountGrantWriteEnabled=false,accountPasswordResetEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 const labeledField=(caption,control)=>{const label=el('label',caption);label.append(control);return label;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
@@ -71,7 +71,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  costAsOf='';stockV4WriteEnabled=false;authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();
+  costAsOf='';stockV4WriteEnabled=false;authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
@@ -1164,7 +1164,7 @@ async function refresh(){
     return;
   }
   if(view==='accounts'){
-    accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;syncView();
+    accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;syncView();
     const epoch=authEpoch,token=csrf;
     await renderOwnerAccounts({pane:$('content'),api,role,
       signal:controller.signal,notice:say,refresh,
@@ -1175,7 +1175,8 @@ async function refresh(){
         accountWriteEnabled=flags?.create===true;
         accountStatusWriteEnabled=flags?.status===true;
         accountRoleWriteEnabled=flags?.role===true;
-        accountGrantWriteEnabled=flags?.grants===true;syncView();
+        accountGrantWriteEnabled=flags?.grants===true;
+        accountPasswordResetEnabled=flags?.passwordReset===true;syncView();
       }});
     return;
   }
@@ -1216,7 +1217,8 @@ function syncView(){
     stocktake:stocktakeWriteEnabled,repair:repairWriteEnabled,price:priceWriteEnabled,
     stockUsage:stockUsageWriteEnabled,stockV4:stockV4WriteEnabled,
     account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled,
-    accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled});
+    accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled,
+    accountPasswordReset:accountPasswordResetEnabled});
   $('operation-mode').textContent=capability.systemLabel;
   $('operation-mode').classList.toggle('enabled',capability.systemWritable);
   $('capability').textContent=capability.pageLabel;
@@ -1234,7 +1236,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  costAsOf='';authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;$('locked').hidden=true;
+  costAsOf='';authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients',
     'dish_costs','dish_cost_lines','inventory_values'];
@@ -1290,7 +1292,7 @@ $('login-form').addEventListener('submit',async ev=>{
 });
 $('logout').addEventListener('click',async()=>{
   if(!csrf)return;const token=csrf;authEpoch++;csrf=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;
-  stockV4WriteEnabled=false;revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
+  stockV4WriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',
       headers:{Accept:'application/json','X-CSRF-Token':token}});

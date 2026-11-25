@@ -48,3 +48,5 @@ jobs:
         run: node tools/run-pbkdf2-local-workerd.mjs --smoke
       - name: Verify actual local Wrangler D1 migrations and rollback (no remote target)
         run: node tools/run-g6-wrangler-local-rehearsal.mjs
+      - name: Verify Native v4 API on actual local workerd D1 binding (synthetic only)
+        run: node tools/run-native-stock-v4-local-d1-uat.mjs

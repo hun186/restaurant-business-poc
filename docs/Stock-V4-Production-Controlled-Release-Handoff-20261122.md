@@ -3,6 +3,26 @@
 > 適用：Issue #212、#176、#34。**本文件是執行與驗收清單，不是已完成的 Production 發版證據，也不是自動執行遷移的程序。**
 > 建立時 Main = `9c9ed317eeb6611a060c08dacacfe14b55a7b027`（PR #250）。任何變更後先重新驗證 HEAD、Worker Build、備份新鮮度與目標資料庫，勿沿用固定 SHA 當作永久放行條件。
 
+## 2026-11-25｜本地工程驗證收斂（不等於遠端放行）
+
+本段是最新證據索引；下方歷史快照及未勾選的遠端／Production GO/NO-GO 條件仍保留。**本地工程驗證已取得以下實際 PASS，下一步優先處理現場條件，不因等待人工批准重複新增同義離線測試。**
+
+| 已合併 PR | 精確版本、實際驗收證據 | 已證實的範圍 |
+|---|---|---|
+| #263 | [Hosted #45541228196](https://github.com/hun186/restaurant-business-poc/actions/runs/45541228196)、[Main #45545526954](https://github.com/hun186/restaurant-business-poc/actions/runs/45545526954) 均 5/5 PASS | Wrangler 4.152.0 真實本地 D1 Stage 1–4、故障回滾、自動 receipt、no-op replay |
+| #264 / #265 | [Hosted #45545633821](https://github.com/hun186/restaurant-business-poc/actions/runs/45545633821)、[Hosted #45545693091](https://github.com/hun186/restaurant-business-poc/actions/runs/45545693091)、[Main #45546394997](https://github.com/hun186/restaurant-business-poc/actions/runs/45546394997)、[Main #45546404573](https://github.com/hun186/restaurant-business-poc/actions/runs/45546404573) 均 5/5 PASS | 中斷狀態離線判斷與人工交接；不授權重試 |
+| #266 | [Hosted #45546529680](https://github.com/hun186/restaurant-business-poc/actions/runs/45546529680)、[Main #45555553276](https://github.com/hun186/restaurant-business-poc/actions/runs/45555553276) 均 5/5 PASS | 五份 SQL 的固定 SHA256 輸入，真正 Wrangler regression PASS |
+| #267 | 精確 HEAD `9df03ac6fc637e8e95eb1187d357c6c9b08089db`，[Hosted #45563392425](https://github.com/hun186/restaurant-business-poc/actions/runs/45563392425) 5/5 PASS、[Codex completed 0/0](https://github.com/hun186/restaurant-business-poc/pull/267#issuecomment-7154109032)，Main merge `f2a9ff37c857b902b3a33f5106202e5d77e0cabb` | 真正本地 workerd D1 API/Batch UAT；Ubuntu Node22 1269 tests、0 failures。合併後 [Main #45573012864](https://github.com/hun186/restaurant-business-poc/actions/runs/45573012864) 在撰寫時尚未完成，不預先標 PASS |
+
+#267 [實際 job #139032249964](https://github.com/hun186/restaurant-business-poc/actions/runs/45563392425/job/139032249964) 於 2026-11-25 14:49:19 台灣時間輸出 `NATIVE_STOCK_V4_LOCAL_D1_UAT_PASS`，使用 Wrangler 4.152.0 及官方 v4 Miniflare 設定轉換器；real_workerd_dispatch=true、real_d1_batch=true、accepted_movements=5、matching_audits=5、role_csrf_origin_and_session_checks=true、receipt_budget_rollback=true、audit_failure_rollback=true、replay_rejected=true、original_purchase_preserved=true。測試只使用合成預置 Session（real_login_verified=false），不宣稱真實登入、遠端交易或 Production UAT；remote_d1_verified=false、production_write_performed=false、production_gate_modified=false。原 Wrangler migration rehearsal 同 job 仍 PASS。
+
+### 交付分流與停止條件
+
+- 第一階段核心五項日常功能：依 [#34 的 11/21 真實驗收](https://github.com/hun186/restaurant-business-poc/issues/34#issuecomment-7062750139)，先前 Owner/Manager/Staff UAT 與公開 Native readiness 已有證據。交付前只核對當下公開狀態、備份新鮮度及實際業主登入需求；本地 v4 測試和第二階段未放行不應被誤作第一階段不能交付。歷史 PASS 不等於今天已核對。
+- 第二階段進階庫存：G6 唯讀 Stage 0 與直接綁定盤點曾實機 PASS；獨占、間接存取、獨立批准、受保護寫入環境、遠端原子性與實際遷移仍未核實。不得直接改用本地 runner --remote，不得使用現有 Production/Staging/G5 權限或填寫沒有證據的批准。
+- [#46](https://github.com/hun186/restaurant-business-poc/issues/46#issuecomment-6522202429) 已記錄 10/30 使用者無第二位可信任審核者、暫緩 destructive G5 Restore；[#61](https://github.com/hun186/restaurant-business-poc/issues/61) 已 deferred。除非現場條件改變或另有獨立受審的替代安全方案，不得自行解除 G5 或 G6 的寫入保護。另一個專用 Cloudflare 帳戶只能是重新評估的候選方案，不能當成已建立或已核准。
+- 當前連接器無法讀取或配置 GitHub Environment 審核設定、觸發手動 workflow，亦無 Cloudflare 寫入權限。下一個現場決策：是否具備獨立審核、隔離及專用受保護寫入環境；若沒有，維持第二階段關閉並優先第一階段交付。無須重跑已通過的本地驗收以替代人工條件。
+
 ## 2026-11-23 實機進展追加（不回寫 11/22 的歷史快照）
 
 - **正式營運備份**：操作者提供新來源（檔名 UTC 2026-11-21 23:15）之 Export [4]、Verify [2]、Copy Verify [3] **三項 PASS**，source/copy SHA256 一致；用同一份新來源執行 [5] memory-only v3→v4 **PASS**，22 個原有表及歷史資料保留、第三筆 receipt 為模擬、四種合成 movement 測試後 ROLLBACK；未寫入 Production。依 Issue #176/#212 的非機密紀錄為準。副本驗證不等於已證實異地儲存或實體遠端恢復。

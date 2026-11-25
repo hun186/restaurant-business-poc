@@ -3,6 +3,7 @@
 import {loadPrincipal,authorizedMutation,hashWorkerPassword} from './auth-core.mjs';
 import {nativeLoginEnabled,bodyWithinLimit} from './native-login-http.mjs';
 import {canOwnerManageAccountStatus,isAccountStatusTransition} from './account-status-contract.mjs';
+import {nativeAccountPasswordResetEnabled} from './native-account-password-reset-http.mjs';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validDb=db=>!!db&&typeof db.prepare==='function'&&typeof db.batch==='function';
 function changed(res){
@@ -173,7 +174,8 @@ export async function nativeAccountsHttp(request,env){
         can_create:nativeAccountsWriteEnabled(env),
         can_manage_status:nativeAccountAdminWriteEnabled(env),
         can_manage_role:nativeAccountRoleWriteEnabled(env),
-        can_manage_grants:nativeAccountGrantWriteEnabled(env)});
+        can_manage_grants:nativeAccountGrantWriteEnabled(env),
+        can_reset_password:nativeAccountPasswordResetEnabled(env)});
     }
     if(!authorizedMutation(request,principal,'owner'))
       return reply(403,{code:'E_FORBIDDEN'});

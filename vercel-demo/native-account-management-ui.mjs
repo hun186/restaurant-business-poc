@@ -31,7 +31,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       create:data.can_create===true,
       status:data.can_manage_status===true,
       role:data.can_manage_role===true,
-      grants:data.can_manage_grants===true
+      grants:data.can_manage_grants===true,
+      passwordReset:data.can_reset_password===true
     });
     const activeStores=stores.rows.filter(row=>row.active===1);
     let grantWarnings=0;
@@ -39,23 +40,30 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     pane.append(element('h3','帳號管理'),
       element('p',data.can_manage_status===true?
         (data.can_manage_role===true?
-          '業主可停用／啟用員工並在員工與主管之間調整角色；兩種操作均撤銷原有登入工作階段，保留歷史紀錄。他人密碼重設尚未開放。':
-          '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整與他人密碼重設尚未開放。'):
+          '業主可停用／啟用員工並在員工與主管之間調整角色；兩種操作均撤銷原有登入工作階段，保留歷史紀錄。':
+          '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整尚未開放。'):
         (data.can_manage_role===true?
-          '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用與他人密碼重設尚未開放。':
+          '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用尚未開放。':
           (data.can_manage_grants===true?
           '業主可逐一新增或移除員工門市授權；每次修改將撤銷該員工全部登入工作階段，保留稽核歷史。':
           '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。'))));
+    pane.append(element('p',data.can_reset_password===true?
+      '業主可重新驗證自己的密碼後，替啟用中的員工或主管重設密碼；舊登入工作階段將全部撤銷。':
+      '他人密碼重設尚未開放。'));
     // A local filter never expands the server's Owner-only 50-row page.
     const rowStates=[];
     // One cross-action lock for Grant, status, role and create. A pending
     // transaction must not be masked by another successful refresh.
     let accountPending=false;
     const accountButtons=[],pagerButtons=[];
-    let updateGrantEditor=()=>{};
+    let updateGrantEditor=()=>{},closeResetEditor=()=>{};
+    let resetUncertain=false;
+    const resetButtons=[];
     const setAccountPending=pending=>{
       accountPending=pending;
+      if(pending)closeResetEditor();
       for(const button of accountButtons)button.disabled=pending;
+      for(const button of resetButtons)button.disabled=pending||resetUncertain;
       for(const [button,originalDisabled] of pagerButtons)
         button.disabled=pending||originalDisabled;
       updateGrantEditor();
@@ -64,6 +72,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     const showGrantEditor=user=>{
       if(!live()||accountPending||data.can_manage_grants!==true||user.active!==true||
          !['staff','manager'].includes(user.role))return;
+      closeResetEditor();
       const possible=stores.rows.filter(store=>typeof store.id==='string'&&
         typeof store.name==='string'&&(store.active===1||
           user.location_ids.includes(store.id)));
@@ -137,12 +146,82 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       });
       updateVerb();grantPanel.replaceChildren(title,desc,form);grantPanel.hidden=false;
     };
+    const resetPanel=element('section');resetPanel.className='panel';resetPanel.hidden=true;
+    const showResetEditor=user=>{
+      if(!live()||signal?.aborted||accountPending||resetUncertain||
+         data.can_reset_password!==true||user.active!==true||
+         !['staff','manager'].includes(user.role))return;
+      closeResetEditor();
+      grantPanel.hidden=true;grantPanel.replaceChildren();updateGrantEditor=()=>{};
+      const form=element('form'),current=element('input'),nextPassword=element('input'),
+       confirmation=element('input'),submit=element('button','確認重設密碼'),cancel=element('button','取消');
+      form.autocomplete='off';
+      for(const [control,name,autocomplete] of [[current,'currentOwnerPassword','current-password'],
+       [nextPassword,'newPassword','new-password'],[confirmation,'confirmNewPassword','new-password']]){
+        control.type='password';control.name=name;control.required=true;
+        control.minLength=12;control.maxLength=256;control.autocomplete=autocomplete;
+      }
+      const clear=()=>{current.value='';nextPassword.value='';confirmation.value='';};
+      let open=true;
+      const close=()=>{
+        clear();if(!open)return;
+        open=false;resetPanel.hidden=true;resetPanel.replaceChildren();
+        signal?.removeEventListener('abort',close);
+        if(closeResetEditor===close)closeResetEditor=()=>{};
+      };
+      closeResetEditor=close;
+      signal?.addEventListener('abort',close,{once:true});
+      submit.type='submit';cancel.type='button';
+      cancel.addEventListener('click',close);
+      form.append(field('業主目前密碼（重新驗證）',current),
+       field('員工新密碼（至少 12 字）',nextPassword),
+       field('再次輸入新密碼',confirmation),submit,cancel);
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();
+        if(!open||!live()||signal?.aborted||accountPending||resetUncertain){close();return;}
+        const valid=value=>typeof value==='string'&&value.length>=12&&value.length<=256&&!/[\r\n\0]/.test(value);
+        if(!valid(current.value)||!valid(nextPassword.value)||
+           current.value===nextPassword.value||nextPassword.value!==confirmation.value){
+          clear();notice('請確認密碼長度、兩次新密碼相同，且不可使用業主目前的密碼。',true);return;
+        }
+        if(!globalThis.confirm('確定替「'+user.username+'」重設密碼？該帳號所有裝置須重新登入。')){
+          close();return;
+        }
+        if(!open||!live()||signal?.aborted||accountPending){close();return;}
+        const body=JSON.stringify({targetUserId:user.id,currentOwnerPassword:current.value,newPassword:nextPassword.value});
+        // Clear and detach all three inputs before starting the request.
+        // Shared lock closes the editor and prevents overlapping account writes.
+        setAccountPending(true);notice('正在重設員工密碼…');
+        try{
+          const result=await api('/api/accounts/password-reset',{method:'POST',signal,
+            referrerPolicy:'same-origin',headers:{Accept:'application/json',
+             'Content-Type':'application/json','X-CSRF-Token':token},body});
+          if(!live()||signal?.aborted)return;
+          if(result?.code!=='OK')throw Error('E_UNCONFIRMED_RESET');
+          notice('員工密碼已重設，舊登入工作階段已撤銷；請安全交付新密碼。');
+        }catch(error){
+          if(!live()||signal?.aborted)return;
+          if(error?.status===401){onAuthExpired('工作階段已失效，請重新登入。');return;}
+          // Only explicitly rejected requests are known not to have committed.
+          if(error?.status===403&&error?.code==='E_INVALID_CURRENT_PASSWORD')
+            notice('業主目前密碼不正確，未重設員工密碼。',true);
+          else if(error?.status===429)notice('操作頻率超過限制，請稍後再試。',true);
+          else{
+            resetUncertain=true;
+            notice('未確認重設結果，請先核對安全稽核紀錄及員工登入狀態，再重新整理。不要直接重送。',true);
+          }
+        }finally{clear();setAccountPending(false);}
+      });
+      resetPanel.replaceChildren(element('h3','重設密碼：'+user.username),
+       element('p','成功後此帳號的所有登入工作階段將撤銷；請安全交付新密碼。'),form);
+      resetPanel.hidden=false;
+    };
     const scroll=element('div');scroll.className='scroll';
     const table=element('table'),thead=element('thead'),tr=element('tr'),
       tbody=element('tbody');
     for(const name of ['登入帳號','顯示名稱','角色','狀態','所屬門市',
       ...(data.can_manage_status===true||data.can_manage_role===true||
-        data.can_manage_grants===true?['操作']:[])]){
+        data.can_manage_grants===true||data.can_reset_password===true?['操作']:[])]){
       const th=element('th',name);th.scope='col';tr.append(th);
     }
     thead.append(tr);
@@ -164,9 +243,16 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
         '請核對此帳號的門市授權；本頁不會自動修改正式資料。');
       row.append(grantCell);
       if(data.can_manage_status===true||data.can_manage_role===true||
-         data.can_manage_grants===true){
+         data.can_manage_grants===true||data.can_reset_password===true){
         const cell=element('td');
         if(user.role==='staff'||user.role==='manager'){
+          if(data.can_reset_password===true&&user.active===true){
+            const resetButton=element('button','重設密碼');
+            resetButton.type='button';resetButton.className='btn';
+            resetButton.setAttribute('aria-label','重設帳號 '+user.username+' 的密碼');
+            resetButton.addEventListener('click',()=>showResetEditor(user));
+            resetButtons.push(resetButton);accountButtons.push(resetButton);cell.append(resetButton);
+          }
           if(data.can_manage_grants===true&&user.active===true){
             const editGrant=element('button','調整門市');
             editGrant.type='button';editGrant.className='btn';
@@ -280,7 +366,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     filter.addEventListener('change',applyFilter);
     search.addEventListener('input',applyFilter);
     applyFilter();
-    pane.append(filterBar,scroll,grantPanel);
+    pane.append(filterBar,scroll,grantPanel,resetPanel);
     if(grantWarnings)pane.append(element('p',
       '本頁有 '+grantWarnings+' 個啟用帳號存在無有效門市或停用／未列出門市授權，請核對；本頁不會修改授權。'));
     const pager=element('nav'),previous=element('button','上一頁'),
@@ -294,6 +380,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
     pager.append(previous,info,next);pane.append(pager);
     const navigate=async newOffset=>{
       if(!live()||accountPending)return;
+      closeResetEditor();
       // Do not present prior-page capability as current during a new request.
       if(typeof onCapabilityChange==='function')onCapabilityChange(null);
       previous.disabled=true;next.disabled=true;

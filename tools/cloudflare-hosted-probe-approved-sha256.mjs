@@ -36,7 +36,7 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
   "tools/cloudflare-stock-v4-g6-stage-readonly.mjs":"2fa598b1531a7d9685258d5b9c5a450677c226a5fabd1d3e25ae79e35ca5f511",
-  "tools/cloudflare-stock-v4-g6-migration-plan.mjs":"60a0e492fdba60f286a1b4e9ec1a33ed0c0778f4727c12b1faeaf2c3db0f5374",
+  "tools/cloudflare-stock-v4-g6-migration-plan.mjs":"76175dcaea34683f0c7e26606c1aa368c6881df0ebe0c73cf870127d2056fd55",
   "tools/cloudflare-stock-v4-g6-postflight.mjs":"fe2b0bf10ccbc4f3809f63cff96c99512c9b30561764238db288c3d98573b438",
   "tools/cloudflare-g6-binding-inventory.mjs":"b508a4d39cde5a5b7340cbbf70eadabebc0cbd8ca9e20de17c8007d40b2242bc",
   "tools/cloudflare-stock-v4-disposable-inspect.mjs":"a03bc4ebb8f3dd4a59be28d64c6f3f2c10632feb7894b92dba53e02e7403e51f",
@@ -105,7 +105,7 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-stock-v4-g6-batch-boundary-rehearsal.test.js":"530c976f2d9c7b63eef1222e2a0c268808d7816e560d5dab060884963b022d07",
-  "tests/cloudflare-stock-v4-g6-stage-readonly.test.js":"99eb5c3878dfab7a0bda0f0afd29352aa23999c30ba6dd81b8fc46371864183f",
+  "tests/cloudflare-stock-v4-g6-stage-readonly.test.js":"9dedc0911aee2416569293fe388cda147d9367a8a3ad52fef385fbe563d159cf",
   "tests/cloudflare-stock-v4-g6-migration-plan.test.js":"a6cd85cbb294d06384fb019594ea3a23a9b836ec2323ddd2622624f8e99bda21",
   "tests/cloudflare-stock-v4-g6-postflight.test.js":"45eb260cace3597af310c122ad1f124e15f39d6c1ffdfa8cb118183754a21f7d",
   "tests/cloudflare-g6-binding-inventory.test.js":"a6d30eddc09d9db3c6015d64fed4083cb85014572071f84010027a77bbc3a53a",

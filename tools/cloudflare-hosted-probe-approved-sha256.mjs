@@ -210,7 +210,7 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "vercel-demo/native-owner-capability.mjs":"c35b7f41fbc2d5925ae828e0ac2d1758c282907c357f97bdb3c876e4bd65e7b6",
   "vercel-demo/native-owner-display.mjs":"6344747902b5c0f75a962f1578d1e65f6aa86aef29f59c402319dc1fc4564172",
   "tests/cloudflare-native-owner-password-response-ui.test.js":"087eec27a5c73e6ba6902d156adf59ab99624db976e2177f5869edeccd546c62",
-  "tests/cloudflare-native-owner-session-race.test.js":"08b9fc30364c35e79f5e1c810c4d7f40c1fd30b894b7b0897bc56d24ec5c253e",
+  "tests/cloudflare-native-owner-session-race.test.js":"cedb408bf870f78c347cc915a2b368dbe4d994e22eacaaa945aaae8c1211f93f",
   "tests/native-owner-capability.test.js":"64004f85e2ef08cfd3550e9f7e639549c54d05dcc5ee0facf74a3c5885620aa8",
    "tests/cloudflare-native-owner-ui-parity.test.js":"27f9301f86e35ec3690b77dc788eea4c1cd3a8dec0c547668f4a8eba0e7a8329",
   "tests/cloudflare-g0-active-version-readonly.test.js":"8fa5c63ba072c8c3a94d6fd55f972203f8a4bc1187bd2900e545d774497dabf0",

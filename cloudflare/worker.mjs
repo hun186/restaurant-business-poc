@@ -3,6 +3,7 @@ import { nativeLoginHttp,nativeLoginEnabled } from './native-login-http.mjs';
 import {nativePasswordChangeHttp} from './native-password-change-http.mjs';
 import {nativeAccountsHttp,nativeAccountStatusHttp,nativeAccountRoleHttp} from './native-account-management-http.mjs';
 import {nativeAccountGrantHttp} from './native-account-grant-http.mjs';
+import {nativeAccountPasswordResetHttp} from './native-account-password-reset-http.mjs';
 import {nativeAuditHttp} from './native-audit-http.mjs';
 import { nativeBusinessReadHttp } from './native-business-http.mjs';
 import {nativePriceHttp,nativePriceWriteEnabled} from './native-price-http.mjs';
@@ -59,6 +60,7 @@ export default {
     if (pathname === '/api/accounts/status') return nativeAccountStatusHttp(request,env);
     if (pathname === '/api/accounts/role') return nativeAccountRoleHttp(request,env);
     if (pathname === '/api/accounts/grant') return nativeAccountGrantHttp(request,env);
+    if (pathname === '/api/accounts/password-reset') return nativeAccountPasswordResetHttp(request,env);
     if (pathname === '/api/task') return nativeTaskHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
     if (pathname === '/api/order') return nativeOrderHttp(request,env);

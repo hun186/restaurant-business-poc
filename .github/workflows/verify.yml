@@ -26,7 +26,7 @@ jobs:
     # This is a single synthetic localhost HTTP regression, NOT a Cloudflare
     # hosted CPU benchmark, cloud deploy or D1 migration.
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
@@ -46,3 +46,5 @@ jobs:
         run: ./node_modules/.bin/wrangler deploy --dry-run --config wrangler.jsonc --outdir /tmp/cloudflare-bundle-dryrun
       - name: Verify actual loopback POST transport and reject nonempty inputs
         run: node tools/run-pbkdf2-local-workerd.mjs --smoke
+      - name: Verify actual local Wrangler D1 migrations and rollback (no remote target)
+        run: node tools/run-g6-wrangler-local-rehearsal.mjs

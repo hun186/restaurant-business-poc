@@ -35,6 +35,7 @@ test('staff only sees application; gate off and malformed staff review fail clos
   assert.equal(Boolean(f.find('form')),opts.enabled!==false&&!opts.malformed);
   assert.equal(f.find('button','核准'),undefined);
   assert.equal(f.flags.at(-1),opts.enabled!==false&&!opts.malformed);
+  if(opts.enabled===false)assert(f.notices.some(n=>n.message.includes('目前僅供檢視')));
  });
  const c=(await cap).nativeOwnerCapability;
  assert.equal(c({view:'leave_requests',role:'staff',leave:true}).pageWritable,true);
@@ -50,6 +51,7 @@ test('create sends one request with fixed selected IDs, clears private reason, v
   location_id:f.candidate.location_id,start_date:'2026-12-01',end_date:'2026-12-02',reason:'private application'}});
  await f.find('button','核准').handlers.click();assert.equal(f.calls.length,1);
  f.deferred[0].resolve({ok:true,result:{id:key,status:'pending'}});await p;assert.equal(f.refreshed(),1);
+ assert(f.find('button','核准').disabled);await f.find('button','核准').handlers.click();assert.equal(f.calls.length,1);
 });
 test('review unknown outcome locks all controls and never exposes raw exception',async t=>{
  const f=await fixture(t),p=f.find('button','駁回').handlers.click();

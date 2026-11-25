@@ -15,7 +15,7 @@ export async function renderNativeLeaveActions({pane,api,role,signal,live,token,
  catch(e){if(current()){if(e?.status===401)onAuthExpired('工作階段已失效，請重新登入。');
   else notice('無法確認請假操作權限，請重新整理。',true);}return;}
  if(!current())return;
- if(data?.enabled!==true)return;
+ if(data?.enabled!==true){notice('已取得授權範圍內的請假紀錄；目前僅供檢視。');return;}
  if(!['owner','manager','staff'].includes(role)||!Array.isArray(data.candidates)||data.candidates.length>500||
   !Array.isArray(data.pending)||data.pending.length>500||typeof data.truncated!=='boolean'||
   !data.candidates.every(x=>id(x?.user_id)&&id(x?.location_id)&&string(x?.staff_name)&&string(x?.location_name))||
@@ -38,7 +38,8 @@ export async function renderNativeLeaveActions({pane,api,role,signal,live,token,
    if(!current())return;
    if(result?.ok!==true||result.result?.id!==key||result.result?.status!==expectedStatus)throw Error('E_UNCONFIRMED');
    notice('請假操作已完成。');
-   // Keep locked until the entire panel is refreshed.
+   // Never unlock a panel whose write already committed, even if refresh fails.
+   uncertain=true;
    await refresh();
   }catch(e){
    if(!current())return;
@@ -92,4 +93,5 @@ export async function renderNativeLeaveActions({pane,api,role,signal,live,token,
  }
  if(!current())return;
  pane.append(panel);onCapabilityChange(controls.length>0);
+ notice(controls.length?'已取得授權範圍內的請假操作資料。':'目前沒有可申請或審核的案件。');
 }

@@ -109,8 +109,8 @@ export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
 // Never auto-regenerate hashes in CI. Update after human review only.
 export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "cloudflare/native-leave-capability.mjs":"3959984a79bf6b61e8cac36d928cdfc1ca029a9f6a41f2223c1cc5d5aab5aec8",
-  "vercel-demo/native-leave-ui.mjs":"20ee3f68ff7ce677d6f8bfc90417f134d357b50210de891669c906add96a3ca2",
-  "tests/native-leave-ui.test.js":"6fc9bed4cdc308e3f41a633f3c47b31c348258ca98b6ecac22e75cc4c037b35b",
+  "vercel-demo/native-leave-ui.mjs":"11f8dd65f3cc0936ce2f245efc9d4bd77a6cb038837ca119a42a73884819ee39",
+  "tests/native-leave-ui.test.js":"a37ecc8c0e7c0d2eacc2c2a6a83806163f2aba577b900c2ab6ff7163f740eaa4",
   "cloudflare/native-leave-http.mjs":"3630ac6a439a4cabfabdac042737108956c60441b8ff312c1a56404938ebb2a4",
   "tests/cloudflare-native-leave-http.test.js":"5b8d662f144ad8c387e68870adc5b6e183f6f89899b4b1e04aa2ac61cc2ca7d4",
   "tests/native-owner-account-password-reset-ui.test.js":"f2b10640ed83d5ac68066d34246928bfc829e690f36bd80601bfc236a92ebe59",

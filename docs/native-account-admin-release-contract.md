@@ -1,5 +1,7 @@
 # D1 原生帳號管理：公開 Worker 隔離與發布安全契約
 
+> **2026-11-25 現況索引：** 本文件保留最初 dormant 設計與歷史安全證據；下方「未實作」「Production disabled」等句子是當時的快照，不是目前 Main 或部署狀態。現行 Native 帳號管理路由、分立 Gate、#269–272 驗收範圍與尚未放行事項請見 [現行交接表](Native-Owner-Account-Management-Release-Handoff-20261125.md)。原候選 `/api/admin/account` 與 dormant 契約不因現行獨立路由存在而開放。
+
 > 狀態：**內部合成測試完成基礎；正式帳號管理 API 未實作、未授權上線。** 本文件不是正式部署核准。
 
 ## 現行安全基線

@@ -78,6 +78,7 @@ test('unconfirmed response latches reset actions; no raw backend error displayed
 });
 test('cancel, switched editor and abort clear all detached password fields',async t=>{
  const f=await fixture(t),a=f.open(),b=f.open('manager');cleared(a.fields);
+ await a.submit();assert.equal(f.requests.length,0);assert(walk(f.pane).includes(b.form));
  walk(b.form).find(n=>n.textContent==='取消').handlers.click();cleared(b.fields);
  const c=f.open();f.controller.abort();cleared(c.fields);
  await c.submit();assert.equal(f.requests.length,0);

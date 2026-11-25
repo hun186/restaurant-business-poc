@@ -37,7 +37,12 @@ async function fixture(t,opt={}){
   return (await worker).default.fetch(req,opts.env??env);
  };
  const snapshot=()=>({leaves:db.prepare('SELECT * FROM leave_requests ORDER BY id').all(),audit:db.prepare('SELECT * FROM audit_logs ORDER BY id').all()});
- return {db,ids,env,create,review,send,snapshot};
+ const capability=async(who,e=env)=>{
+  const s=sessions[who]??{};
+  return (await worker).default.fetch(new Request(site+'/api/leave/capability',
+   {headers:{'sec-fetch-site':'same-origin',...(s.cookie?{cookie:s.cookie}:{})}}),e);
+ };
+ return {db,ids,env,create,review,send,snapshot,capability};
 }
 test('staff self application, manager review, no duplicate or private reason in audit',async t=>{
  const f=await fixture(t),key=randomUUID();
@@ -131,4 +136,30 @@ test('active Owner applicant global scope remains available to another Owner, no
  assert.equal((await f.send('manager',f.review(key))).status,200);
  assert.equal((await f.send('owner',f.create({user_id:f.ids.owner}),{key:second})).status,200);
  assert.equal((await f.send('owner',f.review(second))).status,403);
+});
+
+test('authenticated capability preserves staff privacy and eligible manager review scope',async t=>{
+ const f=await fixture(t),own=randomUUID(),other=randomUUID(),manager=randomUUID(),owner=randomUUID();
+ assert.equal((await f.send('staff',f.create(),{key:own})).status,200);
+ assert.equal((await f.send('otherStaff',f.create({user_id:f.ids.otherStaff,location_id:f.ids.other}),{key:other})).status,200);
+ assert.equal((await f.send('manager',f.create({user_id:f.ids.manager}),{key:manager})).status,200);
+ assert.equal((await f.send('owner',f.create({user_id:f.ids.owner}),{key:owner})).status,200);
+ const before=f.snapshot();
+ assert.equal((await f.capability('none')).status,401);
+ const off=await (await f.capability('owner',{...f.env,CLOUD_NATIVE_LEAVE_WRITE_GATE:undefined})).json();
+ assert.deepEqual(off,{enabled:false,candidates:[],pending:[],truncated:false});
+ const staff=await (await f.capability('staff')).json();
+ assert.deepEqual(staff.candidates.map(x=>[x.user_id,x.location_id]),[[f.ids.staff,f.ids.store]]);
+ assert.deepEqual(staff.pending,[]);
+ const mgr=await (await f.capability('manager')).json();
+ assert.deepEqual(mgr.pending.map(x=>x.id),[own]);
+ assert(mgr.candidates.every(x=>x.location_id===f.ids.store&&[f.ids.staff,f.ids.manager].includes(x.user_id)));
+ const all=await (await f.capability('owner')).json();
+ assert.deepEqual(new Set(all.pending.map(x=>x.id)),new Set([own,other,manager]));
+ assert.doesNotMatch(JSON.stringify(all),/password_hash|password_salt|token_hash|csrf_token/);
+ assert.deepEqual(f.snapshot(),before);
+ f.db.prepare('DELETE FROM user_locations WHERE user_id=?').run(f.ids.staff);
+ const after=await (await f.capability('manager')).json();
+ assert.deepEqual(after.pending,[]);
+ assert(after.candidates.every(x=>x.user_id!==f.ids.staff));
 });

@@ -179,3 +179,44 @@ test('manual workflow is main-only and cannot access the D1 write token',()=>{
  assert.ok(workflow.indexOf('cloudflare-hosted-probe-preflight.mjs')<
   workflow.indexOf('CLOUDFLARE_D1_DRILL_READ_TOKEN'));
 });
+
+test('Wrangler-shaped migration ledger supports automatic receipts and rejects the old simplified shape',async t=>{
+ await deps;
+ const m=await diagnostics,plan=buildG6SyntheticPlan(),db=fixture(t);
+ // Model upstream default ledger creation and name-only receipt INSERTs,
+ // without running Wrangler, installing dependencies, or accessing D1.
+ const original=plan[0].sql;
+ const automatic=original
+  .replace("INSERT INTO d1_migrations(id,name) VALUES(1,'0001_initial_v3.sql');",
+   "INSERT INTO d1_migrations(name) VALUES('0001_initial_v3.sql');")
+  .replace("INSERT INTO d1_migrations(id,name) VALUES(2,'0002_login_attempts_window_indexes.sql');",
+   "INSERT INTO d1_migrations(name) VALUES('0002_login_attempts_window_indexes.sql');");
+ assert.notEqual(automatic,original);
+ db.exec(automatic);
+ const cols=db.prepare('PRAGMA table_info(d1_migrations)').all();
+ assert.deepEqual(cols.map(x=>[x.name,x.type,x.notnull,x.pk]),[
+  ['id','INTEGER',0,1],['name','TEXT',0,0],['applied_at','TIMESTAMP',1,0]
+ ]);
+ assert.match(db.prepare("SELECT sql FROM sqlite_master WHERE name='d1_migrations'").get().sql,/AUTOINCREMENT/);
+ assert.deepEqual(db.prepare('SELECT id,name FROM d1_migrations ORDER BY id').all().map(x=>({...x})),[
+  {id:1,name:'0001_initial_v3.sql'},{id:2,name:'0002_login_attempts_window_indexes.sql'}
+ ]);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM d1_migrations WHERE applied_at IS NULL').get().n,0);
+ assert.equal((await m.diagnoseG6ReadOnlyStage(pin,adapter(db).io)).stage,1);
+ db.exec(plan[1].sql);
+ assert.equal((await m.diagnoseG6ReadOnlyStage(pin,adapter(db).io)).stage,2);
+ db.exec(plan[2].sql.replace("INSERT INTO d1_migrations(id,name) VALUES(3,'0004_stock_move_kinds.sql');",
+  "INSERT INTO d1_migrations(name) VALUES('0004_stock_move_kinds.sql');"));
+ assert.equal((await m.diagnoseG6ReadOnlyStage(pin,adapter(db).io)).stage,3);
+ db.exec(plan[3].sql);
+ assert.equal((await m.diagnoseG6ReadOnlyStage(pin,adapter(db).io)).stage,4);
+ // A same-named, two-column ledger with the correct receipt values is
+ // still not the reviewed schema. Reject instead of loosening DDL checks.
+ const legacy=fixture(t);
+ const simplified=original.replace(/CREATE TABLE IF NOT EXISTS "d1_migrations"\([\s\S]*?\n\);/,
+  'CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE);');
+ assert.notEqual(simplified,original);
+ legacy.exec(simplified);
+ await assert.rejects(()=>m.diagnoseG6ReadOnlyStage(pin,adapter(legacy).io),
+  /G6_STAGE_READONLY_DIAGNOSTIC_FAILED/);
+});

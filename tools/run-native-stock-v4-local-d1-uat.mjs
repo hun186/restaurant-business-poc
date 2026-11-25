@@ -40,12 +40,37 @@ async function child(){
  try{
   const pkg=path.join(ROOT,'node_modules','wrangler','package.json');
   need(JSON.parse(fs.readFileSync(pkg,'utf8')).version===VERSION,'E_LOCAL_UAT_WRANGLER_VERSION');
+  checkpoint='resolve-miniflare';
   const require=createRequire(pkg);
-  const {Miniflare}=require('miniflare');
+  const {Miniflare,Log,LogLevel}=require('miniflare');
+  checkpoint='bundle-worker';
+  // Match the production bundling boundary: the Worker imports reviewed CJS
+  // helpers. Miniflare's raw module loader is not Wrangler's bundler.
+  // Bundle the fixed source in memory using Wrangler's installed dependency;
+  // no external modules, config file, plugins, deploy command or output files.
+  const {build}=require('esbuild');
+  const bundle=await build({
+   absWorkingDir:ROOT,entryPoints:[path.join(ROOT,'cloudflare','worker.mjs')],
+   bundle:true,format:'esm',platform:'browser',target:'es2022',
+   write:false,logLevel:'silent',metafile:true
+  });
+  need(bundle.outputFiles?.length===1&&bundle.outputFiles[0].text.length>0,
+   'E_LOCAL_UAT_BUNDLE_OUTPUT');
+  // Reject unresolved external dependencies and sources outside the reviewed
+  // checkout. The existing Hosted preflight has already checked its pins.
+  for(const name of Object.keys(bundle.metafile.inputs)){
+   const relative=path.relative(ROOT,path.resolve(ROOT,name));
+   need(relative!==''&&!relative.startsWith('..')&&!path.isAbsolute(relative)&&
+    !relative.split(path.sep).includes('node_modules'),'E_LOCAL_UAT_BUNDLE_SOURCE');
+  }
+  for(const out of Object.values(bundle.metafile.outputs))
+   need(out.imports.length===0,'E_LOCAL_UAT_BUNDLE_EXTERNAL');
+  checkpoint='miniflare-config';
   // Local dispatchFetch uses Miniflare's own loopback workerd service,
   // never fetch() or a network request to the synthetic .invalid origin.
   mf=new Miniflare({
-   modules:true,scriptPath:path.join(ROOT,'cloudflare','worker.mjs'),modulesRoot:ROOT,
+   modules:true,script:bundle.outputFiles[0].text,
+   log:new Log(LogLevel.NONE),
    compatibilityDate:'2026-10-25',host:'127.0.0.1',port:0,
    d1Databases:{DB:id()},d1Persist:false,
    bindings:{CLOUD_AUTH_PHASE:'native-production',CLOUD_NATIVE_LOGIN_GATE:'operator-released',
@@ -53,6 +78,7 @@ async function child(){
     CLOUD_NATIVE_STOCK_RETURN_WRITE_GATE:'operator-released',
     NATIVE_AUTH_SOURCE_PEPPER:'synthetic-only-local-stock-uat-pepper'}
   });
+  checkpoint='miniflare-d1-binding';
   const db=await mf.getD1Database('DB');
   const run=(sql,...args)=>db.prepare(sql).bind(...args).run();
   const first=(sql,...args)=>db.prepare(sql).bind(...args).first();
@@ -153,7 +179,10 @@ async function child(){
    matching_audits:5,role_csrf_origin_and_session_checks:true,receipt_budget_rollback:true,
    audit_failure_rollback:true,replay_rejected:true,original_purchase_preserved:true,
    remote_d1_verified:false,production_write_performed:false,production_gate_modified:false}));
- }catch{
+ }catch(error){
+  // Fixed categories only: do not forward error text, paths, SQL or secrets.
+  const code=['MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','ERR_REQUIRE_ESM','ERR_RUNTIME_FAILURE','ERR_MODULE_RULE','ERR_VALIDATION','ERR_INVALID_MODULE'].includes(error?.code)?error.code:'OTHER';
+  console.error('E_LOCAL_STOCK_V4_UAT_CATEGORY_'+code);
   throw Error('E_LOCAL_STOCK_V4_UAT_CHECKPOINT_'+checkpoint);
  }finally{if(mf)await mf.dispose();}
 }
@@ -170,6 +199,8 @@ function parent(){
   const output=result.stdout??'';
   const line=output.split('\n').find(s=>s.startsWith('{"result":"NATIVE_STOCK_V4_LOCAL_D1_UAT_PASS"'));
   if(result.status!==0||!line){
+   const category=(result.stderr??'').match(/E_LOCAL_STOCK_V4_UAT_CATEGORY_(?:MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|ERR_REQUIRE_ESM|ERR_RUNTIME_FAILURE|ERR_MODULE_RULE|ERR_VALIDATION|ERR_INVALID_MODULE|OTHER)\b/);
+   if(category)console.error(category[0]);
    const failure=(result.stderr??'').match(/E_LOCAL_STOCK_V4_UAT_CHECKPOINT_[a-z-]+/);
    throw Error(failure?.[0]??'E_LOCAL_UAT_CHILD_FAILED');
   }

@@ -428,9 +428,9 @@ export const APPROVED_TRANSITIVE_DEPENDENCIES_SHA256=Object.freeze({
   "tests/cloudflare-native-pricing-readonly.test.js":"f3770f67336c7f6f3148fcec629b2aa8ca987fd6e6e89842705cb610d2267a49",
   "cloudflare/native-pricing-costs.mjs":"d2a8d8c3d36221f2e9103609a0d53a415ea4ef2ad2be30ffa3eaa2dc4b8e12b5",
   "cloudflare/pricing-units.cjs":"f2ea93e3be1b3c6f5f588848e51e023174c5dabfd64a5eb416f2b4a98c3e7e9f",
-  "vercel-demo/native-owner-audit-export.mjs":"eb134471ad24b4529fcf3ed9877a540c8165f4fb8e0a9ef0e1d61a5de1df7e7f",
+  "vercel-demo/native-owner-audit-export.mjs":"45bf64175649106efe953a3179c436a2091e3e7ab452159149a8d39c7aa1f314",
   "vercel-demo/native-account-grant-display.mjs":"7cc17f426dd3572f023957646ad27206ae02196f87557e68b1db399a157251e8",
   "tests/native-owner-store-grant-display.test.js":"9107c7a56712eac7d62d57be8bb1f391e4b0eb45b4478af4e946f70c92e42b32",
   "cloudflare/native-hr-overview-readonly.mjs":"6cd72ccb3544e67b5866930bbac0bce8d03ed747a65cb541703f8974ee43eeb3",
-  "tests/cloudflare-native-audit-localization.test.js":"92117160dc95dbfc2c64787ca50f56dd7749990b7dd63fbb0fe543e09f48c0dd",
+  "tests/cloudflare-native-audit-localization.test.js":"c17183801eacaa9ffdab81e1fff453b2f828b325e89a7a9b239ee1dce490589c",
 });

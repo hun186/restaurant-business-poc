@@ -42,7 +42,7 @@ async function child(){
   need(JSON.parse(fs.readFileSync(pkg,'utf8')).version===VERSION,'E_LOCAL_UAT_WRANGLER_VERSION');
   checkpoint='resolve-miniflare';
   const require=createRequire(pkg);
-  const {Miniflare,Log,LogLevel}=require('miniflare');
+  const {Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
   checkpoint='bundle-worker';
   // Match the production bundling boundary: the Worker imports reviewed CJS
   // helpers. Miniflare's raw module loader is not Wrangler's bundler.
@@ -68,16 +68,40 @@ async function child(){
   checkpoint='miniflare-config';
   // Local dispatchFetch uses Miniflare's own loopback workerd service,
   // never fetch() or a network request to the synthetic .invalid origin.
-  mf=new Miniflare({
+  // New Miniflare accepts the manifest/config envelope, whereas Wrangler
+  // still constructs v4-shaped options via its exported official converter.
+  // Source: workers-sdk packages/miniflare/src/config/v4-convert.ts and
+  // packages/wrangler/src/d1/execute.ts (upstream main; installed version
+  // is verified by the actual CI, not inferred from upstream main).
+  const databaseId=id();
+  const opts={
    modules:true,script:bundle.outputFiles[0].text,
    log:new Log(LogLevel.NONE),
    compatibilityDate:'2026-10-25',host:'127.0.0.1',port:0,
-   d1Databases:{DB:id()},d1Persist:false,
+   cf:false,unsafeRegisterWorker:false,
+   d1Databases:{DB:databaseId},
    bindings:{CLOUD_AUTH_PHASE:'native-production',CLOUD_NATIVE_LOGIN_GATE:'operator-released',
     CLOUD_NATIVE_STOCK_V4_WRITE_GATE:'operator-released',
     CLOUD_NATIVE_STOCK_RETURN_WRITE_GATE:'operator-released',
     NATIVE_AUTH_SOURCE_PEPPER:'synthetic-only-local-stock-uat-pepper'}
-  });
+  };
+  const converted=typeof convertV4MiniflareOptions==='function';
+  // No configured persistence: temporary storage under the isolated child
+  // TMPDIR is disposable. Do not pass obsolete per-binding d1Persist.
+  checkpoint=converted?'miniflare-convert':'miniflare-legacy-config';
+  const config=converted?convertV4MiniflareOptions(opts):opts;
+  if(converted){
+   const workers=config.workers;
+   need(Array.isArray(workers)&&workers.length===1&&
+    workers[0].config?.env?.DB?.type==='d1'&&
+    workers[0].config.env.DB.id===databaseId&&
+    !workers[0].config.env.DB.dev?.remote&&
+    !workers[0].dev?.remoteProxyConnectionString&&
+    !config.enableDevRegistry&&config.host==='127.0.0.1',
+    'E_LOCAL_UAT_CONVERTED_SCOPE');
+  }
+  checkpoint='miniflare-config';
+  mf=new Miniflare(config);
   checkpoint='miniflare-d1-binding';
   const db=await mf.getD1Database('DB');
   const run=(sql,...args)=>db.prepare(sql).bind(...args).run();
@@ -175,6 +199,7 @@ async function child(){
   assert.deepEqual(await summary(),committed);
   console.log(JSON.stringify({result:'NATIVE_STOCK_V4_LOCAL_D1_UAT_PASS',
    wrangler_version:VERSION,real_workerd_dispatch:true,real_d1_batch:true,
+   miniflare_config_mode:converted?'official-v4-converter':'legacy-v4-options',
    synthetic_session_fixture:true,real_login_verified:false,accepted_movements:5,
    matching_audits:5,role_csrf_origin_and_session_checks:true,receipt_budget_rollback:true,
    audit_failure_rollback:true,replay_rejected:true,original_purchase_preserved:true,
@@ -183,6 +208,18 @@ async function child(){
   // Fixed categories only: do not forward error text, paths, SQL or secrets.
   const code=['MODULE_NOT_FOUND','ERR_MODULE_NOT_FOUND','ERR_REQUIRE_ESM','ERR_RUNTIME_FAILURE','ERR_MODULE_RULE','ERR_VALIDATION','ERR_INVALID_MODULE'].includes(error?.code)?error.code:'OTHER';
   console.error('E_LOCAL_STOCK_V4_UAT_CATEGORY_'+code);
+  // Zod validation causes contain inputs and arbitrary messages. Emit only
+  // fixed recognized path segments, never the actual message/value.
+  const allowed=new Set(['workers','config','manifest','modules','mainModule','modulesRoot',
+   'env','DB','id','type','dev','remote','host','port','cf','log','script','scriptPath',
+   'd1Databases','d1Persist','bindings','resourcePersistencePath','unsafeRegisterWorker',
+   'compatibilityDate','compatibilityFlags','enableDevRegistry','unsafeDevRegistryPath']);
+  const issues=error?.cause?.issues??error?.issues;
+  if(Array.isArray(issues)){
+   const fields=[...new Set(issues.slice(0,12).map(i=>
+    (Array.isArray(i?.path)?i.path:[]).map(k=>typeof k==='number'?'index':allowed.has(k)?k:'other').join('.')||'root'))];
+   console.error('E_LOCAL_UAT_VALIDATION_FIELDS '+fields.join(','));
+  }
   throw Error('E_LOCAL_STOCK_V4_UAT_CHECKPOINT_'+checkpoint);
  }finally{if(mf)await mf.dispose();}
 }
@@ -201,6 +238,8 @@ function parent(){
   if(result.status!==0||!line){
    const category=(result.stderr??'').match(/E_LOCAL_STOCK_V4_UAT_CATEGORY_(?:MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|ERR_REQUIRE_ESM|ERR_RUNTIME_FAILURE|ERR_MODULE_RULE|ERR_VALIDATION|ERR_INVALID_MODULE|OTHER)\b/);
    if(category)console.error(category[0]);
+   const fields=(result.stderr??'').match(/E_LOCAL_UAT_VALIDATION_FIELDS [A-Za-z0-9_.,-]{1,400}/);
+   if(fields)console.error(fields[0]);
    const failure=(result.stderr??'').match(/E_LOCAL_STOCK_V4_UAT_CHECKPOINT_[a-z-]+/);
    throw Error(failure?.[0]??'E_LOCAL_UAT_CHILD_FAILED');
   }

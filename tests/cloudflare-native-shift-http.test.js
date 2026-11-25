@@ -36,7 +36,12 @@ async function fixture(t,opt={}){
   return (await worker).default.fetch(req,opts.env??env);
  };
  const snapshot=()=>({shifts:db.prepare('SELECT * FROM shifts ORDER BY id').all(),audit:db.prepare('SELECT * FROM audit_logs ORDER BY id').all()});
- return {db,ids,env,create,send,snapshot};
+ const capability=async(who,e=env,headers={})=>{
+  const s=sessions[who]??{};
+  return (await worker).default.fetch(new Request(site+'/api/shift/capability',
+   {headers:{'sec-fetch-site':'same-origin',...(s.cookie?{cookie:s.cookie}:{}),...headers}}),e);
+ };
+ return {db,ids,env,create,send,snapshot,capability};
 }
 
 test('manager creates overnight shift; cross-store overlap denied without disclosing another store',async t=>{
@@ -97,4 +102,24 @@ test('concurrent cross-store overnight shift inserted after precheck cannot crea
  };
  assert.equal((await f.send('manager')).status,503);assert.deepEqual(f.snapshot(),raced);
  assert.equal(f.snapshot().shifts[0].id,concurrent);
+});
+
+test('authenticated shift candidates match active target grants and actor scope without mutations',async t=>{
+ const f=await fixture(t),before=f.snapshot();
+ assert.equal((await f.capability('none')).status,401);
+ assert.equal((await f.capability('owner',f.env,{'sec-fetch-site':'cross-site'})).status,403);
+ for(const [who,env] of [['staff',f.env],['owner',{...f.env,CLOUD_NATIVE_SHIFT_WRITE_GATE:undefined}]]){
+  const body=await (await f.capability(who,env)).json();
+  assert.deepEqual(body,{enabled:false,candidates:[],truncated:false});
+ }
+ const mgr=await (await f.capability('manager')).json();
+ assert.deepEqual(new Set(mgr.candidates.map(x=>x.user_id)),new Set([f.ids.staff,f.ids.manager]));
+ assert(mgr.candidates.every(x=>x.location_id===f.ids.store));
+ const owner=await (await f.capability('owner')).json();
+ assert.deepEqual(new Set(owner.candidates.map(x=>x.user_id)),new Set([f.ids.staff,f.ids.manager,f.ids.otherStaff]));
+ assert(owner.candidates.every(x=>Object.keys(x).sort().join(',')==='location_id,location_name,staff_name,user_id'));
+ f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.staff);
+ f.db.prepare('DELETE FROM user_locations WHERE user_id=?').run(f.ids.manager);
+ assert.deepEqual((await (await f.capability('manager')).json()).candidates,[]);
+ assert.deepEqual(f.snapshot(),before);
 });

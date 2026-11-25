@@ -29,9 +29,55 @@ function once(s,from,to){
  need(s.split(from).length===2,'E_LOCAL_PLAN_SUBSTITUTION');
  return s.replace(from,to);
 }
+// Direct SQLite file access sees private workerd metadata that application
+// SQL does not expose. Match ONLY the exact documented internal table and
+// its schema, never an arbitrary _cf_ prefix or extra application object.
+// Source: cloudflare/workerd bfa19bc0dada939743fabb6dc01c1478aa9810a0,
+// src/workerd/util/sqlite-metadata.c++; workers-sdk local explorer D1 driver.
+const PLATFORM_METADATA='_cf_METADATA';
+function verifiedLocalMetadata(db){
+ const records=rows(db,"SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name='_cf_METADATA' OR tbl_name='_cf_METADATA' ORDER BY type,name");
+ if(records.length===0)return false;
+ need(records.length===1,'E_LOCAL_METADATA_OBJECTS');
+ const [r]=records;
+ need(r.type==='table'&&r.name===PLATFORM_METADATA&&r.tbl_name===PLATFORM_METADATA&&
+  typeof r.sql==='string'&&/^CREATE[ \t\r\n]+TABLE[ \t\r\n]+_cf_METADATA[ \t\r\n]*\([ \t\r\n]*key[ \t\r\n]+INTEGER[ \t\r\n]+PRIMARY[ \t\r\n]+KEY[ \t\r\n]*,[ \t\r\n]*value[ \t\r\n]+BLOB[ \t\r\n]*\)$/.test(r.sql),
+  'E_LOCAL_METADATA_SCHEMA');
+ return true;
+}
+function localApplicationRows(db,sql){
+ const result=rows(db,sql);
+ // Projection applies only to the two existing inventory queries in this
+ // local-file adapter. The production/remote classifier is unchanged.
+ if((sql===SQL.tableNames||sql===SQL.schemaInventory)&&verifiedLocalMetadata(db))
+  return result.filter(x=>x.name!==PLATFORM_METADATA);
+ return result;
+}
+function verifyMetadataProjection(){
+ const db=new DatabaseSync(':memory:');
+ try{
+  db.exec('CREATE TABLE _cf_METADATA (key INTEGER PRIMARY KEY, value BLOB); CREATE TABLE _cf_unreviewed(id INTEGER);');
+  need(verifiedLocalMetadata(db),'E_LOCAL_METADATA_POSITIVE_TEST');
+  for(const sql of [SQL.tableNames,SQL.schemaInventory]){
+   const names=localApplicationRows(db,sql).map(r=>r.name);
+   need(names.includes('_cf_unreviewed')&&!names.includes(PLATFORM_METADATA),'E_LOCAL_METADATA_SCOPE_TEST');
+  }
+  const before=snapshot(db);
+  db.exec("INSERT INTO _cf_METADATA VALUES(2,X'01');");
+  assert.deepEqual(snapshot(db),before,'platform bookmark is outside application rollback contract');
+  db.exec('CREATE INDEX unexpected_metadata_idx ON _cf_METADATA(value);');
+  assert.throws(()=>verifiedLocalMetadata(db),/E_LOCAL_METADATA_OBJECTS/);
+  db.exec('DROP TABLE _cf_METADATA; CREATE TABLE _cf_METADATA(key INTEGER PRIMARY KEY,value TEXT);');
+  assert.throws(()=>verifiedLocalMetadata(db),/E_LOCAL_METADATA_SCHEMA/);
+ }finally{db.close();}
+}
 function snapshot(db){
  const schema=rows(db,'SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name');
- const data=schema.filter(x=>x.type==='table').map(x=>{
+ const hasMetadata=verifiedLocalMetadata(db);
+ // Keep the exact full physical schema and all other data (including
+ // sqlite_sequence); workerd's private bookmark values may legitimately
+ // change on successful calls and are not application transaction state.
+ const data=schema.filter(x=>x.type==='table'&&!(hasMetadata&&x.name===PLATFORM_METADATA)).map(x=>{
   const id='"'+x.name.replaceAll('"','""')+'"';
   return [x.name,rows(db,'SELECT * FROM '+id).map(r=>JSON.stringify(r)).sort()];
  });
@@ -86,6 +132,7 @@ function reportLocalMismatch(db,plan,stage,lastQuery){
    expected_stage:stage,last_query:lastQuery,expected_objects:expected.length,
    actual_objects:actual.length,missing,different,extra_count:extra.length,
    extra_platform_like:extra.filter(x=>typeof x.name==='string'&&x.name.startsWith('_cf_')).length,
+   extra_exact_workerd_metadata:extra.filter(x=>x.name===PLATFORM_METADATA&&x.type==='table').length,
    ledger_columns:ledgerColumns}));
  }catch{
   console.error(JSON.stringify({diagnostic:'G6_LOCAL_MISMATCH_DETAILS_UNAVAILABLE',expected_stage:stage,last_query:lastQuery}));
@@ -94,6 +141,7 @@ function reportLocalMismatch(db,plan,stage,lastQuery){
 async function run(){
  need(process.argv.length===2,'E_LOCAL_NO_ARGUMENTS');
  inspectHostedProbeStatic(ROOT);
+ verifyMetadataProjection();
  const pkg=path.join(ROOT,'node_modules','wrangler');
  const version=JSON.parse(fs.readFileSync(path.join(pkg,'package.json'),'utf8')).version;
  need(version===VERSION,'E_LOCAL_WRANGLER_VERSION');
@@ -149,7 +197,7 @@ async function run(){
      need(method==='POST'&&url.endsWith('/'+pin.database_id+'/query')&&
       Object.values(SQL).includes(body?.sql),'E_LOCAL_QUERY');
      lastQuery=Object.keys(SQL).find(key=>SQL[key]===body.sql)??'unknown';
-     return {success:true,result:[{success:true,results:rows(db,body.sql)}]};
+     return {success:true,result:[{success:true,results:localApplicationRows(db,body.sql)}]};
     });
     need(result.stage===expected&&result.next_stage_execution_authorized===false,'E_LOCAL_STAGE');
     lastQuery='snapshot';
@@ -163,6 +211,12 @@ async function run(){
   }
   checkpoint='v3-apply';apply();
   checkpoint='stage1';await classify(1);
+  const localDb=new DatabaseSync(findDatabase(state),{readOnly:true});
+  try{
+   need(verifiedLocalMetadata(localDb),'E_LOCAL_EXPECTED_WORKERD_METADATA');
+   console.log(JSON.stringify({diagnostic:'G6_LOCAL_PLATFORM_METADATA_VERIFIED',
+    object:'_cf_METADATA',scope:'local_file_adapter_only'}));
+  }finally{localDb.close();}
   checkpoint='v3-seed';seed(plan[1]);
   checkpoint='stage2';const before=await classify(2);
   // Wrangler owns its migration transaction and automatic ledger receipt.
@@ -192,6 +246,7 @@ async function run(){
   console.log(JSON.stringify({result:'G6_WRANGLER_LOCAL_REHEARSAL_PASS',wrangler_version:version,
    local_stages_verified:[1,2,3,4],deliberate_failure_rollback_verified:true,
    automatic_migration_receipts_verified:3,replay_noop_verified:true,
+   local_platform_metadata_schema_verified:true,platform_bookmark_values_excluded_from_application_snapshot:true,
    remote_d1_verified:false,remote_write_authorized:false,production_gate_modified:false}));
  }catch{
   // Fixed checkpoint only: never print CLI outputs, rows, paths or secrets.

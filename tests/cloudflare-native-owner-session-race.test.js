@@ -96,7 +96,7 @@ test('navigation without an auth change must not refresh another view after old 
 });
 
 test('native Owner login, logout and catalog-create form enforce auth and view epochs',()=>{
- assert.match(source,/function showLogin\(message\)\{[\s\S]*?authEpoch\+\+;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;revision\+\+/);
+ assert.match(source,/function showLogin\(message\)\{[\s\S]*?authEpoch\+\+;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;revision\+\+/);
  assert.match(source,/function showWorkspace\(me\)\{[\s\S]*?authEpoch\+\+;csrf=me\.csrf/);
  assert.match(source,/if\(!csrf\)return;const token=csrf;authEpoch\+\+;csrf=null/);
  assert.match(source,/if\(marker!==revision\|\|!catalogWriteEnabled\|\|role!=='owner'\|\|!csrf\|\|submit\.disabled\)return/);
@@ -118,7 +118,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
  const trace={aborted:0,menuClosed:0,notice:[]};
  const ctx=vm.createContext({
   authEpoch:4,csrf:'previous-csrf',role:'owner',accountWriteEnabled:true,accountStatusWriteEnabled:true,
-  accountRoleWriteEnabled:true,accountGrantWriteEnabled:true,revision:7,
+  accountRoleWriteEnabled:true,accountGrantWriteEnabled:true,accountPasswordResetEnabled:true,revision:7,
   controller:{abort(){trace.aborted++;}},
   closeMenu(){trace.menuClosed++;},
   $:name=>nodes[name],
@@ -138,6 +138,7 @@ test('showLogin scrubs current/new password fields and detached data before reve
  assert.equal(ctx.accountStatusWriteEnabled,false);
  assert.equal(ctx.accountRoleWriteEnabled,false);
  assert.equal(ctx.accountGrantWriteEnabled,false);
+ assert.equal(ctx.accountPasswordResetEnabled,false);
  assert.equal(ctx.revision,8);
  assert.equal(trace.aborted,1);
  assert.equal(trace.menuClosed,1);
@@ -151,6 +152,7 @@ test('logout scrubs credentials before sending the remote logout request',()=>{
  const end=source.indexOf("for(const b of document.querySelectorAll('#nav button[data-view]')",begin);
  assert(begin>=0&&end>begin,'logout handler not found');
  const logout=source.slice(begin,end);
+ assert.match(logout,/accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;/);
  const cleared=logout.indexOf('clearSensitiveForms();');
  const request=logout.indexOf("await api('/api/logout'");
  assert(cleared>0&&request>cleared,'credentials must be scrubbed before request');

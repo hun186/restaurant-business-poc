@@ -43,7 +43,7 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
           '業主可停用／啟用員工並在員工與主管之間調整角色；兩種操作均撤銷原有登入工作階段，保留歷史紀錄。':
           '只有業主可以管理員工與主管的啟用狀態；停用會撤銷所有登入工作階段並保留歷史紀錄。角色調整尚未開放。'):
         (data.can_manage_role===true?
-          '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用與':
+          '業主可調整員工／主管角色，並撤銷既有登入工作階段；停用尚未開放。':
           (data.can_manage_grants===true?
           '業主可逐一新增或移除員工門市授權；每次修改將撤銷該員工全部登入工作階段，保留稽核歷史。':
           '只有業主可以查看帳號；各項新增／管理權限依後端獨立設定，未授權時不可操作。'))));
@@ -164,7 +164,8 @@ export async function renderOwnerAccounts({pane,api,role,signal,notice,refresh,l
       const clear=()=>{current.value='';nextPassword.value='';confirmation.value='';};
       let open=true;
       const close=()=>{
-        clear();open=false;resetPanel.hidden=true;resetPanel.replaceChildren();
+        clear();if(!open)return;
+        open=false;resetPanel.hidden=true;resetPanel.replaceChildren();
         signal?.removeEventListener('abort',close);
         if(closeResetEditor===close)closeResetEditor=()=>{};
       };

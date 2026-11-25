@@ -103,11 +103,14 @@ test('Owner account capability uses account-specific backend authorization, not 
 });
 test('Account capability only updates from authenticated independent D1 grants',()=>{
  const js=asset('owner-app.js'),ui=asset('native-account-management-ui.mjs');
- assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;syncView\(\)/);
+ assert.match(js,/accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;syncView\(\)/);
  assert.match(js,/onCapabilityChange:flags=>\{/);
  assert.match(js,/accountWriteEnabled=flags\?\.create===true/);
  assert.match(js,/accountStatusWriteEnabled=flags\?\.status===true/);
  assert.match(js,/accountRoleWriteEnabled=flags\?\.role===true/);
+ assert.match(js,/accountPasswordResetEnabled=flags\?\.passwordReset===true/);
+ assert.match(js,/accountPasswordReset:accountPasswordResetEnabled/);
+ assert.match(ui,/passwordReset:data.can_reset_password===true/);
  assert.match(js,/account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled/);
  assert.match(js,/accountRole:accountRoleWriteEnabled/);
  assert.match(ui,/create:data.can_create===true/);
@@ -129,11 +132,12 @@ test('account pagination fails closed for all three grants before next page',()=
  assert(block.indexOf('onCapabilityChange(null)')<block.indexOf('await renderOwnerAccounts'));
 });
 
-test('independent Owner account grants never leave an authorized account page falsely read-only',async()=>{
+test('all five independent Owner account grants never leave an authorized account page falsely read-only',async()=>{
  const {nativeOwnerCapability}=await capability;
- for(let mask=0;mask<8;mask++){
+ for(let mask=0;mask<32;mask++){
   const input={view:'accounts',role:'owner',account:Boolean(mask&1),
-   accountStatus:Boolean(mask&2),accountRole:Boolean(mask&4)};
+   accountStatus:Boolean(mask&2),accountRole:Boolean(mask&4),
+   accountGrants:Boolean(mask&8),accountPasswordReset:Boolean(mask&16)};
   const a=nativeOwnerCapability(input);
   assert.equal(a.pageWritable,mask!==0,'mask '+mask);
   assert.equal(a.systemWritable,mask!==0,'mask '+mask);
@@ -143,6 +147,8 @@ test('independent Owner account grants never leave an authorized account page fa
   assert.equal(a.description.includes('可建立員工與主管帳號。'),Boolean(mask&1));
   assert.equal(a.description.includes('可停用／啟用'),Boolean(mask&2));
   assert.equal(a.description.includes('可調整員工與主管角色'),Boolean(mask&4));
+  assert.equal(a.description.includes('可逐一調整員工門市授權'),Boolean(mask&8));
+  assert.equal(a.description.includes('可替啟用員工與主管重設密碼'),Boolean(mask&16));
   assert(Object.isFrozen(a));
   for(const role of ['manager','staff',null]){
    const unauthorized=nativeOwnerCapability({...input,role});

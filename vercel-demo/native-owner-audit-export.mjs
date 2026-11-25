@@ -8,6 +8,7 @@ export const NATIVE_AUDIT_EVENTS=Object.freeze({
   'password.change':'密碼變更',
   'user.create':'新增帳號','user.active':'帳號啟用狀態變更',
   'user.role':'帳號角色變更','user.password':'重設帳號密碼',
+  'user.password_reset':'業主重設員工密碼',
   'user.assign-location':'新增門市授權',
   'user.unassign-location':'移除門市授權',
   'location.create':'建立門市','location.update':'修改門市',

@@ -16,6 +16,7 @@ test('Owner timeline translates all known Native D1 audit actions into consisten
   'location.create':'建立門市',
   'location.update':'修改門市',
   'location.active':'門市啟用狀態變更',
+  'user.password_reset':'業主重設員工密碼',
   'user.assign-location':'新增門市授權',
   'user.unassign-location':'移除門市授權',
   'task.assign':'變更工作指派',
@@ -64,6 +65,8 @@ test('Owner browser timeline and current-page Excel use identical translations a
     action:'auth.password_change',entity:'users',summary:'—'},
   {at:'2026-11-08 13:01:00',actor_name:'production-bootstrap',
     action:'auth.owner_bootstrap',entity:'users',summary:'—'},
+  {at:'2026-11-17 06:09:30',actor_name:'owner',
+    action:'user.password_reset',entity:'users',summary:'重設對象（目前帳號）：staff01'},
   {at:'2026-11-17 06:09:00',actor_name:'owner',
     action:'future.action',entity:'future_table',summary:'—',password_hash:'DONT_EXPOSE'}
  ];
@@ -94,12 +97,15 @@ test('Owner browser timeline and current-page Excel use identical translations a
  assert.equal(sheet.rows[4][2],'正式業主帳號初始化');
  assert.equal(sheet.rows[4][1],'production-bootstrap');
  assert.equal(sheet.rows[4][3],'帳號');
- assert.equal(sheet.rows[5][2],'其他事件（future.action）');
+ assert.equal(sheet.rows[5][2],'業主重設員工密碼');
+ assert.equal(sheet.rows[5][4],'重設對象（目前帳號）：staff01');
+ assert.equal(body.children[5].children[4].textContent,sheet.rows[5][4]);
+ assert.equal(sheet.rows[6][2],'其他事件（future.action）');
  assert.equal(JSON.stringify(rows),originalRows,'projection must not alter audit evidence');
  assert(!JSON.stringify(sheet).includes('DONT_EXPOSE'));
  const enroll=fs.readFileSync(path.join(__dirname,'../tools/cloudflare-production-owner.mjs'),'utf8');
  assert.match(enroll,/auth\.owner_bootstrap/);
  assert.match(enroll,/production-bootstrap/);
  const api=fs.readFileSync(path.join(__dirname,'../cloudflare/native-audit-http.mjs'),'utf8');
- assert.match(api,/SELECT at,actor_name,action,entity,detail FROM audit_logs/);
+ assert.match(api,/SELECT at,actor_name,action,entity,detail, /);
 });

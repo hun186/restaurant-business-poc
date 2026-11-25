@@ -131,7 +131,7 @@ test('Audit pagination caps the next offset and signals a narrower filter is nee
  const rows=Array.from({length:51},()=>({at:'2026-11-16 03:00:00',
   actor_name:'Synthetic Owner',action:'task.status',entity:'tasks',detail:'{}'}));
  const simulated={...f.env,DB:{...f.env.DB,prepare(sql){
-  if(sql.startsWith('SELECT at,actor_name,action,entity,detail FROM audit_logs')){
+  if(sql.startsWith('SELECT at,actor_name,action,entity,detail, ')){
    return {bind(){return {all:async()=>({results:rows})};}};
   }
   return prepare(sql);
@@ -214,7 +214,7 @@ test('Owner audit source exposes no mock/local storage and never trusts a client
  assert.match(ownerApp,/live:\(\)=>marker===revision&&liveAuth\(epoch,token\)/);
  assert.match(ownerApp,/if\(button\)button.hidden=role!=='owner'/);
  assert.match(api,/if\(principal.role!=='owner'\)/);
- assert.match(api,/SELECT at,actor_name,action,entity,detail FROM audit_logs/);
+ assert.match(api,/SELECT at,actor_name,action,entity,detail, /);
  assert.doesNotMatch(api,/SELECT \* FROM audit_logs|SELECT .*ip_hash.*FROM audit_logs/);
  for(const source of [ownerApp,ui]){
   assert.doesNotMatch(source,/mock\.js|localStorage|sessionStorage|\.innerHTML\s*=/);
@@ -291,4 +291,30 @@ test('Native Owner audit export button uses only loaded current page and live Ow
   live:()=>true,onAuthExpired:()=>{}});
  assert.equal(find(denied,n=>n.tag==='button'&&n.textContent.includes('Excel')),null,
   'staff cannot be shown an audit export control');
+});
+
+test('password-reset audit resolves only current target login name and ignores raw detail',async t=>{
+ const f=await fixture(t),owner=await f.login('owner'),manager=await f.login('manager');
+ const id=f.db.prepare("SELECT id FROM users WHERE username='manager'").get().id;
+ const insert=f.db.prepare('INSERT INTO audit_logs(id,at,actor_name,action,entity,entity_id,detail,ip_hash) VALUES(?,?,?,?,?,?,?,?)');
+ const raw=JSON.stringify({from:'secret-raw-detail',password:'secret-password',target:'fake-name'});
+ insert.run('reset-1','2026-11-16 02:00:00','owner','user.password_reset','users',id,raw,'secret-ip');
+ insert.run('reset-2','2026-11-16 02:00:01','owner','user.password_reset','users','missing-target',raw,'secret-ip');
+ insert.run('reset-3','2026-11-16 02:00:02','owner','user.password_reset','tasks',id,raw,'secret-ip');
+ insert.run('reset-4','2026-11-16 02:00:03','owner','user.role','users',id,'{}','secret-ip');
+ const before=f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n;
+ const get=async()=>await (await f.send('/api/audit?category=account',{headers:{cookie:owner}})).json();
+ let body=await get();
+ assert.deepEqual(body.rows.filter(x=>x.action==='user.password_reset').map(x=>x.summary),
+ ['密碼重設事件；目標帳號無法核對','密碼重設事件；目標帳號無法核對','重設對象（目前帳號）：manager']);
+ for(const row of body.rows)assert.deepEqual(Object.keys(row).sort(),['action','actor_name','at','entity','summary']);
+ assert.equal(body.rows.find(x=>x.action==='user.role').summary,'');
+ assert(!JSON.stringify(body).includes(id));
+ assert.doesNotMatch(JSON.stringify(body),/reset-[1-4]|secret-raw-detail|secret-password|secret-ip|fake-name|missing-target|reset_target_username/);
+ assert.equal((await f.send('/api/audit?category=account',{headers:{cookie:manager}})).status,403);
+ f.db.prepare("UPDATE users SET username='renamed-manager' WHERE id=?").run(id);
+ body=await get();assert(body.rows.some(x=>x.summary==='重設對象（目前帳號）：renamed-manager'));
+ f.db.prepare("UPDATE users SET username='invalid username' WHERE id=?").run(id);
+ body=await get();assert(body.rows.filter(x=>x.action==='user.password_reset').every(x=>x.summary==='密碼重設事件；目標帳號無法核對'));
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM audit_logs').get().n,before);
 });

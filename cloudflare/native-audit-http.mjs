@@ -49,6 +49,16 @@ const summaryOf=raw=>{
   }
   return items.join('；').slice(0,240);
 };
+// Resolve only the current account name for the exact reset event.
+// Never infer a name from the original raw detail or return entity IDs.
+function auditSummary(row){
+ if(row.action!=='user.password_reset')return summaryOf(row.detail);
+ if(row.entity!=='users')return '密碼重設事件；目標帳號無法核對';
+ const name=row.reset_target_username;
+ return typeof name==='string'&&/^[A-Za-z0-9_.-]{1,40}$/.test(name)
+  ?'重設對象（目前帳號）：'+name
+  :'密碼重設事件；目標帳號無法核對';
+}
 export async function nativeAuditHttp(request,env){
   if(!nativeLoginEnabled(env))return reply(503,{code:'E_NOT_READY'});
   if(request?.method!=='GET')return reply(405,{code:'METHOD_NOT_ALLOWED'});
@@ -96,7 +106,10 @@ export async function nativeAuditHttp(request,env){
     // Query only display-safe columns. IP hashes, actor IDs and raw details
     // are deliberately excluded from the response projection.
     const rows=await env.DB.prepare(
-      'SELECT at,actor_name,action,entity,detail FROM audit_logs'+where+
+      'SELECT at,actor_name,action,entity,detail, '+
+      "CASE WHEN action='user.password_reset' AND entity='users' THEN "+
+      '(SELECT username FROM users WHERE users.id=audit_logs.entity_id) '+
+      'ELSE NULL END AS reset_target_username FROM audit_logs'+where+
       ' ORDER BY at DESC,id DESC LIMIT 51 OFFSET ?'
     ).bind(...params,offset).all();
     if(!Array.isArray(rows?.results)||rows.results.length>PAGE_SIZE+1)
@@ -106,7 +119,7 @@ export async function nativeAuditHttp(request,env){
       actor_name:typeof row.actor_name==='string'?row.actor_name.slice(0,80):'',
       action:typeof row.action==='string'?row.action.slice(0,80):'',
       entity:typeof row.entity==='string'?row.entity.slice(0,80):'',
-      summary:summaryOf(row.detail)
+      summary:auditSummary(row)
     }));
     const extra=rows.results.length>PAGE_SIZE;
     const truncated=extra&&offset>=MAX_OFFSET;

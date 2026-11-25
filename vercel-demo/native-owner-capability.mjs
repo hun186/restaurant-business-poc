@@ -2,12 +2,13 @@
 // Backend authorization, role restrictions and Cloudflare write gates remain
 // authoritative. Never use these labels to decide whether a write is allowed.
 const WRITE_VIEWS=new Set(['tasks','locations','ingredients','ingredient_prices','stock','purchase_orders',
- 'stocktakes','repairs']);
+ 'stocktakes','repairs','leave_requests']);
 
 export function nativeOwnerCapability({view,role,task=false,catalog=false,
  order=false,stocktake=false,repair=false,price=false,stockUsage=false,stockV4=false,account=false,
- accountStatus=false,accountRole=false,accountGrants=false,accountPasswordReset=false}){
- const anyWrite=Boolean(task||catalog||order||stocktake||repair||price||stockUsage||stockV4);
+ accountStatus=false,accountRole=false,accountGrants=false,accountPasswordReset=false,leave=false}){
+ const canLeave=leave===true&&['owner','manager','staff'].includes(role);
+ const anyWrite=Boolean(task||catalog||order||stocktake||repair||price||stockUsage||stockV4||canLeave);
  // Keep the three independent Owner account permissions separate. The
  // capability flags are only supplied by the authenticated /api/accounts GET.
  const owner=role==='owner';
@@ -28,7 +29,7 @@ export function nativeOwnerCapability({view,role,task=false,catalog=false,
   stock:(stockUsage||stockV4)&&['owner','manager'].includes(role),
   purchase_orders:order,
   stocktakes:stocktake,
-  repairs:repair
+  repairs:repair,leave_requests:canLeave
  };
  const pageWritable=WRITE_VIEWS.has(view)&&Boolean(writable[view]);
  if(view==='accounts')return Object.freeze({

@@ -7,6 +7,7 @@ const {normalizeCatalogCommand}=require('./catalog-crud-contract.mjs');
 const {appendLocalStockV4}=require('./local-stock-v4-command.cjs');
 const {canOwnerManageAccountStatus,isAccountStatusTransition}=require('../cloudflare/account-status-contract.mjs');
 const {requestIp}=require('./request-ip');
+const {SHIFT_CONFLICT_SQL,shiftConflictBindings}=require('../cloudflare/shift-time-contract.mjs');
 const bad=(msg,status=400)=>{const e=new Error(msg);e.status=status;throw e;};
 const catalogInput=(action,payload)=>{try{return normalizeCatalogCommand(action,payload);}catch{bad('主檔欄位格式錯誤',400);}};
 const day=v=>{const s=cleanText(v,10,true);if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||Number.isNaN(new Date(s+'T00:00:00Z').valueOf())||new Date(s+'T00:00:00Z').toISOString().slice(0,10)!==s)bad('日期格式需為 YYYY-MM-DD');return s;};
@@ -319,23 +320,8 @@ function command(db,u,action,x={}){
   scope(db,u,l,'manager');activeUser(db,x.user_id,l);
   const sd=day(x.shift_date),start=time(x.start_time),end=time(x.end_time);
   if(start===end)bad('上下班時間不可相同（不支援 24 小時班次）');
-  // Compare wall-clock labels using UTC-like numbers; do not convert timezones.
-  // An end earlier than start means the next calendar day (< 24 hours).
-  const midnight=Date.parse(sd+'T00:00:00Z');
-  const startAt=Date.parse(sd+'T'+start+':00Z');
-  const endAt=Date.parse(sd+'T'+end+':00Z')+(end<start?86400000:0);
-  // day() permits only four-digit years. Clamp the neighbor query range at
-  // 0000/9999; extended-year ISO values would corrupt slice(0,10).
-  const prev=sd==='0000-01-01'?sd:new Date(midnight-86400000).toISOString().slice(0,10);
-  const next=sd==='9999-12-31'?sd:new Date(midnight+86400000).toISOString().slice(0,10);
-  // Include yesterday's night shift and tomorrow's early shift across ALL stores.
-  // Half-open intervals allow an ending shift to touch the next starting shift.
-  const overlap=db.prepare('SELECT shift_date,start_time,end_time FROM shifts WHERE user_id=? AND shift_date BETWEEN ? AND ?')
-   .all(x.user_id,prev,next).some(row=>{
-    const existingStart=Date.parse(row.shift_date+'T'+row.start_time+':00Z');
-    const existingEnd=Date.parse(row.shift_date+'T'+row.end_time+':00Z')+(row.end_time<row.start_time?86400000:0);
-    return existingStart<endAt&&existingEnd>startAt;
-   });
+  // Shared fixed SQL also checks prior/next calendar day across all stores.
+  const overlap=db.prepare(SHIFT_CONFLICT_SQL).get(...shiftConflictBindings(x.user_id,sd,start,end));
   if(overlap)bad('員工班次時間重疊（含跨日及跨門市）',409);
   db.prepare('INSERT INTO shifts(id,location_id,user_id,shift_date,start_time,end_time,note,created_by) VALUES(?,?,?,?,?,?,?,?)').run(id,l,x.user_id,sd,start,end,cleanText(x.note||'',200),u.id);
   audit(db,u,action,'shifts',id,l,{user_id:x.user_id,shift_date:sd,start,end});return {id};

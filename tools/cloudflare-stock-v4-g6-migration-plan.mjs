@@ -102,7 +102,14 @@ export function buildG6SyntheticPlan(pin=getTarget()){
  const phases=[
   {name:'v3-schema',receiptCount:2,sql:batch([
    schema,
-   "CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE);",
+   // Model the upstream Wrangler migration ledger, not a simplified two-column
+   // fixture. Source: workers-sdk helpers.ts blob aad9baecbd073b5cf1bb472476e6ba4e27b47bbd.
+   // Exact installed Wrangler version and remote D1 compatibility remain unverified.
+   `CREATE TABLE IF NOT EXISTS "d1_migrations"(
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		name       TEXT UNIQUE,
+		applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);`,
    "INSERT INTO d1_migrations(id,name) VALUES(1,'0001_initial_v3.sql');",
    indexes,
    "INSERT INTO d1_migrations(id,name) VALUES(2,'0002_login_attempts_window_indexes.sql');"

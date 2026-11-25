@@ -28,13 +28,14 @@ export const APPROVED_WORKFLOW_SHA256=Object.freeze({
   ".github/workflows/d1-production-recovery-readonly-g5.yml":"938c1cacb3b88536b00a2d86a886b1e5f732040a632ed8fe6d6b12dbee0e9744",
   ".github/workflows/d1-production-initialize-g5.yml":"9de0af5b5c1885f5a24f4bfd8ba04c0a8d5d4f6bfd448f1bf043fb197e19292c",
   ".github/workflows/d1-staging-live-readonly-g1.yml":"c690e4f0c445db2b3c355608d0e8e59be376003afb748c49b42f0772c3ae1cd0",
-  ".github/workflows/verify.yml":"41270d9a50b1261f86a32fb63f80fe1e44ef128b5b8caad25444236ca5592194",
+  ".github/workflows/verify.yml":"3d06145bcbcd26dfc671c965a4360841b88c7f8d2c3c2809cf559ba4aed9af40",
   ".github/workflows/d1-staging-migration.yml":"24171173e1030ef0bf15e7012f537300b1d2c335c71664da13b6e0383b2e3e98",
   ".github/workflows/d1-staging-owner-bootstrap.yml":"783bf2c5eebf0adaa13d01370dbc6ac99fa957097c11d00a8fa69eba3a5981c9",
   ".github/workflows/d1-staging-incremental-0002.yml":"ba9eb0142278e47ed5d24218256d8cced1bba41f301000ffefc6e8237727e694",
   ".github/workflows/pbkdf2-local-workerd.yml":"717ade5e58c349c1a3f07a30cd882f4ce015109148922a72d1f11a0860a09fd7"
 });
 export const APPROVED_LOCAL_EXEC_SHA256=Object.freeze({
+  "tools/run-native-account-reset-local-d1-uat.mjs":"a06be872d236802110a8176b36f910caa0b8140e9b4907a7e558e2c7de3ab6a6",
   "tools/run-native-stock-v4-local-d1-uat.mjs":"b7edd106f95ee511f96666a3f0aa4eb77d747992e9e77f3ba5d509280398b34e",
   "tools/cloudflare-stock-v4-g6-wrangler-plan.mjs":"ce088f209933a87af6307a7f0c6027dc34af5a80dc6918c54b1a6f0721247094",
   "tools/run-g6-wrangler-local-rehearsal.mjs":"91a665d0d886a3eba3d736738db76bfe82747951e37149ea0452da83977e2214",

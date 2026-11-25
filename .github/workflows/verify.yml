@@ -50,3 +50,6 @@ jobs:
         run: node tools/run-g6-wrangler-local-rehearsal.mjs
       - name: Verify Native v4 API on actual local workerd D1 binding (synthetic only)
         run: node tools/run-native-stock-v4-local-d1-uat.mjs
+
+      - name: Verify Native account reset actual local D1 login lifecycle (synthetic edge only)
+        run: node tools/run-native-account-reset-local-d1-uat.mjs

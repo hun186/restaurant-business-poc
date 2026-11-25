@@ -112,3 +112,19 @@ test('successful reset quota is enforced before reauthentication and inside atom
  const before=f.snapshot();
  assert.equal((await f.send()).status,429);assert.deepEqual(f.snapshot(),before);
 });
+
+test('Owner-only account listing exposes reset capability only with both independent gates',async t=>{
+ const f=await fixture(t),w=(await worker).default;
+ for(const [admin,reset,expected] of [[false,false,false],[true,false,false],[false,true,false],[true,true,true]]){
+  const env={...f.env,CLOUD_NATIVE_ACCOUNT_ADMIN_WRITE_GATE:admin?'operator-released':undefined,
+   CLOUD_NATIVE_ACCOUNT_PASSWORD_RESET_WRITE_GATE:reset?'operator-released':undefined};
+  for(const who of ['owner','staff','manager']){
+   const r=await w.fetch(new Request(site+'/api/accounts',{headers:{cookie:f.sessions[who].cookie,'sec-fetch-site':'same-origin'}}),env);
+   assert.equal(r.status,who==='owner'?200:403);
+   if(who==='owner'){
+    const data=await r.json();assert.equal(data.can_reset_password,expected);
+    assert.doesNotMatch(JSON.stringify(data),/password_hash|password_salt|csrf_token|token_hash/);
+   }
+  }
+ }
+});

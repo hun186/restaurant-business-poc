@@ -32,7 +32,7 @@ async function fixture(t,opt={}){
   const s=sessions[who]??{};
   const req=new Request(site+'/api/evaluation',{method:'POST',headers:{origin:site,'sec-fetch-site':'same-origin',
    'content-type':'application/json','x-idempotency-key':opts.key??randomUUID(),
-   ...(s.cookie?{cookie:s.cookie,'x-csrf-token':s.csrf}:{}),...opts.headers},body:JSON.stringify(body)});
+   ...(s.cookie?{cookie:s.cookie,'x-csrf-token':s.csrf}:{}),...opts.headers},body:opts.raw??JSON.stringify(body)});
   return (await worker).default.fetch(req,opts.env??env);
  };
  const snapshot=()=>({evaluations:db.prepare('SELECT * FROM evaluations ORDER BY id').all(),audit:db.prepare('SELECT * FROM audit_logs ORDER BY id').all()});
@@ -93,4 +93,16 @@ test('transaction-time actor, target, session, store, grant and replay races',as
   assert.equal((await f.send('manager',f.create(),{key})).status,503);
   assert.deepEqual(f.snapshot(),raced);
  });
+});
+
+test('maximum valid Chinese feedback survives byte limit and oversized requests are rejected without mutation',async t=>{
+ const f=await fixture(t),value='評'.repeat(1000);
+ const body=f.create({period:'期'.repeat(30),feedback:value});
+ const raw=JSON.stringify(body),size=Buffer.byteLength(raw,'utf8');assert(size>2048&&size<8192);
+ const key=randomUUID();assert.equal((await f.send('manager',body,{key,headers:{'content-length':String(size)}})).status,200);
+ const saved=f.snapshot();assert.equal(saved.evaluations[0].feedback,value);
+ assert.equal((await f.send('manager',f.create({feedback:value+'字'}))).status,400);
+ assert.equal((await f.send('manager',body,{raw:raw+' '.repeat(8193-size)})).status,400);
+ assert.equal((await f.send('manager',body,{headers:{'content-length':'8193'}})).status,413);
+ assert.deepEqual(f.snapshot(),saved);
 });

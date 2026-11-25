@@ -21,7 +21,14 @@ export const NATIVE_AUDIT_EVENTS=Object.freeze({
   'order.receive':'叫貨入庫','order.cancel':'取消叫貨',
   'stocktake.create':'建立盤點','stocktake.confirm':'確認盤點',
   'repair.create':'設備報修','repair.status':'維修狀態變更',
-  'repair.update':'更新維修單'
+  'repair.update':'更新維修單',
+  'shift.create':'新增排班',
+  'leave.create':'提出請假申請',
+  'leave.review':'請假審核',
+  'course.create':'建立訓練課程',
+  'training.assign':'指派教育訓練',
+  'training.score':'登錄訓練成績',
+  'evaluation.create':'建立員工考核',
 });
 // The two Owner presentation surfaces share this display-only allowlist.
 // D1 still stores and filters the exact immutable original action/entity codes.
@@ -30,7 +37,12 @@ export const NATIVE_AUDIT_ENTITIES=Object.freeze({
   locations:'門市',ingredients:'食材',tasks:'工作',
   purchase_orders:'叫貨單',stocktakes:'盤點紀錄',
   stock_moves:'庫存流水',repairs:'維修單',
-  audit_logs:'安全稽核'
+  audit_logs:'安全稽核',
+  'shifts':'班表',
+  'leave_requests':'請假申請',
+  'training_courses':'訓練課程',
+  'training_records':'訓練紀錄',
+  'evaluations':'員工考核',
 });
 const auditCode=value=>typeof value==='string'?value.slice(0,80):'';
 export function nativeAuditEventLabel(value){

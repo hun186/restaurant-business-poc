@@ -67,3 +67,18 @@ test('native login bounded-body reader preserves UTF-8 and 2048-byte limit',asyn
   await assert.rejects(()=>bodyWithinLimit(tooBig),
     error=>error?.message==='E_BODY_TOO_LARGE');
 });
+
+test('explicit larger body ceiling is bounded, strict UTF-8, preserves default and stream guards',async()=>{
+ const {bodyWithinLimit}=await nativePromise;
+ const stream=bytes=>request({start(c){c.enqueue(bytes.subarray(0,1));c.enqueue(bytes.subarray(1));c.close();}});
+ const content='評'.repeat(1200),bytes=new TextEncoder().encode(content);
+ await assert.rejects(()=>bodyWithinLimit(stream(bytes)),/E_BODY_TOO_LARGE/);
+ assert.equal(await bodyWithinLimit(stream(bytes),{maxBytes:8192}),content);
+ assert.equal((await bodyWithinLimit(stream(new Uint8Array(8192).fill(65)),{maxBytes:8192})).length,8192);
+ await assert.rejects(()=>bodyWithinLimit(stream(new Uint8Array(8193)),{maxBytes:8192}),/E_BODY_TOO_LARGE/);
+ for(const invalid of [0,8193,1.5,Infinity,'8192',null])
+  await assert.rejects(()=>bodyWithinLimit(stream(bytes),{maxBytes:invalid}),/E_BODY_INVALID/);
+ await assert.rejects(()=>bodyWithinLimit(stream(new Uint8Array([0xc3,0x28])),{maxBytes:8192}));
+ await assert.rejects(()=>bodyWithinLimit(request({start(c){for(let i=0;i<257;i++)c.enqueue(new Uint8Array());c.close();}}),{maxBytes:8192}),/E_BODY_CHUNKS/);
+ await assert.rejects(()=>bodyWithinLimit(request({start(){}}),{maxBytes:8192,maxDurationMs:30}),/E_BODY_DEADLINE/);
+});

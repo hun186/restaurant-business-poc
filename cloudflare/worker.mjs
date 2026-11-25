@@ -13,6 +13,7 @@ import {nativeStockReturnHttp,nativeStockReturnWriteEnabled} from './native-stoc
 import {nativeStockOperationsCapabilityHttp} from './native-stock-operations-capability.mjs';
 import {nativeStockReceiptsHttp} from './native-stock-receipts-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
+import {nativeShiftHttp} from './native-shift-http.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
 import { nativeStocktakeHttp,nativeStocktakeWriteEnabled } from './native-stocktake-http.mjs';
@@ -63,6 +64,7 @@ export default {
     if (pathname === '/api/accounts/grant') return nativeAccountGrantHttp(request,env);
     if (pathname === '/api/accounts/password-reset') return nativeAccountPasswordResetHttp(request,env);
     if (pathname === '/api/task') return nativeTaskHttp(request,env);
+    if (pathname === '/api/shift') return nativeShiftHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
     if (pathname === '/api/order') return nativeOrderHttp(request,env);
     if (pathname === '/api/stocktake') return nativeStocktakeHttp(request,env);

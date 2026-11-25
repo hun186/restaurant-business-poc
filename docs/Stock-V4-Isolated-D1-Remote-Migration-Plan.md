@@ -10,12 +10,33 @@
 - #258、#259 已合併，Main Verify #45364215702／#45367992929 均 5/5 PASS。遠端 Stage classifier 的本次 Stage 0 已實機通過（見下一項）；舊 G6 空庫 Inspect #45099304913 已 PASS，不必重複跑舊工具。
 - **G6 Stage 0 唯讀 baseline 實機 PASS**：[Run #45510707371 / job #138857389740](https://github.com/hun186/restaurant-business-poc/actions/runs/45510707371/job/138857389740)，Main `80891d4dd6dd301dfa2fdab4a2a7c1ecb3216993`，2026-11-25 07:31:55 台灣時間。`G6_STAGE_READONLY_CLASSIFIED`、stage=0、migration_receipts_verified=0、synthetic_ledger_rows_verified=0、pinned_g6_identity_verified=true、negative_sql_guard=true；全部 steps success。indirect_access_verified、exclusive_use_verified、operator_attestation_verified、next_stage_execution_authorized、retry_authorized 均 false。兩項唯讀實機關卡已有證據，若環境改變須重新核實；非 0 或未知狀態一律 STOP，不得自動遷移或重試。
 
+### 2026-11-25｜Wrangler 4.152.0 本地真實演練 PASS（最新）
+
+- [PR #263](https://github.com/hun186/restaurant-business-poc/pull/263) 精確 HEAD `77047c93137d6755a991c9fa7528f538a6afb436` 已通過 Hosted Verify 5/5、正式 Codex completed 0 findings／0 unresolved、threads 0，已 squash merge Main `8a9bb7a3f48d8db1ce359e1e638a4166ad1b7626`。合併後 Main CI 尚待驗證，不在此預先標記 PASS。
+- [Run #45541228196 / job #138959958792](https://github.com/hun186/restaurant-business-poc/actions/runs/45541228196/job/138959958792)，台灣時間 11:37:35，實際輸出 `G6_WRANGLER_LOCAL_REHEARSAL_PASS`，wrangler_version=4.152.0、local_stages_verified=[1,2,3,4]、deliberate_failure_rollback_verified=true、automatic_migration_receipts_verified=3、replay_noop_verified=true。只使用隨機本地 UUID、隔離暫存資料、固定 --local；Stage classifier 的 metadata 是模擬，讀取的 SQLite 資料為真正 local workerd 持久化結果。
+- 已證實本地 workerd 有 `_cf_METADATA`。僅本地讀檔 adapter 的兩個使用者 Schema inventory 查詢在核實精確物件類型／DDL 後排除此平台表；回滾 snapshot 保留實體 DDL 及其餘表（含 sequence），不比對平台 bookmark 數值。遠端 classifier 未修改，沒有對所有 _cf_ 物件做廣泛忽略。
+- 此結果是 **本地 D1 交易證據**，不是遠端 D1 REST／Wrangler 原子性、exclusive use、間接路徑、人員簽核、Restore 或正式發布證據。不得使用目前本地 runner 改成 --remote，不得將 PR 合併解讀為寫入批准。
+
 ### 獨立操作者確認清單（目前全部未確認）
 
 - [ ] 確認 G6 是專用合成演練資料庫，無真實營運資料，不與 Production/Staging/G5 共用，沒有其他操作者正在使用或計畫同時使用。
 - [ ] 檢視可透過 Cloudflare API、CI、外部服務、排程、Service Binding 或代理服務間接到達 G6 的路徑及可用憑證；若無法確認、存在未知路徑或未受控寫入者，STOP。直接綁定為零不足以勾選此項。
 - [ ] 在真正寫入前取得獨立審核人員的確認、限定演練時段及唯一寫入者；記錄時間、角色、非機密證據及例外狀態於 Issue #212。不公開 Token、帳密、原始資料或機密設定。操作者與審核人員不得以機器盤點替代各自確認。
 - [ ] 在任何獨立受審的遠端寫入工具啟用前，確認 D1 交易機制、故意失敗的測試契約、未知結果唯讀診斷與受保護 Write Environment；須另行授權，且 G6 以外一律禁止寫入。
+
+### 下一步人工交接：現階段只確認隔離與授權條件
+
+以下為操作者與獨立審核者應確認的項目，**未填寫、未驗證、未授權**；不需把 Token、帳密、環境 Secret 值貼到 Issue 或對話中。
+
+| 確認項 | 所需非機密證據 | 不符時 |
+|---|---|---|
+| G6 專用與獨占 | 操作者確認無真實營運資料、沒有其他使用者或同時工作；審核者獨立確認 | STOP |
+| 間接存取盤點 | Cloudflare API token 使用範圍、GitHub Actions／外部服務／排程、Worker Service Binding 及代理路徑的審核紀錄；只記錄分類及結論 | 未知、可能寫入或不能核實即 STOP |
+| 寫入環境 | 另開受審 PR 界定專用 G6 Write Environment、僅 Main 手動觸發、獨立 reviewer、唯一寫入者、短時維護窗口、受審版本及明確 scope；目前不配置、不提供任何 Secret | 無獨立批准即 STOP |
+| 遠端交易試驗 | 另行審查故意失敗及回滾驗收的試驗方案，與正式 v4 升級分開；不得只用本地 PASS 作為遠端交易證明 | 不可進入正式 G6 migration |
+| 新鮮基線 | 寫入前依操作窗口重新核對固定目標、當前 Stage 0 與綁定狀態；既有證據不是永久許可 | 非預期或未知即 STOP |
+
+任何指令中斷／逾時／回傳錯誤都必須先停機，取得新的唯讀證據並由人員核對；即使看到預期階段，也不能證明某一次指令的因果或持久化提交，更不能自動放行下一階段。若仍看到原階段，不能由此推論安全重試；未知或部分狀態交人工處理。
 
 本紀錄不新增任何執行器、憑證或寫入權限，不執行 Restore、Migration、Deploy 或 Production Gate change。
 

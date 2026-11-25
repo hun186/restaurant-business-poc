@@ -17,6 +17,7 @@ import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-ht
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
 import { nativeStocktakeHttp,nativeStocktakeWriteEnabled } from './native-stocktake-http.mjs';
 import { nativeRepairHttp,nativeRepairWriteEnabled } from './native-repair-http.mjs';
+import {nativeLeaveHttp} from './native-leave-http.mjs';
 import { previewIdentity } from './identity.mjs';
 import { previewAccessMe } from './access-me-readonly.mjs';
 import { previewAccessBusiness } from './access-business-readonly.mjs';
@@ -66,6 +67,7 @@ export default {
     if (pathname === '/api/order') return nativeOrderHttp(request,env);
     if (pathname === '/api/stocktake') return nativeStocktakeHttp(request,env);
     if (pathname === '/api/repair') return nativeRepairHttp(request,env);
+    if (pathname === '/api/leave') return nativeLeaveHttp(request,env);
     if (pathname === '/api/price') return nativePriceHttp(request,env);
     if (pathname === '/api/stock/usage') return nativeStockUsageHttp(request,env);
     if (pathname === '/api/stock/v4') return nativeStockV4Http(request,env);

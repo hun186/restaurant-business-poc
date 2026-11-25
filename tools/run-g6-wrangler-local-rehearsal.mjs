@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {isDeepStrictEqual} from 'node:util';
+import {randomUUID,createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
@@ -54,6 +55,42 @@ function findDatabase(dir){
  need(found.length===1,'E_LOCAL_DATABASE_AMBIGUOUS');
  return found[0];
 }
+// Diagnostics are confined to the generated local sandbox. Compare with the
+// reviewed in-memory model; never log query rows, raw SQL, IDs or arbitrary
+// CLI output. Object names are printed only when in the reviewed schema.
+function reportLocalMismatch(db,plan,stage,lastQuery){
+ const reference=new DatabaseSync(':memory:');
+ const hash=x=>createHash('sha256').update(String(x??''),'utf8').digest('hex');
+ try{
+  for(let i=0;i<stage;i++)reference.exec(plan[i].sql);
+  const expected=rows(reference,SQL.schemaInventory);
+  const actual=rows(db,SQL.schemaInventory);
+  const key=r=>r.type+':'+r.name;
+  const byKey=new Map(actual.map(x=>[key(x),x]));
+  const known=new Set(expected.map(key));
+  const missing=expected.filter(x=>!byKey.has(key(x))).map(key);
+  const extra=actual.filter(x=>!known.has(key(x)));
+  const different=expected.filter(x=>byKey.has(key(x))&&!isDeepStrictEqual(x,byKey.get(key(x)))).map(x=>{
+   const y=byKey.get(key(x));
+   return {object:key(x),expected_sha256:hash(x.sql),actual_sha256:hash(y.sql),
+    ascii_whitespace_only:typeof x.sql==='string'&&typeof y.sql==='string'&&
+     x.sql.replace(/[ \t\r\n\v\f]/g,'')===y.sql.replace(/[ \t\r\n\v\f]/g,''),
+    expected_ddl_bytes:Buffer.byteLength(x.sql??''),actual_ddl_bytes:Buffer.byteLength(y.sql??'')};
+  });
+  const ledgerColumns=rows(db,'PRAGMA table_info(d1_migrations)').map(x=>({
+   column:['id','name','applied_at'].includes(x.name)?x.name:'other',
+   type:['INTEGER','TEXT','TIMESTAMP','DATETIME'].includes(x.type)?x.type:'other',
+   notnull:x.notnull,pk:x.pk
+  }));
+  console.error(JSON.stringify({diagnostic:'G6_LOCAL_CLASSIFIER_MISMATCH',
+   expected_stage:stage,last_query:lastQuery,expected_objects:expected.length,
+   actual_objects:actual.length,missing,different,extra_count:extra.length,
+   extra_platform_like:extra.filter(x=>typeof x.name==='string'&&x.name.startsWith('_cf_')).length,
+   ledger_columns:ledgerColumns}));
+ }catch{
+  console.error(JSON.stringify({diagnostic:'G6_LOCAL_MISMATCH_DETAILS_UNAVAILABLE',expected_stage:stage,last_query:lastQuery}));
+ }finally{reference.close();}
+}
 async function run(){
  need(process.argv.length===2,'E_LOCAL_NO_ARGUMENTS');
  inspectHostedProbeStatic(ROOT);
@@ -99,20 +136,30 @@ async function run(){
   async function classify(expected){
    // Read the persisted LOCAL SQLite database; mock ONLY the metadata envelope.
    // This is not a Cloudflare API call or a remote identity verification.
-   const db=new DatabaseSync(findDatabase(state),{readOnly:true});
+   let db;
+   let lastQuery='open-local-database';
    try{
+    db=new DatabaseSync(findDatabase(state),{readOnly:true});
     const result=await diagnoseG6ReadOnlyStage(pin,async(method,url,body)=>{
      if(method==='GET'){
+      lastQuery='mock-metadata';
       need(url.endsWith('/'+pin.database_id)&&body===null,'E_LOCAL_METADATA');
       return {success:true,result:{uuid:pin.database_id,name:pin.database_name,version:'production'}};
      }
      need(method==='POST'&&url.endsWith('/'+pin.database_id+'/query')&&
       Object.values(SQL).includes(body?.sql),'E_LOCAL_QUERY');
+     lastQuery=Object.keys(SQL).find(key=>SQL[key]===body.sql)??'unknown';
      return {success:true,result:[{success:true,results:rows(db,body.sql)}]};
     });
     need(result.stage===expected&&result.next_stage_execution_authorized===false,'E_LOCAL_STAGE');
+    lastQuery='snapshot';
     return snapshot(db);
-   }finally{db.close();}
+   }catch(error){
+    if(db)reportLocalMismatch(db,plan,expected,lastQuery);
+    else console.error(JSON.stringify({diagnostic:'G6_LOCAL_DATABASE_OPEN_FAILED',expected_stage:expected,last_query:lastQuery,
+     reason:['E_LOCAL_PERSISTENCE_SYMLINK','E_LOCAL_DATABASE_AMBIGUOUS'].includes(error?.message)?error.message:'other'}));
+    throw error;
+   }finally{db?.close();}
   }
   checkpoint='v3-apply';apply();
   checkpoint='stage1';await classify(1);

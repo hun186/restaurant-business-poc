@@ -12,6 +12,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {isolatedProbeEnvironment} from './pbkdf2-workerd-sandbox.mjs';
 import {inspectHostedProbeStatic} from './cloudflare-hosted-probe-preflight.mjs';
 import {buildG6SyntheticPlan} from './cloudflare-stock-v4-g6-migration-plan.mjs';
+import {buildG6WranglerInputs,g6WranglerInputReceipt} from './cloudflare-stock-v4-g6-wrangler-plan.mjs';
 import {diagnoseG6ReadOnlyStage} from './cloudflare-stock-v4-g6-stage-readonly.mjs';
 import {SQL} from './cloudflare-stock-v4-g6-postflight.mjs';
 
@@ -20,15 +21,6 @@ const VERSION='4.152.0';
 const binding='G6_LOCAL_SYNTHETIC';
 const rows=(db,sql)=>db.prepare(sql).all().map(x=>({...x}));
 const need=(ok,code)=>{if(!ok)throw Error(code);};
-function unwrap(phase){
- const start='BEGIN IMMEDIATE;\n',end='COMMIT;\n';
- need(phase.sql.startsWith(start)&&phase.sql.endsWith(end),'E_LOCAL_PLAN_BOUNDARY');
- return phase.sql.slice(start.length,-end.length);
-}
-function once(s,from,to){
- need(s.split(from).length===2,'E_LOCAL_PLAN_SUBSTITUTION');
- return s.replace(from,to);
-}
 // Direct SQLite file access sees private workerd metadata that application
 // SQL does not expose. Match ONLY the exact documented internal table and
 // its schema, never an arbitrary _cf_ prefix or extra application object.
@@ -147,6 +139,8 @@ async function run(){
  need(version===VERSION,'E_LOCAL_WRANGLER_VERSION');
  const entry=path.join(pkg,'bin','wrangler.js');
  const plan=buildG6SyntheticPlan();
+ const inputs=buildG6WranglerInputs();
+ const inputReceipt=g6WranglerInputReceipt();
  const pin=JSON.parse(fs.readFileSync(path.join(ROOT,'cloudflare/stock-v4-disposable-target.json'),'utf8'));
  const workspace=fs.mkdtempSync(path.join(os.tmpdir(),'restaurant-g6-wrangler-local-'));
  let checkpoint='setup';
@@ -161,8 +155,8 @@ async function run(){
    workers_dev:false,preview_urls:false,send_metrics:false,
    d1_databases:[{binding,database_name:'g6-local-synthetic',database_id:localId,migrations_dir:'migrations'}]
   }));
-  for(const file of ['0001_initial_v3.sql','0002_login_attempts_window_indexes.sql'])
-   fs.copyFileSync(path.join(ROOT,'cloudflare/migrations',file),path.join(migrationDir,file));
+  for(const file of inputs[0].files)
+   fs.writeFileSync(path.join(migrationDir,file.name),file.sql,{flag:'wx',mode:0o600});
   const env=isolatedProbeEnvironment(workspace);
   function cli(kind,filename){
    need(kind==='apply'||kind==='seed','E_LOCAL_COMMAND');
@@ -176,8 +170,8 @@ async function run(){
   }
   const apply=()=>need(cli('apply').status===0,'E_LOCAL_APPLY');
   function seed(phase){
-   const file=path.join(workspace,'seed.sql');
-   fs.writeFileSync(file,unwrap(phase),{mode:0o600});
+   const file=path.join(workspace,phase.files[0].name);
+   fs.writeFileSync(file,phase.files[0].sql,{flag:'wx',mode:0o600});
    need(cli('seed',file).status===0,'E_LOCAL_SEED');
    fs.unlinkSync(file);
   }
@@ -217,18 +211,12 @@ async function run(){
    console.log(JSON.stringify({diagnostic:'G6_LOCAL_PLATFORM_METADATA_VERIFIED',
     object:'_cf_METADATA',scope:'local_file_adapter_only'}));
   }finally{localDb.close();}
-  checkpoint='v3-seed';seed(plan[1]);
+  checkpoint='v3-seed';seed(inputs[1]);
   checkpoint='stage2';const before=await classify(2);
-  // Wrangler owns its migration transaction and automatic ledger receipt.
-  // Convert the exact pinned local TEMP guard to a regular transactional
-  // CHECK guard as in #261. Never embed explicit transaction statements.
-  let upgrade=unwrap(plan[2]);
-  upgrade=once(upgrade,'CREATE TEMP TABLE g6_v3_before_upgrade_guard (','CREATE TABLE g6_v3_before_upgrade_guard (');
-  upgrade=once(upgrade,'INSERT INTO temp.g6_v3_before_upgrade_guard(','INSERT INTO g6_v3_before_upgrade_guard(');
-  upgrade=once(upgrade,'DROP TABLE temp.g6_v3_before_upgrade_guard;','DROP TABLE g6_v3_before_upgrade_guard;');
-  upgrade=once(upgrade,"INSERT INTO d1_migrations(id,name) VALUES(3,'0004_stock_move_kinds.sql');\n",'');
-  need(!/\b(?:BEGIN IMMEDIATE|COMMIT|CREATE TEMP TABLE)\b/i.test(upgrade.replace(/^--.*$/gm,'')),'E_LOCAL_TRANSACTION_COMMAND');
-  const migration=path.join(migrationDir,'0004_stock_move_kinds.sql');
+  // Execute the same fixed, source-pinned inputs that the offline receipt
+  // describes. The deliberate local fault is NOT part of the shared plan.
+  const upgrade=inputs[2].files[0].sql;
+  const migration=path.join(migrationDir,inputs[2].files[0].name);
   // Force a unique-key failure AFTER the old table is replaced, BEFORE
   // Wrangler can record the successful migration. Only this local fixture
   // may subsequently replace the deliberately broken migration and reapply.
@@ -240,12 +228,13 @@ async function run(){
   assert.deepEqual(await classify(2),before,'local failed migration must preserve every schema object and table row');
   checkpoint='v4-apply';fs.writeFileSync(migration,upgrade);apply();
   checkpoint='stage3';await classify(3);
-  checkpoint='v4-seed';seed(plan[3]);
+  checkpoint='v4-seed';seed(inputs[3]);
   checkpoint='stage4';const final=await classify(4);
   checkpoint='replay';apply();assert.deepEqual(await classify(4),final,'no-op apply must preserve full state');
   console.log(JSON.stringify({result:'G6_WRANGLER_LOCAL_REHEARSAL_PASS',wrangler_version:version,
    local_stages_verified:[1,2,3,4],deliberate_failure_rollback_verified:true,
    automatic_migration_receipts_verified:3,replay_noop_verified:true,
+   reviewed_input_sha256:inputReceipt.stages.flatMap(p=>p.files.map(f=>f.sha256)),
    local_platform_metadata_schema_verified:true,platform_bookmark_values_excluded_from_application_snapshot:true,
    remote_d1_verified:false,remote_write_authorized:false,production_gate_modified:false}));
  }catch{

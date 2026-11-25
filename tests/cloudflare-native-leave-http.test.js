@@ -102,3 +102,33 @@ test('review race cannot overwrite concurrent decision or append false audit',as
  assert.equal((await f.send('manager',f.review(key))).status,503);
  assert.deepEqual(f.snapshot(),raced);
 });
+
+test('review requires active currently granted applicant both before and inside atomic transaction',async t=>{
+ for(const actor of ['manager','owner'])for(const status of ['approved','rejected'])
+  for(const kind of ['inactive','grant'])for(const timing of ['before','race'])
+   await t.test(actor+' '+status+' '+kind+' '+timing,async sub=>{
+    const opt={},f=await fixture(sub,opt),key=randomUUID();
+    assert.equal((await f.send('staff',f.create(),{key})).status,200);
+    const before=f.snapshot();
+    const invalidate=db=>{
+     if(kind==='inactive')db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.staff);
+     else db.prepare('DELETE FROM user_locations WHERE user_id=? AND location_id=?').run(f.ids.staff,f.ids.store);
+    };
+    if(timing==='before')invalidate(f.db);else opt.beforeBatch=invalidate;
+    assert.equal((await f.send(actor,f.review(key,status))).status,timing==='before'?403:503);
+    assert.deepEqual(f.snapshot(),before);
+    assert.equal(f.db.prepare('SELECT status FROM leave_requests WHERE id=?').get(key).status,'pending');
+   });
+});
+test('active Owner applicant global scope remains available to another Owner, not to manager',async t=>{
+ const f=await fixture(t),key=randomUUID(),second=randomUUID();
+ assert.equal((await f.send('owner',f.create({user_id:f.ids.owner}),{key})).status,200);
+ assert.equal((await f.send('manager',f.review(key))).status,403);
+ // Promote only the synthetic manager to another active Owner. No grant
+ // should be necessary for an Owner reviewer or Owner applicant.
+ f.db.prepare("UPDATE users SET role='owner' WHERE id=?").run(f.ids.manager);
+ f.db.prepare('DELETE FROM user_locations WHERE user_id=?').run(f.ids.manager);
+ assert.equal((await f.send('manager',f.review(key))).status,200);
+ assert.equal((await f.send('owner',f.create({user_id:f.ids.owner}),{key:second})).status,200);
+ assert.equal((await f.send('owner',f.review(second))).status,403);
+});

@@ -102,14 +102,17 @@ export async function nativeLeaveHttp(request,env){
   if(row.status!=='pending')return reply(409,{code:'E_LEAVE_ALREADY_REVIEWED'});
   // Match the pending record, actor and active location again in the transaction.
   // A manager cannot review a global Owner's request (only another Owner can).
-  const target=await db.prepare('SELECT role FROM users WHERE id=?').bind(row.user_id).first();
+  const target=await db.prepare("SELECT t.role FROM users t WHERE t.id=? AND t.active=1 "+
+   "AND (t.role='owner' OR EXISTS(SELECT 1 FROM user_locations ul WHERE ul.user_id=t.id AND ul.location_id=?))")
+   .bind(row.user_id,row.location_id).first();
   if(!target||(target.role==='owner'&&p.role!=='owner'))return reply(403,{code:'E_FORBIDDEN'});
   const audit=db.prepare("INSERT INTO audit_logs(id,actor_id,actor_name,action,entity,entity_id,location_id,detail) "+
    "SELECT ?,a.id,a.username,'leave.review','leave_requests',r.id,l.id,? "+
    "FROM users a JOIN leave_requests r ON r.id=? JOIN locations l ON l.id=r.location_id AND l.active=1 "+
-   "JOIN users t ON t.id=r.user_id WHERE "+actorScope+
+   "JOIN users t ON t.id=r.user_id AND t.active=1 WHERE "+actorScope+
    " AND a.role IN ('owner','manager') AND r.status='pending' AND r.reviewer_id IS NULL "+
-   "AND r.user_id<>a.id AND r.user_id=? AND r.location_id=? AND (a.role='owner' OR t.role<>'owner')")
+   "AND r.user_id<>a.id AND r.user_id=? AND r.location_id=? AND (a.role='owner' OR t.role<>'owner') "+
+   "AND (t.role='owner' OR EXISTS(SELECT 1 FROM user_locations ul WHERE ul.user_id=t.id AND ul.location_id=l.id))")
    .bind(auditId,JSON.stringify({status:x.status}),row.id,...actorArgs(p),row.user_id,row.location_id);
   const mutation=db.prepare("UPDATE leave_requests SET status=?,reviewer_id=? WHERE id=? AND status='pending' AND reviewer_id IS NULL "+
    "AND user_id=? AND location_id=? AND "+auditExists)

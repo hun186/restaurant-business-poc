@@ -21,7 +21,14 @@ test('Owner timeline translates all known Native D1 audit actions into consisten
   'user.unassign-location':'移除門市授權',
   'task.assign':'變更工作指派',
   'task.due':'變更工作期限',
-  'repair.update':'更新維修單'
+  'repair.update':'更新維修單',
+  'shift.create':'新增排班',
+  'leave.create':'提出請假申請',
+  'leave.review':'請假審核',
+  'course.create':'建立訓練課程',
+  'training.assign':'指派教育訓練',
+  'training.score':'登錄訓練成績',
+  'evaluation.create':'建立員工考核',
  };
  for(const [code,label] of Object.entries(examples))
   assert.equal(nativeAuditEventLabel(code),label,code);
@@ -31,7 +38,12 @@ test('Owner timeline translates all known Native D1 audit actions into consisten
  }
  for(const [code,label] of Object.entries({
   purchase_orders:'叫貨單',tasks:'工作',ingredients:'食材',
-  sessions:'登入工作階段',users:'帳號',user_locations:'門市授權'
+  sessions:'登入工作階段',users:'帳號',user_locations:'門市授權',
+  'shifts':'班表',
+  'leave_requests':'請假申請',
+  'training_courses':'訓練課程',
+  'training_records':'訓練紀錄',
+  'evaluations':'員工考核',
  }))assert.equal(nativeAuditEntityLabel(code),label);
  assert.equal(nativeAuditEventLabel('future.action'),'其他事件（future.action）');
  assert.equal(nativeAuditEntityLabel('future_table'),'其他類別（future_table）');
@@ -68,7 +80,14 @@ test('Owner browser timeline and current-page Excel use identical translations a
   {at:'2026-11-17 06:09:30',actor_name:'owner',
     action:'user.password_reset',entity:'users',summary:'重設對象（目前帳號）：staff01'},
   {at:'2026-11-17 06:09:00',actor_name:'owner',
-    action:'future.action',entity:'future_table',summary:'—',password_hash:'DONT_EXPOSE'}
+    action:'future.action',entity:'future_table',summary:'—',password_hash:'DONT_EXPOSE'},
+  {at:'2026-11-17 06:08:00',actor_name:'owner',action:'shift.create',entity:'shifts',summary:'—',detail:'PRIVATE_HR_DETAIL'},
+  {at:'2026-11-17 06:08:01',actor_name:'owner',action:'leave.create',entity:'leave_requests',summary:'—',detail:'PRIVATE_HR_DETAIL'},
+  {at:'2026-11-17 06:08:02',actor_name:'owner',action:'leave.review',entity:'leave_requests',summary:'—',detail:'PRIVATE_HR_DETAIL'},
+  {at:'2026-11-17 06:08:03',actor_name:'owner',action:'course.create',entity:'training_courses',summary:'—',detail:'PRIVATE_HR_DETAIL'},
+  {at:'2026-11-17 06:08:04',actor_name:'owner',action:'training.assign',entity:'training_records',summary:'—',detail:'PRIVATE_HR_DETAIL'},
+  {at:'2026-11-17 06:08:05',actor_name:'owner',action:'training.score',entity:'training_records',summary:'—',detail:'PRIVATE_HR_DETAIL'},
+  {at:'2026-11-17 06:08:06',actor_name:'owner',action:'evaluation.create',entity:'evaluations',summary:'—',detail:'PRIVATE_HR_DETAIL'},
  ];
  const originalRows=JSON.stringify(rows);
  const pane=new FakeNode('div');
@@ -103,6 +122,14 @@ test('Owner browser timeline and current-page Excel use identical translations a
  assert.equal(sheet.rows[6][2],'其他事件（future.action）');
  assert.equal(JSON.stringify(rows),originalRows,'projection must not alter audit evidence');
  assert(!JSON.stringify(sheet).includes('DONT_EXPOSE'));
+ assert(!JSON.stringify(sheet).includes('PRIVATE_HR_DETAIL'));
+ assert.deepEqual(sheet.rows[7].slice(2,4),['新增排班','班表']);
+ assert.deepEqual(sheet.rows[8].slice(2,4),['提出請假申請','請假申請']);
+ assert.deepEqual(sheet.rows[9].slice(2,4),['請假審核','請假申請']);
+ assert.deepEqual(sheet.rows[10].slice(2,4),['建立訓練課程','訓練課程']);
+ assert.deepEqual(sheet.rows[11].slice(2,4),['指派教育訓練','訓練紀錄']);
+ assert.deepEqual(sheet.rows[12].slice(2,4),['登錄訓練成績','訓練紀錄']);
+ assert.deepEqual(sheet.rows[13].slice(2,4),['建立員工考核','員工考核']);
  const enroll=fs.readFileSync(path.join(__dirname,'../tools/cloudflare-production-owner.mjs'),'utf8');
  assert.match(enroll,/auth\.owner_bootstrap/);
  assert.match(enroll,/production-bootstrap/);

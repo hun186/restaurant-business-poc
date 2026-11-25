@@ -34,7 +34,7 @@ async function fixture(t,opt={}){
   const s=sessions[who]??{};
   const req=new Request(site+'/api/training',{method:'POST',headers:{origin:site,'sec-fetch-site':'same-origin',
    'content-type':'application/json','x-idempotency-key':opts.key??randomUUID(),
-   ...(s.cookie?{cookie:s.cookie,'x-csrf-token':s.csrf}:{}),...opts.headers},body:JSON.stringify(body)});
+   ...(s.cookie?{cookie:s.cookie,'x-csrf-token':s.csrf}:{}),...opts.headers},body:opts.raw??JSON.stringify(body)});
   return (await worker).default.fetch(req,opts.env??env);
  };
  const snapshot=()=>({courses:db.prepare('SELECT * FROM training_courses ORDER BY id').all(),
@@ -103,4 +103,16 @@ test('transaction-time score and assignment authorization races cannot append fa
   assert.equal((await f.send('manager',action==='assign'?f.assign(course):f.score(record))).status,503);
   assert.deepEqual(f.snapshot(),raced);
  });
+});
+
+test('maximum valid Chinese description survives byte limit and oversized requests are rejected without mutation',async t=>{
+ const f=await fixture(t),value='課'.repeat(1200);
+ const body=f.create({title:'課'.repeat(150),description:value});
+ const raw=JSON.stringify(body),size=Buffer.byteLength(raw,'utf8');assert(size>2048&&size<8192);
+ const key=randomUUID();assert.equal((await f.send('manager',body,{key,headers:{'content-length':String(size)}})).status,200);
+ const saved=f.snapshot();assert.equal(saved.courses[0].description,value);
+ assert.equal((await f.send('manager',f.create({description:value+'字'}))).status,400);
+ assert.equal((await f.send('manager',body,{raw:raw+' '.repeat(8193-size)})).status,400);
+ assert.equal((await f.send('manager',body,{headers:{'content-length':'8193'}})).status,413);
+ assert.deepEqual(f.snapshot(),saved);
 });

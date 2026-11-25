@@ -44,7 +44,7 @@ export async function nativeTrainingHttp(request,env){
   if(!authorizedMutation(request,p,'manager'))return reply(403,{code:'E_FORBIDDEN'});
   const schema=await db.prepare('SELECT contract_version FROM cloud_schema_contract WHERE id=1').first();
   if(schema?.contract_version!==3)return reply(503,{code:'E_SCHEMA_NOT_READY'});
-  let raw;try{raw=JSON.parse(await bodyWithinLimit(request));}catch{return reply(400,{code:'E_INVALID_COMMAND'});}
+  let raw;try{raw=JSON.parse(await bodyWithinLimit(request,{maxBytes:8192}));}catch{return reply(400,{code:'E_INVALID_COMMAND'});}
   if(!exact(raw,'action,data')||!['course.create','training.assign','training.score'].includes(raw.action))return reply(400,{code:'E_INVALID_COMMAND'});
   const x=raw.data,key=uuid(request.headers.get('x-idempotency-key')),auditId=crypto.randomUUID();
   if(!key)return reply(400,{code:'E_IDEMPOTENCY_KEY'});

@@ -26,8 +26,11 @@ export function nativeLoginEnabled(env){
 // A byte limit alone does not bound a never-ending or zero-byte chunked upload.
 // The deadline is absolute, not refreshed by every read. Tests can tighten it,
 // but untrusted HTTP input cannot change the production 2-second limit.
-export async function bodyWithinLimit(request,{maxDurationMs=2000}={}){
-  if(!Number.isSafeInteger(maxDurationMs)||maxDurationMs<1||maxDurationMs>2000)
+// Only explicitly opted-in server handlers may use the larger fixed ceiling.
+// No request header or body value controls this option. Login remains 2048.
+export async function bodyWithinLimit(request,{maxDurationMs=2000,maxBytes=MAX_BODY_BYTES}={}){
+  if(!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>8192||
+     !Number.isSafeInteger(maxDurationMs)||maxDurationMs<1||maxDurationMs>2000)
     throw Error('E_BODY_INVALID');
   const reader=request.body?.getReader();
   if(!reader)return '';
@@ -51,7 +54,7 @@ export async function bodyWithinLimit(request,{maxDurationMs=2000}={}){
       if(++chunkCount>256)throw Error('E_BODY_CHUNKS');
       if(!(next.value instanceof Uint8Array))throw Error('E_BODY_INVALID');
       size+=next.value.byteLength;
-      if(size>MAX_BODY_BYTES)throw Error('E_BODY_TOO_LARGE');
+      if(size>maxBytes)throw Error('E_BODY_TOO_LARGE');
       chunks.push(next.value);
     }
   }finally{

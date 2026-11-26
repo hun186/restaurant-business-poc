@@ -17,6 +17,7 @@ import {nativeShiftHttp} from './native-shift-http.mjs';
 import {nativeTrainingHttp} from './native-training-http.mjs';
 import {nativeTrainingCapabilityHttp} from './native-training-capability.mjs';
 import {nativeEvaluationHttp} from './native-evaluation-http.mjs';
+import {nativeEvaluationCapabilityHttp} from './native-evaluation-capability.mjs';
 import {nativeShiftCapabilityHttp} from './native-shift-capability.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
@@ -73,6 +74,7 @@ export default {
     if (pathname === '/api/training') return nativeTrainingHttp(request,env);
     if (pathname === '/api/training/capability') return nativeTrainingCapabilityHttp(request,env);
     if (pathname === '/api/evaluation') return nativeEvaluationHttp(request,env);
+    if (pathname === '/api/evaluation/capability') return nativeEvaluationCapabilityHttp(request,env);
     if (pathname === '/api/shift/capability') return nativeShiftCapabilityHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
     if (pathname === '/api/order') return nativeOrderHttp(request,env);

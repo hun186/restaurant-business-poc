@@ -7,6 +7,7 @@ import {renderOwnerAudit} from './native-owner-audit-ui.mjs';
 import {renderNativeLeaveActions} from './native-leave-ui.mjs';
 import {renderNativeShiftActions} from './native-shift-ui.mjs';
 import {renderNativeTrainingActions} from './native-training-ui.mjs';
+import {renderNativeEvaluationActions} from './native-evaluation-ui.mjs';
 import {nativeOwnerReportSheet} from './native-owner-report.mjs';
 import './xlsx-lite.js'; // Reviewed shared browser writer (same implementation as local SQLite)
 // Dedicated native D1 browser client; never imports the public demo mock.
@@ -32,7 +33,7 @@ const viewHints={overview:'授權範圍內的即時營運資訊',tasks:'今日�
   stocktakes:'盤點與差額調整紀錄',repairs:'設備報修與處理進度',
   shifts:'班表資訊；依後端授權開放新增班次',leave_requests:'請假申請及審核狀態；依後端授權開放操作',
   training_records:'訓練成績與完成狀態；依後端授權登錄首次成績',
-  evaluations:'考核紀錄（目前唯讀）',stock_moves:'門市庫存異動流水（目前唯讀）',
+  evaluations:'考核紀錄；依後端授權建立新考核',stock_moves:'門市庫存異動流水（目前唯讀）',
   ingredient_prices:'已登錄的門市食材歷史單價；開放寫入時只能新增價格，不覆寫歷史',
   menu_dishes:'菜品與售價、每份食材項數（目前唯讀）',
   dish_ingredients:'菜品每份食材用量（目前唯讀，非成本試算）',
@@ -47,7 +48,7 @@ let csrf=null,view='overview',revision=0,controller=null,role=null,writeEnabled=
   catalogWriteEnabled=false,orderWriteEnabled=false,stocktakeWriteEnabled=false,
   repairWriteEnabled=false,priceWriteEnabled=false,stockUsageWriteEnabled=false,stockV4WriteEnabled=false,accountWriteEnabled=false,
   accountStatusWriteEnabled=false,accountRoleWriteEnabled=false,
-  accountGrantWriteEnabled=false,accountPasswordResetEnabled=false,leaveWriteEnabled=false,shiftWriteEnabled=false,trainingWriteEnabled=false,costAsOf='';
+  accountGrantWriteEnabled=false,accountPasswordResetEnabled=false,leaveWriteEnabled=false,shiftWriteEnabled=false,evaluationWriteEnabled=false,trainingWriteEnabled=false,costAsOf='';
 const el=(tag,label)=>{const n=document.createElement(tag);if(label!==undefined)n.textContent=String(label??'—');return n;};
 const labeledField=(caption,control)=>{const label=el('label',caption);label.append(control);return label;};
 function say(text,error=false){$('notice').textContent=text;$('notice').classList.toggle('error',error);}
@@ -74,7 +75,7 @@ function clearSensitiveForms(){
   $('login-form').reset();
 }
 function showLogin(message){
-  costAsOf='';stockV4WriteEnabled=false;trainingWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;revision++;if(controller)controller.abort();closeMenu();
+  costAsOf='';stockV4WriteEnabled=false;trainingWriteEnabled=false;evaluationWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;authEpoch++;csrf=null;role=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;revision++;if(controller)controller.abort();closeMenu();
   clearSensitiveForms();
   $('workspace').hidden=true;$('locked').hidden=true;$('login').hidden=false;
   $('identity').textContent='';say(message||'請使用個人帳號登入。',!!message);
@@ -1154,7 +1155,7 @@ function renderPasswordChange(marker){
 async function refresh(){
   const marker=++revision;if(controller)controller.abort();
   controller=new AbortController();$('content').replaceChildren();
-  trainingWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;syncView();
+  trainingWriteEnabled=false;evaluationWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;syncView();
   if(view==='account'){
     renderPasswordChange(marker);
     say('可安全變更密碼；此操作不會修改營運資料。');
@@ -1198,6 +1199,13 @@ async function refresh(){
     if(view==='stock')await stockUsageActions(marker);
     if(view==='stock')await stockV4Actions(marker);
     if(view==='repairs')await repairActions(data.rows,marker);
+    if(view==='evaluations'){
+      const epoch=authEpoch,token=csrf;
+      await renderNativeEvaluationActions({pane:$('content'),api,role,signal:controller.signal,token,notice:say,refresh,
+        live:()=>marker===revision&&liveAuth(epoch,token),onAuthExpired:showLogin,
+        onCapabilityChange:enabled=>{if(marker===revision&&liveAuth(epoch,token)){evaluationWriteEnabled=enabled===true;syncView();}}});
+      return;
+    }
     if(view==='training_courses'||view==='training_records'){
       const epoch=authEpoch,token=csrf,currentView=view;
       await renderNativeTrainingActions({pane:$('content'),api,view:currentView,role,signal:controller.signal,token,notice:say,refresh,
@@ -1243,7 +1251,7 @@ function syncView(){
     stockUsage:stockUsageWriteEnabled,stockV4:stockV4WriteEnabled,
     account:accountWriteEnabled,accountStatus:accountStatusWriteEnabled,
     accountRole:accountRoleWriteEnabled,accountGrants:accountGrantWriteEnabled,
-    accountPasswordReset:accountPasswordResetEnabled,leave:leaveWriteEnabled,shift:shiftWriteEnabled,training:trainingWriteEnabled});
+    accountPasswordReset:accountPasswordResetEnabled,leave:leaveWriteEnabled,shift:shiftWriteEnabled,evaluation:evaluationWriteEnabled,training:trainingWriteEnabled});
   $('operation-mode').textContent=capability.systemLabel;
   $('operation-mode').classList.toggle('enabled',capability.systemWritable);
   $('capability').textContent=capability.pageLabel;
@@ -1261,7 +1269,7 @@ function syncView(){
 }
 function showWorkspace(me){
   if(!me?.user||typeof me.csrf!=='string')throw Error('身分驗證回應不完整。');
-  costAsOf='';trainingWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;$('locked').hidden=true;
+  costAsOf='';trainingWriteEnabled=false;evaluationWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;authEpoch++;csrf=me.csrf;role=me.user.role;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;$('locked').hidden=true;
   $('login').hidden=true;$('workspace').hidden=false;
   const pricingViews=['ingredient_prices','menu_dishes','dish_ingredients',
     'dish_costs','dish_cost_lines','inventory_values'];
@@ -1316,7 +1324,7 @@ $('login-form').addEventListener('submit',async ev=>{
   finally{btn.disabled=false;}
 });
 $('logout').addEventListener('click',async()=>{
-  if(!csrf)return;const token=csrf;trainingWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;authEpoch++;csrf=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;
+  if(!csrf)return;const token=csrf;trainingWriteEnabled=false;evaluationWriteEnabled=false;shiftWriteEnabled=false;leaveWriteEnabled=false;authEpoch++;csrf=null;accountWriteEnabled=false;accountStatusWriteEnabled=false;accountRoleWriteEnabled=false;
   stockV4WriteEnabled=false;accountGrantWriteEnabled=false;accountPasswordResetEnabled=false;revision++;if(controller)controller.abort();closeMenu();clearSensitiveForms();$('workspace').hidden=true;
   try{
     await api('/api/logout',{method:'POST',referrerPolicy:'same-origin',

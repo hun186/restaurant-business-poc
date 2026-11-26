@@ -106,3 +106,22 @@ test('maximum valid Chinese feedback survives byte limit and oversized requests 
  assert.equal((await f.send('manager',body,{headers:{'content-length':'8193'}})).status,413);
  assert.deepEqual(f.snapshot(),saved);
 });
+
+test('evaluation capability returns active scoped non-self candidates only; no private content',async t=>{
+ const f=await fixture(t);
+ assert.equal((await f.send('manager')).status,200);
+ const before=f.snapshot();
+ assert.equal((await f.capability('none')).status,401);
+ assert.equal((await f.capability('owner',f.env,{'sec-fetch-site':'cross-site'})).status,403);
+ for(const [who,env] of [['staff',f.env],['owner',{...f.env,CLOUD_NATIVE_EVALUATION_WRITE_GATE:undefined}]])
+  assert.deepEqual(await (await f.capability(who,env)).json(),{enabled:false,candidates:[],truncated:false});
+ const mgr=await (await f.capability('manager')).json();
+ assert.deepEqual(mgr.candidates.map(x=>[x.user_id,x.location_id]),[[f.ids.staff,f.ids.store]]);
+ const own=await (await f.capability('owner')).json();
+ assert.deepEqual(new Set(own.candidates.map(x=>x.user_id)),new Set([f.ids.staff,f.ids.manager,f.ids.otherStaff]));
+ assert(own.candidates.every(x=>Object.keys(x).sort().join(',')==='location_id,location_name,staff_name,user_id'));
+ assert(!JSON.stringify(own).includes('private feedback'));
+ f.db.prepare('UPDATE users SET active=0 WHERE id=?').run(f.ids.staff);
+ assert.deepEqual((await (await f.capability('manager')).json()).candidates,[]);
+ assert.deepEqual(f.snapshot(),before);
+});

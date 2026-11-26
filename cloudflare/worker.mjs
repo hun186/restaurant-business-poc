@@ -15,6 +15,7 @@ import {nativeStockReceiptsHttp} from './native-stock-receipts-http.mjs';
 import { nativeTaskHttp,nativeTaskWriteEnabled } from './native-task-http.mjs';
 import {nativeShiftHttp} from './native-shift-http.mjs';
 import {nativeTrainingHttp} from './native-training-http.mjs';
+import {nativeTrainingCapabilityHttp} from './native-training-capability.mjs';
 import {nativeShiftCapabilityHttp} from './native-shift-capability.mjs';
 import { nativeCatalogHttp,nativeCatalogWriteEnabled } from './native-catalog-http.mjs';
 import { nativeOrderHttp,nativeOrderWriteEnabled } from './native-order-http.mjs';
@@ -69,6 +70,7 @@ export default {
     if (pathname === '/api/task') return nativeTaskHttp(request,env);
     if (pathname === '/api/shift') return nativeShiftHttp(request,env);
     if (pathname === '/api/training') return nativeTrainingHttp(request,env);
+    if (pathname === '/api/training/capability') return nativeTrainingCapabilityHttp(request,env);
     if (pathname === '/api/shift/capability') return nativeShiftCapabilityHttp(request,env);
     if (pathname === '/api/catalog') return nativeCatalogHttp(request,env);
     if (pathname === '/api/order') return nativeOrderHttp(request,env);

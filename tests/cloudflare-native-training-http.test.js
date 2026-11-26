@@ -39,7 +39,12 @@ async function fixture(t,opt={}){
  };
  const snapshot=()=>({courses:db.prepare('SELECT * FROM training_courses ORDER BY id').all(),
   records:db.prepare('SELECT * FROM training_records ORDER BY id').all(),audit:db.prepare('SELECT * FROM audit_logs ORDER BY id').all()});
- return {db,ids,env,create,assign,score,send,snapshot};
+ const capability=async(who,e=env,headers={})=>{
+  const s=sessions[who]??{};
+  return (await worker).default.fetch(new Request(site+'/api/training/capability',
+   {headers:{'sec-fetch-site':'same-origin',...(s.cookie?{cookie:s.cookie}:{}),...headers}}),e);
+ };
+ return {db,ids,env,create,assign,score,send,snapshot,capability};
 }
 
 
@@ -115,4 +120,31 @@ test('maximum valid Chinese description survives byte limit and oversized reques
  assert.equal((await f.send('manager',body,{raw:raw+' '.repeat(8193-size)})).status,400);
  assert.equal((await f.send('manager',body,{headers:{'content-length':'8193'}})).status,413);
  assert.deepEqual(f.snapshot(),saved);
+});
+
+test('training capability scopes candidates and pending records; no self, inactive, scored or cross-store disclosure',async t=>{
+ const f=await fixture(t),{course,record}=await setup(f),other=randomUUID(),own=randomUUID(),scored=randomUUID(),inactive=randomUUID();
+ assert.equal((await f.send('owner',f.assign(course,{user_id:f.ids.otherStaff,location_id:f.ids.other}),{key:other})).status,200);
+ assert.equal((await f.send('manager',f.assign(course,{user_id:f.ids.manager}),{key:own})).status,200);
+ const second=randomUUID();assert.equal((await f.send('owner',f.create(),{key:second})).status,200);
+ assert.equal((await f.send('manager',f.assign(second),{key:scored})).status,200);
+ assert.equal((await f.send('manager',f.score(scored))).status,200);
+ assert.equal((await f.send('owner',f.create(),{key:inactive})).status,200);
+ f.db.prepare('UPDATE training_courses SET active=0 WHERE id=?').run(inactive);
+ const before=f.snapshot();
+ assert.equal((await f.capability('none')).status,401);
+ assert.equal((await f.capability('owner',f.env,{'sec-fetch-site':'cross-site'})).status,403);
+ for(const [who,env] of [['staff',f.env],['owner',{...f.env,CLOUD_NATIVE_TRAINING_WRITE_GATE:undefined}]])
+  assert.deepEqual(await (await f.capability(who,env)).json(),{enabled:false,courses:[],candidates:[],pending:[],truncated:false});
+ const mgr=await (await f.capability('manager')).json();
+ assert.deepEqual(mgr.pending.map(x=>x.id),[record]);
+ assert(mgr.candidates.every(x=>x.location_id===f.ids.store));
+ assert.deepEqual(new Set(mgr.courses.map(x=>x.id)),new Set([course,second]));
+ const all=await (await f.capability('owner')).json();
+ assert.deepEqual(new Set(all.pending.map(x=>x.id)),new Set([record,other,own]));
+ assert(!JSON.stringify(all).includes('private training description'));
+ assert.deepEqual(f.snapshot(),before);
+ f.db.prepare('DELETE FROM user_locations WHERE user_id=?').run(f.ids.staff);
+ const after=await (await f.capability('manager')).json();
+ assert.deepEqual(after.pending,[]);assert(after.candidates.every(x=>x.user_id!==f.ids.staff));
 });
